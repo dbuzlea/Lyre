@@ -7,7 +7,6 @@
 
 import SwiftUI
 import MusicKit
-import CoreMotion
 import OSLog
 
 private let logger = Logger(subsystem: "com.apppod", category: "iPodView")
@@ -16,8 +15,8 @@ private let logger = Logger(subsystem: "com.apppod", category: "iPodView")
 //
 // Root container that assembles the complete iPod interface. It owns all navigation
 // and selection state, delegates gesture interpretation to ClickWheelView, and
-// composes the visual layers (body gradient, screen, glass overlay, click wheel,
-// hold switch). Key responsibilities:
+// composes the visual layers (body gradient, screen, click wheel, hold switch).
+// Key responsibilities:
 //
 // Navigation state
 //   `currentScreen` — the active iPodScreen enum case
@@ -37,256 +36,6 @@ private let logger = Logger(subsystem: "com.apppod", category: "iPodView")
 // Shake to Shuffle
 //   ShakeDetector (UIViewControllerRepresentable) delivers shake events to
 //   `handleShake()`, which shuffles all songs and starts playback if hold is off.
-//
-// Glass screen effects
-//   ScreenParallaxWrapper shifts the screen content slightly opposite to device tilt
-//   (CoreMotion roll/pitch), simulating depth between the display and the glass.
-//   ScreenGlassView (isolated in its own @Observable MotionManager) renders the
-//   glass surface effects at 60 fps without causing the parent view to re-render.
-
-// MARK: - Motion Manager
-
-@Observable
-private final class MotionManager {
-    private let manager = CMMotionManager()
-    var roll:  Double = 0
-    var pitch: Double = 0
-
-    func start() {
-        guard manager.isDeviceMotionAvailable else { return }
-        manager.deviceMotionUpdateInterval = 1.0 / 60.0
-        manager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
-            guard let m = motion else { return }
-            self?.roll  = m.attitude.roll
-            self?.pitch = m.attitude.pitch
-        }
-    }
-
-    func stop() { manager.stopDeviceMotionUpdates() }
-}
-
-// Simple LCG — deterministic noise without importing GameplayKit
-private struct SeededRNG {
-    private var state: UInt64
-    init(seed: UInt64) { state = seed }
-    mutating func next() -> Double {
-        state = state &* 6364136223846793005 &+ 1442695040888963407
-        return Double(state >> 33) / Double(UInt32.max)
-    }
-}
-
-// MARK: - Glass Overlay (isolated so only this view re-renders at 60 fps)
-
-private struct ScreenGlassView: View {
-    @State private var motion       = MotionManager()
-    @State private var shimmerPhase: CGFloat = 0.02  // animated 0.02 → 0.98
-
-    var body: some View {
-        let roll     = motion.roll
-        let pitch    = motion.pitch
-        // Anti-reflective coating produces a characteristic blue-green tint in reflected light
-        let arTint   = Color(red: 0.82, green: 0.93, blue: 1.0)
-
-        // Primary caustic (top-left, tracks tilt)
-        let causticX  = min(max(0.08 + roll  * 0.25, 0.0),  0.55)
-        let causticY  = min(max(0.05 - pitch * 0.15, 0.0),  0.40)
-        // Counter-caustic (bottom-right, moves opposite to primary)
-        let caustic2X = min(max(0.92 - roll  * 0.20, 0.50), 1.00)
-        let caustic2Y = min(max(0.92 + pitch * 0.12, 0.60), 1.00)
-        // Per-edge convex vignette
-        let topV      = min(max(0.22 + pitch * 0.12, 0.05), 0.40)
-        let botV      = min(max(0.18 - pitch * 0.12, 0.05), 0.35)
-        let leftV     = min(max(0.18 - roll  * 0.12, 0.05), 0.35)
-        let rightV    = min(max(0.18 + roll  * 0.12, 0.05), 0.35)
-        // Top specular
-        let topSpec   = min(max(0.55 - pitch * 0.28, 0.05), 0.85)
-        let topSpec2  = min(max(0.28 - pitch * 0.14, 0.02), 0.45)
-        // Glare stripe
-        let glareX0   = min(max(0.0  - roll  * 0.4, -0.3),  0.4)
-        let glareX1   = min(max(1.0  - roll  * 0.4,  0.6),  1.4)
-        let glareY1   = min(max(0.55 + pitch * 0.20,  0.3),  0.8)
-        // Animated shimmer band — sweeps diagonally independent of tilt
-        let shimmer   = max(0.02, min(0.98, shimmerPhase))
-        let shimmerL  = max(0.001, shimmer - 0.11)
-        let shimmerT  = min(0.999, shimmer + 0.11)
-        // Tilt-responsive rim: light source angle tracks device attitude
-        let rimAngle  = atan2(roll, -pitch)
-        let rimSX     = 0.5 - 0.6 * sin(rimAngle)
-        let rimSY     = 0.5 - 0.6 * cos(rimAngle)
-        let rimEX     = 0.5 + 0.6 * sin(rimAngle)
-        let rimEY     = 0.5 + 0.6 * cos(rimAngle)
-        // Tilt-responsive chromatic fringing: split scales with viewing angle
-        let chromaX   = min(max(CGFloat(roll  *  1.2), -1.5), 1.5)
-        let chromaY   = min(max(CGFloat(-pitch * 0.8), -1.2), 1.2)
-        // Corner subsurface glow: warm scatter, each corner brightens when facing light
-        let cornerTint = Color(red: 1.0, green: 0.97, blue: 0.88)
-        let tlGlow    = min(max(0.05 + (-roll  + -pitch) * 0.04, 0.01), 0.10)
-        let trGlow    = min(max(0.05 + ( roll  + -pitch) * 0.04, 0.01), 0.10)
-        let blGlow    = min(max(0.05 + (-roll  +  pitch) * 0.04, 0.01), 0.10)
-        let brGlow    = min(max(0.05 + ( roll  +  pitch) * 0.04, 0.01), 0.10)
-
-        return ZStack {
-            // ── Convex vignette ──────────────────────────────────────────
-            LinearGradient(stops: [.init(color: .black.opacity(topV),   location: 0), .init(color: .clear, location: 0.30)], startPoint: .top,      endPoint: .bottom)
-            LinearGradient(stops: [.init(color: .black.opacity(botV),   location: 0), .init(color: .clear, location: 0.28)], startPoint: .bottom,   endPoint: .top)
-            LinearGradient(stops: [.init(color: .black.opacity(leftV),  location: 0), .init(color: .clear, location: 0.20)], startPoint: .leading,  endPoint: .trailing)
-            LinearGradient(stops: [.init(color: .black.opacity(rightV), location: 0), .init(color: .clear, location: 0.20)], startPoint: .trailing, endPoint: .leading)
-
-            // ── Top specular band (AR-tinted) ─────────────────────────────
-            LinearGradient(
-                stops: [
-                    .init(color: arTint.opacity(topSpec),  location: 0),
-                    .init(color: arTint.opacity(topSpec2), location: 0.05),
-                    .init(color: arTint.opacity(0.06),     location: 0.20),
-                    .init(color: .clear,                   location: 0.42)
-                ],
-                startPoint: .top, endPoint: .bottom
-            )
-
-            // ── Diagonal glare stripe (AR-tinted, gyroscope-driven) ───────
-            LinearGradient(
-                stops: [
-                    .init(color: .clear,               location: 0),
-                    .init(color: arTint.opacity(0.09), location: 0.38),
-                    .init(color: arTint.opacity(0.14), location: 0.47),
-                    .init(color: arTint.opacity(0.09), location: 0.56),
-                    .init(color: .clear,               location: 1.0)
-                ],
-                startPoint: UnitPoint(x: glareX0, y: 0.0),
-                endPoint:   UnitPoint(x: glareX1, y: glareY1)
-            )
-
-            // ── Primary corner caustic (AR-tinted, gyroscope-driven) ──────
-            RadialGradient(
-                stops: [
-                    .init(color: arTint.opacity(0.48), location: 0),
-                    .init(color: arTint.opacity(0.12), location: 0.4),
-                    .init(color: .clear,               location: 1)
-                ],
-                center: UnitPoint(x: causticX, y: causticY),
-                startRadius: 0, endRadius: 60
-            )
-
-            // ── Counter-caustic — bottom-right, counter-moves with tilt ──
-            RadialGradient(
-                stops: [
-                    .init(color: arTint.opacity(0.18), location: 0),
-                    .init(color: arTint.opacity(0.04), location: 0.5),
-                    .init(color: .clear,               location: 1)
-                ],
-                center: UnitPoint(x: caustic2X, y: caustic2Y),
-                startRadius: 0, endRadius: 50
-            )
-
-            // ── Slow ambient shimmer — sweeps NW→SE every 8 seconds ───────
-            LinearGradient(
-                stops: [
-                    .init(color: .clear,               location: 0),
-                    .init(color: .clear,               location: shimmerL),
-                    .init(color: arTint.opacity(0.13), location: shimmer),
-                    .init(color: .clear,               location: shimmerT),
-                    .init(color: .clear,               location: 1)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            // ── Bottom reflection (AR-tinted) ─────────────────────────────
-            LinearGradient(
-                stops: [.init(color: .clear, location: 0.82), .init(color: arTint.opacity(0.06), location: 1.0)],
-                startPoint: .top, endPoint: .bottom
-            )
-
-            // ── Corner subsurface glow — warm scatter through glass corners ──
-            RadialGradient(stops: [.init(color: cornerTint.opacity(tlGlow), location: 0), .init(color: .clear, location: 1)], center: .topLeading,     startRadius: 0, endRadius: 35)
-            RadialGradient(stops: [.init(color: cornerTint.opacity(trGlow), location: 0), .init(color: .clear, location: 1)], center: .topTrailing,    startRadius: 0, endRadius: 35)
-            RadialGradient(stops: [.init(color: cornerTint.opacity(blGlow), location: 0), .init(color: .clear, location: 1)], center: .bottomLeading,  startRadius: 0, endRadius: 35)
-            RadialGradient(stops: [.init(color: cornerTint.opacity(brGlow), location: 0), .init(color: .clear, location: 1)], center: .bottomTrailing, startRadius: 0, endRadius: 35)
-
-            // ── Micro-texture grain — seeded so dots are static, not flickering ──
-            Canvas { context, size in
-                var rng = SeededRNG(seed: 42)
-                for _ in 0..<320 {
-                    let x = CGFloat(rng.next()) * size.width
-                    let y = CGFloat(rng.next()) * size.height
-                    let r = CGFloat(rng.next()) * 0.55 + 0.25
-                    let a = 0.03 + CGFloat(rng.next()) * 0.055
-                    context.fill(
-                        Path(ellipseIn: CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)),
-                        with: .color(.white.opacity(a))
-                    )
-                }
-            }
-            .blendMode(.overlay)
-            .allowsHitTesting(false)
-
-            // ── Chromatic fringing — split direction and magnitude track tilt ──
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.red.opacity(0.07),  lineWidth: 2.0)
-                .offset(x: -0.4 - chromaX, y: -0.4 - chromaY)
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.cyan.opacity(0.07), lineWidth: 2.0)
-                .offset(x:  0.4 + chromaX, y:  0.4 + chromaY)
-
-            // ── Glass slab rim — highlight hotspot orbits with light source ─
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.black.opacity(0.22), lineWidth: 6)
-                .blur(radius: 4)
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(
-                    LinearGradient(
-                        stops: [
-                            .init(color: arTint.opacity(0.90), location: 0.00),
-                            .init(color: arTint.opacity(0.65), location: 0.25),
-                            .init(color: .white.opacity(0.45), location: 0.50),
-                            .init(color: .white.opacity(0.30), location: 0.75),
-                            .init(color: .white.opacity(0.45), location: 0.88),
-                            .init(color: arTint.opacity(0.90), location: 1.00)
-                        ],
-                        startPoint: UnitPoint(x: CGFloat(rimSX), y: CGFloat(rimSY)),
-                        endPoint:   UnitPoint(x: CGFloat(rimEX), y: CGFloat(rimEY))
-                    ),
-                    lineWidth: 2.5
-                )
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .allowsHitTesting(false)
-        .onAppear {
-            motion.start()
-            withAnimation(.linear(duration: 8.0).repeatForever(autoreverses: false)) {
-                shimmerPhase = 0.98
-            }
-        }
-        .onDisappear { motion.stop() }
-    }
-}
-
-// MARK: - Parallax Wrapper (content shifts opposite glass highlights, selling the depth gap)
-
-private struct ScreenParallaxWrapper<Content: View>: View {
-    @State private var motion = MotionManager()
-    let content: Content
-
-    init(@ViewBuilder _ content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            // Content moves opposite to the glass reflection: when you tilt right
-            // the highlights shift right but the "deeper" display appears to drift left.
-            .offset(
-                x: CGFloat(-motion.roll  * 7.0),
-                y: CGFloat(-motion.pitch * 5.0)
-            )
-            // Perspective warp simulates looking through curved glass edges —
-            // near edge appears slightly larger, far edge smaller, like a convex lens.
-            .rotation3DEffect(.degrees(motion.pitch * 2.0), axis: (1, 0, 0), perspective: 0.5)
-            .rotation3DEffect(.degrees(-motion.roll  * 1.5), axis: (0, 1, 0), perspective: 0.5)
-            .onAppear    { motion.start() }
-            .onDisappear { motion.stop()  }
-    }
-}
 
 // MARK: - Shake Detection
 
@@ -407,22 +156,19 @@ struct iPodView: View {
 
             // Screen
             VStack {
-                ScreenParallaxWrapper {
-                    iPodScreenView(
-                        currentScreen: currentScreen,
-                        musicService: musicService,
-                        themeSettings: themeSettings,
-                        menuSelection: $menuSelection,
-                        songSelection: $songSelection,
-                        detailSelection: $detailSelection,
-                        isBacklightOn: isBacklightOn
-                    )
-                }
+                iPodScreenView(
+                    currentScreen: currentScreen,
+                    musicService: musicService,
+                    themeSettings: themeSettings,
+                    menuSelection: $menuSelection,
+                    songSelection: $songSelection,
+                    detailSelection: $detailSelection,
+                    isBacklightOn: isBacklightOn
+                )
                 .frame(width: themeSettings.screenSize.dimensions.width,
                        height: themeSettings.screenSize.dimensions.height)
                 .background(screenGradient)
                 .cornerRadius(12)
-                .overlay { screenGlassOverlay }
                 .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 2)
                 .padding(.horizontal, 30)
                 .animation(.easeInOut(duration: 0.3), value: themeSettings.screenSize)
@@ -472,8 +218,6 @@ struct iPodView: View {
             endPoint: .bottom
         )
     }
-
-    private var screenGlassOverlay: some View { ScreenGlassView() }
 
     private func layoutScale(for size: CGSize) -> CGFloat {
         let estimatedHoldSwitchHeight: CGFloat = 28
