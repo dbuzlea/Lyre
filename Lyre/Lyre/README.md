@@ -13,18 +13,13 @@ A SwiftUI iOS app for listening to your Apple Music library through a touch-base
 - **Haptic Feedback** — Light ticks on scroll, medium on selection, heavy on center press, rigid on boundary hits
 - **Shake to Shuffle** — Shake the device to instantly shuffle all songs and jump to Now Playing
 
-### Visual Polish
-- **Glass Screen Overlay** — Gyroscope-driven tinted caustics, animated shimmer, micro-texture grain, and chromatic fringing simulate real glass
-- **Screen Parallax** — Content shifts counter to device tilt via CoreMotion, reinforcing the depth gap between display and glass
-- **Selection Bar Refraction** — Highlighted rows show glass-edge light refraction for a physical feel
-
 ### Playback
 - **Apple Music Library** — Browse and play Songs, Albums, Artists, Playlists, and Podcasts via MusicKit + MediaPlayer
 - **Track Scrubbing** — Rotate the wheel on Now Playing to seek ±5 seconds per tick; scrubbing indicator shown on the progress bar
 - **Repeat Mode** — Off / All / One, toggled via Center button on the Repeat row in Now Playing
 - **Shuffle Mode** — Off / Songs, toggled via Center button on the Shuffle row in Now Playing
 - **Global Play/Pause** — Works from any screen, not just Now Playing
-- **Cover Browser** — Rotate to landscape to browse Albums, Playlists, or Podcasts by cover art
+- **Artwork Carousel** — Rotate to landscape to browse Albums, Playlists, or Podcasts by cover art
 
 ### Finishes — 30 Built-In
 | Family | Finishes |
@@ -130,9 +125,9 @@ Menu
     └── About
 ```
 
-### Cover Browser
+### Artwork Carousel
 
-Rotate the device to landscape while browsing Albums, Playlists, or Podcasts to enter the cover browser. Swipe left/right to browse covers, tap to select.
+Rotate the device to landscape while browsing Albums, Playlists, or Podcasts to enter the artwork carousel. Swipe left/right to browse covers, tap to select.
 
 ### Shake to Shuffle
 
@@ -181,12 +176,6 @@ Lyre/
     └── HoldSwitchView.swift       # Hold switch toggle
 ```
 
-> **Note on naming:** several internal types still carry an `Lyre`-prefixed name
-> (`LyreView`, `LyreTheme`, `LyreThemeStyle`, `LyreScreen`, `LyreColors`), and the
-> Xcode target and directory are still `Lyre`. These are internal identifiers only
-> — they appear nowhere in the UI or in the shipped bundle metadata. The user-facing
-> brand is **Lyre** throughout. Renaming them is safe but purely cosmetic.
-
 ### Key Design Decisions
 
 - **No Combine** — All async work uses Swift async/await
@@ -194,7 +183,6 @@ Lyre/
 - **Navigation is a stack** (`[LyreScreen]`) managed in `LyreView`, operated by `ScrollWheelView` via bindings
 - **Selection memory** is a `[LyreScreen: SelectionState]` dictionary — O(1) save/restore on every screen transition
 - **ThemeSettings** is an `@Observable` class held in `LyreView` and passed down as a reference — changes propagate immediately
-- **Glass overlay** (`ScreenGlassView`) is isolated to its own view so only it re-renders at 60 fps on gyroscope updates
 - **MetricKit** (`AppMetrics`) is registered on launch and logs crash/hang diagnostics to the unified log
 
 ---
@@ -240,7 +228,7 @@ All feature docs are in [`Docs/`](Docs/):
 
 | File | Contents |
 |------|----------|
-| `CLICK-WHEEL-BEHAVIORS.md` | Complete reference for all wheel and navigation behaviors |
+| `SCROLL-WHEEL-BEHAVIORS.md` | Complete reference for all wheel and navigation behaviors |
 | `QUICK-REFERENCE.md` | Controls cheat sheet |
 | `ADD-NEW-THEME-GUIDE.md` | How to add a custom finish |
 | `BUTTON-LAYOUT-REFERENCE.md` | Scroll wheel geometry and specs |
