@@ -70,7 +70,7 @@ Each finish styles the body gradient, screen background, text colors, highlight 
 4. Click **+ Capability** and add **MusicKit**
 5. Set your Team in Signing
 
-The App ID `com.pinkhatcreations.lyre` must also have the MusicKit service enabled in the Apple Developer portal, or library requests fail at runtime.
+The App ID `com.pinkhatcreations.lyreapp` must also have the MusicKit service enabled in the Apple Developer portal, or library requests fail at runtime.
 
 ### 2. Usage Description
 

@@ -9,7 +9,7 @@ import SwiftUI
 import MusicKit
 import OSLog
 
-private let logger = Logger(subsystem: "com.pinkhatcreations.lyre", category: "LyreView")
+private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "LyreView")
 
 // MARK: - LyreView
 //

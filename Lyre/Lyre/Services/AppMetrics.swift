@@ -7,7 +7,7 @@ import Foundation
 import MetricKit
 import OSLog
 
-private let logger = Logger(subsystem: "com.pinkhatcreations.lyre", category: "Metrics")
+private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "Metrics")
 
 final class AppMetrics: NSObject, MXMetricManagerSubscriber {
     static let shared = AppMetrics()

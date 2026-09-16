@@ -64,7 +64,7 @@ answer "No, we do not collect data".
 ## MusicKit
 
 MusicKit needs no entitlements file. It requires the App ID
-`com.pinkhatcreations.lyre` to have the **MusicKit** service enabled in the Apple
+`com.pinkhatcreations.lyreapp` to have the **MusicKit** service enabled in the Apple
 Developer portal, plus the MusicKit capability on the target in
 **Signing & Capabilities**. Without the portal-side service, `MusicLibraryRequest`
 calls fail at runtime even though the app builds and signs cleanly.

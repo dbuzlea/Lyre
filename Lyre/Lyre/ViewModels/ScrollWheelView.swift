@@ -9,7 +9,7 @@ import SwiftUI
 import AudioToolbox
 import OSLog
 
-private let logger = Logger(subsystem: "com.pinkhatcreations.lyre", category: "ScrollWheel")
+private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "ScrollWheel")
 
 // MARK: - Scroll Wheel
 //

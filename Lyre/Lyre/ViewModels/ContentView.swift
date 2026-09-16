@@ -9,7 +9,7 @@ import SwiftUI
 import UIKit
 import OSLog
 
-private let logger = Logger(subsystem: "com.pinkhatcreations.lyre", category: "ContentView")
+private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "ContentView")
 
 // MARK: - App Root View
 //

@@ -9,7 +9,7 @@ import MediaPlayer
 import OSLog
 internal import Combine
 
-private let logger = Logger(subsystem: "com.pinkhatcreations.lyre", category: "MusicService")
+private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "MusicService")
 
 // MARK: - MusicService
 //

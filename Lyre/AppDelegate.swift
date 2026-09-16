@@ -8,7 +8,7 @@
 import UIKit
 import OSLog
 
-private let logger = Logger(subsystem: "com.pinkhatcreations.lyre", category: "AppDelegate")
+private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "AppDelegate")
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     // Dynamically controlled so Artwork Carousel can lock to landscape
