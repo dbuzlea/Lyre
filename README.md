@@ -12,6 +12,16 @@ Lyre is a SwiftUI iOS app with a circular scroll-wheel interface and full Apple 
   <img src="screenshots/onboarding-screen.png" width="220" alt="Onboarding — Get Started" />
   &nbsp;&nbsp;
   <img src="screenshots/main-menu-screen.png" width="220" alt="Main Menu" />
+  &nbsp;&nbsp;
+  <img src="screenshots/songs-list-screen.png" width="220" alt="Songs list" />
+  &nbsp;&nbsp;
+  <img src="screenshots/now-playing-screen.png" width="220" alt="Now Playing" />
+  &nbsp;&nbsp;
+  <img src="screenshots/about-screen.png" width="220" alt="About" />
+</p>
+
+<p align="center">
+  <img src="screenshots/artwork-carousel-screen.png" width="600" alt="Artwork carousel — landscape album browsing" />
 </p>
 
 ---
