@@ -158,10 +158,9 @@ struct NowPlayingView: View {
 
     @ViewBuilder
     private func artworkView(track: AppTrack?, mediaItem: MPMediaItem?, isPodcast: Bool) -> some View {
-        if let song = track?.musicKitSong, let artwork = song.artwork {
+        if let artwork = track?.musicKitSong?.artwork {
             ArtworkImage(artwork, width: 100).cornerRadius(8)
-        } else if isPodcast,
-                  let artwork = mediaItem?.artwork,
+        } else if let artwork = (isPodcast ? mediaItem?.artwork : (track?.mpItem?.artwork ?? mediaItem?.artwork)),
                   let uiImage = artwork.image(at: CGSize(width: 100, height: 100)) {
             Image(uiImage: uiImage).resizable().frame(width: 100, height: 100).cornerRadius(8)
         } else {

@@ -341,6 +341,10 @@ struct ArtworkCarouselView: View {
                 let album = items[index]
                 if let artwork = album.musicKitAlbum?.artwork {
                     ArtworkImage(artwork, width: coverSize)
+                } else if let image = album.mpArtwork?.image(at: CGSize(width: coverSize, height: coverSize)) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
                 } else {
                     placeholderArt(icon: "music.note")
                 }
@@ -352,6 +356,10 @@ struct ArtworkCarouselView: View {
                 let playlist = items[index]
                 if let artwork = playlist.musicKitPlaylist?.artwork {
                     ArtworkImage(artwork, width: coverSize)
+                } else if let image = playlist.mpArtwork?.image(at: CGSize(width: coverSize, height: coverSize)) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
                 } else {
                     placeholderArt(icon: "music.note.list")
                 }

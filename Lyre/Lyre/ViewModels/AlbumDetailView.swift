@@ -5,6 +5,7 @@
 
 import SwiftUI
 import MusicKit
+import MediaPlayer
 
 // Track browser for a single album. Tracks are loaded asynchronously via
 // MusicService.loadTracks on appear; a spinner shows in the meantime. Once loaded,
@@ -143,8 +144,10 @@ struct AlbumDetailView: View {
 
     @ViewBuilder
     private var artworkView: some View {
-        if let mkAlbum = album.musicKitAlbum, let artwork = mkAlbum.artwork {
+        if let artwork = album.musicKitAlbum?.artwork {
             ArtworkImage(artwork, width: 50).cornerRadius(4)
+        } else if let uiImage = album.mpArtwork?.image(at: CGSize(width: 50, height: 50)) {
+            Image(uiImage: uiImage).resizable().frame(width: 50, height: 50).cornerRadius(4)
         } else {
             RoundedRectangle(cornerRadius: 4)
                 .fill(themeSettings.currentTheme.screenTextColor.opacity(0.1))

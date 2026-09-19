@@ -5,16 +5,22 @@
 
 import SwiftUI
 import MusicKit
+import MediaPlayer
 
-// Reusable MusicKit artwork image component. Renders the album art at the requested
-// size with rounded corners and a drop shadow, or a grey placeholder with a music-note
-// icon when no MusicKit artwork is available.
+// Reusable artwork image component. Renders the album art at the requested size with
+// rounded corners and a drop shadow, or a grey placeholder with a music-note icon when
+// no artwork is available.
+//
+// MusicKit artwork is preferred when present; `mediaArtwork` is the on-device fallback,
+// which is the only artwork a user without an Apple Music subscription has.
 struct MusicArtworkView: View {
     let artwork: Artwork?
+    let mediaArtwork: MPMediaItemArtwork?
     let size: CGFloat
 
-    init(artwork: Artwork?, size: CGFloat = 120) {
+    init(artwork: Artwork?, mediaArtwork: MPMediaItemArtwork? = nil, size: CGFloat = 120) {
         self.artwork = artwork
+        self.mediaArtwork = mediaArtwork
         self.size = size
     }
 
@@ -22,6 +28,13 @@ struct MusicArtworkView: View {
         Group {
             if let artwork {
                 ArtworkImage(artwork, width: size)
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+            } else if let uiImage = mediaArtwork?.image(at: CGSize(width: size, height: size)) {
+                Image(uiImage: uiImage)
+                    .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: size, height: size)
                     .clipShape(RoundedRectangle(cornerRadius: 8))

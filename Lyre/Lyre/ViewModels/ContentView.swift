@@ -25,6 +25,7 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 struct ContentView: View {
     @StateObject private var musicService = MusicService()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
@@ -44,6 +45,12 @@ struct ContentView: View {
         }
         .onChange(of: hasCompletedOnboarding) { _, completed in
             if completed { logger.info("Onboarding completed") }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Picks up access granted in Settings while the app was backgrounded, and
+            // any music added to the device since the last load.
+            guard phase == .active else { return }
+            Task { await musicService.refreshOnForeground() }
         }
         .onChange(of: musicService.lastError) { _, error in
             if let error { logger.error("Music service error presented: \(error.alertTitle)") }

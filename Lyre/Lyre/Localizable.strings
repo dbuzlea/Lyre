@@ -48,18 +48,27 @@
 "onboarding.loadingLibrary" = "Loading Library";
 "onboarding.libraryConnected" = "Library Connected";
 "onboarding.accessRequired" = "Access Required";
-"onboarding.connectAppleMusic" = "Connect Apple Music";
+"onboarding.allowAccess" = "Allow Music Access";
 "onboarding.skipForNow" = "Skip for now";
 "onboarding.openSettings" = "Open Settings";
 "onboarding.continue" = "Continue";
 "onboarding.loadingLibraryStatus" = "Loading your library…";
 "onboarding.libraryReady" = "Library ready";
-"onboarding.songsLoaded" = "%d songs loaded";
+"onboarding.songsLoaded" = "%d songs";
+"onboarding.podcastsLoaded" = "%d podcasts";
 "onboarding.waitingPermission" = "Waiting for permission…";
 "onboarding.fetchingLibrary" = "Fetching your songs, albums, and playlists.";
 "onboarding.libraryReady.body" = "Your music library is ready.";
-"onboarding.connectBody" = "Lyre plays music from your Apple Music library. Tap below to grant access.";
+"onboarding.connectBody" = "Lyre plays the music and podcasts on your iPhone, plus your Apple Music library if you have one. Tap below to grant access.";
 "onboarding.deniedBody" = "To play music, go to Settings > Privacy & Security > Media & Apple Music and enable Lyre.";
+
+/* No Apple Music subscription — the app falls back to on-device media */
+"onboarding.onDeviceLibraryReady" = "On-Device Library Ready";
+"onboarding.noSubscriptionBody" = "No Apple Music subscription found. Lyre will play the music and podcasts already stored on this iPhone.";
+"onboarding.trySubscription" = "Try Apple Music";
+"onboarding.noMusicFound" = "No Music Found";
+"onboarding.noMusicFoundBody" = "There's no music or podcasts stored on this iPhone yet. Add some in the Music or Podcasts app and Lyre will pick them up automatically.";
+"onboarding.nothingFound" = "Nothing to play yet";
 "onboarding.pickYourLyre" = "Pick Your Style";
 "onboarding.chooseStyle" = "Choose your favorite style";
 "onboarding.allSet" = "You're All Set!";

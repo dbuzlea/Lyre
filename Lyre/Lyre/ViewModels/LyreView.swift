@@ -109,6 +109,11 @@ struct LyreView: View {
             resetBacklightTimer()
             UIDevice.current.beginGeneratingDeviceOrientationNotifications()
         }
+        .task {
+            // Covers the hand-off out of onboarding: if authorization was granted but
+            // the library never populated, load it before the user sees empty menus.
+            await musicService.ensureLibraryLoaded()
+        }
         .onDisappear {
             UIDevice.current.endGeneratingDeviceOrientationNotifications()
         }

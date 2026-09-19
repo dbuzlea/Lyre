@@ -5,6 +5,7 @@
 
 import SwiftUI
 import MusicKit
+import MediaPlayer
 
 // Track browser for a single playlist. Mirrors AlbumDetailView in structure —
 // artwork header, numbered track list with title and artist — but loads tracks
@@ -140,8 +141,10 @@ struct PlaylistDetailView: View {
 
     @ViewBuilder
     private var artworkView: some View {
-        if let mkPlaylist = playlist.musicKitPlaylist, let artwork = mkPlaylist.artwork {
+        if let artwork = playlist.musicKitPlaylist?.artwork {
             ArtworkImage(artwork, width: 50).cornerRadius(4)
+        } else if let uiImage = playlist.mpArtwork?.image(at: CGSize(width: 50, height: 50)) {
+            Image(uiImage: uiImage).resizable().frame(width: 50, height: 50).cornerRadius(4)
         } else {
             RoundedRectangle(cornerRadius: 4)
                 .fill(themeSettings.currentTheme.highlightColor.opacity(0.3))

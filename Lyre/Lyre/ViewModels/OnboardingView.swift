@@ -7,7 +7,11 @@
 
 import SwiftUI
 import MusicKit
+import MediaPlayer
 import UIKit
+import OSLog
+
+private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "Onboarding")
 
 
 // MARK: - Onboarding Flow
@@ -141,9 +145,24 @@ private struct AppleMusicAuthPageView: View {
     let onNext: () -> Void
 
     @State private var authState = MusicAuthState.idle
+    @State private var isShowingSubscriptionOffer = false
     @Environment(\.openURL) private var openURL
 
     enum MusicAuthState { case idle, requesting, authorized, denied }
+
+    // MARK: - Derived State
+    //
+    // An Apple Music subscription is optional. Once access is granted the page reports
+    // what was actually found on the device rather than assuming a streaming library.
+
+    private var isFinishedLoading: Bool {
+        authState == .authorized && !musicService.isLoading && musicService.hasLoadedLibrary
+    }
+
+    private var songCount: Int { musicService.songs.count }
+    private var podcastCount: Int { musicService.podcastShows.count }
+    private var foundNothing: Bool { isFinishedLoading && songCount == 0 && podcastCount == 0 }
+    private var lacksSubscription: Bool { musicService.subscriptionState == .notSubscribed }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -180,14 +199,12 @@ private struct AppleMusicAuthPageView: View {
                             .foregroundColor(.white.opacity(0.7))
                             .font(.system(size: 15))
                     }
-                } else if authState == .authorized {
+                } else if isFinishedLoading {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                        Image(systemName: foundNothing ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                            .foregroundColor(foundNothing ? .orange : .green)
                             .font(.system(size: 18))
-                        Text(musicService.songs.isEmpty
-                             ? String(localized: "onboarding.libraryReady")
-                             : String(format: String(localized: "onboarding.songsLoaded"), musicService.songs.count))
+                        Text(librarySummary)
                             .foregroundColor(.white.opacity(0.8))
                             .font(.system(size: 15, weight: .medium))
                     }
@@ -206,7 +223,7 @@ private struct AppleMusicAuthPageView: View {
             VStack(spacing: 12) {
                 switch authState {
                 case .idle:
-                    OnboardingPrimaryButton(title: String(localized: "onboarding.connectAppleMusic")) {
+                    OnboardingPrimaryButton(title: String(localized: "onboarding.allowAccess")) {
                         Task { await requestAuth() }
                     }
                     skipButton
@@ -217,6 +234,17 @@ private struct AppleMusicAuthPageView: View {
                 case .authorized:
                     if !musicService.isLoading {
                         OnboardingPrimaryButton(title: String(localized: "onboarding.continue"), action: onNext)
+
+                        // Offer a subscription, but never require one — the app works
+                        // fine on whatever is already stored on the device.
+                        if isFinishedLoading && lacksSubscription {
+                            Button(String(localized: "onboarding.trySubscription")) {
+                                isShowingSubscriptionOffer = true
+                            }
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.55))
+                            .padding(.top, 4)
+                        }
                     }
 
                 case .denied:
@@ -232,6 +260,7 @@ private struct AppleMusicAuthPageView: View {
             .padding(.bottom, 16)
         }
         .padding(.horizontal, 24)
+        .musicSubscriptionOffer(isPresented: $isShowingSubscriptionOffer)
         .onAppear(perform: checkCurrentStatus)
         .onChange(of: musicService.isAuthorized) { _, authorized in
             if authorized { withAnimation { authState = .authorized } }
@@ -239,41 +268,61 @@ private struct AppleMusicAuthPageView: View {
     }
 
     private var skipButton: some View {
-        Button(String(localized: "onboarding.skipForNow")) { onNext() }
+        Button(String(localized: "onboarding.skipForNow")) {
+            logger.notice("Auth page: user skipped")
+            onNext()
+        }
             .font(.system(size: 15))
             .foregroundColor(.white.opacity(0.4))
             .padding(.top, 4)
     }
 
     private func checkCurrentStatus() {
-        switch MusicAuthorization.currentStatus {
-        case .authorized:
+        logger.notice("Auth page appeared — MusicKit: \(String(describing: MusicAuthorization.currentStatus)), MediaPlayer: \(MPMediaLibrary.authorizationStatus().rawValue)")
+
+        // MediaPlayer access on its own is enough to show the on-device library, so it
+        // counts as authorized here even when MusicKit is not.
+        if MusicService.hasAnyLibraryAccess {
             authState = .authorized
-        case .denied, .restricted:
-            authState = .denied
-        default:
-            authState = .idle
+            logger.notice("Auth page state: already authorized (no prompt shown)")
+            return
         }
+        switch MusicAuthorization.currentStatus {
+        case .denied, .restricted: authState = .denied
+        default:                   authState = .idle
+        }
+        logger.notice("Auth page state: \(String(describing: self.authState))")
     }
 
     private func requestAuth() async {
+        logger.notice("Auth page: user tapped Allow Music Access")
         withAnimation { authState = .requesting }
         await musicService.requestAuthorization()
         withAnimation {
             authState = musicService.isAuthorized ? .authorized : .denied
         }
+        logger.notice("Auth page state after request: \(String(describing: self.authState))")
     }
 
     private var iconName: String {
-        authState == .denied ? "lock.slash" : "music.note.list"
+        switch authState {
+        case .denied:     return "lock.slash"
+        case .authorized: if foundNothing { return "questionmark.folder" }
+                          return lacksSubscription ? "iphone" : "music.note.list"
+        default:          return "music.note.list"
+        }
     }
 
     private var titleText: String {
         switch authState {
-        case .idle:        return String(localized: "onboarding.connectMusic")
-        case .requesting:  return String(localized: "onboarding.requestingAccess")
-        case .authorized:  return musicService.isLoading ? String(localized: "onboarding.loadingLibrary") : String(localized: "onboarding.libraryConnected")
-        case .denied:      return String(localized: "onboarding.accessRequired")
+        case .idle:       return String(localized: "onboarding.connectMusic")
+        case .requesting: return String(localized: "onboarding.requestingAccess")
+        case .denied:     return String(localized: "onboarding.accessRequired")
+        case .authorized:
+            if musicService.isLoading { return String(localized: "onboarding.loadingLibrary") }
+            if foundNothing           { return String(localized: "onboarding.noMusicFound") }
+            if lacksSubscription      { return String(localized: "onboarding.onDeviceLibraryReady") }
+            return String(localized: "onboarding.libraryConnected")
         }
     }
 
@@ -283,13 +332,29 @@ private struct AppleMusicAuthPageView: View {
             return String(localized: "onboarding.connectBody")
         case .requesting:
             return String(localized: "onboarding.waitingPermission")
-        case .authorized:
-            return musicService.isLoading
-                ? String(localized: "onboarding.fetchingLibrary")
-                : String(localized: "onboarding.libraryReady.body")
         case .denied:
             return String(localized: "onboarding.deniedBody")
+        case .authorized:
+            if musicService.isLoading { return String(localized: "onboarding.fetchingLibrary") }
+            if foundNothing           { return String(localized: "onboarding.noMusicFoundBody") }
+            if lacksSubscription      { return String(localized: "onboarding.noSubscriptionBody") }
+            return String(localized: "onboarding.libraryReady.body")
         }
+    }
+
+    /// One line describing what the load actually turned up, so the user is never left
+    /// guessing whether the app found their music.
+    private var librarySummary: String {
+        if foundNothing { return String(localized: "onboarding.nothingFound") }
+
+        var parts: [String] = []
+        if songCount > 0 {
+            parts.append(String(format: String(localized: "onboarding.songsLoaded"), songCount))
+        }
+        if podcastCount > 0 {
+            parts.append(String(format: String(localized: "onboarding.podcastsLoaded"), podcastCount))
+        }
+        return parts.isEmpty ? String(localized: "onboarding.libraryReady") : parts.joined(separator: " · ")
     }
 }
 
