@@ -78,17 +78,15 @@ enum LyreThemeStyle: String, CaseIterable, Identifiable {
              .clipGreen,
              .clipOrange,
              .clipPurple,
-             .clipGold:
-            return .nano
-        case .monochrome,
+             .clipGold,
+             .monochrome,
              .pebbleSilver,
              .pebbleGold,
              .pebbleBlue,
              .pebblePink,
-             .pebbleGreen:
+             .pebbleGreen,
+             .phosphor:
             return .standard
-        case .phosphor:
-            return .retro
         case .spectrum:
             return .large
         }

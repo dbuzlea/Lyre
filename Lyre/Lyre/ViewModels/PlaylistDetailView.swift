@@ -72,54 +72,41 @@ struct PlaylistDetailView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 2) {
+                            PlayShuffleRows(selection: selection, themeSettings: themeSettings)
                             ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+                                // One layout for both states, with the highlight as a background:
+                                // the text stays inside the row instead of overflowing an overlay,
+                                // and the row isn't rebuilt (and cross-faded) as the cursor moves.
+                                let isSelected = selection == index + PlayShuffleRows.count
                                 HStack {
-                                    if selection == index {
-                                        Rectangle()
-                                            .fill(themeSettings.currentTheme.highlightColor)
-                                            .overlay {
-                                                HStack {
-                                                    Text("\(index + 1)")
-                                                        .font(.system(size: 9, weight: .medium))
-                                                        .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.7))
-                                                        .frame(width: 20, alignment: .trailing)
-                                                    VStack(alignment: .leading, spacing: 0) {
-                                                        Text(track.title)
-                                                            .font(.system(size: 11, weight: .medium))
-                                                            .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
-                                                            .lineLimit(1)
-                                                        Text(track.artistName)
-                                                            .font(.system(size: 9))
-                                                            .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.7))
-                                                            .lineLimit(1)
-                                                    }
-                                                    Spacer()
-                                                }
-                                                .padding(.leading, 6).padding(.vertical, 2)
-                                            }
-                                            .selectionBarRefraction()
-                                    } else {
-                                        HStack {
-                                            Text("\(index + 1)")
-                                                .font(.system(size: 9))
-                                                .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
-                                                .frame(width: 20, alignment: .trailing)
-                                            VStack(alignment: .leading, spacing: 0) {
-                                                Text(track.title)
-                                                    .font(.system(size: 11))
-                                                    .foregroundStyle(themeSettings.currentTheme.screenTextColor)
-                                                    .lineLimit(1)
-                                                Text(track.artistName)
-                                                    .font(.system(size: 9))
-                                                    .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
-                                                    .lineLimit(1)
-                                            }
-                                            Spacer()
-                                        }
-                                        .padding(.leading, 6).padding(.vertical, 2)
+                                    Text("\(index + 1)")
+                                        .font(.system(size: 9, weight: isSelected ? .medium : .regular))
+                                        .foregroundStyle(isSelected
+                                            ? themeSettings.currentTheme.highlightTextColor.opacity(0.7)
+                                            : themeSettings.currentTheme.screenTextColor.opacity(0.5))
+                                        .frame(width: 20, alignment: .trailing)
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        Text(track.title)
+                                            .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                                            .foregroundStyle(isSelected
+                                                ? themeSettings.currentTheme.highlightTextColor
+                                                : themeSettings.currentTheme.screenTextColor)
+                                            .lineLimit(1)
+                                        Text(track.artistName)
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(isSelected
+                                                ? themeSettings.currentTheme.highlightTextColor.opacity(0.7)
+                                                : themeSettings.currentTheme.screenSecondaryTextColor)
+                                            .lineLimit(1)
                                     }
+                                    Spacer()
                                 }
-                                .frame(height: 32).id(index)
+                                .padding(.leading, 6)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .frame(height: 32)
+                                .background(isSelected ? themeSettings.currentTheme.highlightColor : Color.clear)
+                                .selectionBarRefraction(when: isSelected)
+                                .id(index + PlayShuffleRows.count)
                             }
                         }
                     }
@@ -134,7 +121,9 @@ struct PlaylistDetailView: View {
         .onChange(of: selection) { _, newValue in
             if !tracks.isEmpty {
                 if newValue < 0 { selection = 0 }
-                else if newValue >= tracks.count { selection = tracks.count - 1 }
+                else if newValue >= tracks.count + PlayShuffleRows.count {
+                    selection = tracks.count + PlayShuffleRows.count - 1
+                }
             }
         }
     }
@@ -143,14 +132,16 @@ struct PlaylistDetailView: View {
     private var artworkView: some View {
         if let artwork = playlist.musicKitPlaylist?.artwork {
             ArtworkImage(artwork, width: 50).cornerRadius(4)
-        } else if let uiImage = playlist.mpArtwork?.image(at: CGSize(width: 50, height: 50)) {
-            Image(uiImage: uiImage).resizable().frame(width: 50, height: 50).cornerRadius(4)
         } else {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(themeSettings.currentTheme.highlightColor.opacity(0.3))
-                .frame(width: 50, height: 50)
-                .overlay { Image(systemName: "music.note.list").font(.system(size: 20))
-                    .foregroundStyle(themeSettings.currentTheme.highlightTextColor) }
+            LocalArtworkImage(cacheKey: playlist.id, size: 50, artwork: playlist.mpArtwork) { image in
+                image.resizable().frame(width: 50, height: 50).cornerRadius(4)
+            } placeholder: {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(themeSettings.currentTheme.highlightColor.opacity(0.3))
+                    .frame(width: 50, height: 50)
+                    .overlay { Image(systemName: "music.note.list").font(.system(size: 20))
+                        .foregroundStyle(themeSettings.currentTheme.highlightTextColor) }
+            }
         }
     }
 

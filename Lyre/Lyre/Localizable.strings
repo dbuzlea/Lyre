@@ -3,6 +3,7 @@
 
 /* MARK: - Main Menu */
 "menu.nowPlaying" = "Now Playing";
+"menu.queue" = "Queue";
 "menu.songs" = "Songs";
 "menu.recentlyAdded" = "Recently Added";
 "menu.recentlyPlayed" = "Recently Played";
@@ -20,6 +21,46 @@
 "nowPlaying.scrubbing" = "Scrubbing";
 "nowPlaying.shuffle" = "Shuffle";
 "nowPlaying.repeat" = "Repeat";
+
+"airPlay.label" = "AirPlay";
+"airPlay.playingOn" = "AirPlay, playing on %@";
+
+/* MARK: - Playback */
+/* Shown when a chosen song has nothing behind it the player can queue — Apple Music
+   catalogue content, or a cloud item that was never downloaded. */
+"playback.trackUnavailable" = "That song can't be played";
+"playback.nothingPlayable" = "Nothing here can be played";
+
+/* Rows at the top of an album, playlist or podcast list */
+"detail.play" = "Play";
+"detail.shuffle" = "Shuffle";
+
+/* MARK: - Queue */
+"queue.title" = "Queue";
+"queue.nowPlaying" = "NOW PLAYING";
+"queue.upNextCount" = "%d up next";
+"queue.empty" = "Queue is empty";
+"queue.empty.hint" = "Swipe right on the center button to add a song, album or playlist.";
+"queue.clear" = "Clear Queue";
+"queue.shuffleOn" = "Shuffle is on — play order will vary";
+"queue.hint.browse" = "Select to move · Swipe right to remove";
+"queue.hint.moving" = "Scroll to move · Select to drop";
+"queue.hint.clear" = "Select to empty the queue";
+
+/* Transient banners shown on screen after a queue action */
+"queue.added" = "Queued: %@";
+/* A collection that went in partly: queued count, total, collection name. */
+"queue.addedPartial" = "Queued %1$d of %2$d: %3$@";
+"queue.collectionUnavailable" = "Nothing in there can be queued";
+"queue.playing" = "Playing: %@";
+"queue.addedNext" = "Playing next: %@";
+"queue.addedNextPartial" = "Playing %1$d of %2$d next: %3$@";
+"queue.action.playNext" = "Play Next";
+"queue.action.addToQueue" = "Add to Queue";
+"queue.removed" = "Removed: %@";
+"queue.cleared" = "Queue cleared";
+"queue.reordered" = "Queue updated";
+"queue.unavailable" = "That song can't be queued";
 
 /* MARK: - Settings */
 "settings.title" = "Settings";

@@ -41,14 +41,28 @@ Only the keys that cannot be expressed as build settings live in the file:
     <key>NSAllowsArbitraryLoads</key>
     <false/>
 </dict>
+
+<key>UIBackgroundModes</key>
+<array>
+    <string>audio</string>
+</array>
 ```
 
-### Why there is no `audio` background mode
+### Why the `audio` background mode is required
 
-Playback goes through `MPMusicPlayerController.systemMusicPlayer`, which plays in
-the system music process rather than ours. The app never produces audio itself, so
-declaring `UIBackgroundModes: [audio]` would be an unjustified capability —
-App Review Guideline 2.5.4. Audio continues in the background regardless.
+Playback goes through `MPMusicPlayerController.applicationQueuePlayer` — an
+*application* player, whose queue belongs to this app. It replaced
+`systemMusicPlayer`, which drives the Music app on our behalf: with that player the
+Music app's queue could supersede ours and its autoplay would take over at the end,
+so a song the user added to the queue would never play. The application queue player
+is also the only player whose queue can be edited in place
+(`perform(queueTransaction:)`), which is what makes queueing seamless.
+
+An application player stops at the app's suspension unless the app declares
+`UIBackgroundModes: [audio]`, so the mode is now load-bearing rather than an
+unjustified capability — Guideline 2.5.4 is satisfied because the app genuinely is
+the thing playing audio. (Before this change the guide correctly said the opposite;
+it changed with the player.)
 
 ## Privacy manifest
 

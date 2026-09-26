@@ -12,9 +12,13 @@ struct AlbumListView: View {
     let albums: [AppAlbum]
     @Binding var selection: Int
     let themeSettings: ThemeSettings
+    /// Each row's section letter, precomputed by MusicService when the list changes.
+    var sectionLetters: [String] = []
+
 
     @State private var showScrubber = false
-    @State private var scrubberTimer: Timer? = nil
+    /// Restarted on every scroll step, so it must not be tracked state — see OneShotTimer.
+    @State private var scrubberTimer = OneShotTimer()
 
     private var currentLetter: String {
         guard !albums.isEmpty, selection < albums.count else { return "A" }
@@ -25,13 +29,20 @@ struct AlbumListView: View {
         AppHelpers.firstLetter(of: name)
     }
 
+    /// The letter a row files under. Uses the precomputed letters when they line up
+    /// with the list, and works it out directly otherwise.
+    private func sectionLetter(at index: Int) -> String {
+        sectionLetters.count == albums.count ? sectionLetters[index] : firstLetter(albums[index].title)
+    }
+
     private func showAlphabetScrubber() {
-        withAnimation(.easeIn(duration: 0.15)) { showScrubber = true }
-        scrubberTimer?.invalidate()
-        scrubberTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { _ in
-            DispatchQueue.main.async {
-                withAnimation(.easeOut(duration: 0.4)) { showScrubber = false }
-            }
+        // Only the first step of a scroll changes state; later steps just push the
+        // fade-out back.
+        if !showScrubber {
+            withAnimation(.easeIn(duration: 0.15)) { showScrubber = true }
+        }
+        scrubberTimer.schedule(after: 1.5) {
+            withAnimation(.easeOut(duration: 0.4)) { showScrubber = false }
         }
     }
 
@@ -62,10 +73,13 @@ struct AlbumListView: View {
                     ScrollViewReader { proxy in
                         ScrollView {
                             LazyVStack(alignment: .leading, spacing: 0) {
-                                ForEach(Array(albums.enumerated()), id: \.offset) { index, album in
-                                    if index == 0 || firstLetter(album.title) != firstLetter(albums[index - 1].title) {
+                                // Indices, not `Array(albums.enumerated())`: that copied the whole list
+                                // on every redraw, thousands of rows for a large library.
+                                ForEach(albums.indices, id: \.self) { index in
+                                    let album = albums[index]
+                                    if index == 0 || sectionLetter(at: index) != sectionLetter(at: index - 1) {
                                         HStack(spacing: 4) {
-                                            Text(firstLetter(album.title))
+                                            Text(sectionLetter(at: index))
                                                 .font(.system(size: 8, weight: .bold))
                                                 .foregroundStyle(themeSettings.currentTheme.highlightColor)
                                                 .frame(width: 10, alignment: .center)
@@ -106,6 +120,6 @@ struct AlbumListView: View {
                 }
             }
         }
-        .onDisappear { scrubberTimer?.invalidate() }
+        .onDisappear { scrubberTimer.cancel() }
     }
 }

@@ -20,19 +20,27 @@ struct AlphabetScrubberView: View {
             ForEach(alphabet, id: \.self) { letter in
                 Spacer(minLength: 0)
                 Text(letter)
-                    .font(.system(size: 6, weight: letter == currentLetter ? .heavy : .regular))
-                    .foregroundStyle(
-                        letter == currentLetter
-                            ? themeSettings.currentTheme.highlightColor
-                            : themeSettings.currentTheme.screenTextColor.opacity(0.4)
-                    )
+                    .font(.system(size: 6))
+                    .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.4))
+                    // Hide the small glyph for the active letter; the badge below replaces it.
+                    .opacity(letter == currentLetter ? 0 : 1)
                     .frame(width: 10)
-                    .background(
-                        Capsule()
-                            .fill(letter == currentLetter
-                                  ? themeSettings.currentTheme.highlightColor.opacity(0.15)
-                                  : Color.clear)
-                    )
+                    .overlay {
+                        // Enlarged badge drawn as an overlay so it doesn't push
+                        // neighbouring letters around as the section changes.
+                        if letter == currentLetter {
+                            Text(letter)
+                                .font(.system(size: 11, weight: .heavy))
+                                .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
+                                .frame(width: 17, height: 17)
+                                .background(
+                                    Circle()
+                                        .fill(themeSettings.currentTheme.highlightColor)
+                                )
+                                .fixedSize()
+                        }
+                    }
+                    .zIndex(letter == currentLetter ? 1 : 0)
             }
             Spacer(minLength: 0)
         }

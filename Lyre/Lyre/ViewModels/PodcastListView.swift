@@ -47,13 +47,12 @@ struct PodcastListView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(Array(podcastShows.enumerated()), id: \.offset) { index, show in
                                 HStack(spacing: 8) {
-                                    if let artwork = show.artwork,
-                                       let image = artwork.image(at: CGSize(width: 28, height: 28)) {
-                                        Image(uiImage: image)
+                                    LocalArtworkImage(cacheKey: "podcast.\(show.title)", size: 28, artwork: show.artwork) { image in
+                                        image
                                             .resizable()
                                             .frame(width: 28, height: 28)
                                             .cornerRadius(4)
-                                    } else {
+                                    } placeholder: {
                                         RoundedRectangle(cornerRadius: 4)
                                             .fill(themeSettings.currentTheme.highlightColor.opacity(0.3))
                                             .frame(width: 28, height: 28)

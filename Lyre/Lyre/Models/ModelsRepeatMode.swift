@@ -28,4 +28,16 @@ enum RepeatMode: String, CaseIterable {
         case .all: return .all
         }
     }
+
+    /// Reads the player's own repeat setting. The system player starts out carrying
+    /// whatever the Music app was set to, so this is how the app finds out rather
+    /// than assuming Off. `.default` means "whatever the user prefers", which is not
+    /// a value that can be resolved — it is reported as Off.
+    init(mpRepeatMode: MPMusicRepeatMode) {
+        switch mpRepeatMode {
+        case .one:  self = .one
+        case .all:  self = .all
+        default:    self = .off
+        }
+    }
 }

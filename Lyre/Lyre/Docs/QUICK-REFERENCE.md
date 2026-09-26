@@ -46,6 +46,16 @@
 - **On Albums/Artists**: Open detail view
 - **On Now Playing (Shuffle row)**: Toggle Shuffle Off ↔ Songs
 - **On Now Playing (Repeat row)**: Cycle Repeat Off → All → One
+- **On Queue**: Pick the highlighted song up / put it back down
+- **On Queue (Clear Queue row, above the first song)**: Empty the queue
+
+### CENTER Button — Swipe Right
+Queues whatever the highlighted row stands for:
+- **On any song list**: the highlighted song
+- **On Albums**: the whole album
+- **On Playlists**: the whole playlist
+- **On Queue**: removes the highlighted song instead
+- **Elsewhere**: Nothing (boundary bump)
 
 ### PLAY/PAUSE Button (Bottom)
 - **Anywhere**: Toggle playback
@@ -66,7 +76,13 @@
 - **Counter-clockwise**: Scroll up / Previous item
 - **On Now Playing — Clockwise**: Seek forward 5s per tick
 - **On Now Playing — Counter-clockwise**: Seek backward 5s per tick
+- **On Queue while carrying a song**: Moves the song, not the cursor
 - **Haptic feedback**: Light ticks as you scroll
+
+### ARTWORK CAROUSEL (Landscape, Touch)
+- **Tap a liner row**: Play that track
+- **Swipe a liner row right**: Add it to the queue
+- **Drag elsewhere on the spread**: Scrub the gatefold open/closed
 
 ### SHAKE (Device Gesture)
 - **Anywhere (Hold off)**: Shuffle all songs → jump to Now Playing

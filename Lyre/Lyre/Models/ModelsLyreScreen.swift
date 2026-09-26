@@ -18,6 +18,7 @@
 enum LyreScreen: Equatable, Hashable {
     case menu
     case nowPlaying
+    case queue
     case songs
     case albums
     case artists

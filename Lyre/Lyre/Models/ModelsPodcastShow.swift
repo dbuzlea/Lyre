@@ -8,7 +8,8 @@
 import MediaPlayer
 import Foundation
 
-struct PodcastShow: Identifiable, Hashable, Equatable {
+/// `nonisolated` so LibraryScanner can build shows off the main thread.
+nonisolated struct PodcastShow: Identifiable, Hashable, Equatable {
     let title: String
     let episodes: [MPMediaItem]
 

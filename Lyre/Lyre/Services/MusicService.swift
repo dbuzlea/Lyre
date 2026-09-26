@@ -33,6 +33,10 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   is why the library used to come up empty until the app was force-quit and relaunched.
 //
 // Library loading
+//   At launch the last loaded library is restored from LibraryCache first, so the menus
+//   are populated immediately, and the full load then runs in the background and
+//   replaces it. The scan itself lives in LibraryScanner and runs off the main thread.
+//
 //   `loadLibrary()` runs up to 3 attempts with exponential backoff delays [0, 2, 5]s.
 //   The error is only surfaced to `lastError` after all retries are exhausted, so a
 //   transient network blip never shows an error dialog. A load that succeeds but comes
@@ -43,6 +47,18 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   `play(tracks:startingAt:)` queues tracks in MPMusicPlayerController and starts
 //   playback. Track progress is polled every 0.5 s via a Timer; the Combine import
 //   is kept internal so callers don't need to import Combine.
+//
+//   Playback runs through `applicationQueuePlayer`, not the system player. The system
+//   player drives the Music app on the app's behalf, which means it also inherits the
+//   Music app's shuffle and repeat settings and lets the Music app's own queue (and its
+//   autoplay) supersede ours — a song added to the queue would simply never play. The
+//   application queue player owns its queue outright and is the only player that can
+//   edit it in place, via `perform(queueTransaction:)`, so queueing never interrupts
+//   what is playing. The trade-offs are that playback stops when the app is terminated
+//   and does not continue the Music app's session, and that it needs the `audio`
+//   background mode (set in Info.plist) to keep playing once the app is backgrounded.
+//   Remote control events (lock screen, headphones, CarPlay) need no handling here:
+//   MediaPlayer routes them to the player itself for application players.
 //
 // Thread safety
 //   All @Published properties are mutated on the main actor via `await MainActor.run`.
@@ -130,12 +146,65 @@ enum MusicSubscriptionState: Equatable {
 
 // MARK: - Library Source
 
-// Which source actually produced the library the user is looking at.
-enum MusicLibrarySource: Equatable {
+// Which source actually produced the library the user is looking at. `nonisolated` and
+// Codable because LibraryScanner computes it off the main thread and LibraryCache
+// stores it.
+nonisolated enum MusicLibrarySource: String, Equatable, Codable {
     case none
     case appleMusic
     case localMedia
     case mixed
+}
+
+// MARK: - Playback Start Outcome
+
+// Whether starting playback worked, so the UI can stay put and say something rather
+// than navigating to Now Playing for a song that never started.
+enum PlaybackStartOutcome: Equatable {
+    case started
+    /// The chosen track has no media item behind it — an undownloaded cloud item or
+    /// Apple Music catalogue content, usually.
+    case trackUnavailable
+    /// Nothing in the list could be queued at all.
+    case nothingPlayable
+}
+
+// MARK: - Queue Add Outcome
+
+// What `addToQueue` actually did, so the UI can tell the user. The counts matter for
+// collections: an album or playlist can be partly unplayable, and queueing 9 of 12
+// tracks without saying so would look like the app lost three songs.
+enum QueueAddOutcome: Equatable {
+    /// Added to the bottom of the queue. `skipped` counts the tracks that had nothing
+    /// playable behind them, plus any dropped for exceeding the per-add ceiling.
+    case queued(count: Int, skipped: Int)
+    /// Nothing was playing, so the tracks started playing instead of waiting their turn.
+    case startedPlaying(count: Int, skipped: Int)
+    /// Nothing in the request could be queued at all.
+    case unavailable
+
+    /// True when some of what was asked for did not make it into the queue.
+    var isPartial: Bool {
+        switch self {
+        case .queued(_, let skipped), .startedPlaying(_, let skipped): return skipped > 0
+        case .unavailable: return false
+        }
+    }
+}
+
+// MARK: - Queue Placement
+
+/// Where added tracks go: straight after the current track, or at the bottom.
+enum QueuePlacement {
+    case next
+    case last
+}
+
+// MARK: - Playback Clock
+
+/// The playback position on its own. Only views that show the position observe it.
+final class PlaybackClock: ObservableObject {
+    @Published var time: TimeInterval = 0
 }
 
 // MARK: - MusicService
@@ -143,9 +212,11 @@ enum MusicLibrarySource: Equatable {
 class MusicService: ObservableObject {
     // MARK: - Library
 
-    @Published var songs:        [AppTrack]    = []
-    @Published var albums:       [AppAlbum]    = []
-    @Published var artists:      [AppArtist]   = []
+    // Each list's alphabet-section letters are worked out once, whenever the list
+    // changes, instead of twice per row on every redraw of the list.
+    @Published var songs:        [AppTrack]    = [] { didSet { songSectionLetters = Self.sectionLetters(songs.map(\.title)) } }
+    @Published var albums:       [AppAlbum]    = [] { didSet { albumSectionLetters = Self.sectionLetters(albums.map(\.title)) } }
+    @Published var artists:      [AppArtist]   = [] { didSet { artistSectionLetters = Self.sectionLetters(artists.map(\.name)) } }
     @Published var playlists:    [AppPlaylist] = []
     @Published var podcastShows: [PodcastShow] = []
 
@@ -160,8 +231,24 @@ class MusicService: ObservableObject {
     @Published var librarySource: MusicLibrarySource = .none
     @Published var currentTrack: AppTrack?
     @Published var currentMediaItem: MPMediaItem?
-    @Published var isPlaying     = false
-    @Published var currentTime: TimeInterval = 0
+    /// Every path that starts or stops playback goes through this, so it is also where
+    /// the progress ticker is switched on and off.
+    @Published var isPlaying     = false {
+        didSet {
+            guard isPlaying != oldValue else { return }
+            syncPlaybackTimeTicker()
+        }
+    }
+    /// Playback position, published separately so its twice-a-second updates only
+    /// redraw what reads it. As a `@Published` property here it redrew every screen
+    /// observing the service — every menu and list — twice a second during playback.
+    let clock = PlaybackClock()
+    /// Read and written like a plain property. Reading it does not subscribe a view to
+    /// updates; observe `clock` for that.
+    var currentTime: TimeInterval {
+        get { clock.time }
+        set { clock.time = newValue }
+    }
     @Published var duration:    TimeInterval = 0
     @Published var isScrubbing  = false
 
@@ -175,12 +262,36 @@ class MusicService: ObservableObject {
     @Published var shuffleMode:           ShuffleMode = .off
     @Published var currentPlaylistID:     String?
     @Published var currentPodcastShowTitle: String?
-    @Published var recentlyAdded:  [AppTrack] = []
-    @Published var recentlyPlayed: [AppTrack] = []
+    @Published var recentlyAdded:  [AppTrack] = [] { didSet { recentlyAddedSectionLetters = Self.sectionLetters(recentlyAdded.map(\.title)) } }
+    @Published var recentlyPlayed: [AppTrack] = [] { didSet { recentlyPlayedSectionLetters = Self.sectionLetters(recentlyPlayed.map(\.title)) } }
+
+    // MARK: - Section Letters
+    //
+    // Parallel to the lists above: the letter each row files under. Not published —
+    // they only ever change alongside their list, which already publishes.
+
+    private(set) var songSectionLetters:           [String] = []
+    private(set) var albumSectionLetters:          [String] = []
+    private(set) var artistSectionLetters:         [String] = []
+    private(set) var recentlyAddedSectionLetters:  [String] = []
+    private(set) var recentlyPlayedSectionLetters: [String] = []
+
+    private static func sectionLetters(_ names: [String]) -> [String] {
+        names.map { AppHelpers.firstLetter(of: $0) }
+    }
+
+    // MARK: - Queue
+
+    /// Mirror of the player's queue, kept so the Queue screen can list and rearrange
+    /// Up Next. See PlaybackQueue for why the app has to hold its own copy.
+    @Published private(set) var playbackQueue = PlaybackQueue()
+
+    /// The tracks waiting to play after the current one.
+    var upNext: [AppTrack] { playbackQueue.upNext }
 
     // MARK: - Private
 
-    private let player = MPMusicPlayerController.systemMusicPlayer
+    private let player = MPMusicPlayerController.applicationQueuePlayer
     private var playbackStateObserver: NSObjectProtocol?
     private var nowPlayingObserver:    NSObjectProtocol?
     private var libraryChangeObserver: NSObjectProtocol?
@@ -189,9 +300,56 @@ class MusicService: ObservableObject {
     private static let maxRetryAttempts = 3
     private static let retryDelays: [TimeInterval] = [0, 2, 5]
 
+    /// How long after handing the player a queue its now-playing reports are treated
+    /// as unsettled. See `setPlayerQueue`.
+    private static let queueSettlingWindow: TimeInterval = 3
+    private var queueSettlingUntil: Date?
+
+    /// Queue edits sent to the player that have not reported back yet.
+    private var pendingQueueTransactions = 0
+
+    // MARK: - Queue Windowing
+    //
+    // An application queue player serialises every item of its queue across to the
+    // media server, so it cannot be handed a whole library: giving it ~6,400 songs
+    // timed the XPC connection out ("ping did not pong") and blocked the main thread
+    // for tens of seconds on every queue call. Only a window around the chosen track
+    // is queued, and the rest of the list is fed in as playback approaches the end.
+
+    /// Tracks handed to the player at once when playback starts or is topped up.
+    private static let queueWindowSize = 150
+    /// Tracks kept behind the chosen one, so skipping back still works.
+    private static let queueHistorySize = 25
+    /// Up Next length at which the next chunk of the source list is queued.
+    private static let queueRefillThreshold = 25
+    /// Ceiling on a single add. Comfortably larger than any album and most playlists,
+    /// and small enough that the resulting queue stays far below the size that
+    /// overwhelmed the player.
+    private static let maxTracksPerAdd = 200
+
+    /// The full list playback started from, and how far into it the player's queue
+    /// already reaches.
+    private var queueSourceTracks: [AppTrack] = []
+    private var queueSourceNextIndex = 0
+
+    /// True while the player is still settling onto a newly set queue.
+    private var isQueueSettling: Bool {
+        guard let queueSettlingUntil else { return false }
+        guard Date() < queueSettlingUntil else {
+            self.queueSettlingUntil = nil
+            return false
+        }
+        return true
+    }
+
     /// Snapshot of the media library's modification date at the time of the last
     /// successful load, so foreground refreshes can skip redundant work.
     private var lastLibraryModifiedDate: Date?
+
+    /// On-device items from the last load, keyed by normalised title + artist. Kept so
+    /// tracks fetched later — album and playlist contents — can be matched to a local
+    /// item too. Written during a load, read from any thread afterwards.
+    private var localItemIndex: [String: MPMediaItem] = [:]
     private var subscriptionObserverTask: Task<Void, Never>?
     private var subscriptionRetryTask: Task<Void, Never>?
     /// Backoff for re-checking the subscription after `itunescloudd` was unreachable.
@@ -199,16 +357,85 @@ class MusicService: ObservableObject {
     /// The in-flight load, if any. Scanning a large library is expensive and several
     /// triggers can fire at once at launch, so concurrent callers share one load.
     @MainActor private var loadTask: Task<Void, Never>?
+    /// True while the published library is the copy restored from LibraryCache rather
+    /// than a live load. Restored objects carry no MusicKit or MPMediaItem handles, so
+    /// anything that needs one waits for the live load first — see `liveAlbum(for:)`.
+    private var isShowingCachedLibrary = false
 
     // MARK: - Init
 
     init() {
         Task {
-            await checkCurrentStatus()
+            // Player state first. This used to run after the library load, so launching
+            // while music was playing left Now Playing blank until the whole library had
+            // been scanned. `setupNotifications` reads the player's current state, which
+            // starts the progress ticker through `isPlaying` if something is playing.
             setupNotifications()
-            startPlaybackTimeUpdates()
+            await restoreCachedLibrary()
+            await checkCurrentStatus()
         }
         observeSubscriptionUpdates()
+    }
+
+    // MARK: - Launch Cache
+
+    /// Publishes the library saved by the previous launch, so the menus are populated
+    /// straight away. The live load that follows replaces it.
+    private func restoreCachedLibrary() async {
+        guard Self.hasAnyLibraryAccess else {
+            // Access was revoked since the cache was written.
+            LibraryCache.clear()
+            return
+        }
+        guard let restored = await LibraryCache.load(), !restored.snapshot.isEmpty else { return }
+        // A load that finished while the cache was being read is newer — keep it.
+        guard !hasLoadedLibrary else { return }
+
+        publish(restored.snapshot, source: restored.source)
+        isShowingCachedLibrary = true
+        hasLoadedLibrary = true
+    }
+
+    /// Replaces the published library in one go and re-points `currentTrack` at the
+    /// new copy of whatever is playing.
+    private func publish(_ snapshot: LibrarySnapshot, source: MusicLibrarySource) {
+        songs          = snapshot.songs
+        albums         = snapshot.albums
+        artists        = snapshot.artists
+        playlists      = snapshot.playlists
+        recentlyAdded  = snapshot.recentlyAdded
+        recentlyPlayed = snapshot.recentlyPlayed
+        librarySource  = source
+        if let nowPlaying = player.nowPlayingItem {
+            currentTrack = libraryTrack(for: nowPlaying) ?? currentTrack
+        }
+    }
+
+    /// Waits for an in-flight live load when the library on screen is still the
+    /// cached copy. Returns immediately otherwise.
+    private func waitForLiveLibrary() async {
+        guard isShowingCachedLibrary, let loadTask else { return }
+        await loadTask.value
+    }
+
+    /// The live counterpart of an album, playlist or artist the user picked from the
+    /// cached library, which has no MusicKit object to expand and no artwork.
+    private func liveAlbum(for album: AppAlbum) async -> AppAlbum {
+        guard isShowingCachedLibrary else { return album }
+        await waitForLiveLibrary()
+        return albums.first { $0.id == album.id } ?? album
+    }
+
+    private func livePlaylist(for playlist: AppPlaylist) async -> AppPlaylist {
+        guard isShowingCachedLibrary else { return playlist }
+        await waitForLiveLibrary()
+        return playlists.first { $0.id == playlist.id } ?? playlist
+    }
+
+    private func liveArtist(for artist: AppArtist) async -> AppArtist {
+        guard isShowingCachedLibrary else { return artist }
+        await waitForLiveLibrary()
+        return artists.first { $0.id == artist.id } ?? artist
     }
 
     // MARK: - Authorization
@@ -453,39 +680,68 @@ class MusicService: ObservableObject {
             if delay > 0 { try? await Task.sleep(for: .seconds(delay)) }
         }
 
-        // The on-device library is the baseline. It needs no network, no subscription,
-        // and it is the only source of podcasts.
-        var local = loadLocalSongs()
-        let podcastShowsFound = loadPodcastShows()
+        let playableOnly = !subscriptionStateAllowsCatalogPlayback
+        let hadNothingOnScreen = isLibraryEmpty
 
-        // MusicKit is layered on top when it has anything to offer. A throw here is not
-        // fatal as long as the local snapshot found something.
+        // All three sources are read concurrently and off the main thread. They used to
+        // run one after another on the main thread, which froze the interface on every
+        // launch. The on-device library is the baseline: it needs no network and no
+        // subscription, and it is the only source of podcasts. MusicKit is layered on
+        // top when it has anything to offer.
+        async let localScan     = LibraryScanner.scanLocal(playableOnly: playableOnly)
+        async let podcastScan   = LibraryScanner.scanPodcasts()
+        async let musicKitFetch = LibraryScanner.fetchMusicKitLibrary()
+
+        // Podcasts are never cached, so they go on screen the moment they exist.
+        let podcastShowsFound = await podcastScan
+        setPodcastShowsIfChanged(podcastShowsFound)
+
+        var local = await localScan
+
+        // With nothing on screen yet — a first launch, or no usable cache — show the
+        // on-device songs now instead of after MusicKit's round trips. Skipped when the
+        // cached library is showing, which would only swap it for a partial one.
+        if hadNothingOnScreen && !local.snapshot.songs.isEmpty {
+            songs          = local.snapshot.songs
+            recentlyAdded  = local.snapshot.recentlyAdded
+            recentlyPlayed = local.snapshot.recentlyPlayed
+        }
+
+        // A throw here is not fatal as long as the local snapshot found something.
         var musicKit: LibrarySnapshot?
         var musicKitError: Error?
         do {
-            musicKit = try await loadMusicKitSnapshot(localItemIndex: local.mpItemIndex)
+            let library = try await musicKitFetch
+            musicKit = await LibraryScanner.musicKitSnapshot(from: library, local: local)
         } catch {
             musicKitError = error
         }
 
-        // Grouping the on-device library into albums, artists and playlists is the
-        // expensive part, so it only runs for the collections MusicKit did not supply.
-        if musicKit?.albums.isEmpty ?? true || musicKit?.artists.isEmpty ?? true || musicKit?.playlists.isEmpty ?? true {
-            local.addLocalCollections(
-                needsAlbums:    musicKit?.albums.isEmpty ?? true,
-                needsArtists:   musicKit?.artists.isEmpty ?? true,
-                needsPlaylists: musicKit?.playlists.isEmpty ?? true,
-                isPlayable:     localItemFilter
+        // Grouping the on-device library into albums, artists and playlists only runs
+        // for the collections MusicKit did not supply.
+        let needsAlbums    = musicKit?.albums.isEmpty ?? true
+        let needsArtists   = musicKit?.artists.isEmpty ?? true
+        let needsPlaylists = musicKit?.playlists.isEmpty ?? true
+        if needsAlbums || needsArtists || needsPlaylists {
+            let collections = await LibraryScanner.localCollections(
+                from: local,
+                needsAlbums: needsAlbums,
+                needsArtists: needsArtists,
+                needsPlaylists: needsPlaylists,
+                playableOnly: playableOnly
             )
+            local.snapshot.albums    = collections.albums
+            local.snapshot.artists   = collections.artists
+            local.snapshot.playlists = collections.playlists
         }
 
-        let merged = LibrarySnapshot.merging(preferred: musicKit, fallback: local)
+        let merged = LibrarySnapshot.merging(preferred: musicKit, fallback: local.snapshot)
         let source = LibrarySnapshot.source(preferred: musicKit, merged: merged)
 
         // -1 for a MusicKit count means the request threw rather than returned empty.
         logger.notice("""
             Load attempt \(attempt + 1)/\(Self.maxRetryAttempts) — \
-            local: \(local.songs.count) songs/\(local.albums.count) albums/\(local.playlists.count) playlists, \
+            local: \(local.snapshot.songs.count) songs/\(local.snapshot.albums.count) albums/\(local.snapshot.playlists.count) playlists, \
             musicKit: \(musicKit?.songs.count ?? -1) songs/\(musicKit?.albums.count ?? -1) albums/\(musicKit?.playlists.count ?? -1) playlists, \
             podcasts: \(podcastShowsFound.count)\(musicKitError.map { " — musicKit error: \($0.localizedDescription)" } ?? "")
             """)
@@ -500,10 +756,14 @@ class MusicService: ObservableObject {
                     await loadLibraryAttempt(attempt: attempt + 1)
                     return
                 }
-                await MainActor.run {
-                    self.isLoading = false
-                    self.hasLoadedLibrary = true
-                    self.lastError = loadError
+                isLoading = false
+                hasLoadedLibrary = true
+                // The cached library is still a better thing to show than an error
+                // about a library the user can already see.
+                if isShowingCachedLibrary {
+                    logger.notice("Live load failed — keeping the cached library on screen")
+                } else {
+                    lastError = loadError
                 }
                 return
             }
@@ -523,250 +783,73 @@ class MusicService: ObservableObject {
             logger.info("MusicKit library unavailable, using on-device library: \(musicKitError.localizedDescription)")
         }
 
-        let modifiedDate = MPMediaLibrary.default().lastModifiedDate
+        // Replacing the library redraws every screen, so skip it when a refresh found
+        // exactly what is already showing. The cached copy is always replaced, though:
+        // it lacks the live artwork and MusicKit handles.
+        let isUnchanged = !isShowingCachedLibrary && matchesPublishedLibrary(merged, source: source)
+        if isUnchanged {
+            logger.info("Refresh found no changes — keeping the published library")
+        } else {
+            publish(merged, source: source)
+        }
+        isLoading               = false
+        hasLoadedLibrary        = true
+        lastError               = nil
+        lastLibraryModifiedDate = MPMediaLibrary.default().lastModifiedDate
+        localItemIndex          = merged.mpItemIndex
+        isShowingCachedLibrary  = false
+        logger.notice("Loaded \(self.songs.count) songs, \(self.albums.count) albums, \(self.artists.count) artists, \(self.playlists.count) playlists, \(self.podcastShows.count) podcasts from \(String(describing: source)) [subscription: \(String(describing: self.subscriptionState))]")
 
-        await MainActor.run {
-            self.songs          = merged.songs
-            self.albums         = merged.albums
-            self.artists        = merged.artists
-            self.playlists      = merged.playlists
-            self.recentlyAdded  = merged.recentlyAdded
-            self.recentlyPlayed = merged.recentlyPlayed
-            self.podcastShows   = podcastShowsFound
-            self.librarySource  = source
-            self.isLoading      = false
-            self.hasLoadedLibrary = true
-            self.lastError      = nil
-            self.lastLibraryModifiedDate = modifiedDate
-            logger.notice("Loaded \(self.songs.count) songs, \(self.albums.count) albums, \(self.artists.count) artists, \(self.playlists.count) playlists, \(self.podcastShows.count) podcasts from \(String(describing: source)) [subscription: \(String(describing: self.subscriptionState))]")
+        // Written in the background so nothing waiting on this load waits on the disk.
+        // `save` itself skips the write when the file already holds this library.
+        if !isUnchanged {
+            Task { await LibraryCache.save(merged, source: source) }
         }
     }
 
-    // MARK: - Library Snapshots
+    // MARK: - Change Detection
 
-    // An immutable view of one source's contribution to the library. Built off the main
-    // actor and merged before a single publish, so the UI never sees a half-populated
-    // library.
-    private struct LibrarySnapshot {
-        var songs:          [AppTrack]    = []
-        var albums:         [AppAlbum]    = []
-        var artists:        [AppArtist]   = []
-        var playlists:      [AppPlaylist] = []
-        var recentlyAdded:  [AppTrack]    = []
-        var recentlyPlayed: [AppTrack]    = []
-        /// Local MPMediaItems keyed by normalised title + artist, used to attach a
-        /// playback handle to MusicKit-sourced tracks.
-        var mpItemIndex: [String: MPMediaItem] = [:]
-
-        var isEmpty: Bool {
-            songs.isEmpty && albums.isEmpty && artists.isEmpty && playlists.isEmpty
-        }
-
-        /// Prefers the MusicKit snapshot per collection, falling back to local content
-        /// for anything MusicKit did not return.
-        static func merging(preferred: LibrarySnapshot?, fallback: LibrarySnapshot) -> LibrarySnapshot {
-            guard let preferred else { return fallback }
-            var merged = LibrarySnapshot()
-            merged.songs          = preferred.songs.isEmpty          ? fallback.songs          : preferred.songs
-            merged.albums         = preferred.albums.isEmpty         ? fallback.albums         : preferred.albums
-            merged.artists        = preferred.artists.isEmpty        ? fallback.artists        : preferred.artists
-            merged.playlists      = preferred.playlists.isEmpty      ? fallback.playlists      : preferred.playlists
-            merged.recentlyAdded  = preferred.recentlyAdded.isEmpty  ? fallback.recentlyAdded  : preferred.recentlyAdded
-            merged.recentlyPlayed = preferred.recentlyPlayed.isEmpty ? fallback.recentlyPlayed : preferred.recentlyPlayed
-            return merged
-        }
-
-        static func source(
-            preferred: LibrarySnapshot?,
-            merged: LibrarySnapshot
-        ) -> MusicLibrarySource {
-            if merged.isEmpty { return .none }
-            guard let preferred, !preferred.isEmpty else { return .localMedia }
-            // Mixed only when a collection actually fell through to the local snapshot.
-            let usedFallback =
-                (preferred.songs.isEmpty     && !merged.songs.isEmpty)     ||
-                (preferred.albums.isEmpty    && !merged.albums.isEmpty)    ||
-                (preferred.artists.isEmpty   && !merged.artists.isEmpty)   ||
-                (preferred.playlists.isEmpty && !merged.playlists.isEmpty)
-            return usedFallback ? .mixed : .appleMusic
-        }
-
-        /// Groups the on-device library into albums, artists and playlists. Only the
-        /// collections MusicKit failed to supply are built, since this is the expensive
-        /// part of a local load.
-        mutating func addLocalCollections(
-            needsAlbums: Bool,
-            needsArtists: Bool,
-            needsPlaylists: Bool,
-            isPlayable: (MPMediaItem) -> Bool
-        ) {
-            if needsAlbums {
-                albums = (MPMediaQuery.albums().collections ?? [])
-                    .compactMap { collection -> AppAlbum? in
-                        let items = collection.items.filter(isPlayable)
-                        guard let representative = items.first else { return nil }
-                        return AppAlbum(from: representative, tracks: items.map { AppTrack(from: $0) })
-                    }
-                    .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-            }
-
-            if needsArtists {
-                artists = (MPMediaQuery.artists().collections ?? [])
-                    .compactMap { collection -> AppArtist? in
-                        let items = collection.items.filter(isPlayable)
-                        guard let representative = items.first else { return nil }
-                        // Group the artist's tracks into albums so ArtistDetailView has
-                        // content without needing an (impossible) MusicKit round trip.
-                        let albums = Dictionary(grouping: items, by: { $0.albumPersistentID })
-                            .compactMap { _, albumItems -> AppAlbum? in
-                                guard let albumRepresentative = albumItems.first else { return nil }
-                                return AppAlbum(
-                                    from: albumRepresentative,
-                                    tracks: albumItems.map { AppTrack(from: $0) }
-                                )
-                            }
-                            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-                        return AppArtist(from: representative, albums: albums)
-                    }
-                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            }
-
-            if needsPlaylists {
-                playlists = (MPMediaQuery.playlists().collections ?? [])
-                    .compactMap { collection -> AppPlaylist? in
-                        guard let playlist = collection as? MPMediaPlaylist else { return nil }
-                        let items = playlist.items.filter(isPlayable)
-                        guard !items.isEmpty else { return nil }
-                        return AppPlaylist(from: playlist, tracks: items.map { AppTrack(from: $0) })
-                    }
-                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    /// True when `snapshot` would put the same rows on screen as the published library.
+    /// Compares what the rows show, not just ids, so a renamed song still counts.
+    private func matchesPublishedLibrary(_ snapshot: LibrarySnapshot, source: MusicLibrarySource) -> Bool {
+        func sameTracks(_ lhs: [AppTrack], _ rhs: [AppTrack]) -> Bool {
+            lhs.elementsEqual(rhs) {
+                $0.id == $1.id && $0.title == $1.title
+                    && $0.artistName == $1.artistName && $0.albumTitle == $1.albumTitle
             }
         }
-    }
-
-    /// Normalised key for matching a MusicKit song to its on-device counterpart.
-    private static func matchKey(title: String, artist: String) -> String {
-        "\(title.lowercased())\u{1}\(artist.lowercased())"
-    }
-
-    // MARK: - On-Device Library (MPMediaQuery)
-
-    /// Without a subscription, cloud items that were never downloaded cannot play.
-    /// Hiding them keeps every row in the interface actually playable.
-    private var localItemFilter: (MPMediaItem) -> Bool {
-        let playableOnly = !subscriptionStateAllowsCatalogPlayback
-        return { item in
-            guard playableOnly else { return true }
-            return !item.isCloudItem || item.assetURL != nil
-        }
-    }
-
-    /// Songs, recents and the playback index. Cheap enough to run on every load, and
-    /// the index is what lets playback skip a per-track MPMediaQuery later.
-    private func loadLocalSongs() -> LibrarySnapshot {
-        var snapshot = LibrarySnapshot()
-        let isPlayable = localItemFilter
-
-        let songItems = (MPMediaQuery.songs().items ?? []).filter(isPlayable)
-        guard !songItems.isEmpty else { return snapshot }
-
-        snapshot.songs = songItems
-            .sorted { ($0.title ?? "").localizedCaseInsensitiveCompare($1.title ?? "") == .orderedAscending }
-            .map { AppTrack(from: $0) }
-
-        snapshot.mpItemIndex = Dictionary(
-            songItems.map { (Self.matchKey(title: $0.title ?? "", artist: $0.artist ?? ""), $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
-
-        snapshot.recentlyAdded = songItems
-            .sorted { $0.dateAdded > $1.dateAdded }
-            .prefix(25)
-            .map { AppTrack(from: $0) }
-
-        snapshot.recentlyPlayed = songItems
-            .filter { $0.lastPlayedDate != nil }
-            .sorted { ($0.lastPlayedDate ?? .distantPast) > ($1.lastPlayedDate ?? .distantPast) }
-            .prefix(25)
-            .map { AppTrack(from: $0) }
-
-        return snapshot
-    }
-
-    private func loadPodcastShows() -> [PodcastShow] {
-        let items = MPMediaQuery.podcasts().items ?? []
-        let grouped = Dictionary(grouping: items) {
-            $0.podcastTitle ?? $0.albumTitle ?? "Unknown Podcast"
-        }
-        return grouped
-            .map { title, episodes in
-                PodcastShow(title: title, episodes: episodes.sorted { $0.dateAdded > $1.dateAdded })
+        return source == librarySource
+            && sameTracks(songs, snapshot.songs)
+            && sameTracks(recentlyAdded, snapshot.recentlyAdded)
+            && sameTracks(recentlyPlayed, snapshot.recentlyPlayed)
+            && albums.elementsEqual(snapshot.albums) {
+                $0.id == $1.id && $0.title == $1.title && $0.artistName == $1.artistName
+                    && sameTracks($0.preloadedTracks, $1.preloadedTracks)
             }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            && artists.elementsEqual(snapshot.artists) {
+                $0.id == $1.id && $0.name == $1.name
+                    && $0.preloadedAlbums.map(\.id) == $1.preloadedAlbums.map(\.id)
+            }
+            && playlists.elementsEqual(snapshot.playlists) {
+                $0.id == $1.id && $0.name == $1.name
+                    && sameTracks($0.preloadedTracks, $1.preloadedTracks)
+            }
     }
 
-    /// Reads `subscriptionState` without hopping to the main actor. `.unknown` is treated
-    /// as "might be able to stream", so we don't hide cloud items before the check lands.
+    /// Publishes podcast shows only when they differ from what is showing. PodcastShow
+    /// equality is by title alone, so episodes are compared here too — a new episode
+    /// has to get through.
+    private func setPodcastShowsIfChanged(_ shows: [PodcastShow]) {
+        let unchanged = podcastShows.elementsEqual(shows) {
+            $0.title == $1.title && $0.episodes.map(\.persistentID) == $1.episodes.map(\.persistentID)
+        }
+        if !unchanged { podcastShows = shows }
+    }
+
+    /// Reads `subscriptionState` for the load. `.unknown` is treated as "might be able
+    /// to stream", so cloud items are not hidden before the check lands.
     private var subscriptionStateAllowsCatalogPlayback: Bool {
         subscriptionState != .notSubscribed
-    }
-
-    // MARK: - Apple Music Library (MusicKit)
-
-    private func loadMusicKitSnapshot(localItemIndex: [String: MPMediaItem]) async throws -> LibrarySnapshot {
-        var snapshot = LibrarySnapshot()
-
-        var songReq = MusicLibraryRequest<Song>()
-        songReq.limit = 25000
-        let songResp = try await songReq.response()
-
-        var albumReq = MusicLibraryRequest<Album>()
-        albumReq.limit = 5000
-        let albumResp = try await albumReq.response()
-
-        var artistReq = MusicLibraryRequest<Artist>()
-        artistReq.limit = 5000
-        let artistResp = try await artistReq.response()
-
-        var playlistReq = MusicLibraryRequest<Playlist>()
-        playlistReq.limit = 2000
-        let playlistResp = try await playlistReq.response()
-
-        // Attaching the local MPMediaItem up front means playback never has to run a
-        // title query later, which was both slow and prone to matching the wrong item.
-        func attachLocal(_ track: AppTrack) -> AppTrack {
-            track.attaching(mpItem: localItemIndex[Self.matchKey(title: track.title, artist: track.artistName)])
-        }
-
-        snapshot.songs     = songResp.items.map { attachLocal(AppTrack(from: $0)) }
-        snapshot.albums    = albumResp.items.map { AppAlbum(from: $0) }
-        snapshot.artists   = artistResp.items.map { AppArtist(from: $0) }
-        snapshot.playlists = playlistResp.items.map { AppPlaylist(from: $0) }
-
-        // Recency lives in the on-device library, so order by MPMediaItem dates and use
-        // the matching MusicKit song for its catalogue artwork where one exists.
-        let songsByKey = Dictionary(
-            snapshot.songs.map { (Self.matchKey(title: $0.title, artist: $0.artistName), $0) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        func upgrade(_ item: MPMediaItem) -> AppTrack {
-            songsByKey[Self.matchKey(title: item.title ?? "", artist: item.artist ?? "")]
-                ?? AppTrack(from: item)
-        }
-
-        let localItems = Array(localItemIndex.values)
-        snapshot.recentlyAdded = localItems
-            .sorted { $0.dateAdded > $1.dateAdded }
-            .prefix(25)
-            .map(upgrade)
-
-        snapshot.recentlyPlayed = localItems
-            .filter { $0.lastPlayedDate != nil }
-            .sorted { ($0.lastPlayedDate ?? .distantPast) > ($1.lastPlayedDate ?? .distantPast) }
-            .prefix(25)
-            .map(upgrade)
-
-        return snapshot
     }
 
     // MARK: - Track/Album/Artist Loading
@@ -775,11 +858,24 @@ class MusicService: ObservableObject {
     // because there is no MusicKit object to expand. They are also the fallback when a
     // MusicKit expansion fails or comes back empty.
 
+    /// Attaches the on-device item for a track when the library has one.
+    ///
+    /// The library load does this for the Songs list, but album and playlist contents
+    /// are fetched separately and so arrive with no media item at all. Without this
+    /// they fall through to `mediaItem(for:)`'s exact-title query, which misses songs
+    /// the user owns whenever the catalogue and local titles differ even slightly —
+    /// and a track with no item is dropped from playback entirely.
+    private func attachingLocalItem(to track: AppTrack) -> AppTrack {
+        track.attaching(mpItem: localItemIndex[LibraryScanner.matchKey(title: track.title, artist: track.artistName)])
+    }
+
     func loadTracks(for album: AppAlbum) async -> [AppTrack] {
+        // Picked from the cached library: it has no MusicKit album to expand.
+        let album = await liveAlbum(for: album)
         guard let mkAlbum = album.musicKitAlbum else { return album.preloadedTracks }
         do {
             let detailed = try await mkAlbum.with([.tracks])
-            let tracks = (detailed.tracks ?? []).map { AppTrack(from: $0) }
+            let tracks = (detailed.tracks ?? []).map { attachingLocalItem(to: AppTrack(from: $0)) }
             return tracks.isEmpty ? album.preloadedTracks : tracks
         } catch {
             logger.error("Failed to load tracks for album '\(album.title)': \(error)")
@@ -788,10 +884,11 @@ class MusicService: ObservableObject {
     }
 
     func loadTracks(for playlist: AppPlaylist) async -> [AppTrack] {
+        let playlist = await livePlaylist(for: playlist)
         guard let mkPlaylist = playlist.musicKitPlaylist else { return playlist.preloadedTracks }
         do {
             let detailed = try await mkPlaylist.with([.tracks])
-            let tracks = (detailed.tracks ?? []).map { AppTrack(from: $0) }
+            let tracks = (detailed.tracks ?? []).map { attachingLocalItem(to: AppTrack(from: $0)) }
             return tracks.isEmpty ? playlist.preloadedTracks : tracks
         } catch {
             logger.error("Failed to load tracks for playlist '\(playlist.name)': \(error)")
@@ -800,6 +897,7 @@ class MusicService: ObservableObject {
     }
 
     func loadAlbums(for artist: AppArtist) async -> [AppAlbum] {
+        let artist = await liveArtist(for: artist)
         guard let mkArtist = artist.musicKitArtist else { return artist.preloadedAlbums }
         do {
             let detailed = try await mkArtist.with([.albums])
@@ -813,52 +911,420 @@ class MusicService: ObservableObject {
 
     // MARK: - Playback
 
-    func play(tracks: [AppTrack], startingAt index: Int = 0, playlistID: String? = nil) async {
-        guard index < tracks.count else { return }
+    @discardableResult
+    func play(tracks: [AppTrack], startingAt index: Int = 0, playlistID: String? = nil) async -> PlaybackStartOutcome {
+        guard index < tracks.count else { return .nothingPlayable }
         logger.info("Starting playback: \(tracks.count) track(s), index \(index)")
 
-        var mediaItems: [MPMediaItem] = []
-        for track in tracks {
-            if let item = getMPMediaItem(for: track) {
-                mediaItems.append(item)
-            }
-        }
-        guard !mediaItems.isEmpty else {
+        // Only a window around the chosen track goes to the player; the rest is fed in
+        // by refillQueueIfNeeded() as playback gets near the end of it. Resolving media
+        // items for just the window also keeps the per-track MPMediaQuery fallback from
+        // running thousands of times before the first note plays.
+        let windowStart = max(0, index - Self.queueHistorySize)
+        let windowEnd = min(tracks.count, index + Self.queueWindowSize)
+        // Tracks with no media item behind them cannot be queued, so the requested
+        // start position is resolved against the tracks that survived the filter
+        // rather than reused as-is — a dropped earlier track would otherwise shift
+        // playback onto the wrong song.
+        let window = await Self.resolveForPlayback(Array(tracks[windowStart..<windowEnd]))
+        guard !window.items.isEmpty else {
             logger.warning("No MPMediaItems resolved for playback queue")
-            return
+            return .nothingPlayable
         }
 
-        let startItem = index < mediaItems.count ? mediaItems[index] : mediaItems[0]
+        // The chosen track being missing from the resolved window means it has nothing
+        // the player can queue. Falling back to another track would quietly play a song
+        // the user did not pick, so this reports the failure instead.
+        guard let startIndex = window.tracks.firstIndex(of: tracks[index]) else {
+            logger.warning("Cannot play '\(tracks[index].title)' — no media item backs it")
+            return .trackUnavailable
+        }
+
         await MainActor.run {
-            player.setQueue(with: MPMediaItemCollection(items: mediaItems))
-            player.nowPlayingItem = startItem
-            player.play()
-            currentTrack = tracks[min(index, tracks.count - 1)]
+            queueSourceTracks = tracks
+            queueSourceNextIndex = windowEnd
+            playbackQueue = PlaybackQueue(tracks: window.tracks, currentIndex: startIndex)
+            setPlayerQueue(items: window.items, startItem: window.items[startIndex], thenPlay: true)
+            currentTrack = window.tracks[startIndex]
             isPlaying = true
             currentPlaylistID = playlistID
             currentPodcastShowTitle = nil
-            logger.info("Now playing: \(tracks[min(index, tracks.count - 1)].title)")
+            logger.info("Queued \(window.items.count) of \(tracks.count) track(s); now playing: \(window.tracks[startIndex].title)")
+        }
+        return .started
+    }
+
+    /// Attaches a media item to each track, dropping the ones that cannot be played.
+    /// Returns the survivors and their items in matching order. Runs off the main
+    /// thread, because the per-track lookup can hit MPMediaQuery.
+    @concurrent
+    private nonisolated static func resolveForPlayback(_ tracks: [AppTrack]) async -> (tracks: [AppTrack], items: [MPMediaItem]) {
+        var resolvedTracks: [AppTrack] = []
+        var items: [MPMediaItem] = []
+        for track in tracks {
+            guard let item = mediaItem(for: track) else { continue }
+            resolvedTracks.append(track.attaching(mpItem: item))
+            items.append(item)
+        }
+        return (resolvedTracks, items)
+    }
+
+    /// Tops the player's queue up from the list playback started with, so a windowed
+    /// queue still plays through a whole library. Main thread only.
+    private func refillQueueIfNeeded() {
+        guard queueSourceNextIndex < queueSourceTracks.count,
+              playbackQueue.upNextCount <= Self.queueRefillThreshold,
+              pendingQueueTransactions == 0 else { return }
+
+        let end = min(queueSourceTracks.count, queueSourceNextIndex + Self.queueWindowSize)
+        let slice = Array(queueSourceTracks[queueSourceNextIndex..<end])
+        // Claim the range before doing any work, so the next now-playing notification
+        // cannot start a second refill of the same tracks.
+        queueSourceNextIndex = end
+        let remaining = queueSourceTracks.count - end
+
+        Task { [weak self] in
+            guard let self else { return }
+            let chunk = await Self.resolveForPlayback(slice)
+            guard !chunk.items.isEmpty else { return }
+            await MainActor.run {
+                for track in chunk.tracks { self.playbackQueue.append(track) }
+                // Read on the main thread: a music player must not be touched from
+                // inside the transaction block.
+                let currentItem = self.player.nowPlayingItem
+                logger.info("Refilled queue with \(chunk.items.count) item(s), \(remaining) left to come")
+                self.performQueueTransaction("refill \(chunk.items.count) item(s)") { queue in
+                    queue.insert(Self.queueDescriptor(for: chunk.items), after: queue.items.last)
+
+                    // Drop long-since-played tracks. Without this the queue only ever
+                    // grows, and playing through a large library would end up back at
+                    // the size that overwhelmed the player in the first place.
+                    guard let currentItem,
+                          let currentIndex = queue.items.firstIndex(where: {
+                              $0.persistentID == currentItem.persistentID
+                          }),
+                          currentIndex > Self.queueHistorySize else { return }
+                    let stale = Array(queue.items.prefix(currentIndex - Self.queueHistorySize))
+                    for item in stale { queue.remove(item) }
+                }
+            }
         }
     }
 
-    func play(track: AppTrack) async {
+    @discardableResult
+    func play(track: AppTrack) async -> PlaybackStartOutcome {
         await play(tracks: [track], startingAt: 0)
     }
+
+    /// Plays a whole collection from the top, or in a random order. The list itself is
+    /// shuffled rather than the player's shuffle mode switched on, because the player
+    /// only ever holds a window of the queue and could only shuffle within that.
+    ///
+    /// No particular track was asked for here, so an unplayable first track just moves
+    /// the start on to the next one instead of failing the way picking a row does.
+    @discardableResult
+    func playAll(tracks: [AppTrack], shuffled: Bool, playlistID: String? = nil) async -> PlaybackStartOutcome {
+        let ordered = shuffled ? tracks.shuffled() : tracks
+        var outcome = PlaybackStartOutcome.nothingPlayable
+        for index in ordered.indices {
+            outcome = await play(tracks: ordered, startingAt: index, playlistID: playlistID)
+            if outcome != .trackUnavailable { break }
+        }
+        return outcome
+    }
+
+#if DEBUG
+    // MARK: - Catalogue Spike Hooks
+    //
+    // The player is private, so these hand it to CatalogueQueueSpike. Compiled out of
+    // release builds; delete along with the spike. See Docs/CATALOGUE-QUEUE-SPIKE.md.
+
+    @MainActor
+    func spikeAppendAsCatalogue(_ track: AppTrack) {
+        CatalogueQueueSpike.appendToCurrentQueue(track, player: player)
+    }
+
+    @MainActor
+    func spikePlayAllAsCatalogue(_ tracks: [AppTrack], startingAt index: Int) {
+        CatalogueQueueSpike.playAllAsCatalogue(tracks, startingAt: index, player: player)
+    }
+
+    @MainActor
+    func spikeReportNowPlaying() {
+        CatalogueQueueSpike.reportNowPlaying(player: player)
+    }
+#endif
 
     func playPodcastEpisodes(items: [MPMediaItem], startingAt index: Int = 0, podcastShowTitle: String? = nil) async {
         guard !items.isEmpty, index < items.count else { return }
         logger.info("Playing podcast '\(podcastShowTitle ?? "unknown")': \(items.count) episode(s) at index \(index)")
         let startItem = items[index]
         await MainActor.run {
-            let collection  = MPMediaItemCollection(items: items)
-            let descriptor  = MPMusicPlayerMediaItemQueueDescriptor(itemCollection: collection)
-            descriptor.startItem = startItem
-            player.setQueue(with: descriptor)
-            player.prepareToPlay()
-            player.play()
+            // An episode list is short enough to queue whole, and clearing the source
+            // stops a previous song queue from refilling podcast playback with music.
+            queueSourceTracks = []
+            queueSourceNextIndex = 0
+            playbackQueue = PlaybackQueue(tracks: items.map { AppTrack(from: $0) }, currentIndex: index)
+            setPlayerQueue(items: items, startItem: startItem, thenPlay: true)
             isPlaying = true
             currentPlaylistID = nil
             currentPodcastShowTitle = podcastShowTitle
+        }
+    }
+
+    // MARK: - Queue
+
+    /// Adds a track to the bottom of the queue, or starts playing it when nothing is
+    /// playing. The model is updated first so the Queue screen reacts immediately, then
+    /// the same change is made to the player's queue in place — playback is untouched.
+    @discardableResult
+    func addToQueue(_ track: AppTrack, placement: QueuePlacement = .last) async -> QueueAddOutcome {
+        await addToQueue(tracks: [track], placement: placement)
+    }
+
+    /// Adds tracks to the bottom of the queue in one edit, keeping their order — this
+    /// is how a whole album or playlist is queued.
+    ///
+    /// Unplayable tracks are skipped rather than failing the whole add, and counted in
+    /// the outcome so the UI can say that a collection went in partly. The add is
+    /// capped at `maxTracksPerAdd`: a queue transaction carries every item across to
+    /// the media server, and an unbounded add would put us back where a whole library
+    /// in one queue did (`_establishConnectionIfNeeded timeout`, seconds of frozen UI).
+    @discardableResult
+    func addToQueue(tracks: [AppTrack], placement: QueuePlacement = .last) async -> QueueAddOutcome {
+        guard !tracks.isEmpty else { return .unavailable }
+
+        let accepted = Array(tracks.prefix(Self.maxTracksPerAdd))
+        let overflow = tracks.count - accepted.count
+        // Resolution can fall back to a per-track MPMediaQuery, so keep it off the
+        // main thread — a 200-track album would be a visible stall otherwise.
+        let resolved = await Self.resolveForPlayback(accepted)
+        let skipped = (accepted.count - resolved.items.count) + overflow
+
+        guard !resolved.items.isEmpty else {
+            logger.warning("Cannot queue \(tracks.count) track(s) — nothing playable behind them")
+            return .unavailable
+        }
+
+        let isIdle = await MainActor.run { player.nowPlayingItem == nil }
+        guard !isIdle else {
+            // Nothing playing, so the tracks start rather than waiting their turn —
+            // but only report that if playback actually started.
+            let started = await play(tracks: resolved.tracks) == .started
+            return started ? .startedPlaying(count: resolved.tracks.count, skipped: skipped) : .unavailable
+        }
+
+        return await MainActor.run {
+            // The player is playing something the model doesn't know about — only
+            // possible if a queue was set outside `play(tracks:)`. Seed the model so
+            // the new tracks have something to sit behind.
+            if playbackQueue.isEmpty, let nowPlaying = player.nowPlayingItem {
+                playbackQueue = PlaybackQueue(tracks: [AppTrack(from: nowPlaying)])
+            }
+            switch placement {
+            case .last:
+                for track in resolved.tracks { playbackQueue.append(track) }
+                performQueueTransaction("append \(resolved.items.count) track(s)") { queue in
+                    queue.insert(Self.queueDescriptor(for: resolved.items), after: queue.items.last)
+                }
+
+            case .next:
+                // Read before the model changes and on the main thread: a music player
+                // must not be touched from inside the transaction block.
+                let currentItem = player.nowPlayingItem
+                let modelIndex = playbackQueue.currentIndex
+                playbackQueue.insertUpNext(resolved.tracks)
+                performQueueTransaction("insert \(resolved.items.count) track(s) next") { queue in
+                    // The same song can sit in the queue more than once, so anchor to the
+                    // copy nearest the model's current position rather than the first
+                    // one, which may be long since played.
+                    let anchor = currentItem.flatMap { current in
+                        queue.items.indices
+                            .filter { queue.items[$0].persistentID == current.persistentID }
+                            .min { abs($0 - modelIndex) < abs($1 - modelIndex) }
+                            .map { queue.items[$0] }
+                    }
+                    // Without an anchor the best available is the bottom: never in
+                    // front of the song that is playing.
+                    queue.insert(Self.queueDescriptor(for: resolved.items), after: anchor ?? queue.items.last)
+                }
+            }
+            logger.info("Queued \(resolved.items.count) track(s) \(placement == .next ? "next" : "last"), skipped \(skipped); Up Next is now \(self.playbackQueue.upNextCount)")
+            return .queued(count: resolved.tracks.count, skipped: skipped)
+        }
+    }
+
+    /// Moves an Up Next track within the model only, leaving the player alone so
+    /// carrying a row through the list stays instant. Call `commitQueueMove(to:)` once
+    /// the move is committed. Main thread only.
+    func reorderUpNext(from origin: Int, to destination: Int) {
+        playbackQueue.moveUpNext(from: origin, to: destination)
+    }
+
+    /// Applies a finished reorder to the player: the moved track is taken out of the
+    /// queue and put back after whatever now precedes it in the model, both inside one
+    /// transaction so the change is atomic and playback continues untouched.
+    /// Main thread only.
+    func commitQueueMove(to offset: Int) {
+        let upNext = playbackQueue.upNext
+        guard upNext.indices.contains(offset), let movedItem = upNext[offset].mpItem else { return }
+        // Up Next offset 0 sits directly after the current track, so there is always a
+        // preceding track to anchor the insert to.
+        let precedingItem = playbackQueue.tracks[playbackQueue.currentIndex + offset].mpItem
+
+        logger.info("Moving '\(upNext[offset].title)' to Up Next position \(offset + 1)")
+        performQueueTransaction("move '\(upNext[offset].title)'") { queue in
+            guard let existing = queue.items.first(where: { $0.persistentID == movedItem.persistentID }) else { return }
+            let anchor = precedingItem.flatMap { preceding in
+                queue.items.first { $0.persistentID == preceding.persistentID }
+            }
+            queue.remove(existing)
+            queue.insert(Self.queueDescriptor(for: [existing]), after: anchor)
+        }
+    }
+
+    /// Removes an Up Next track from the model and the player's queue.
+    /// Main thread only.
+    @discardableResult
+    func removeFromQueue(at offset: Int) -> AppTrack? {
+        guard let removed = playbackQueue.removeUpNext(at: offset) else { return nil }
+        logger.info("Removed '\(removed.title)' from the queue")
+        if let item = removed.mpItem {
+            performQueueTransaction("remove '\(removed.title)'") { queue in
+                guard let existing = queue.items.first(where: { $0.persistentID == item.persistentID }) else { return }
+                queue.remove(existing)
+            }
+        }
+        return removed
+    }
+
+    /// Empties Up Next, leaving the current track playing. Returns how many tracks
+    /// were dropped. Main thread only.
+    @discardableResult
+    func clearQueue() -> Int {
+        let removed = playbackQueue.removeAllUpNext()
+        guard removed > 0 else { return 0 }
+
+        // Forget the list playback came from as well. Clearing only the loaded window
+        // would leave the refill free to put the rest of that library straight back,
+        // which is not what "clear the queue" can reasonably mean.
+        queueSourceTracks = []
+        queueSourceNextIndex = 0
+
+        // Read on the main thread: a music player must not be touched from inside the
+        // transaction block.
+        let currentItem = player.nowPlayingItem
+        performQueueTransaction("clear \(removed) item(s)") { queue in
+            let upcoming: [MPMediaItem]
+            if let currentItem,
+               let currentIndex = queue.items.firstIndex(where: { $0.persistentID == currentItem.persistentID }) {
+                upcoming = Array(queue.items.suffix(from: currentIndex + 1))
+            } else {
+                // Nothing is playing, so there is no track to keep.
+                upcoming = queue.items
+            }
+            for item in upcoming { queue.remove(item) }
+        }
+        logger.info("Cleared \(removed) track(s) from the queue")
+        return removed
+    }
+
+    /// Runs one queue edit against the player and reconciles the model with the result.
+    ///
+    /// Editing in place is the reason the app uses `applicationQueuePlayer`: the whole
+    /// point is that adding or reordering never interrupts what is playing. The queue
+    /// reported to the completion handler is authoritative, so the model is rebuilt
+    /// from it rather than trusting that the edit landed exactly as asked.
+    private func performQueueTransaction(
+        _ description: String,
+        _ edit: @escaping (MPMusicPlayerControllerMutableQueue) -> Void
+    ) {
+        pendingQueueTransactions += 1
+        player.perform(queueTransaction: edit) { [weak self] queue, error in
+            // The queue object must not escape the handler, so read it here and hand
+            // the plain items over to the main thread.
+            let items = queue.items
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.pendingQueueTransactions -= 1
+                if let error {
+                    logger.error("Queue transaction (\(description)) failed: \(error.localizedDescription)")
+                }
+                // Queueing several songs in a row leaves earlier transactions
+                // reporting a queue that is already out of date, so only the last one
+                // still in flight gets to rewrite the model.
+                guard self.pendingQueueTransactions == 0 else { return }
+                self.syncQueueModel(with: items)
+                // Removing the tail of Up Next can leave the queue short enough to
+                // need topping up again.
+                self.refillQueueIfNeeded()
+            }
+        }
+    }
+
+    /// Rebuilds the queue model from the player's actual queue, keeping the richer
+    /// AppTrack the app already holds for each item so MusicKit artwork and metadata
+    /// are not downgraded to what MPMediaItem alone can say. Main thread only.
+    private func syncQueueModel(with items: [MPMediaItem]) {
+        guard !items.isEmpty else {
+            playbackQueue = PlaybackQueue()
+            return
+        }
+        let known = Dictionary(
+            playbackQueue.tracks.compactMap { track in track.mpItem.map { ($0.persistentID, track) } },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let tracks = items.map { known[$0.persistentID] ?? AppTrack(from: $0) }
+        let currentIndex = player.nowPlayingItem
+            .flatMap { nowPlaying in items.firstIndex { $0.persistentID == nowPlaying.persistentID } }
+            ?? playbackQueue.currentIndex
+        playbackQueue = PlaybackQueue(tracks: tracks, currentIndex: currentIndex)
+    }
+
+    private static func queueDescriptor(for items: [MPMediaItem]) -> MPMusicPlayerMediaItemQueueDescriptor {
+        MPMusicPlayerMediaItemQueueDescriptor(itemCollection: MPMediaItemCollection(items: items))
+    }
+
+    /// Replaces the player's queue wholesale. Only starting fresh playback does this —
+    /// changes to an existing queue are edits, made through `performQueueTransaction`.
+    ///
+    /// A new queue makes the player briefly report a missing or stale now-playing item;
+    /// `queueSettlingUntil` stops those transient notifications from being read as
+    /// "playback left our queue", which would throw away the queue being applied.
+    ///
+    /// `thenPlay` starts playback immediately and then, once the player confirms the
+    /// queue, checks it landed on the right track.
+    ///
+    /// Starting from inside `prepareToPlay`'s completion instead looked tidier but left
+    /// playback dead whenever that handler was slow or never arrived — every control
+    /// that starts a song went with it. Playing first and correcting after is worse in
+    /// theory and far more robust in practice: `setQueue` can be accepted after `play()`
+    /// has begun, leaving the player on the head of the queue rather than on
+    /// `startItem`, and that case is repaired rather than prevented.
+    private func setPlayerQueue(items: [MPMediaItem], startItem: MPMediaItem, thenPlay: Bool = false) {
+        let descriptor = MPMusicPlayerMediaItemQueueDescriptor(
+            itemCollection: MPMediaItemCollection(items: items)
+        )
+        descriptor.startItem = startItem
+        queueSettlingUntil = Date().addingTimeInterval(Self.queueSettlingWindow)
+        player.setQueue(with: descriptor)
+
+        guard thenPlay else {
+            player.prepareToPlay()
+            return
+        }
+        player.play()
+        player.prepareToPlay { [weak self] error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let error {
+                    logger.error("Preparing the queue failed: \(error.localizedDescription)")
+                }
+                guard self.player.nowPlayingItem?.persistentID != startItem.persistentID else { return }
+                logger.notice("Queue settled on the wrong track — moving to '\(startItem.title ?? "unknown")'")
+                self.player.nowPlayingItem = startItem
+                self.player.play()
+            }
         }
     }
 
@@ -913,16 +1379,28 @@ class MusicService: ObservableObject {
     // MARK: - Podcasts
 
     func refreshPodcasts() async {
-        let shows = loadPodcastShows()
-        await MainActor.run { self.podcastShows = shows }
+        // Runs on every visit to the Podcasts screen, so an unchanged scan must not
+        // republish and redraw everything.
+        setPodcastShowsIfChanged(await LibraryScanner.scanPodcasts())
     }
 
     // MARK: - MPMediaItem Lookup (by persistent ID for reliability)
 
-    private func getMPMediaItem(for track: AppTrack) -> MPMediaItem? {
+    private nonisolated static func mediaItem(for track: AppTrack) -> MPMediaItem? {
         // Locally-sourced tracks (and MusicKit tracks matched at load time) already
         // carry their item, which is both faster and exact.
         if let item = track.mpItem { return item }
+
+        // Restored from the launch cache: the item is gone but its persistent ID is
+        // not, and looking that up is exact where the title match below is not.
+        if let persistentID = track.mpPersistentID {
+            let query = MPMediaQuery()
+            query.addFilterPredicate(MPMediaPropertyPredicate(
+                value: NSNumber(value: persistentID),
+                forProperty: MPMediaItemPropertyPersistentID
+            ))
+            if let item = query.items?.first { return item }
+        }
 
         let query = MPMediaQuery.songs()
         query.addFilterPredicate(
@@ -941,6 +1419,13 @@ class MusicService: ObservableObject {
 
     private func setupNotifications() {
         player.beginGeneratingPlaybackNotifications()
+
+        // An untouched player reports `.default` — "whatever the user prefers" — which
+        // can mean shuffle is already on before the app has played anything. Pinning
+        // both modes to the app's own starting state keeps the first queue playing in
+        // the order the Queue screen shows.
+        player.shuffleMode = shuffleMode.mpShuffleMode
+        player.repeatMode  = repeatMode.mpRepeatMode
 
         // The media library can finish becoming available after our first load attempt,
         // which is the usual reason a fresh install comes up empty. This is the signal
@@ -970,38 +1455,93 @@ class MusicService: ObservableObject {
 
     private func updatePlaybackState() {
         isPlaying = (player.playbackState == .playing)
+        syncPlaybackModesFromPlayer()
         updateNowPlayingInfoCenter()
+    }
+
+    /// Reads shuffle and repeat back off the player.
+    ///
+    /// MediaPlayer handles remote control events for an application player itself, so
+    /// these can change without the app asking — from the lock screen, CarPlay or a
+    /// headset. Reading them back keeps Now Playing honest, and matters for the queue:
+    /// with shuffle on the player picks its own next track rather than the one at the
+    /// top of Up Next.
+    private func syncPlaybackModesFromPlayer() {
+        let playerRepeat  = RepeatMode(mpRepeatMode: player.repeatMode)
+        let playerShuffle = ShuffleMode(mpShuffleMode: player.shuffleMode)
+        if playerRepeat  != repeatMode  { repeatMode  = playerRepeat }
+        if playerShuffle != shuffleMode { shuffleMode = playerShuffle }
     }
 
     private func updateNowPlayingItem() {
         currentMediaItem = player.nowPlayingItem
         guard let nowPlaying = player.nowPlayingItem else {
             currentTrack = nil; duration = 0
+            // `playbackQueue` is deliberately left alone. The player reports no item
+            // both while a new queue is being applied and once the last track ends,
+            // and neither is a reason to throw away what the user queued up.
             updateNowPlayingInfoCenter()
             return
         }
         duration = nowPlaying.playbackDuration
-        if let track = songs.first(where: { $0.mpItem?.persistentID == nowPlaying.persistentID }) {
-            currentTrack = track
-        } else if let track = songs.first(where: {
-            $0.title == nowPlaying.title && $0.artistName == nowPlaying.artist
-        }) {
-            currentTrack = track
-        } else if let track = songs.first(where: { $0.title == nowPlaying.title }) {
-            currentTrack = track
-        } else {
-            currentTrack = nil
+#if DEBUG
+        // Answers Q3 of the catalogue spike as tracks change, without needing a
+        // trigger at the right moment. Delete with the spike.
+        logger.notice("""
+            Q3 — nowPlayingItem persistentID=\(nowPlaying.persistentID) \
+            isCloud=\(nowPlaying.isCloudItem) title=\(nowPlaying.title ?? "nil")
+            """)
+#endif
+        // Advance the queue cursor to whatever is playing now.
+        if playbackQueue.advanceCurrent(toPersistentID: nowPlaying.persistentID) {
+            queueSettlingUntil = nil
+            refillQueueIfNeeded()
+        } else if !isQueueSettling {
+            // Playback moved to a track outside our queue — started from the Music
+            // app, or the system carried on past the end of ours — so the model has
+            // to follow rather than keep describing a queue that is no longer playing.
+            logger.notice("Playback left the app's queue — resetting the queue model")
+            playbackQueue = PlaybackQueue(tracks: [AppTrack(from: nowPlaying)])
         }
+        currentTrack = libraryTrack(for: nowPlaying)
         updateNowPlayingInfoCenter()
+    }
+
+    /// The library's track for a media item: by persistent ID, then title and artist,
+    /// then title alone.
+    private func libraryTrack(for item: MPMediaItem) -> AppTrack? {
+        songs.first(where: { $0.mpPersistentID == item.persistentID })
+            ?? songs.first(where: { $0.title == item.title && $0.artistName == item.artist })
+            ?? songs.first(where: { $0.title == item.title })
     }
 
     // MARK: - Playback Time Updates
 
-    private func startPlaybackTimeUpdates() {
+    /// Runs the progress ticker only while something is playing.
+    ///
+    /// It used to start at launch and run until the service was deallocated, waking the
+    /// main thread twice a second forever to republish a time that was not moving. That
+    /// costs battery for nothing, and it means the app never goes idle — which UI tests
+    /// wait for before every single query.
+    private func syncPlaybackTimeTicker() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.syncPlaybackTimeTicker() }
+            return
+        }
+
+        guard isPlaying else {
+            playbackTimeUpdateTimer?.invalidate()
+            playbackTimeUpdateTimer = nil
+            return
+        }
+        guard playbackTimeUpdateTimer == nil else { return }
+
         playbackTimeUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             guard let self, !self.isScrubbing else { return }
             let time = self.player.currentPlaybackTime
-            DispatchQueue.main.async { self.currentTime = time }
+            // The timer fires on the main run loop already. Skipping unchanged values
+            // keeps a paused-but-ticking edge case from republishing the same time.
+            if self.clock.time != time { self.clock.time = time }
         }
     }
 

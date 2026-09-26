@@ -93,6 +93,36 @@ The App ID `com.pinkhatcreations.lyreapp` must also have the MusicKit service en
 | Tap left zone | Restart track or skip to previous |
 | Tap right zone | Skip to next track |
 | Center circle | Select / confirm |
+| Swipe right on center circle | Add the highlighted song to the queue |
+
+### Queue
+
+Swipe right on the center circle to queue whatever the highlighted row stands for:
+
+| Where | What gets queued |
+|-------|------------------|
+| Songs, Recently Added, Recently Played | the highlighted song |
+| An album's or playlist's track list, a podcast's episodes | the highlighted track |
+| **Albums** | the whole album |
+| **Playlists** | the whole playlist |
+
+Each addition goes to the bottom of the queue, and a banner confirms it on screen. With nothing playing, what you added starts playing instead of waiting. If part of a collection can't be played, the banner says how much went in ("Queued 9 of 12").
+
+In the **Artwork Carousel**, open a sleeve and the liner tracklist works the same way by touch: tap a track to play it, swipe it right to queue it.
+
+**Menu → Queue** lists what is playing followed by Up Next, and is also where the order is changed:
+
+| Action | How |
+|--------|-----|
+| Pick up a song | Press Center on the highlighted row |
+| Move it | Rotate the wheel — the song travels with the cursor |
+| Put it down | Press Center (or Menu) again |
+| Remove a song | Swipe right on the center circle |
+| Clear the queue | Scroll up past the first song to **Clear Queue**, then press Center |
+
+Queue changes are edited into the player's queue in place, so nothing interrupts playback. If shuffle is on, the player picks its own next track rather than the top of Up Next, and the Queue screen says so.
+
+The player is only ever given a window of the list being played (25 tracks behind the current one, 150 ahead), topped up as playback advances — an application queue player cannot be handed thousands of items at once. So a song added while playing a large library lands at the bottom of that window, not of the whole library.
 
 ### Now Playing Screen
 
@@ -108,6 +138,7 @@ The App ID `com.pinkhatcreations.lyreapp` must also have the MusicKit service en
 ```
 Menu
 ├── Now Playing
+├── Queue
 ├── Songs
 ├── Recently Added
 ├── Recently Played
@@ -143,6 +174,7 @@ Lyre/
 │   ├── AppMusicModels.swift       # AppTrack, AppAlbum, AppArtist wrappers
 │   ├── ModelsLyreScreen.swift     # LyreScreen enum (all navigation states)
 │   ├── ModelsSelectionState.swift # SelectionState struct for memory
+│   ├── ModelsPlaybackQueue.swift  # PlaybackQueue — Up Next model + reordering
 │   ├── ModelsRepeatMode.swift     # RepeatMode enum
 │   ├── ModelsShuffleMode.swift    # ShuffleMode enum
 │   ├── LyreTheme.swift            # Theme colors + factory
@@ -161,6 +193,7 @@ Lyre/
     ├── SelectionHighlightModifier.swift  # Glass-edge refraction on selection bars
     ├── NowPlayingView.swift       # Now Playing screen
     ├── MainMenuView.swift         # Main menu
+    ├── QueueView.swift            # Queue screen — Up Next list + reorder cursor
     ├── SongListView.swift         # Songs list
     ├── AlbumListView.swift        # Albums list
     ├── AlbumDetailView.swift      # Album track list
@@ -179,7 +212,7 @@ Lyre/
 ### Key Design Decisions
 
 - **No Combine** — All async work uses Swift async/await
-- **MusicKit for the catalogue**, **MediaPlayer (`MPMusicPlayerController.systemMusicPlayer`) for playback** — both handled in `MusicService`. Because playback runs in the system music process, the app declares no `audio` background mode
+- **MusicKit for the catalogue**, **MediaPlayer (`MPMusicPlayerController.applicationQueuePlayer`) for playback** — both handled in `MusicService`. The app owns its queue, which is what makes Up Next editable in place; it declares the `audio` background mode so playback survives backgrounding, and playback ends when the app is terminated
 - **Navigation is a stack** (`[LyreScreen]`) managed in `LyreView`, operated by `ScrollWheelView` via bindings
 - **Selection memory** is a `[LyreScreen: SelectionState]` dictionary — O(1) save/restore on every screen transition
 - **ThemeSettings** is an `@Observable` class held in `LyreView` and passed down as a reference — changes propagate immediately

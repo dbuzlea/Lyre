@@ -22,12 +22,15 @@ import MediaPlayer
 // only source of artwork and the only reliable handle for queueing playback.
 //
 // All four types use id-based Equatable/Hashable so they work safely in Sets and as
-// Dictionary keys without requiring @MainActor isolation. The `nonisolated` annotations
-// on `==` and `hash(into:)` satisfy Swift Concurrency's strict actor-isolation rules.
+// Dictionary keys.
+//
+// The types are `nonisolated`. The target defaults every declaration to the main actor,
+// and these are built in bulk by LibraryScanner off the main thread — a main-actor
+// initialiser would drag the whole library scan back onto the main thread.
 
 // MARK: - AppTrack
 
-struct AppTrack: Identifiable, Hashable {
+nonisolated struct AppTrack: Identifiable, Hashable {
     let id: String
     let title: String
     let artistName: String
@@ -38,17 +41,23 @@ struct AppTrack: Identifiable, Hashable {
     /// Local MediaPlayer item backing this track, when one exists. Used directly for
     /// playback queueing and as the artwork source for non-subscribers.
     let mpItem: MPMediaItem?
+    /// Persistent ID of the local item. Kept separately from `mpItem` because it is the
+    /// only part that survives the launch cache: a track restored from disk has no live
+    /// item, and this is what lets playback look the exact item up again.
+    let mpPersistentID: MPMediaEntityPersistentID?
 
     init(
         id: String, title: String, artistName: String, albumTitle: String,
         duration: TimeInterval,
         musicKitSong: Song? = nil, musicKitTrack: Track? = nil,
-        mpItem: MPMediaItem? = nil
+        mpItem: MPMediaItem? = nil,
+        mpPersistentID: MPMediaEntityPersistentID? = nil
     ) {
         self.id = id; self.title = title; self.artistName = artistName
         self.albumTitle = albumTitle; self.duration = duration
         self.musicKitSong = musicKitSong; self.musicKitTrack = musicKitTrack
         self.mpItem = mpItem
+        self.mpPersistentID = mpPersistentID ?? mpItem?.persistentID
     }
 
     /// Returns a copy with `mpItem` attached, preserving all other metadata.
@@ -61,13 +70,13 @@ struct AppTrack: Identifiable, Hashable {
         )
     }
 
-    nonisolated static func == (lhs: AppTrack, rhs: AppTrack) -> Bool { lhs.id == rhs.id }
-    nonisolated func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: AppTrack, rhs: AppTrack) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 // MARK: - AppAlbum
 
-struct AppAlbum: Identifiable, Hashable {
+nonisolated struct AppAlbum: Identifiable, Hashable {
     let id: String
     let title: String
     let artistName: String
@@ -88,13 +97,13 @@ struct AppAlbum: Identifiable, Hashable {
         self.preloadedTracks = preloadedTracks
     }
 
-    nonisolated static func == (lhs: AppAlbum, rhs: AppAlbum) -> Bool { lhs.id == rhs.id }
-    nonisolated func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: AppAlbum, rhs: AppAlbum) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 // MARK: - AppArtist
 
-struct AppArtist: Identifiable, Hashable {
+nonisolated struct AppArtist: Identifiable, Hashable {
     let id: String
     let name: String
     let musicKitArtist: Artist?
@@ -112,13 +121,13 @@ struct AppArtist: Identifiable, Hashable {
         self.preloadedAlbums = preloadedAlbums
     }
 
-    nonisolated static func == (lhs: AppArtist, rhs: AppArtist) -> Bool { lhs.id == rhs.id }
-    nonisolated func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: AppArtist, rhs: AppArtist) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 // MARK: - AppPlaylist
 
-struct AppPlaylist: Identifiable, Hashable {
+nonisolated struct AppPlaylist: Identifiable, Hashable {
     let id: String
     let name: String
     let curatorName: String?
@@ -138,13 +147,13 @@ struct AppPlaylist: Identifiable, Hashable {
         self.preloadedTracks = preloadedTracks
     }
 
-    nonisolated static func == (lhs: AppPlaylist, rhs: AppPlaylist) -> Bool { lhs.id == rhs.id }
-    nonisolated func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: AppPlaylist, rhs: AppPlaylist) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }
 
 // MARK: - MusicKit Convenience Initializers
 
-extension AppTrack {
+nonisolated extension AppTrack {
     init(from song: Song) {
         self.init(
             id: song.id.rawValue, title: song.title,
@@ -181,7 +190,7 @@ extension AppTrack {
     }
 }
 
-extension AppAlbum {
+nonisolated extension AppAlbum {
     init(from album: Album) {
         self.init(
             id: album.id.rawValue, title: album.title, artistName: album.artistName,
@@ -190,7 +199,7 @@ extension AppAlbum {
     }
 }
 
-extension AppArtist {
+nonisolated extension AppArtist {
     init(from artist: Artist) {
         self.init(
             id: artist.id.rawValue, name: artist.name,
@@ -199,7 +208,7 @@ extension AppArtist {
     }
 }
 
-extension AppPlaylist {
+nonisolated extension AppPlaylist {
     init(from playlist: Playlist) {
         self.init(
             id: playlist.id.rawValue, name: playlist.name,
@@ -215,7 +224,7 @@ extension AppPlaylist {
 // source of library content for users without an active Apple Music subscription, and
 // they also back the local fallback whenever a MusicKit library request comes up empty.
 
-extension AppTrack {
+nonisolated extension AppTrack {
     init(from item: MPMediaItem) {
         self.init(
             id: "mp.\(item.persistentID)",
@@ -228,7 +237,7 @@ extension AppTrack {
     }
 }
 
-extension AppAlbum {
+nonisolated extension AppAlbum {
     /// Builds an album from a local album collection. `representative` supplies the
     /// album-level metadata and artwork; `tracks` are preloaded so the detail view
     /// never needs an (impossible) MusicKit round trip.
@@ -244,7 +253,7 @@ extension AppAlbum {
     }
 }
 
-extension AppArtist {
+nonisolated extension AppArtist {
     init(from representative: MPMediaItem, albums: [AppAlbum]) {
         self.init(
             id: "mp.artist.\(representative.artistPersistentID)",
@@ -255,7 +264,7 @@ extension AppArtist {
     }
 }
 
-extension AppPlaylist {
+nonisolated extension AppPlaylist {
     init(from playlist: MPMediaPlaylist, tracks: [AppTrack]) {
         self.init(
             id: "mp.playlist.\(playlist.persistentID)",

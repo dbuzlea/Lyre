@@ -134,7 +134,7 @@ struct ThemeSelectionView: View {
                         }
                     }
                 }
-                .frame(maxHeight: 140)
+                .frame(maxHeight: .infinity)
                 .onChange(of: selection) { oldValue, newValue in
                     withAnimation {
                         proxy.scrollTo(newValue, anchor: .center)
@@ -253,7 +253,7 @@ struct HighlightColorView: View {
                         }
                     }
                 }
-                .frame(maxHeight: 140)
+                .frame(maxHeight: .infinity)
                 .onChange(of: selection) { oldValue, newValue in
                     withAnimation {
                         proxy.scrollTo(newValue, anchor: .center)
@@ -277,7 +277,15 @@ struct HighlightColorView: View {
 
 struct AboutView: View {
     let themeSettings: ThemeSettings
-    
+
+    /// Marketing version plus build number from the bundle, e.g. "2.0 (3)".
+    private var versionString: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "2.0"
+        guard let build = info?["CFBundleVersion"] as? String else { return version }
+        return "\(version) (\(build))"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -306,7 +314,7 @@ struct AboutView: View {
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     
                     Text(String(localized: "about.version").replacingOccurrences(of: "%@",
-                        with: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"))
+                        with: versionString))
                         .font(.system(size: 11))
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                     
@@ -431,7 +439,7 @@ struct ScreenSizeSelectionView: View {
                         }
                     }
                 }
-                .frame(maxHeight: 140)
+                .frame(maxHeight: .infinity)
                 .onChange(of: selection) { oldValue, newValue in
                     withAnimation {
                         proxy.scrollTo(newValue, anchor: .center)

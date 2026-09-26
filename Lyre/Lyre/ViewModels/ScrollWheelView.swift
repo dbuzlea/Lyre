@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AudioToolbox
+import MediaPlayer
 import OSLog
 
 private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "ScrollWheel")
@@ -30,8 +31,11 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 // only commits to scroll mode once total angular delta crosses the threshold. This
 // prevents accidental scrolls when tapping near a button position.
 //
-// The center circle is a separate Button (handleSelect) that is not part of the
-// ring gesture layer.
+// The center circle has its own gesture layer, separate from the ring, which splits
+// the same two ways: a tap selects (handleSelect), while a rightward swipe adds the
+// highlighted song to the queue (handleCenterSwipeRight). It uses the same lazy
+// commit as the ring — the touch is a tap until it travels far enough sideways — so
+// a slightly sloppy press never queues a song by accident.
 //
 // Now Playing scrubbing — when scroll mode commits while the Now Playing screen is
 //   active, each scroll step seeks ±5 seconds through the track instead of moving
@@ -56,6 +60,10 @@ struct ScrollWheelView: View {
     @State private var totalAbsoluteAngularDelta: Double = 0
     @State private var lastRotationTime: Date = Date()
     @State private var angularVelocity: Double = 0
+    /// Generators for the per-step feedback, created once and prepared at the start of
+    /// each touch. A fresh generator per step paid the Taptic Engine's warm-up on every
+    /// tick, which is also what made some ticks land late.
+    @State private var haptics = WheelHaptics()
 
     // Button press states for visual feedback
     @State private var isMenuPressed = false
@@ -63,6 +71,10 @@ struct ScrollWheelView: View {
     @State private var isPreviousPressed = false
     @State private var isNextPressed = false
     @State private var isSelectPressed = false
+
+    // Center button gesture state (tap vs. swipe-right disambiguation)
+    @State private var isCenterDragging = false
+    @State private var centerSwipeFired = false
 
     // Touch imprint effect
     @State private var touchLocation: CGPoint = .zero
@@ -76,9 +88,14 @@ struct ScrollWheelView: View {
     @Binding var menuSelection: Int
     @Binding var songSelection: Int
     @Binding var detailSelection: Int
+    /// Up Next offset of the row being carried on the Queue screen; nil while browsing.
+    @Binding var queueMoveOffset: Int?
     let isHoldEnabled: Bool
     let onInteraction: () -> Void
-    
+    /// Shows a short message on the screen — the wheel has no display of its own, so
+    /// this is how a queue action is confirmed or a refusal to play is explained.
+    let onBanner: (String) -> Void
+
     // Constants for wheel interaction
     private let hapticStepSize: Double = 20.0 // Degrees per haptic tick
     private var scrollThreshold: Double { themeSettings.scrollSensitivity.scrollThreshold }
@@ -86,6 +103,9 @@ struct ScrollWheelView: View {
     // Angular movement (in degrees) before a touch is classified as a scroll rather than a tap.
     // Under this threshold the gesture ends as a tap; over it the ring enters scroll mode.
     private let scrollCommitAngle: Double = 5.0
+    // Sideways travel (in points) before a press on the center button is treated as a
+    // swipe rather than a tap.
+    private let centerSwipeCommitDistance: CGFloat = 26.0
     
     var body: some View {
         ZStack {
@@ -232,16 +252,23 @@ struct ScrollWheelView: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
             
-            // Center select button
-            Button(action: handleSelect) {
-                Circle()
-                    .fill(Color.clear)
-                    .frame(width: 110, height: 110)
-                    .contentShape(Circle())
-            }
-            .buttonStyle(PlainButtonPressStyle(isPressed: $isSelectPressed))
-            .accessibilityLabel("Select")
-            .accessibilityHint("Activate the current menu item")
+            // Center select button — a gesture layer rather than a Button so a tap and
+            // a rightward swipe (add to queue) can be told apart on the same surface.
+            Circle()
+                .fill(Color.clear)
+                .frame(width: 110, height: 110)
+                .contentShape(Circle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { handleCenterDragChanged(value: $0) }
+                        .onEnded { handleCenterDragEnded(value: $0) }
+                )
+                .accessibilityElement()
+                .accessibilityLabel("Select")
+                .accessibilityHint("Activate the current menu item. Swipe right to add the highlighted song to the queue")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { handleSelect() }
+                .accessibilityAction(named: "Add to Queue") { handleCenterSwipeRight() }
         }
         .frame(width: 280, height: 280)
     }
@@ -269,6 +296,7 @@ struct ScrollWheelView: View {
             lastHapticStep = 0
             angularVelocity = 0
             lastRotationTime = Date()
+            haptics.prepare()
             // Show visual press feedback for the button zone the touch started in
             updatePressedState(zone: WheelTapZone(angle: angle))
             touchLocation = value.location
@@ -313,9 +341,8 @@ struct ScrollWheelView: View {
 
         let currentStep = Int(abs(accumulatedRotation) / hapticStepSize)
         if currentStep > lastHapticStep {
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.prepare()
-            generator.impactOccurred(intensity: 0.6)
+            haptics.tick.impactOccurred(intensity: 0.6)
+            haptics.tick.prepare()
             lastHapticStep = currentStep
         }
 
@@ -356,6 +383,285 @@ struct ScrollWheelView: View {
             // on whichever button zone the touch started in.
             fireTap(zone: WheelTapZone(angle: touchStartAngle))
         }
+    }
+
+    // MARK: - Center Button Gesture
+
+    private func handleCenterDragChanged(value: DragGesture.Value) {
+        if isHoldEnabled { return }
+
+        if !isCenterDragging {
+            isCenterDragging = true
+            centerSwipeFired = false
+            isSelectPressed = true
+            onInteraction()
+        }
+
+        guard !centerSwipeFired else { return }
+
+        // A clearly rightward drag is "add to queue". Requiring the horizontal
+        // component to dominate keeps a finger sliding off the button diagonally from
+        // counting as a swipe.
+        if value.translation.width >= centerSwipeCommitDistance,
+           abs(value.translation.width) > abs(value.translation.height) {
+            centerSwipeFired = true
+            isSelectPressed = false
+            handleCenterSwipeRight()
+        }
+
+#if DEBUG
+        // Leftward swipe runs the catalogue queue spike against the highlighted row.
+        // Debug builds only — see Docs/CATALOGUE-QUEUE-SPIKE.md. Delete with the spike.
+        if value.translation.width <= -centerSwipeCommitDistance,
+           abs(value.translation.width) > abs(value.translation.height) {
+            centerSwipeFired = true
+            isSelectPressed = false
+            handleCenterSwipeLeft()
+        }
+#endif
+    }
+
+    private func handleCenterDragEnded(value: DragGesture.Value) {
+        defer {
+            isCenterDragging = false
+            centerSwipeFired = false
+            isSelectPressed = false
+        }
+        if isHoldEnabled || centerSwipeFired { return }
+
+        // Only a touch that stayed put counts as a press; anything else was a drag
+        // that never became a swipe, and does nothing.
+        if abs(value.translation.width) < centerSwipeCommitDistance,
+           abs(value.translation.height) < centerSwipeCommitDistance {
+            handleSelect()
+        }
+    }
+
+    // MARK: - Queue Actions
+
+    /// Swiping right on the center button queues whatever the highlighted row stands
+    /// for: a song on a song list, a whole album or playlist on the collection lists.
+    /// On the Queue screen itself it drops the row from the queue instead.
+    private func handleCenterSwipeRight() {
+        if isHoldEnabled { return }
+        onInteraction()
+
+        switch currentScreen {
+        case .songs:
+            queueSong(from: musicService.songs, at: songSelection)
+        case .recentlyAdded:
+            queueSong(from: musicService.recentlyAdded, at: songSelection)
+        case .recentlyPlayed:
+            queueSong(from: musicService.recentlyPlayed, at: songSelection)
+
+        case .albums:
+            guard musicService.albums.indices.contains(menuSelection) else { break }
+            let album = musicService.albums[menuSelection]
+            queueCollection(named: album.title) { await musicService.loadTracks(for: album) }
+
+        case .playlists:
+            let playlists = Array(musicService.playlists)
+            guard playlists.indices.contains(menuSelection) else { break }
+            let playlist = playlists[menuSelection]
+            queueCollection(named: playlist.name) { await musicService.loadTracks(for: playlist) }
+
+        // On the Play and Shuffle rows of a detail list the swipe queues the whole
+        // collection, the same as it does from the collection list.
+        case .albumDetail(let album) where detailSelection < PlayShuffleRows.count:
+            queueCollection(named: album.title) { await musicService.loadTracks(for: album) }
+        case .playlistDetail(let playlist) where detailSelection < PlayShuffleRows.count:
+            queueCollection(named: playlist.name) { await musicService.loadTracks(for: playlist) }
+        case .podcastDetail(let show) where detailSelection < PlayShuffleRows.count:
+            let episodes = show.episodes.map { AppTrack(from: $0) }
+            queueCollection(named: show.title) { episodes }
+
+        case .albumDetail(let album):
+            // The detail views load their own tracks, so the list has to be resolved
+            // again here; both calls hit the same cached/preloaded data.
+            let index = detailSelection - PlayShuffleRows.count
+            Task {
+                let tracks = await musicService.loadTracks(for: album)
+                await MainActor.run { queueSong(from: tracks, at: index) }
+            }
+        case .playlistDetail(let playlist):
+            let index = detailSelection - PlayShuffleRows.count
+            Task {
+                let tracks = await musicService.loadTracks(for: playlist)
+                await MainActor.run { queueSong(from: tracks, at: index) }
+            }
+        case .podcastDetail(let show):
+            queueSong(from: show.episodes.map { AppTrack(from: $0) },
+                      at: detailSelection - PlayShuffleRows.count)
+        case .queue:
+            removeSelectedFromQueue()
+        default:
+            // Nothing queueable on this screen.
+            bumpFeedback()
+        }
+    }
+
+#if DEBUG
+    /// Runs whichever catalogue-spike question suits the current screen, so the four
+    /// answers can be gathered on a real library without building any UI for them:
+    ///
+    ///   song lists / album detail → Q1+Q2, append the highlighted track to the live
+    ///                               queue using play parameters
+    ///   playlist detail           → Q4, replace the queue with the whole playlist as
+    ///                               play parameters
+    ///   Now Playing               → Q3, report the now-playing item on demand
+    ///
+    /// Debug builds only. Delete with CatalogueQueueSpike.
+    private func handleCenterSwipeLeft() {
+        if isHoldEnabled { return }
+        onInteraction()
+        successFeedback()
+
+        switch currentScreen {
+        case .songs:
+            spikeAppend(from: musicService.songs, at: songSelection)
+        case .recentlyAdded:
+            spikeAppend(from: musicService.recentlyAdded, at: songSelection)
+        case .recentlyPlayed:
+            spikeAppend(from: musicService.recentlyPlayed, at: songSelection)
+        case .albumDetail(let album):
+            let index = detailSelection - PlayShuffleRows.count
+            Task {
+                let tracks = await musicService.loadTracks(for: album)
+                await MainActor.run { spikeAppend(from: tracks, at: index) }
+            }
+        case .playlistDetail(let playlist):
+            let index = detailSelection - PlayShuffleRows.count
+            Task {
+                let tracks = await musicService.loadTracks(for: playlist)
+                await MainActor.run {
+                    guard tracks.indices.contains(index) else { return }
+                    musicService.spikePlayAllAsCatalogue(tracks, startingAt: index)
+                    onBanner("Spike: Q4 all-catalogue queue")
+                }
+            }
+        case .nowPlaying:
+            musicService.spikeReportNowPlaying()
+            onBanner("Spike: Q3 logged")
+        default:
+            bumpFeedback()
+        }
+    }
+
+    private func spikeAppend(from tracks: [AppTrack], at index: Int) {
+        guard tracks.indices.contains(index) else {
+            bumpFeedback()
+            return
+        }
+        musicService.spikeAppendAsCatalogue(tracks[index])
+        onBanner("Spike: Q1/Q2 appended")
+    }
+#endif
+
+    private func queueSong(from tracks: [AppTrack], at index: Int) {
+        guard tracks.indices.contains(index) else {
+            bumpFeedback()
+            return
+        }
+        let track = tracks[index]
+        Task {
+            let outcome = await musicService.addToQueue(track)
+            await MainActor.run {
+                switch outcome {
+                case .queued:
+                    successFeedback()
+                    onBanner(String(format: String(localized: "queue.added"), track.title))
+                case .startedPlaying:
+                    successFeedback()
+                    onBanner(String(format: String(localized: "queue.playing"), track.title))
+                case .unavailable:
+                    bumpFeedback()
+                    onBanner(String(localized: "queue.unavailable"))
+                }
+            }
+        }
+    }
+
+    /// Queues a whole album or playlist. The contents are loaded first — a collection
+    /// row knows its name but not its tracks — and the banner reports a partial add
+    /// rather than letting a half-queued album look complete.
+    private func queueCollection(named name: String, tracks load: @escaping () async -> [AppTrack]) {
+        Task {
+            let tracks = await load()
+            let outcome = await musicService.addToQueue(tracks: tracks)
+            await MainActor.run {
+                switch outcome {
+                case .queued(let count, _), .startedPlaying(let count, _):
+                    successFeedback()
+                    if outcome.isPartial {
+                        onBanner(String(format: String(localized: "queue.addedPartial"),
+                                        count, tracks.count, name))
+                    } else if case .startedPlaying = outcome {
+                        onBanner(String(format: String(localized: "queue.playing"), name))
+                    } else {
+                        onBanner(String(format: String(localized: "queue.added"), name))
+                    }
+                case .unavailable:
+                    bumpFeedback()
+                    onBanner(String(localized: "queue.collectionUnavailable"))
+                }
+            }
+        }
+    }
+
+    private func removeSelectedFromQueue() {
+        guard let removed = musicService.removeFromQueue(at: songSelection) else {
+            bumpFeedback()
+            return
+        }
+        // A carried row is no longer where the user left it, so drop it.
+        queueMoveOffset = nil
+        // Keep the cursor on the row that slid up into the removed one's place.
+        songSelection = min(songSelection, max(0, musicService.upNext.count - 1))
+        successFeedback()
+        onBanner(String(format: String(localized: "queue.removed"), removed.title))
+    }
+
+    private func clearQueue() {
+        let removed = musicService.clearQueue()
+        guard removed > 0 else {
+            bumpFeedback()
+            return
+        }
+        songSelection = 0
+        successFeedback()
+        onBanner(String(localized: "queue.cleared"))
+    }
+
+    /// Moves the carried row by one position, returning false at the ends of the list.
+    private func moveCarriedQueueRow(by delta: Int) -> Bool {
+        guard let origin = queueMoveOffset else { return false }
+        let destination = origin + delta
+        guard (0..<musicService.upNext.count).contains(destination) else { return false }
+        musicService.reorderUpNext(from: origin, to: destination)
+        queueMoveOffset = destination
+        songSelection = destination
+        return true
+    }
+
+    /// Puts the carried row down and commits its new position to the player.
+    private func dropCarriedQueueRow() {
+        guard let offset = queueMoveOffset else { return }
+        queueMoveOffset = nil
+        musicService.commitQueueMove(to: offset)
+        onBanner(String(localized: "queue.reordered"))
+    }
+
+    private func successFeedback() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.success)
+    }
+
+    /// The same "you've hit a wall" tap used at the ends of a list.
+    private func bumpFeedback() {
+        let generator = UIImpactFeedbackGenerator(style: .rigid)
+        generator.prepare()
+        generator.impactOccurred(intensity: 0.4)
     }
 
     private enum WheelTapZone {
@@ -423,6 +729,17 @@ struct ScrollWheelView: View {
             } else {
                 didScroll = false
             }
+        case .queue:
+            // While carrying a row the wheel moves the song, not the cursor. The Clear
+            // Queue row sits above the first song, so the cursor stops there.
+            if queueMoveOffset != nil {
+                didScroll = moveCarriedQueueRow(by: -1)
+            } else if !musicService.upNext.isEmpty, songSelection > QueueView.clearRowOffset {
+                songSelection -= 1
+                didScroll = true
+            } else {
+                didScroll = false
+            }
         case .albums, .playlists, .artists, .podcasts, .settings, .themeSelection, .screenSizeSelection, .highlightColorSelection, .scrollSensitivitySelection, .clickSoundSelection, .backlightDurationSelection:
             if menuSelection > 0 {
                 menuSelection -= 1
@@ -451,13 +768,11 @@ struct ScrollWheelView: View {
             if themeSettings.clickSoundEnabled {
                 AudioServicesPlaySystemSound(1104)
             }
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.prepare()
-            generator.impactOccurred()
+            haptics.step.impactOccurred()
+            haptics.step.prepare()
         } else {
-            let generator = UIImpactFeedbackGenerator(style: .rigid)
-            generator.prepare()
-            generator.impactOccurred(intensity: 0.4)
+            haptics.edge.impactOccurred(intensity: 0.4)
+            haptics.edge.prepare()
         }
     }
 
@@ -467,7 +782,7 @@ struct ScrollWheelView: View {
 
         switch currentScreen {
         case .menu:
-            maxIndex = 8 // Now Playing, Songs, Recently Added, Recently Played, Albums, Artists, Playlists, Podcasts, Settings
+            maxIndex = 9 // Now Playing, Queue, Songs, Recently Added, Recently Played, Albums, Artists, Playlists, Podcasts, Settings
             if menuSelection < maxIndex {
                 menuSelection += 1
                 didScroll = true
@@ -477,6 +792,16 @@ struct ScrollWheelView: View {
         case .songs:
             maxIndex = musicService.songs.count - 1
             if songSelection < maxIndex {
+                songSelection += 1
+                didScroll = true
+            } else {
+                didScroll = false
+            }
+        case .queue:
+            maxIndex = max(0, musicService.upNext.count - 1)
+            if queueMoveOffset != nil {
+                didScroll = moveCarriedQueueRow(by: 1)
+            } else if songSelection < maxIndex {
                 songSelection += 1
                 didScroll = true
             } else {
@@ -604,13 +929,11 @@ struct ScrollWheelView: View {
             if themeSettings.clickSoundEnabled {
                 AudioServicesPlaySystemSound(1104)
             }
-            let generator = UIImpactFeedbackGenerator(style: .medium)
-            generator.prepare()
-            generator.impactOccurred()
+            haptics.step.impactOccurred()
+            haptics.step.prepare()
         } else {
-            let generator = UIImpactFeedbackGenerator(style: .rigid)
-            generator.prepare()
-            generator.impactOccurred(intensity: 0.4)
+            haptics.edge.impactOccurred(intensity: 0.4)
+            haptics.edge.prepare()
         }
     }
 
@@ -633,12 +956,19 @@ struct ScrollWheelView: View {
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.prepare()
         generator.impactOccurred()
-        
+
         // If we're on the main menu, do nothing
         if case .menu = currentScreen {
             return
         }
-        
+
+        // Carrying a queue row takes priority over navigating: put the row down and
+        // stay put, so leaving the screen can never strand a half-finished move.
+        if case .queue = currentScreen, queueMoveOffset != nil {
+            dropCarriedQueueRow()
+            return
+        }
+
         // Save current selection state before navigating back
         saveSelectionState()
         
@@ -688,6 +1018,12 @@ struct ScrollWheelView: View {
                 // Keep songSelection, reset others
                 menuSelection = 0
                 detailSelection = 0
+            case .queue:
+                // songSelection indexes Up Next, which changes as songs play, so the
+                // cursor starts at the top rather than restoring a stale position.
+                menuSelection = 0
+                songSelection = 0
+                detailSelection = 0
             case .albums, .artists, .playlists, .podcasts:
                 // Keep menuSelection for list position, reset others
                 songSelection = 0
@@ -725,6 +1061,51 @@ struct ScrollWheelView: View {
         }
     }
     
+    /// Plays the highlighted row of an album or playlist list: the whole list for the
+    /// Play and Shuffle rows, otherwise the list from the chosen track on.
+    private func playDetailRow(_ row: Int, of tracks: [AppTrack], playlistID: String? = nil) async -> PlaybackStartOutcome {
+        switch row {
+        case PlayShuffleRows.playOffset:
+            return await musicService.playAll(tracks: tracks, shuffled: false, playlistID: playlistID)
+        case PlayShuffleRows.shuffleOffset:
+            return await musicService.playAll(tracks: tracks, shuffled: true, playlistID: playlistID)
+        default:
+            let index = row - PlayShuffleRows.count
+            guard index < tracks.count else { return .nothingPlayable }
+            return await musicService.play(tracks: tracks, startingAt: index, playlistID: playlistID)
+        }
+    }
+
+    /// Starts playback and opens Now Playing, or stays put and says why it could not.
+    ///
+    /// The navigation push happens up front so Menu still returns to the list the song
+    /// was chosen from, and is undone when playback does not start — otherwise a track
+    /// that cannot play would leave a phantom entry in the back stack. Reporting the
+    /// failure matters because the alternative, quietly playing the nearest playable
+    /// track instead, looks like the wheel selected the wrong row.
+    private func startPlayback(_ start: @escaping () async -> PlaybackStartOutcome) {
+        saveSelectionState()
+        navigationStack.append(currentScreen)
+        Task {
+            let outcome = await start()
+            await MainActor.run {
+                switch outcome {
+                case .started:
+                    restoreSelectionState(for: .nowPlaying)
+                    withAnimation(.easeInOut(duration: 0.15)) { currentScreen = .nowPlaying }
+                case .trackUnavailable:
+                    _ = navigationStack.popLast()
+                    bumpFeedback()
+                    onBanner(String(localized: "playback.trackUnavailable"))
+                case .nothingPlayable:
+                    _ = navigationStack.popLast()
+                    bumpFeedback()
+                    onBanner(String(localized: "playback.nothingPlayable"))
+                }
+            }
+        }
+    }
+
     private func handleSelect() {
         if isHoldEnabled { return }
         onInteraction()
@@ -740,14 +1121,15 @@ struct ScrollWheelView: View {
             let menuTarget: LyreScreen
             switch menuSelection {
             case 0: menuTarget = .nowPlaying
-            case 1: menuTarget = .songs
-            case 2: menuTarget = .recentlyAdded
-            case 3: menuTarget = .recentlyPlayed
-            case 4: menuTarget = .albums
-            case 5: menuTarget = .artists
-            case 6: menuTarget = .playlists
-            case 7: menuTarget = .podcasts
-            case 8: menuTarget = .settings
+            case 1: menuTarget = .queue
+            case 2: menuTarget = .songs
+            case 3: menuTarget = .recentlyAdded
+            case 4: menuTarget = .recentlyPlayed
+            case 5: menuTarget = .albums
+            case 6: menuTarget = .artists
+            case 7: menuTarget = .playlists
+            case 8: menuTarget = .podcasts
+            case 9: menuTarget = .settings
             default:
                 _ = navigationStack.popLast()
                 return
@@ -756,42 +1138,34 @@ struct ScrollWheelView: View {
             withAnimation(.easeInOut(duration: 0.15)) { currentScreen = menuTarget }
 
         case .songs:
-            if !musicService.songs.isEmpty && songSelection < musicService.songs.count {
-                saveSelectionState()
-                navigationStack.append(currentScreen)
-                Task {
-                    await musicService.play(tracks: musicService.songs, startingAt: songSelection)
-                    await MainActor.run {
-                        restoreSelectionState(for: .nowPlaying)
-                        withAnimation(.easeInOut(duration: 0.15)) { currentScreen = .nowPlaying }
-                    }
-                }
+            let songs = musicService.songs
+            if songSelection < songs.count {
+                startPlayback { await musicService.play(tracks: songs, startingAt: songSelection) }
+            }
+
+        case .queue:
+            // One button, so reordering is pick-up / put-down: the first press lifts
+            // the highlighted row, the wheel carries it, the next press drops it.
+            if queueMoveOffset != nil {
+                dropCarriedQueueRow()
+            } else if songSelection == QueueView.clearRowOffset {
+                clearQueue()
+            } else if songSelection < musicService.upNext.count {
+                queueMoveOffset = songSelection
+            } else {
+                bumpFeedback()
             }
 
         case .recentlyAdded:
-            if !musicService.recentlyAdded.isEmpty && songSelection < musicService.recentlyAdded.count {
-                saveSelectionState()
-                navigationStack.append(currentScreen)
-                Task {
-                    await musicService.play(tracks: musicService.recentlyAdded, startingAt: songSelection)
-                    await MainActor.run {
-                        restoreSelectionState(for: .nowPlaying)
-                        withAnimation(.easeInOut(duration: 0.15)) { currentScreen = .nowPlaying }
-                    }
-                }
+            let recentlyAdded = musicService.recentlyAdded
+            if songSelection < recentlyAdded.count {
+                startPlayback { await musicService.play(tracks: recentlyAdded, startingAt: songSelection) }
             }
 
         case .recentlyPlayed:
-            if !musicService.recentlyPlayed.isEmpty && songSelection < musicService.recentlyPlayed.count {
-                saveSelectionState()
-                navigationStack.append(currentScreen)
-                Task {
-                    await musicService.play(tracks: musicService.recentlyPlayed, startingAt: songSelection)
-                    await MainActor.run {
-                        restoreSelectionState(for: .nowPlaying)
-                        withAnimation(.easeInOut(duration: 0.15)) { currentScreen = .nowPlaying }
-                    }
-                }
+            let recentlyPlayed = musicService.recentlyPlayed
+            if songSelection < recentlyPlayed.count {
+                startPlayback { await musicService.play(tracks: recentlyPlayed, startingAt: songSelection) }
             }
 
         case .albums:
@@ -836,44 +1210,43 @@ struct ScrollWheelView: View {
 
         case .podcastDetail(let show):
             let episodes = show.episodes
-            if !episodes.isEmpty && detailSelection < episodes.count {
-                saveSelectionState()
-                navigationStack.append(currentScreen)
-                Task {
-                    await musicService.playPodcastEpisodes(items: episodes, startingAt: detailSelection, podcastShowTitle: show.title)
-                    await MainActor.run {
-                        restoreSelectionState(for: .nowPlaying)
-                        withAnimation(.easeInOut(duration: 0.15)) { currentScreen = .nowPlaying }
-                    }
+            let row = detailSelection
+            // Play and Shuffle start the whole show from its first episode, in order
+            // or shuffled; any other row starts from that episode.
+            let items: [MPMediaItem]
+            let startIndex: Int
+            switch row {
+            case PlayShuffleRows.playOffset:
+                items = episodes
+                startIndex = 0
+            case PlayShuffleRows.shuffleOffset:
+                items = episodes.shuffled()
+                startIndex = 0
+            default:
+                items = episodes
+                startIndex = row - PlayShuffleRows.count
+            }
+            if items.indices.contains(startIndex) {
+                startPlayback {
+                    await musicService.playPodcastEpisodes(
+                        items: items, startingAt: startIndex, podcastShowTitle: show.title
+                    )
+                    return .started
                 }
             }
 
         case .albumDetail(let album):
-            saveSelectionState()
-            navigationStack.append(currentScreen)
-            Task {
+            let row = detailSelection
+            startPlayback {
                 let tracks = await musicService.loadTracks(for: album)
-                if detailSelection < tracks.count {
-                    await musicService.play(tracks: tracks, startingAt: detailSelection)
-                    await MainActor.run {
-                        restoreSelectionState(for: .nowPlaying)
-                        withAnimation(.easeInOut(duration: 0.15)) { currentScreen = .nowPlaying }
-                    }
-                }
+                return await playDetailRow(row, of: tracks)
             }
 
         case .playlistDetail(let playlist):
-            saveSelectionState()
-            navigationStack.append(currentScreen)
-            Task {
+            let row = detailSelection
+            startPlayback {
                 let tracks = await musicService.loadTracks(for: playlist)
-                if detailSelection < tracks.count {
-                    await musicService.play(tracks: tracks, startingAt: detailSelection, playlistID: playlist.id)
-                    await MainActor.run {
-                        restoreSelectionState(for: .nowPlaying)
-                        withAnimation(.easeInOut(duration: 0.15)) { currentScreen = .nowPlaying }
-                    }
-                }
+                return await playDetailRow(row, of: tracks, playlistID: playlist.id)
             }
 
         case .artistDetail(let artist):
@@ -1009,22 +1382,6 @@ struct ScrollWheelView: View {
     }
 }
 
-// MARK: - Custom Button Styles
-
-/// Simple button style that just tracks pressed state and provides visual feedback
-struct PlainButtonPressStyle: ButtonStyle {
-    @Binding var isPressed: Bool
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-            .onChange(of: configuration.isPressed) { oldValue, newValue in
-                isPressed = newValue
-            }
-    }
-}
-
 #Preview {
     @Previewable @State var rotation: Double = 0
     @Previewable @State var currentScreen: LyreScreen = .menu
@@ -1033,7 +1390,8 @@ struct PlainButtonPressStyle: ButtonStyle {
     @Previewable @State var menuSelection = 0
     @Previewable @State var songSelection = 0
     @Previewable @State var detailSelection = 0
-    
+    @Previewable @State var queueMoveOffset: Int? = nil
+
     ZStack {
         Color.black.ignoresSafeArea()
         ScrollWheelView(
@@ -1046,8 +1404,30 @@ struct PlainButtonPressStyle: ButtonStyle {
             menuSelection: $menuSelection,
             songSelection: $songSelection,
             detailSelection: $detailSelection,
+            queueMoveOffset: $queueMoveOffset,
             isHoldEnabled: false,
-            onInteraction: {}
+            onInteraction: {},
+            onBanner: { _ in }
         )
+    }
+}
+
+// MARK: - Wheel Haptics
+
+/// The wheel's per-step haptic generators, kept for the life of the view. A class held
+/// in `@State` so the generators persist without their use counting as a state change.
+final class WheelHaptics {
+    /// The light detent felt while turning.
+    let tick = UIImpactFeedbackGenerator(style: .light)
+    /// A selection moving one row.
+    let step = UIImpactFeedbackGenerator(style: .medium)
+    /// Turning against the end of a list.
+    let edge = UIImpactFeedbackGenerator(style: .rigid)
+
+    /// Wakes the Taptic Engine so the first tick of a touch is not late.
+    func prepare() {
+        tick.prepare()
+        step.prepare()
+        edge.prepare()
     }
 }

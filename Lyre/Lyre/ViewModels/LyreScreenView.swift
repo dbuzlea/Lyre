@@ -20,7 +20,7 @@ import MediaPlayer
 // A persistent Now Playing mini-footer slides in at the bottom of every screen
 // except the Now Playing screen itself, whenever a track is currently loaded. It
 // shows the track title, artist, and play/pause icon so the user always knows what
-// is playing while browsing.
+// is playing while browsing, plus an AirPlay button for changing where it plays.
 struct LyreScreenView: View {
     let currentScreen: LyreScreen
     @ObservedObject var musicService: MusicService
@@ -29,9 +29,17 @@ struct LyreScreenView: View {
     @Binding var songSelection: Int
     @Binding var detailSelection: Int
     let isBacklightOn: Bool
+    /// Up Next offset of the row being carried on the Queue screen, if any.
+    var queueMoveOffset: Int? = nil
+    /// Transient message about the last wheel action, shown over the screen.
+    var banner: String? = nil
 
     private var showNowPlayingFooter: Bool {
-        if case .nowPlaying = currentScreen { return false }
+        switch currentScreen {
+        // Both of these screens already show what is playing.
+        case .nowPlaying, .queue: return false
+        default: break
+        }
         return musicService.currentTrack != nil || musicService.currentMediaItem != nil
     }
 
@@ -49,117 +57,158 @@ struct LyreScreenView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Group {
-                switch currentScreen {
-                case .menu:
-                    MainMenuView(selection: $menuSelection, themeSettings: themeSettings)
-                case .nowPlaying:
-                    NowPlayingView(musicService: musicService, themeSettings: themeSettings, selection: $menuSelection)
-                case .songs:
-                    SongListView(
-                        songs: musicService.songs,
-                        selection: $songSelection,
-                        musicService: musicService,
-                        themeSettings: themeSettings
-                    )
-                case .recentlyAdded:
-                    SongListView(
-                        songs: musicService.recentlyAdded,
-                        selection: $songSelection,
-                        musicService: musicService,
-                        themeSettings: themeSettings,
-                        title: String(localized: "menu.recentlyAdded")
-                    )
-                case .recentlyPlayed:
-                    SongListView(
-                        songs: musicService.recentlyPlayed,
-                        selection: $songSelection,
-                        musicService: musicService,
-                        themeSettings: themeSettings,
-                        title: String(localized: "menu.recentlyPlayed")
-                    )
-                case .albums:
-                    AlbumListView(
-                        albums: musicService.albums,
-                        selection: $menuSelection,
-                        themeSettings: themeSettings
-                    )
-                case .artists:
-                    ArtistListView(
-                        artists: musicService.artists,
-                        selection: $menuSelection,
-                        themeSettings: themeSettings
-                    )
-                case .playlists:
-                    PlaylistListView(
-                        playlists: musicService.playlists,
-                        selection: $menuSelection,
-                        themeSettings: themeSettings
-                    )
-                case .podcasts:
-                    PodcastListView(
-                        podcastShows: musicService.podcastShows,
-                        selection: $menuSelection,
-                        themeSettings: themeSettings
-                    )
-                    .task { await musicService.refreshPodcasts() }
-                case .podcastDetail(let show):
-                    PodcastDetailView(
-                        show: show,
-                        selection: $detailSelection,
-                        themeSettings: themeSettings
-                    )
-                case .albumDetail(let album):
-                    AlbumDetailView(
-                        album: album,
-                        musicService: musicService,
-                        selection: $detailSelection,
-                        themeSettings: themeSettings
-                    )
-                case .playlistDetail(let playlist):
-                    PlaylistDetailView(
-                        playlist: playlist,
-                        musicService: musicService,
-                        selection: $detailSelection,
-                        themeSettings: themeSettings
-                    )
-                case .artistDetail(let artist):
-                    ArtistDetailView(
-                        artist: artist,
-                        musicService: musicService,
-                        selection: $detailSelection,
-                        themeSettings: themeSettings
-                    )
-                case .settings:
-                    SettingsView(selection: $menuSelection, themeSettings: themeSettings)
-                case .themeSelection:
-                    ThemeSelectionView(selection: $menuSelection, themeSettings: themeSettings)
-                case .screenSizeSelection:
-                    ScreenSizeSelectionView(selection: $menuSelection, themeSettings: themeSettings)
-                case .highlightColorSelection:
-                    HighlightColorView(selection: $menuSelection, themeSettings: themeSettings)
-                case .scrollSensitivitySelection:
-                    ScrollSensitivityView(selection: $menuSelection, themeSettings: themeSettings)
-                case .clickSoundSelection:
-                    ClickSoundSelectionView(selection: $menuSelection, themeSettings: themeSettings)
-                case .backlightDurationSelection:
-                    BacklightDurationSelectionView(selection: $menuSelection, themeSettings: themeSettings)
-                case .about:
-                    AboutView(themeSettings: themeSettings)
+            // The footer is stacked below the content (not overlaid) so lists end
+            // above it instead of having their last rows hidden underneath.
+            VStack(spacing: 0) {
+                Group {
+                    switch currentScreen {
+                    case .menu:
+                        MainMenuView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .nowPlaying:
+                        NowPlayingView(musicService: musicService, themeSettings: themeSettings, selection: $menuSelection)
+                    case .queue:
+                        QueueView(
+                            musicService: musicService,
+                            themeSettings: themeSettings,
+                            selection: $songSelection,
+                            movingOffset: queueMoveOffset
+                        )
+                    case .songs:
+                        SongListView(
+                            songs: musicService.songs,
+                            selection: $songSelection,
+                            musicService: musicService,
+                            themeSettings: themeSettings,
+                            sectionLetters: musicService.songSectionLetters
+                        )
+                    case .recentlyAdded:
+                        SongListView(
+                            songs: musicService.recentlyAdded,
+                            selection: $songSelection,
+                            musicService: musicService,
+                            themeSettings: themeSettings,
+                            title: String(localized: "menu.recentlyAdded"),
+                            sectionLetters: musicService.recentlyAddedSectionLetters
+                        )
+                    case .recentlyPlayed:
+                        SongListView(
+                            songs: musicService.recentlyPlayed,
+                            selection: $songSelection,
+                            musicService: musicService,
+                            themeSettings: themeSettings,
+                            title: String(localized: "menu.recentlyPlayed"),
+                            sectionLetters: musicService.recentlyPlayedSectionLetters
+                        )
+                    case .albums:
+                        AlbumListView(
+                            albums: musicService.albums,
+                            selection: $menuSelection,
+                            themeSettings: themeSettings,
+                            sectionLetters: musicService.albumSectionLetters
+                        )
+                    case .artists:
+                        ArtistListView(
+                            artists: musicService.artists,
+                            selection: $menuSelection,
+                            themeSettings: themeSettings,
+                            sectionLetters: musicService.artistSectionLetters
+                        )
+                    case .playlists:
+                        PlaylistListView(
+                            playlists: musicService.playlists,
+                            selection: $menuSelection,
+                            themeSettings: themeSettings
+                        )
+                    case .podcasts:
+                        PodcastListView(
+                            podcastShows: musicService.podcastShows,
+                            selection: $menuSelection,
+                            themeSettings: themeSettings
+                        )
+                        .task { await musicService.refreshPodcasts() }
+                    case .podcastDetail(let show):
+                        PodcastDetailView(
+                            show: show,
+                            selection: $detailSelection,
+                            themeSettings: themeSettings
+                        )
+                    case .albumDetail(let album):
+                        AlbumDetailView(
+                            album: album,
+                            musicService: musicService,
+                            selection: $detailSelection,
+                            themeSettings: themeSettings
+                        )
+                    case .playlistDetail(let playlist):
+                        PlaylistDetailView(
+                            playlist: playlist,
+                            musicService: musicService,
+                            selection: $detailSelection,
+                            themeSettings: themeSettings
+                        )
+                    case .artistDetail(let artist):
+                        ArtistDetailView(
+                            artist: artist,
+                            musicService: musicService,
+                            selection: $detailSelection,
+                            themeSettings: themeSettings
+                        )
+                    case .settings:
+                        SettingsView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .themeSelection:
+                        ThemeSelectionView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .screenSizeSelection:
+                        ScreenSizeSelectionView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .highlightColorSelection:
+                        HighlightColorView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .scrollSensitivitySelection:
+                        ScrollSensitivityView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .clickSoundSelection:
+                        ClickSoundSelectionView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .backlightDurationSelection:
+                        BacklightDurationSelectionView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .about:
+                        AboutView(themeSettings: themeSettings)
+                    }
+                }
+                .id(currentScreen)
+                .transition(.opacity)
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if showNowPlayingFooter {
+                    nowPlayingFooter
+                        .transition(.opacity)
                 }
             }
-            .id(currentScreen)
-            .transition(.opacity)
-            .padding(8)
 
-            if showNowPlayingFooter {
-                nowPlayingFooter
-                    .transition(.opacity)
+            if let banner {
+                bannerView(banner)
+                    .padding(.bottom, showNowPlayingFooter ? 22 : 8)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .animation(.easeInOut(duration: 0.15), value: currentScreen)
         .animation(.easeInOut(duration: 0.2), value: showNowPlayingFooter)
+        .animation(.easeOut(duration: 0.2), value: banner)
         .clipped()
+    }
+
+    // Confirmation for an action taken on the wheel, where the wheel itself gives no
+    // feedback beyond a haptic. Sits above the now-playing footer when both are shown.
+    private func bannerView(_ message: String) -> some View {
+        Text(message)
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule().fill(themeSettings.currentTheme.highlightColor)
+            )
+            .padding(.horizontal, 12)
+            .accessibilityAddTraits(.updatesFrequently)
     }
 
     private var nowPlayingFooter: some View {
@@ -178,6 +227,8 @@ struct LyreScreenView: View {
                     .font(.system(size: 9))
                     .lineLimit(1)
                     .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
+                // Sized to the footer's 9pt text so it does not grow the footer.
+                AirPlayButton(themeSettings: themeSettings, size: 9)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 3)

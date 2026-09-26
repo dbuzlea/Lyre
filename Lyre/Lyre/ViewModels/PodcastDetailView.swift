@@ -37,13 +37,12 @@ struct PodcastDetailView: View {
 
             // Podcast header
             HStack(spacing: 8) {
-                if let artwork = show.artwork,
-                   let image = artwork.image(at: CGSize(width: 50, height: 50)) {
-                    Image(uiImage: image)
+                LocalArtworkImage(cacheKey: "podcast.\(show.title)", size: 50, artwork: show.artwork) { image in
+                    image
                         .resizable()
                         .frame(width: 50, height: 50)
                         .cornerRadius(4)
-                } else {
+                } placeholder: {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(themeSettings.currentTheme.highlightColor.opacity(0.3))
                         .frame(width: 50, height: 50)
@@ -74,9 +73,10 @@ struct PodcastDetailView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 2) {
+                        PlayShuffleRows(selection: selection, themeSettings: themeSettings)
                         ForEach(Array(episodes.enumerated()), id: \.offset) { index, episode in
                             HStack {
-                                if selection == index {
+                                if selection == index + PlayShuffleRows.count {
                                     Rectangle()
                                         .fill(themeSettings.currentTheme.highlightColor)
                                         .overlay {
@@ -114,7 +114,7 @@ struct PodcastDetailView: View {
                                 }
                             }
                             .frame(height: 32)
-                            .id(index)
+                            .id(index + PlayShuffleRows.count)
                         }
                     }
                 }
@@ -131,7 +131,9 @@ struct PodcastDetailView: View {
         .onChange(of: selection) { _, newValue in
             if !episodes.isEmpty {
                 if newValue < 0 { selection = 0 }
-                else if newValue >= episodes.count { selection = episodes.count - 1 }
+                else if newValue >= episodes.count + PlayShuffleRows.count {
+                    selection = episodes.count + PlayShuffleRows.count - 1
+                }
             }
         }
     }

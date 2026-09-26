@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - Main Menu
 //
-// The root Lyre menu showing nine items: Now Playing → Songs → Recently Added →
+// The root Lyre menu showing ten items: Now Playing → Queue → Songs → Recently Added →
 // Recently Played → Albums → Artists → Playlists → Podcasts → Settings.
 //
 // Selection is driven entirely by the parent (ScrollWheelView) via a binding; this
@@ -29,6 +29,7 @@ struct MainMenuView: View {
     
     let menuItems = [
         String(localized: "menu.nowPlaying"),
+        String(localized: "menu.queue"),
         String(localized: "menu.songs"),
         String(localized: "menu.recentlyAdded"),
         String(localized: "menu.recentlyPlayed"),

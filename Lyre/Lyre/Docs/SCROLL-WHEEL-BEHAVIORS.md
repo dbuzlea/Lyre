@@ -230,6 +230,124 @@ This document describes all the authentic classic scroll-wheel player behaviors 
 
 ---
 
+### 11. ✅ Queue (Swipe Right on Center)
+**What it is:** Adding songs to a play queue without leaving the list you are browsing, plus a screen for rearranging them.
+
+**Behavior:**
+- Swiping right on the center button queues **whatever the highlighted row stands for** —
+  a song on a song list, a whole album on the Albums list, a whole playlist on the
+  Playlists list
+- New tracks always land at the *bottom* of the queue, so repeated swipes build a running order
+- A collection keeps its own order, and goes in as one queue edit
+- With nothing playing, what was added starts playing rather than waiting
+- A banner confirms the action on the screen for ~1.6 s (the wheel gives only a haptic)
+- Works on Songs, Recently Added, Recently Played, Albums, Playlists, album track lists,
+  playlist track lists, and podcast episode lists; anywhere else the wheel just gives
+  the boundary "bump"
+
+**From the Artwork Carousel.** The gatefold liner is touch, not wheel, but the gesture
+is the same: tap a row to play it, swipe it right to queue it. The row's number turns
+into a tick for a moment, and a toast confirms the add — the carousel is a
+`fullScreenCover`, so the screen banner the wheel uses is not on top of it.
+
+One trade-off worth knowing: a horizontal drag started *on a liner row* now queues
+instead of scrubbing the gatefold hinge. Drags anywhere else on the spread still scrub.
+The swipe is a plain `.gesture` rather than a high-priority one specifically so vertical
+drags still reach the enclosing ScrollView and a long tracklist keeps scrolling.
+
+**Collections that go in partly.** An album or playlist can contain tracks with nothing
+playable behind them (Apple Music catalogue content, undownloaded cloud items). Those
+are skipped rather than failing the whole add, and the banner says so — "Queued 9 of 12:
+Abbey Road" — because a silently half-queued album looks like lost songs. A single add
+is also capped at `maxTracksPerAdd` (200): every item in a queue transaction is carried
+across to the media server, and an unbounded add would repeat the hang that queueing a
+whole library caused.
+
+**Reordering (Menu → Queue):**
+| Action | Behavior |
+|--------|----------|
+| Scroll wheel | Move the cursor through Up Next |
+| CENTER on a row | Pick the song up (dashed outline + up/down glyph) |
+| Scroll wheel while carrying | Carry the song through the list |
+| CENTER / MENU while carrying | Put the song down and republish the order |
+| Swipe right on CENTER | Remove the highlighted song from the queue |
+| Scroll up past the first song → CENTER | Clear the whole queue |
+
+**Clear Queue** is a row that sits one step *above* the first song rather than taking
+index 0, so every other cursor position still maps straight onto an Up Next offset
+(`QueueView.clearRowOffset == -1`) and the cursor never opens the screen sitting on a
+destructive action. Clearing empties Up Next, leaves the current track playing, and
+also forgets `queueSourceTracks` — otherwise the refill would put the rest of the
+library straight back.
+
+**Which player, and why it matters:**
+Playback runs through `MPMusicPlayerController.applicationQueuePlayer`, not the system
+player. The system player drives the Music app on the app's behalf, and that made a
+queue impossible to keep: an appended item went into the Music app's queue, which could
+be superseded, and when it ran out the Music app continued with its own autoplay pick —
+so a queued song never played and an unrelated one did. It also inherited the Music
+app's shuffle setting, which made the player choose its own next track.
+
+The application queue player owns its queue outright and is the only player that can
+edit one **in place**, through `perform(queueTransaction:)`. Add, remove and reorder are
+therefore single atomic edits — `insert(_:after:)` / `remove(_:)` — and never interrupt
+playback. `setQueue` is now only used to start fresh playback.
+
+What this costs, all of it deliberate:
+- Playback stops when the app is terminated, and no longer continues the Music app's
+  session or appears in it.
+- The `audio` background mode (Info.plist `UIBackgroundModes`) is required, or playback
+  stops when the app is backgrounded.
+- Remote control events need no code: MediaPlayer routes lock screen, headset and
+  CarPlay commands to the player itself for application players.
+
+**The queue is a window, not the whole list.**
+An application queue player serialises every item of its queue across to the media
+server. Handing it a whole library (~6,400 songs) timed the XPC connection out
+(`_establishConnectionIfNeeded timeout [ping did not pong]`) and blocked the main
+thread for ~25 s on each queue call, which froze the app after selecting a song. So:
+
+- `play(tracks:startingAt:)` queues `queueHistorySize` (25) tracks behind the chosen
+  one and `queueWindowSize` (150) ahead of it, and remembers the full list as
+  `queueSourceTracks`.
+- `refillQueueIfNeeded()` adds the next 150 once Up Next drops to
+  `queueRefillThreshold` (25), and the same transaction drops tracks more than 25
+  behind the current one — otherwise the queue would grow back to library size.
+- Media items are resolved per window rather than up front, which also stops the
+  per-track `MPMediaQuery` fallback from running thousands of times before playback
+  starts.
+
+One consequence worth knowing: "bottom of the queue" means the bottom of the loaded
+window, so a song added while playing a large library lands ~150 tracks away rather
+than ~6,400. Refills are inserted after it, so it keeps its place.
+
+Three rules keep the model and the player agreeing:
+- Every transaction reports the resulting queue, and `syncQueueModel(with:)` rebuilds
+  the model from it rather than trusting the edit landed as asked. Existing `AppTrack`s
+  are matched by persistent ID so MusicKit artwork is not downgraded.
+- Only the **last** in-flight transaction rewrites the model
+  (`pendingQueueTransactions`), so queueing several songs quickly doesn't let an earlier
+  stale snapshot drop the later ones.
+- Setting a whole new queue makes the player briefly report a missing or stale
+  now-playing item. Those reports are ignored for a few seconds
+  (`queueSettlingUntil`), otherwise applying a queue immediately destroys the model
+  that produced it. A nil now-playing item never clears the queue.
+
+Shuffle is still read back off the player (`syncPlaybackModesFromPlayer`) because the
+framework can change it from the lock screen or CarPlay, and both modes are pinned at
+startup so an untouched player's `.default` ("whatever the user prefers") cannot start
+the first queue off shuffled. With shuffle on the player picks its own next track, and
+the Queue screen says so rather than looking broken.
+
+**Code Location:**
+- `ModelsPlaybackQueue.swift`: `PlaybackQueue` — Up Next, `moveUpNext`, `removeUpNext`, `advanceCurrent`
+- `MusicService.swift`: `addToQueue()`, `reorderUpNext()`, `removeFromQueue()`, `applyQueueOrder()`
+- `ScrollWheelView.swift`: `handleCenterDragChanged/Ended()` split tap from swipe; `handleCenterSwipeRight()`, `moveCarriedQueueRow()`, `dropCarriedQueueRow()`
+- `QueueView.swift`: the Queue screen
+- `LyreView.swift`: `queueMoveOffset` (carried row) and `showQueueBanner()`
+
+---
+
 ## Behavior Details
 
 ### Now Playing Controls
