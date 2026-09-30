@@ -27,7 +27,8 @@ struct MainMenuView: View {
     @State private var batteryLevel: Float = 1.0
     @State private var batteryState: UIDevice.BatteryState = .unknown
     
-    let menuItems = [
+    /// Shared with ScrollWheelView, which reads the highlighted item out to VoiceOver.
+    static let items = [
         String(localized: "menu.nowPlaying"),
         String(localized: "menu.queue"),
         String(localized: "menu.songs"),
@@ -39,6 +40,8 @@ struct MainMenuView: View {
         String(localized: "menu.podcasts"),
         String(localized: "menu.settings")
     ]
+
+    private var menuItems: [String] { Self.items }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {

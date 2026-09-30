@@ -46,6 +46,20 @@ nonisolated final class LocalArtworkCache: @unchecked Sendable {
         images.setObject(decoded, forKey: key)
         return decoded
     }
+
+    /// Downloads artwork for a streamed podcast, scales it to `size` and caches it.
+    @concurrent
+    func image(from url: URL, key: NSString, size: CGFloat) async -> UIImage? {
+        if let hit = images.object(forKey: key) { return hit }
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let image = UIImage(data: data) else { return nil }
+        // Feed artwork is often 3000pt square; keep only what the screen can show.
+        let pixels = size * 3
+        let target = image.size.width > pixels ? CGSize(width: pixels, height: pixels * image.size.height / image.size.width) : image.size
+        let decoded = await image.byPreparingThumbnail(ofSize: target) ?? image
+        images.setObject(decoded, forKey: key)
+        return decoded
+    }
 }
 
 // MARK: - LocalArtworkImage
@@ -61,6 +75,8 @@ struct LocalArtworkImage<Content: View, Placeholder: View>: View {
     private let cacheKey: NSString
     private let size: CGFloat
     private let artwork: () -> MPMediaItemArtwork?
+    /// Downloaded when there is no on-device artwork — a streamed podcast's cover.
+    private let remoteURL: URL?
     private let content: (Image) -> Content
     private let placeholder: () -> Placeholder
 
@@ -72,12 +88,14 @@ struct LocalArtworkImage<Content: View, Placeholder: View>: View {
         cacheKey owner: String,
         size: CGFloat,
         artwork: @autoclosure @escaping () -> MPMediaItemArtwork?,
+        remoteURL: URL? = nil,
         @ViewBuilder content: @escaping (Image) -> Content,
         @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.cacheKey = LocalArtworkCache.key(owner, size: size)
         self.size = size
         self.artwork = artwork
+        self.remoteURL = remoteURL
         self.content = content
         self.placeholder = placeholder
     }
@@ -96,11 +114,17 @@ struct LocalArtworkImage<Content: View, Placeholder: View>: View {
             }
         }
         .task(id: cacheKey) {
-            guard image == nil, let artwork = artwork() else { return }
+            guard image == nil else { return }
             let key = cacheKey
-            if let decoded = await LocalArtworkCache.shared.image(for: artwork, key: key, size: size) {
-                loaded = (key, decoded)
+            let decoded: UIImage?
+            if let artwork = artwork() {
+                decoded = await LocalArtworkCache.shared.image(for: artwork, key: key, size: size)
+            } else if let remoteURL {
+                decoded = await LocalArtworkCache.shared.image(from: remoteURL, key: key, size: size)
+            } else {
+                return
             }
+            if let decoded { loaded = (key, decoded) }
         }
     }
 }

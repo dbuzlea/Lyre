@@ -11,7 +11,8 @@ struct SettingsView: View {
     @Binding var selection: Int
     let themeSettings: ThemeSettings
     
-    let settingsItems = [
+    /// Shared with ScrollWheelView, which reads the highlighted item out to VoiceOver.
+    static let items = [
         String(localized: "settings.theme"),
         String(localized: "settings.screenSize"),
         String(localized: "settings.highlightColor"),
@@ -20,6 +21,8 @@ struct SettingsView: View {
         String(localized: "settings.backlight"),
         String(localized: "settings.about")
     ]
+
+    private var settingsItems: [String] { Self.items }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -322,6 +325,11 @@ struct AboutView: View {
                         .font(.system(size: 10))
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                         .padding(.top, 4)
+
+                    Text(String(localized: "about.replay"))
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(themeSettings.currentTheme.screenTextColor)
+                        .padding(.top, 6)
                 }
                 
                 Spacer()

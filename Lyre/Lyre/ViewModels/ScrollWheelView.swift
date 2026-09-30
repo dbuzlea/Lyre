@@ -95,6 +95,10 @@ struct ScrollWheelView: View {
     /// Shows a short message on the screen — the wheel has no display of its own, so
     /// this is how a queue action is confirmed or a refusal to play is explained.
     let onBanner: (String) -> Void
+    /// Opens the sheet for finding and subscribing to podcasts.
+    let onOpenPodcastSearch: () -> Void
+
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
 
     // Constants for wheel interaction
     private let hapticStepSize: Double = 20.0 // Degrees per haptic tick
@@ -178,9 +182,27 @@ struct ScrollWheelView: View {
                             handleWheelGestureEnded()
                         }
                 )
-                .accessibilityLabel("Scroll wheel")
-                .accessibilityHint("Rotate to scroll. Tap top for Menu, bottom for Play/Pause, left for Previous, right for Next")
-                .accessibilityAddTraits(.isButton)
+                // VoiceOver can't spin a ring, so the wheel is an adjustable element:
+                // swipe up or down to scroll (or scrub, on Now Playing), with the four
+                // ring buttons as named actions. The value reads out what is now
+                // highlighted, so each swipe says where it landed.
+                .accessibilityElement()
+                .accessibilityLabel(String(localized: "wheel.a11y.label"))
+                .accessibilityValue(accessibilitySelection)
+                .accessibilityHint(String(localized: "wheel.a11y.hint"))
+                .accessibilityAdjustableAction { direction in
+                    guard !isHoldEnabled else { return }
+                    onInteraction()
+                    switch direction {
+                    case .increment: scrollDown()
+                    case .decrement: scrollUp()
+                    @unknown default: break
+                    }
+                }
+                .accessibilityAction(named: Text(String(localized: "wheel.menu"))) { accessibilityTap(.menu) }
+                .accessibilityAction(named: Text(String(localized: "wheel.playPause"))) { accessibilityTap(.playPause) }
+                .accessibilityAction(named: Text(String(localized: "wheel.previous"))) { accessibilityTap(.previous) }
+                .accessibilityAction(named: Text(String(localized: "wheel.next"))) { accessibilityTap(.next) }
 
             // Tactile ring imprint — blends with the ring surface at the touch point
             Canvas { context, _ in
@@ -472,7 +494,8 @@ struct ScrollWheelView: View {
         case .playlistDetail(let playlist) where detailSelection < PlayShuffleRows.count:
             queueCollection(named: playlist.name) { await musicService.loadTracks(for: playlist) }
         case .podcastDetail(let show) where detailSelection < PlayShuffleRows.count:
-            let episodes = show.episodes.map { AppTrack(from: $0) }
+            // Streamed episodes are URLs, which the music player's queue cannot hold.
+            let episodes = show.episodes.compactMap(\.mediaItem).map { AppTrack(from: $0) }
             queueCollection(named: show.title) { episodes }
 
         case .albumDetail(let album):
@@ -490,8 +513,19 @@ struct ScrollWheelView: View {
                 await MainActor.run { queueSong(from: tracks, at: index) }
             }
         case .podcastDetail(let show):
-            queueSong(from: show.episodes.map { AppTrack(from: $0) },
-                      at: detailSelection - PlayShuffleRows.count)
+            let index = detailSelection - PlayShuffleRows.count
+            guard show.episodes.indices.contains(index) else {
+                bumpFeedback()
+                break
+            }
+            let episode = show.episodes[index]
+            if let item = episode.mediaItem {
+                queueSong(from: [AppTrack(from: item)], at: 0)
+            } else {
+                // A streamed episode can't join the music queue, so the swipe saves it
+                // for offline listening instead — or undoes that on a second swipe.
+                toggleDownload(of: episode)
+            }
         case .queue:
             removeSelectedFromQueue()
         default:
@@ -578,6 +612,24 @@ struct ScrollWheelView: View {
                     onBanner(String(localized: "queue.unavailable"))
                 }
             }
+        }
+    }
+
+    private func toggleDownload(of episode: PodcastEpisode) {
+        let downloads = musicService.podcastDownloads
+        switch downloads.state(for: episode.id) {
+        case nil:
+            downloads.download(episode)
+            successFeedback()
+            onBanner(String(format: String(localized: "download.started"), episode.title))
+        case .downloading:
+            downloads.remove(episode.id)
+            bumpFeedback()
+            onBanner(String(localized: "download.cancelled"))
+        case .downloaded:
+            downloads.remove(episode.id)
+            bumpFeedback()
+            onBanner(String(format: String(localized: "download.removed"), episode.title))
         }
     }
 
@@ -692,6 +744,105 @@ struct ScrollWheelView: View {
         isNextPressed     = false
     }
 
+    private func openPodcastShow(_ show: PodcastShow) {
+        saveSelectionState()
+        navigationStack.append(currentScreen)
+        let target = LyreScreen.podcastDetail(show)
+        restoreSelectionState(for: target)
+        withAnimation(.easeInOut(duration: 0.15)) { currentScreen = target }
+    }
+
+    private func accessibilityTap(_ zone: WheelTapZone) {
+        guard !isHoldEnabled else { return }
+        onInteraction()
+        fireTap(zone: zone)
+    }
+
+    // MARK: - VoiceOver Selection
+
+    /// What the wheel has highlighted on the current screen, for VoiceOver. Screens whose
+    /// rows are loaded by their own view (album, playlist and artist contents) can only
+    /// be described by position.
+    private var accessibilitySelection: String {
+        func pick(_ items: [String], _ index: Int) -> String {
+            items.indices.contains(index) ? items[index] : ""
+        }
+        func track(_ tracks: [AppTrack], _ index: Int) -> String {
+            guard tracks.indices.contains(index) else { return "" }
+            let track = tracks[index]
+            return track.artistName.isEmpty ? track.title : "\(track.title), \(track.artistName)"
+        }
+        func detailRow(_ row: Int, item: String) -> String {
+            switch row {
+            case PlayShuffleRows.playOffset:    return String(localized: "detail.play")
+            case PlayShuffleRows.shuffleOffset: return String(localized: "detail.shuffle")
+            default: return String(format: String(localized: "wheel.a11y.row"), item, row - PlayShuffleRows.count + 1)
+            }
+        }
+
+        switch currentScreen {
+        case .menu:
+            return pick(MainMenuView.items, menuSelection)
+        case .songs:
+            return track(musicService.songs, songSelection)
+        case .recentlyAdded:
+            return track(musicService.recentlyAdded, songSelection)
+        case .recentlyPlayed:
+            return track(musicService.recentlyPlayed, songSelection)
+        case .queue:
+            return songSelection == QueueView.clearRowOffset
+                ? String(localized: "queue.clear")
+                : track(musicService.upNext, songSelection)
+        case .albums:
+            return pick(musicService.albums.map(\.title), menuSelection)
+        case .artists:
+            return pick(musicService.artists.map(\.name), menuSelection)
+        case .playlists:
+            return pick(musicService.playlists.map(\.name), menuSelection)
+        case .podcasts:
+            switch menuSelection {
+            case PodcastListView.searchRow:     return String(localized: "podcasts.search")
+            case PodcastListView.downloadedRow: return String(localized: "podcasts.downloaded")
+            default: return pick(musicService.streamingPodcastShows().map(\.title), menuSelection - PodcastListView.fixedRows)
+            }
+        case .downloadedPodcasts:
+            return pick(musicService.downloadedPodcastShows().map(\.title), menuSelection)
+        case .podcastDetail(let show):
+            return detailSelection < PlayShuffleRows.count
+                ? detailRow(detailSelection, item: "")
+                : pick(show.episodes.map(\.title), detailSelection - PlayShuffleRows.count)
+        case .albumDetail, .playlistDetail:
+            return detailRow(detailSelection, item: String(localized: "wheel.a11y.track"))
+        case .artistDetail:
+            return String(format: String(localized: "wheel.a11y.row"), String(localized: "wheel.a11y.album"), detailSelection + 1)
+        case .settings:
+            return pick(SettingsView.items, menuSelection)
+        case .themeSelection:
+            return pick(LyreThemeStyle.allCases.map(\.rawValue), menuSelection)
+        case .screenSizeSelection:
+            return menuSelection == 0
+                ? String(localized: "onboarding.size.auto")
+                : pick(ScreenSize.allCases.map(\.rawValue), menuSelection - 1)
+        case .highlightColorSelection:
+            return menuSelection == 0
+                ? String(localized: "settings.highlightColor.default")
+                : pick(LyreColors.finishColorOptions.map(\.name), menuSelection - 1)
+        case .scrollSensitivitySelection:
+            return pick(ScrollSensitivity.allCases.map(\.rawValue), menuSelection)
+        case .clickSoundSelection:
+            return pick([String(localized: "settings.clickSound.on"), String(localized: "settings.clickSound.off")], menuSelection)
+        case .backlightDurationSelection:
+            return pick(BacklightDuration.allCases.map(\.rawValue), menuSelection)
+        case .nowPlaying:
+            // Scrolling here scrubs, so the position is what changed.
+            return String(format: String(localized: "wheel.a11y.position"),
+                          AppHelpers.formatTime(musicService.currentTime),
+                          AppHelpers.formatTime(musicService.duration))
+        case .about:
+            return ""
+        }
+    }
+
     private func fireTap(zone: WheelTapZone) {
         switch zone {
         case .menu:      handleMenuButton()
@@ -740,7 +891,7 @@ struct ScrollWheelView: View {
             } else {
                 didScroll = false
             }
-        case .albums, .playlists, .artists, .podcasts, .settings, .themeSelection, .screenSizeSelection, .highlightColorSelection, .scrollSensitivitySelection, .clickSoundSelection, .backlightDurationSelection:
+        case .albums, .playlists, .artists, .podcasts, .downloadedPodcasts, .settings, .themeSelection, .screenSizeSelection, .highlightColorSelection, .scrollSensitivitySelection, .clickSoundSelection, .backlightDurationSelection:
             if menuSelection > 0 {
                 menuSelection -= 1
                 didScroll = true
@@ -848,7 +999,16 @@ struct ScrollWheelView: View {
                 didScroll = false
             }
         case .podcasts:
-            maxIndex = musicService.podcastShows.count - 1
+            // Search Podcasts and Downloaded come first; the shows follow them.
+            maxIndex = musicService.streamingPodcastShows().count + PodcastListView.fixedRows - 1
+            if menuSelection < maxIndex {
+                menuSelection += 1
+                didScroll = true
+            } else {
+                didScroll = false
+            }
+        case .downloadedPodcasts:
+            maxIndex = musicService.downloadedPodcastShows().count - 1
             if menuSelection < maxIndex {
                 menuSelection += 1
                 didScroll = true
@@ -1024,7 +1184,7 @@ struct ScrollWheelView: View {
                 menuSelection = 0
                 songSelection = 0
                 detailSelection = 0
-            case .albums, .artists, .playlists, .podcasts:
+            case .albums, .artists, .playlists, .podcasts, .downloadedPodcasts:
                 // Keep menuSelection for list position, reset others
                 songSelection = 0
                 detailSelection = 0
@@ -1199,13 +1359,24 @@ struct ScrollWheelView: View {
             }
 
         case .podcasts:
-            if !musicService.podcastShows.isEmpty && menuSelection < musicService.podcastShows.count {
-                let show = musicService.podcastShows[menuSelection]
+            let showIndex = menuSelection - PodcastListView.fixedRows
+            if menuSelection == PodcastListView.searchRow {
+                onOpenPodcastSearch()
+            } else if menuSelection == PodcastListView.downloadedRow {
                 saveSelectionState()
                 navigationStack.append(currentScreen)
-                let target = LyreScreen.podcastDetail(show)
+                let target = LyreScreen.downloadedPodcasts
                 restoreSelectionState(for: target)
                 withAnimation(.easeInOut(duration: 0.15)) { currentScreen = target }
+            } else {
+                let shows = musicService.streamingPodcastShows()
+                if shows.indices.contains(showIndex) { openPodcastShow(shows[showIndex]) }
+            }
+
+        case .downloadedPodcasts:
+            let shows = musicService.downloadedPodcastShows()
+            if shows.indices.contains(menuSelection) {
+                openPodcastShow(shows[menuSelection])
             }
 
         case .podcastDetail(let show):
@@ -1213,7 +1384,7 @@ struct ScrollWheelView: View {
             let row = detailSelection
             // Play and Shuffle start the whole show from its first episode, in order
             // or shuffled; any other row starts from that episode.
-            let items: [MPMediaItem]
+            let items: [PodcastEpisode]
             let startIndex: Int
             switch row {
             case PlayShuffleRows.playOffset:
@@ -1229,7 +1400,7 @@ struct ScrollWheelView: View {
             if items.indices.contains(startIndex) {
                 startPlayback {
                     await musicService.playPodcastEpisodes(
-                        items: items, startingAt: startIndex, podcastShowTitle: show.title
+                        items, startingAt: startIndex, podcastShowTitle: show.title
                     )
                     return .started
                 }
@@ -1325,7 +1496,10 @@ struct ScrollWheelView: View {
             }
 
         case .about:
-            break
+            // Replays the introduction. ContentView swaps back to onboarding as soon as
+            // the flag clears; the journey starts again from its first step.
+            UserDefaults.standard.set(0, forKey: "onboardingStep")
+            hasCompletedOnboarding = false
 
         case .nowPlaying:
             Task {
@@ -1407,7 +1581,8 @@ struct ScrollWheelView: View {
             queueMoveOffset: $queueMoveOffset,
             isHoldEnabled: false,
             onInteraction: {},
-            onBanner: { _ in }
+            onBanner: { _ in },
+            onOpenPodcastSearch: {}
         )
     }
 }

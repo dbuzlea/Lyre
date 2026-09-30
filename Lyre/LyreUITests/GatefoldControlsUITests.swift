@@ -283,7 +283,7 @@ final class GatefoldControlsUITests: XCTestCase {
         }
         app.launch()
 
-        guard app.buttons["Scroll wheel"].waitForExistence(timeout: 15) else {
+        guard app.descendants(matching: .any)["Scroll wheel"].firstMatch.waitForExistence(timeout: 15) else {
             throw XCTSkip("The Lyre interface never appeared; onboarding may not be complete on this device.")
         }
 

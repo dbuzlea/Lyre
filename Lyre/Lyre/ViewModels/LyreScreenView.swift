@@ -40,18 +40,20 @@ struct LyreScreenView: View {
         case .nowPlaying, .queue: return false
         default: break
         }
-        return musicService.currentTrack != nil || musicService.currentMediaItem != nil
+        return musicService.hasNowPlaying
     }
 
     private var nowPlayingTitle: String {
         musicService.currentTrack?.title
             ?? musicService.currentMediaItem?.title
+            ?? musicService.currentEpisode?.title
             ?? ""
     }
 
     private var nowPlayingArtist: String {
         musicService.currentTrack?.artistName
             ?? musicService.currentMediaItem?.artist
+            ?? musicService.currentEpisode?.showTitle
             ?? ""
     }
 
@@ -120,12 +122,20 @@ struct LyreScreenView: View {
                             themeSettings: themeSettings
                         )
                     case .podcasts:
-                        PodcastListView(
-                            podcastShows: musicService.podcastShows,
+                        PodcastsScreen(
+                            mode: .all,
+                            musicService: musicService,
                             selection: $menuSelection,
                             themeSettings: themeSettings
                         )
                         .task { await musicService.refreshPodcasts() }
+                    case .downloadedPodcasts:
+                        PodcastsScreen(
+                            mode: .downloaded,
+                            musicService: musicService,
+                            selection: $menuSelection,
+                            themeSettings: themeSettings
+                        )
                     case .podcastDetail(let show):
                         PodcastDetailView(
                             show: show,

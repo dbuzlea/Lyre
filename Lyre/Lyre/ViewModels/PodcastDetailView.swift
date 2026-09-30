@@ -12,12 +12,14 @@ import MediaPlayer
 // PodcastShow model (no async fetch needed), so the list renders immediately.
 // Duration is formatted as h:mm:ss for episodes over an hour, otherwise m:ss.
 // Selecting an episode triggers playback via MusicService.playPodcastEpisodes.
+// Streamed episodes show whether they are downloaded (see PodcastDownloads).
 struct PodcastDetailView: View {
     let show: PodcastShow
     @Binding var selection: Int
     let themeSettings: ThemeSettings
+    @ObservedObject private var downloads = PodcastDownloads.shared
 
-    private var episodes: [MPMediaItem] { show.episodes }
+    private var episodes: [PodcastEpisode] { show.episodes }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -37,7 +39,7 @@ struct PodcastDetailView: View {
 
             // Podcast header
             HStack(spacing: 8) {
-                LocalArtworkImage(cacheKey: "podcast.\(show.title)", size: 50, artwork: show.artwork) { image in
+                LocalArtworkImage(cacheKey: show.artworkCacheKey, size: 50, artwork: show.artwork, remoteURL: show.artworkURL) { image in
                     image
                         .resizable()
                         .frame(width: 50, height: 50)
@@ -82,34 +84,38 @@ struct PodcastDetailView: View {
                                         .overlay {
                                             HStack {
                                                 VStack(alignment: .leading, spacing: 0) {
-                                                    Text(episode.title ?? "Episode \(index + 1)")
+                                                    Text(episode.title)
                                                         .font(.system(size: 11, weight: .medium))
                                                         .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                         .lineLimit(1)
-                                                    Text(formatDuration(episode.playbackDuration))
+                                                    Text(formatDuration(episode.duration))
                                                         .font(.system(size: 9))
                                                         .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.7))
                                                 }
                                                 Spacer()
+                                                downloadBadge(for: episode, color: themeSettings.currentTheme.highlightTextColor)
                                             }
                                             .padding(.leading, 8)
+                                            .padding(.trailing, 8)
                                             .padding(.vertical, 2)
                                         }
                                         .selectionBarRefraction()
                                 } else {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 0) {
-                                            Text(episode.title ?? "Episode \(index + 1)")
+                                            Text(episode.title)
                                                 .font(.system(size: 11))
                                                 .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                                 .lineLimit(1)
-                                            Text(formatDuration(episode.playbackDuration))
+                                            Text(formatDuration(episode.duration))
                                                 .font(.system(size: 9))
                                                 .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                                         }
                                         Spacer()
+                                        downloadBadge(for: episode, color: themeSettings.currentTheme.screenSecondaryTextColor)
                                     }
                                     .padding(.leading, 8)
+                                    .padding(.trailing, 8)
                                     .padding(.vertical, 2)
                                 }
                             }
@@ -138,7 +144,26 @@ struct PodcastDetailView: View {
         }
     }
 
-    private func formatDuration(_ duration: TimeInterval) -> String {
+    /// Marks a streamed episode that is saved on the device, or how far its download is.
+    @ViewBuilder
+    private func downloadBadge(for episode: PodcastEpisode, color: Color) -> some View {
+        switch downloads.state(for: episode.id) {
+        case .downloaded:
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 10))
+                .foregroundStyle(color)
+                .accessibilityLabel("Downloaded")
+        case .downloading(let progress):
+            Text("\(Int(progress * 100))%")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(color)
+                .accessibilityLabel("Downloading")
+        case nil:
+            EmptyView()
+        }
+    }
+
+        private func formatDuration(_ duration: TimeInterval) -> String {
         let totalSeconds = Int(duration)
         let hours = totalSeconds / 3600
         let minutes = (totalSeconds % 3600) / 60

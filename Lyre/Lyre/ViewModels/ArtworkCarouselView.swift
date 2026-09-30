@@ -99,7 +99,7 @@ enum ArtworkCarouselContent {
             return items[index].musicKitPlaylist?.artwork == nil && items[index].mpArtwork == nil
         case .podcasts(let items):
             guard index < items.count else { return true }
-            return items[index].artwork == nil
+            return !items[index].hasArtwork
         }
     }
 }
@@ -138,7 +138,8 @@ struct ArtworkCarouselView: View {
     @State private var wasPastHalfway = false
 
     @State private var backFaceTracks: [AppTrack] = []
-    @State private var backFaceEpisodes: [MPMediaItem] = []
+    @State private var backFaceEpisodes: [PodcastEpisode] = []
+    @ObservedObject private var downloads = PodcastDownloads.shared
     @State private var backFacePlaylistID: String? = nil
     @State private var backFacePodcastShowTitle: String? = nil
     @State private var isLoadingBackFace = false
@@ -241,8 +242,7 @@ struct ArtworkCarouselView: View {
     private var isCurrentItem: Bool {
         switch content {
         case .podcasts:
-            guard let current = musicService.currentMediaItem else { return false }
-            return backFaceEpisodes.contains { $0.persistentID == current.persistentID }
+            return backFaceEpisodes.contains { musicService.isCurrentEpisode($0) }
         case .albums, .playlists:
             return backFaceTracks.contains { isCurrentTrack($0) }
         }
@@ -980,7 +980,7 @@ struct ArtworkCarouselView: View {
         case .podcasts(let items):
             if index < items.count {
                 let show = items[index]
-                LocalArtworkImage(cacheKey: "podcast.\(show.title)", size: size, artwork: show.artwork) { image in
+                LocalArtworkImage(cacheKey: show.artworkCacheKey, size: size, artwork: show.artwork, remoteURL: show.artworkURL) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -1150,7 +1150,8 @@ struct ArtworkCarouselView: View {
                     showsSideControl: sides.count > 1,
                     onSelect: { globalIndex in playTrack(at: globalIndex) },
                     onQueue: { globalIndex, placement in queueTrack(at: globalIndex, placement: placement) },
-                    onSideChange: { flipRecord(to: $0) }
+                    onSideChange: { flipRecord(to: $0) },
+                    onDownload: { globalIndex in toggleDownload(at: globalIndex) }
                 )
             }
         }
@@ -1179,12 +1180,13 @@ struct ArtworkCarouselView: View {
                 LinerRow(
                     id: offset,
                     number: offset + 1,
-                    title: episode.title ?? "Episode \(offset + 1)",
-                    duration: episode.playbackDuration,
+                    title: episode.title,
+                    duration: episode.duration,
                     // Marks the loaded episode, not whether audio is flowing — pausing
                     // should not un-highlight the row you just picked. The disc already
                     // says whether it is turning.
-                    isCurrent: musicService.currentMediaItem?.persistentID == episode.persistentID
+                    isCurrent: musicService.isCurrentEpisode(episode),
+                    download: downloadMark(for: episode)
                 )
             }
 
@@ -1268,7 +1270,7 @@ struct ArtworkCarouselView: View {
         case .podcasts:
             Task {
                 await musicService.playPodcastEpisodes(
-                    items: backFaceEpisodes,
+                    backFaceEpisodes,
                     startingAt: globalIndex,
                     podcastShowTitle: backFacePodcastShowTitle
                 )
@@ -1301,6 +1303,35 @@ struct ArtworkCarouselView: View {
         }
     }
 
+    private func downloadMark(for episode: PodcastEpisode) -> LinerDownloadMark? {
+        guard episode.streamURL != nil else { return nil }
+        switch downloads.state(for: episode.id) {
+        case .downloading(let progress): return .downloading(progress: progress)
+        case .downloaded:                return .downloaded
+        case nil:                        return .available
+        }
+    }
+
+    /// Downloads a streamed episode for offline listening, or undoes that.
+    private func toggleDownload(at globalIndex: Int) {
+        guard backFaceEpisodes.indices.contains(globalIndex) else { return }
+        let episode = backFaceEpisodes[globalIndex]
+        switch downloads.state(for: episode.id) {
+        case nil:
+            downloads.download(episode)
+            impact(.light, 0.7)
+            showToast(String(format: String(localized: "download.started"), episode.title))
+        case .downloading:
+            downloads.remove(episode.id)
+            impact(.rigid, 0.4)
+            showToast(String(localized: "download.cancelled"))
+        case .downloaded:
+            downloads.remove(episode.id)
+            impact(.rigid, 0.4)
+            showToast(String(format: String(localized: "download.removed"), episode.title))
+        }
+    }
+
     /// Queues the track behind a liner row, leaving playback alone.
     ///
     /// The row index is into the whole tracklist, not the visible side, so it addresses
@@ -1310,7 +1341,13 @@ struct ArtworkCarouselView: View {
         switch content {
         case .podcasts:
             guard backFaceEpisodes.indices.contains(globalIndex) else { return }
-            track = AppTrack(from: backFaceEpisodes[globalIndex])
+            // Streamed episodes are URLs, which the music player's queue cannot hold.
+            guard let item = backFaceEpisodes[globalIndex].mediaItem else {
+                impact(.rigid, 0.4)
+                showToast(String(localized: "queue.streamedEpisode"))
+                return
+            }
+            track = AppTrack(from: item)
         case .albums, .playlists:
             guard backFaceTracks.indices.contains(globalIndex) else { return }
             track = backFaceTracks[globalIndex]
@@ -1356,7 +1393,7 @@ struct ArtworkCarouselView: View {
             case .playlists(let items):
                 tracks = await musicService.loadTracks(for: items[index])
             case .podcasts(let items):
-                tracks = items[index].episodes.map { AppTrack(from: $0) }
+                tracks = items[index].episodes.compactMap(\.mediaItem).map { AppTrack(from: $0) }
             }
             let outcome = await musicService.addToQueue(tracks: tracks, placement: placement)
             await MainActor.run {

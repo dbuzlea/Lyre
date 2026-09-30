@@ -28,9 +28,20 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         let args = CommandLine.arguments
         if args.contains("--uitest-reset-onboarding") {
             UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+            UserDefaults.standard.set(0, forKey: "onboardingStep")
         } else if args.contains("--uitest-complete-onboarding") {
             UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
         }
+    }
+
+    /// iOS relaunches the app in the background when podcast downloads finish while
+    /// it isn't running. Touching `shared` recreates the session that receives them.
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        PodcastDownloads.shared.backgroundCompletionHandler = completionHandler
     }
 
     func application(

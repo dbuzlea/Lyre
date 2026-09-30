@@ -60,6 +60,10 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   Remote control events (lock screen, headphones, CarPlay) need no handling here:
 //   MediaPlayer routes them to the player itself for application players.
 //
+//   Episodes of subscribed podcasts are the exception: they are remote URLs, which
+//   the music player cannot play, so they stream through PodcastStreamPlayer instead.
+//   See "Podcast Streaming" below for how the two engines take turns.
+//
 // Thread safety
 //   All @Published properties are mutated on the main actor via `await MainActor.run`.
 //   Async methods that call MusicKit or MPMusicPlayerController are safe to call from
@@ -200,6 +204,13 @@ enum QueuePlacement {
     case last
 }
 
+// MARK: - Playback Notice
+
+struct PlaybackNotice: Equatable {
+    let id = UUID()
+    let text: String
+}
+
 // MARK: - Playback Clock
 
 /// The playback position on its own. Only views that show the position observe it.
@@ -231,6 +242,17 @@ class MusicService: ObservableObject {
     @Published var librarySource: MusicLibrarySource = .none
     @Published var currentTrack: AppTrack?
     @Published var currentMediaItem: MPMediaItem?
+    /// The episode being streamed, while the stream engine is active. `currentTrack`
+    /// and `currentMediaItem` are nil then.
+    @Published var currentEpisode: PodcastEpisode?
+    /// A one-off message about playback for the screen to show, such as a stream
+    /// failing offline. Each notice is distinct, so the same message twice still shows.
+    @Published var playbackNotice: PlaybackNotice?
+
+    /// Whether anything is loaded to show on Now Playing.
+    var hasNowPlaying: Bool {
+        currentTrack != nil || currentMediaItem != nil || currentEpisode != nil
+    }
     /// Every path that starts or stops playback goes through this, so it is also where
     /// the progress ticker is switched on and off.
     @Published var isPlaying     = false {
@@ -291,7 +313,31 @@ class MusicService: ObservableObject {
 
     // MARK: - Private
 
-    private let player = MPMusicPlayerController.applicationQueuePlayer
+    /// Lazy, and first touched only once library access is granted, so nothing at
+    /// launch can make iOS ask for access before onboarding does. See
+    /// `setupNotificationsIfAuthorized()`.
+    private lazy var player = MPMusicPlayerController.applicationQueuePlayer
+    private var didSetupNotifications = false
+
+    // MARK: - Podcast Streaming
+    //
+    // Episodes of subscribed shows stream through their own AVPlayer, because the music
+    // player cannot play a URL. Only one engine is active at a time: starting either
+    // pauses the other, and the music player's notifications are ignored while the
+    // stream engine is active so its pause does not overwrite the podcast's state.
+
+    private nonisolated enum PlaybackEngine { case library, stream }
+    private var activeEngine: PlaybackEngine = .library
+    private let streamPlayer = PodcastStreamPlayer()
+    private let podcastSubscriptions = PodcastSubscriptions()
+    let podcastDownloads = PodcastDownloads.shared
+    /// Shows found in the on-device library; `podcastShows` adds the subscriptions.
+    private var localPodcastShows: [PodcastShow] = []
+    private var lastFeedRefresh: Date?
+    private static let feedRefreshInterval: TimeInterval = 30 * 60
+    /// Artwork for the lock screen while streaming, keyed by its URL.
+    private var streamArtwork: (url: URL, artwork: MPMediaItemArtwork)?
+
     private var playbackStateObserver: NSObjectProtocol?
     private var nowPlayingObserver:    NSObjectProtocol?
     private var libraryChangeObserver: NSObjectProtocol?
@@ -370,11 +416,12 @@ class MusicService: ObservableObject {
             // while music was playing left Now Playing blank until the whole library had
             // been scanned. `setupNotifications` reads the player's current state, which
             // starts the progress ticker through `isPlaying` if something is playing.
-            setupNotifications()
+            // Before access is granted this waits, so iOS doesn't prompt at launch.
+            setupNotificationsIfAuthorized()
+            setupStreamPlayer()
             await restoreCachedLibrary()
             await checkCurrentStatus()
         }
-        observeSubscriptionUpdates()
     }
 
     // MARK: - Launch Cache
@@ -458,6 +505,7 @@ class MusicService: ObservableObject {
         let granted = Self.hasAnyLibraryAccess
         await MainActor.run { isAuthorized = granted }
         guard granted else { return }
+        setupNotificationsIfAuthorized()
         await refreshSubscriptionState()
         await loadLibrary()
     }
@@ -476,6 +524,7 @@ class MusicService: ObservableObject {
 
         await MainActor.run { isAuthorized = granted }
         guard granted else { return }
+        setupNotificationsIfAuthorized()
 
         await refreshSubscriptionState()
         await loadLibrary()
@@ -565,6 +614,14 @@ class MusicService: ObservableObject {
         }
     }
 
+    /// Listening for subscription changes makes iOS ask for Apple Music access, so it
+    /// starts only once MusicKit is authorized — never on a fresh install's welcome
+    /// screen, before onboarding has asked.
+    private func observeSubscriptionUpdatesIfAuthorized() {
+        guard subscriptionObserverTask == nil, Self.canQuerySubscription else { return }
+        observeSubscriptionUpdates()
+    }
+
     private func observeSubscriptionUpdates() {
         subscriptionObserverTask = Task { [weak self] in
             for await subscription in MusicSubscription.subscriptionUpdates {
@@ -605,6 +662,10 @@ class MusicService: ObservableObject {
     /// changed — access was newly granted, the library is empty, or the on-device
     /// library was modified since the last load.
     func refreshOnForeground() async {
+        // Subscribed feeds need no library access, and new episodes are what an
+        // automatic download waits on. Throttled, so this is cheap on most returns.
+        Task { await refreshSubscribedFeeds() }
+
         let granted = Self.hasAnyLibraryAccess
         let wasAuthorized = await MainActor.run { () -> Bool in
             let previous = isAuthorized
@@ -612,6 +673,7 @@ class MusicService: ObservableObject {
             return previous
         }
         guard granted else { return }
+        setupNotificationsIfAuthorized()
 
         if !wasAuthorized { await refreshSubscriptionState() }
 
@@ -840,10 +902,18 @@ class MusicService: ObservableObject {
     /// equality is by title alone, so episodes are compared here too — a new episode
     /// has to get through.
     private func setPodcastShowsIfChanged(_ shows: [PodcastShow]) {
-        let unchanged = podcastShows.elementsEqual(shows) {
-            $0.title == $1.title && $0.episodes.map(\.persistentID) == $1.episodes.map(\.persistentID)
+        localPodcastShows = shows
+        publishPodcastShows()
+    }
+
+    /// Publishes the on-device shows and the subscriptions as one alphabetical list.
+    private func publishPodcastShows() {
+        let merged = (localPodcastShows + podcastSubscriptions.feeds.map(PodcastShow.init(feed:)))
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        let unchanged = podcastShows.elementsEqual(merged) {
+            $0.id == $1.id && $0.episodes.map(\.id) == $1.episodes.map(\.id)
         }
-        if !unchanged { podcastShows = shows }
+        if !unchanged { podcastShows = merged }
     }
 
     /// Reads `subscriptionState` for the load. `.unknown` is treated as "might be able
@@ -1055,7 +1125,29 @@ class MusicService: ObservableObject {
     }
 #endif
 
-    func playPodcastEpisodes(items: [MPMediaItem], startingAt index: Int = 0, podcastShowTitle: String? = nil) async {
+    /// Plays episodes of a show: on-device episodes through the music player, streamed
+    /// ones through the stream engine.
+    func playPodcastEpisodes(_ episodes: [PodcastEpisode], startingAt index: Int = 0, podcastShowTitle: String? = nil) async {
+        guard episodes.indices.contains(index) else { return }
+        guard episodes[index].streamURL != nil else {
+            // An on-device show. Any episode without a media item behind it is dropped,
+            // and the start index is found again among the survivors.
+            let local = episodes.filter { $0.mediaItem != nil }
+            guard let start = local.firstIndex(of: episodes[index]) else { return }
+            await playPodcastEpisodes(items: local.compactMap(\.mediaItem), startingAt: start, podcastShowTitle: podcastShowTitle)
+            return
+        }
+
+        logger.info("Streaming podcast '\(podcastShowTitle ?? "unknown")': \(episodes.count) episode(s) at index \(index)")
+        await MainActor.run {
+            activateStreamEngine()
+            streamPlayer.play(episodes, startingAt: index)
+            currentPlaylistID = nil
+            currentPodcastShowTitle = podcastShowTitle
+        }
+    }
+
+    private func playPodcastEpisodes(items: [MPMediaItem], startingAt index: Int = 0, podcastShowTitle: String? = nil) async {
         guard !items.isEmpty, index < items.count else { return }
         logger.info("Playing podcast '\(podcastShowTitle ?? "unknown")': \(items.count) episode(s) at index \(index)")
         let startItem = items[index]
@@ -1302,6 +1394,7 @@ class MusicService: ObservableObject {
     /// has begun, leaving the player on the head of the queue rather than on
     /// `startItem`, and that case is repaired rather than prevented.
     private func setPlayerQueue(items: [MPMediaItem], startItem: MPMediaItem, thenPlay: Bool = false) {
+        activateLibraryEngine()
         let descriptor = MPMusicPlayerMediaItemQueueDescriptor(
             itemCollection: MPMediaItemCollection(items: items)
         )
@@ -1332,6 +1425,10 @@ class MusicService: ObservableObject {
 
     func togglePlayPause() async {
         await MainActor.run {
+            if activeEngine == .stream {
+                streamPlayer.isPlaying ? streamPlayer.pause() : streamPlayer.resume()
+                return
+            }
             if isPlaying { player.pause(); isPlaying = false; logger.info("Playback paused") }
             else         { player.play();  isPlaying = true;  logger.info("Playback resumed") }
         }
@@ -1358,17 +1455,25 @@ class MusicService: ObservableObject {
 
     func skipToNext() async {
         logger.info("Skipping to next track")
-        await MainActor.run { player.skipToNextItem() }
+        await MainActor.run {
+            if activeEngine == .stream { streamPlayer.skipToNext() } else { player.skipToNextItem() }
+        }
     }
 
     func skipToPrevious() async {
         logger.info("Skipping to previous track")
-        await MainActor.run { player.skipToPreviousItem() }
+        await MainActor.run {
+            if activeEngine == .stream { streamPlayer.skipToPrevious() } else { player.skipToPreviousItem() }
+        }
     }
 
     func seek(to time: TimeInterval) async {
         await MainActor.run {
-            player.currentPlaybackTime = time
+            if activeEngine == .stream {
+                streamPlayer.seek(to: time)
+            } else {
+                player.currentPlaybackTime = time
+            }
             currentTime = time
         }
     }
@@ -1382,6 +1487,221 @@ class MusicService: ObservableObject {
         // Runs on every visit to the Podcasts screen, so an unchanged scan must not
         // republish and redraw everything.
         setPodcastShowsIfChanged(await LibraryScanner.scanPodcasts())
+        await refreshSubscribedFeeds()
+    }
+
+    /// True when a playback error comes down to having no connection. AVFoundation
+    /// wraps the network error, so the underlying errors are searched too.
+    private static func isOffline(_ error: Error?) -> Bool {
+        var next = error as NSError?
+        while let current = next {
+            if current.domain == NSURLErrorDomain, [
+                NSURLErrorNotConnectedToInternet, NSURLErrorNetworkConnectionLost,
+                NSURLErrorDataNotAllowed, NSURLErrorInternationalRoamingOff,
+                NSURLErrorCannotFindHost, NSURLErrorTimedOut,
+            ].contains(current.code) {
+                return true
+            }
+            next = current.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        return false
+    }
+
+    // MARK: - Streaming and Downloaded
+    //
+    // `podcastShows` holds everything. The Podcasts screen splits it in two with no
+    // episode in both: what streams (`streamingPodcastShows`) and what is on the
+    // iPhone (`downloadedPodcastShows`). On-device library episodes count as
+    // downloaded — they already are.
+
+    /// Subscriptions with their downloaded episodes taken out. A subscription whose
+    /// every episode is downloaded has nothing left here and is listed only under
+    /// Downloaded until a new episode comes out.
+    func streamingPodcastShows() -> [PodcastShow] {
+        podcastShows.compactMap { show in
+            guard show.isStreamed else { return nil }
+            let streaming = show.episodes.filter { podcastDownloads.state(for: $0.id) != .downloaded }
+            guard !streaming.isEmpty else { return nil }
+            guard streaming.count != show.episodes.count else { return show }
+            return PodcastShow(id: show.id, title: show.title, episodes: streaming,
+                               feedURL: show.feedURL, artworkURL: show.artworkURL)
+        }
+    }
+
+    /// Every show with something playable offline: on-device shows whole, and the
+    /// downloaded episodes of subscriptions. A podcast that is both on the iPhone and
+    /// subscribed to in Lyre is listed once, with an episode saved both ways listed once.
+    func downloadedPodcastShows() -> [PodcastShow] {
+        var groups: [String: (title: String, episodes: [PodcastEpisode], artworkURL: URL?)] = [:]
+        for show in podcastShows {
+            let offline = show.isStreamed
+                ? show.episodes.filter { podcastDownloads.state(for: $0.id) == .downloaded }
+                : show.episodes
+            guard !offline.isEmpty else { continue }
+            let key = show.title.lowercased()
+            var group = groups[key] ?? (show.title, [], nil)
+            group.episodes += offline
+            group.artworkURL = group.artworkURL ?? show.artworkURL
+            groups[key] = group
+        }
+        return groups.map { key, group in
+            // On-device copies come first, so they win when an episode is in both.
+            var seen = Set<String>()
+            let episodes = group.episodes
+                .sorted { ($0.mediaItem != nil ? 0 : 1) < ($1.mediaItem != nil ? 0 : 1) }
+                .filter { seen.insert($0.title.lowercased()).inserted }
+                .sorted { ($0.published ?? .distantPast) > ($1.published ?? .distantPast) }
+            return PodcastShow(id: "downloaded:\(key)", title: group.title, episodes: episodes, artworkURL: group.artworkURL)
+        }
+        .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    /// Whether this episode is the one loaded in either player.
+    func isCurrentEpisode(_ episode: PodcastEpisode) -> Bool {
+        if let currentEpisode { return currentEpisode.id == episode.id }
+        guard let item = episode.mediaItem, let current = currentMediaItem else { return false }
+        return item.persistentID == current.persistentID
+    }
+
+    func isSubscribed(to feedURL: URL) -> Bool {
+        podcastSubscriptions.isSubscribed(feedURL)
+    }
+
+    /// Fetches a feed and adds it to the subscriptions. Throws when the feed can't be
+    /// read, so the caller can say why.
+    func subscribe(to feedURL: URL) async throws {
+        let feed = try await PodcastDirectory.fetchFeed(feedURL)
+        podcastSubscriptions.store(feed, replacing: feedURL)
+        publishPodcastShows()
+        logger.notice("Subscribed to '\(feed.title)' (\(feed.episodes.count) episodes)")
+    }
+
+    func unsubscribe(from feedURL: URL) {
+        // Saved episodes of a show the user has dropped would only waste space.
+        if let feed = podcastSubscriptions.feeds.first(where: { $0.feedURL == feedURL }) {
+            podcastDownloads.remove(episodeIDs: PodcastShow(feed: feed).episodes.map(\.id))
+        }
+        podcastSubscriptions.remove(feedURL)
+        publishPodcastShows()
+        logger.notice("Unsubscribed from \(feedURL.absoluteString)")
+    }
+
+    /// Subscribes to every feed in an OPML file that isn't subscribed already. Returns
+    /// how many were added and how many couldn't be read.
+    func importSubscriptions(from feedURLs: [URL]) async -> (added: Int, failed: Int) {
+        let new = feedURLs.filter { !podcastSubscriptions.isSubscribed($0) }
+        var added = 0, failed = 0
+        // A few at a time: an export from another app can list hundreds of shows.
+        for batch in stride(from: 0, to: new.count, by: 6).map({ Array(new[$0..<min($0 + 6, new.count)]) }) {
+            let feeds = await withTaskGroup(of: FeedShow?.self) { group in
+                for url in batch { group.addTask { try? await PodcastDirectory.fetchFeed(url) } }
+                var feeds: [FeedShow] = []
+                for await feed in group { if let feed { feeds.append(feed) } }
+                return feeds
+            }
+            for feed in feeds { podcastSubscriptions.store(feed) }
+            added += feeds.count
+            failed += batch.count - feeds.count
+            publishPodcastShows()
+        }
+        logger.notice("OPML import: \(added) added, \(failed) failed, \(feedURLs.count - new.count) already subscribed")
+        return (added, failed)
+    }
+
+    /// The subscriptions as an OPML document, for moving them to another app.
+    func exportSubscriptionsOPML() -> String {
+        OPML.document(for: podcastSubscriptions.feeds)
+    }
+
+    /// Re-reads every subscribed feed for new episodes, at most every half hour unless
+    /// forced. A feed that fails keeps its last copy.
+    func refreshSubscribedFeeds(force: Bool = false) async {
+        if !force, let lastFeedRefresh, Date().timeIntervalSince(lastFeedRefresh) < Self.feedRefreshInterval { return }
+        let urls = podcastSubscriptions.feeds.map(\.feedURL)
+        guard !urls.isEmpty else { return }
+        lastFeedRefresh = Date()
+
+        let refreshed = await withTaskGroup(of: (URL, FeedShow?).self) { group in
+            for url in urls {
+                group.addTask { (url, try? await PodcastDirectory.fetchFeed(url)) }
+            }
+            var results: [(URL, FeedShow)] = []
+            for await (url, feed) in group {
+                if let feed { results.append((url, feed)) }
+            }
+            return results
+        }
+        // A show unsubscribed while its feed was loading stays unsubscribed.
+        for (url, feed) in refreshed where podcastSubscriptions.isSubscribed(url) {
+            if podcastDownloads.autoDownloadNew { autoDownloadNewEpisodes(of: feed, replacing: url) }
+            podcastSubscriptions.store(feed, replacing: url)
+        }
+        publishPodcastShows()
+        logger.info("Refreshed \(refreshed.count) of \(urls.count) podcast feed(s)")
+    }
+
+    /// Downloads the episodes a refresh found that weren't in the feed before — at
+    /// most a few per show, so a feed that republishes its whole back catalogue can't
+    /// fill the phone. Wi‑Fi only.
+    private func autoDownloadNewEpisodes(of feed: FeedShow, replacing url: URL) {
+        guard let previous = podcastSubscriptions.feeds.first(where: { $0.feedURL == url }) else { return }
+        let known = Set(previous.episodes.map(\.guid))
+        let fresh = feed.episodes.filter { !known.contains($0.guid) }.prefix(3)
+        for episode in fresh {
+            podcastDownloads.download(PodcastEpisode(feedEpisode: episode, show: feed), onlyOnWiFi: true)
+        }
+        if !fresh.isEmpty { logger.info("Auto-downloading \(fresh.count) new episode(s) of '\(feed.title)'") }
+    }
+
+    // MARK: - Engine Switching
+
+    private func setupStreamPlayer() {
+        streamPlayer.loadPosition = { [weak self] id in self?.podcastSubscriptions.position(for: id) ?? 0 }
+        streamPlayer.savePosition = { [weak self] time, id in self?.podcastSubscriptions.setPosition(time, for: id) }
+        streamPlayer.onChange = { [weak self] in self?.syncFromStreamPlayer() }
+        streamPlayer.playbackURL = { [weak self] episode in
+            self?.podcastDownloads.localFile(for: episode.id) ?? episode.streamURL
+        }
+        streamPlayer.onFinish = { [weak self] episode in
+            guard let self, self.podcastDownloads.removeAfterPlaying else { return }
+            self.podcastDownloads.remove(episode.id)
+        }
+        streamPlayer.onFailure = { [weak self] _, error in
+            self?.playbackNotice = PlaybackNotice(
+                text: Self.isOffline(error) ? String(localized: "stream.offline") : String(localized: "stream.failed")
+            )
+        }
+        publishPodcastShows()
+    }
+
+    /// Hands playback to the stream engine, pausing the music player.
+    private func activateStreamEngine() {
+        guard activeEngine != .stream else { return }
+        // Switch first, so the music player's pause notification is ignored.
+        activeEngine = .stream
+        // Streaming needs no library access; don't create the music player just to
+        // pause it, which would prompt for access that was skipped.
+        if didSetupNotifications { player.pause() }
+        currentTrack = nil
+        currentMediaItem = nil
+    }
+
+    /// Hands playback back to the music player, stopping any stream.
+    private func activateLibraryEngine() {
+        guard activeEngine != .library else { return }
+        activeEngine = .library
+        streamPlayer.stop()
+        currentEpisode = nil
+    }
+
+    /// Mirrors the stream player's state into the published properties.
+    private func syncFromStreamPlayer() {
+        guard activeEngine == .stream else { return }
+        currentEpisode = streamPlayer.current
+        duration = streamPlayer.duration
+        isPlaying = streamPlayer.isPlaying
+        if !isScrubbing { currentTime = streamPlayer.currentTime }
+        updateNowPlayingInfoCenter()
     }
 
     // MARK: - MPMediaItem Lookup (by persistent ID for reliability)
@@ -1416,6 +1736,15 @@ class MusicService: ObservableObject {
     }
 
     // MARK: - Playback Notifications
+
+    /// Starts watching the music player and media library once there is access to
+    /// them — at launch for a returning user, or the moment onboarding is granted it.
+    private func setupNotificationsIfAuthorized() {
+        observeSubscriptionUpdatesIfAuthorized()
+        guard !didSetupNotifications, Self.hasAnyLibraryAccess else { return }
+        didSetupNotifications = true
+        setupNotifications()
+    }
 
     private func setupNotifications() {
         player.beginGeneratingPlaybackNotifications()
@@ -1454,6 +1783,8 @@ class MusicService: ObservableObject {
     }
 
     private func updatePlaybackState() {
+        // While streaming, the music player's state is not what is playing.
+        guard activeEngine == .library else { return }
         isPlaying = (player.playbackState == .playing)
         syncPlaybackModesFromPlayer()
         updateNowPlayingInfoCenter()
@@ -1474,6 +1805,7 @@ class MusicService: ObservableObject {
     }
 
     private func updateNowPlayingItem() {
+        guard activeEngine == .library else { return }
         currentMediaItem = player.nowPlayingItem
         guard let nowPlaying = player.nowPlayingItem else {
             currentTrack = nil; duration = 0
@@ -1538,7 +1870,11 @@ class MusicService: ObservableObject {
 
         playbackTimeUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             guard let self, !self.isScrubbing else { return }
-            let time = self.player.currentPlaybackTime
+            let time = self.activeEngine == .stream ? self.streamPlayer.currentTime : self.player.currentPlaybackTime
+            // A stream only learns its real duration once it has buffered.
+            if self.activeEngine == .stream, self.duration != self.streamPlayer.duration {
+                self.duration = self.streamPlayer.duration
+            }
             // The timer fires on the main run loop already. Skipping unchanged values
             // keeps a paused-but-ticking edge case from republishing the same time.
             if self.clock.time != time { self.clock.time = time }
@@ -1548,6 +1884,10 @@ class MusicService: ObservableObject {
     // MARK: - Now Playing Info Center (lockscreen / control center)
 
     private func updateNowPlayingInfoCenter() {
+        if activeEngine == .stream {
+            updateNowPlayingInfoCenterForStream()
+            return
+        }
         var info: [String: Any] = [:]
 
         let title    = currentTrack?.title     ?? currentMediaItem?.title     ?? ""
@@ -1569,12 +1909,50 @@ class MusicService: ObservableObject {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
+    /// The lock screen for a streamed episode. Nothing fills this in for an AVPlayer,
+    /// so the elapsed time is written with the rate and the system extrapolates it.
+    private func updateNowPlayingInfoCenterForStream() {
+        guard let episode = currentEpisode else {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            return
+        }
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: episode.title,
+            MPMediaItemPropertyArtist: episode.showTitle,
+            MPMediaItemPropertyAlbumTitle: episode.showTitle,
+            MPMediaItemPropertyPlaybackDuration: duration,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: streamPlayer.currentTime,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
+        ]
+        if let artworkURL = episode.artworkURL {
+            if let streamArtwork, streamArtwork.url == artworkURL {
+                info[MPMediaItemPropertyArtwork] = streamArtwork.artwork
+            } else {
+                loadStreamArtwork(artworkURL)
+            }
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func loadStreamArtwork(_ url: URL) {
+        Task { [weak self] in
+            let key = LocalArtworkCache.key(url.absoluteString, size: 600)
+            guard let image = await LocalArtworkCache.shared.image(from: url, key: key, size: 600) else { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.streamArtwork = (url, MPMediaItemArtwork(boundsSize: image.size) { _ in image })
+                self.updateNowPlayingInfoCenter()
+            }
+        }
+    }
+
     deinit {
-        player.endGeneratingPlaybackNotifications()
+        if didSetupNotifications { player.endGeneratingPlaybackNotifications() }
         playbackTimeUpdateTimer?.invalidate()
         subscriptionObserverTask?.cancel()
         subscriptionRetryTask?.cancel()
-        MPMediaLibrary.default().endGeneratingLibraryChangeNotifications()
+        if didSetupNotifications { MPMediaLibrary.default().endGeneratingLibraryChangeNotifications() }
         if let o = playbackStateObserver { NotificationCenter.default.removeObserver(o) }
         if let o = nowPlayingObserver    { NotificationCenter.default.removeObserver(o) }
         if let o = libraryChangeObserver { NotificationCenter.default.removeObserver(o) }

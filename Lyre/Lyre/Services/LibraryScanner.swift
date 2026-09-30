@@ -246,7 +246,7 @@ nonisolated enum LibraryScanner {
             .map { title, showEpisodes in
                 PodcastShow(
                     title: title,
-                    episodes: showEpisodes.sorted { $0.added > $1.added }.map(\.item)
+                    localEpisodes: showEpisodes.sorted { $0.added > $1.added }.map(\.item)
                 )
             }
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }

@@ -828,3 +828,46 @@ struct VinylSidesTests {
         #expect(vinylSideLabel(3) == "D")
     }
 }
+
+// MARK: - Shake to Shuffle
+
+@Suite("Shake to Shuffle")
+@MainActor
+struct ShakeToShuffleTests {
+
+    @Test func shakeShufflesWhenHoldIsOff() {
+        let controller = ShakeViewController()
+        var shakes = 0
+        controller.onShake = { shakes += 1 }
+        controller.motionEnded(.motionShake, with: nil)
+        #expect(shakes == 1)
+    }
+
+    @Test func shakeIsIgnoredWhileHoldIsOn() {
+        let controller = ShakeViewController()
+        var shakes = 0
+        controller.onShake = { shakes += 1 }
+        controller.isHoldEnabled = true
+        controller.motionEnded(.motionShake, with: nil)
+        #expect(shakes == 0)
+    }
+
+    @Test func shakeWorksAgainOnceHoldIsOff() {
+        let controller = ShakeViewController()
+        var shakes = 0
+        controller.onShake = { shakes += 1 }
+        controller.isHoldEnabled = true
+        controller.motionEnded(.motionShake, with: nil)
+        controller.isHoldEnabled = false
+        controller.motionEnded(.motionShake, with: nil)
+        #expect(shakes == 1)
+    }
+
+    @Test func otherMotionsNeverShuffle() {
+        let controller = ShakeViewController()
+        var shakes = 0
+        controller.onShake = { shakes += 1 }
+        controller.motionEnded(.none, with: nil)
+        #expect(shakes == 0)
+    }
+}

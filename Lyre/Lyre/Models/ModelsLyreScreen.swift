@@ -28,6 +28,8 @@ enum LyreScreen: Equatable, Hashable {
     case artistDetail(AppArtist)
     case podcasts
     case podcastDetail(PodcastShow)
+    /// Everything playable offline, reached from the Downloaded row of Podcasts.
+    case downloadedPodcasts
     case settings
     case themeSelection
     case screenSizeSelection

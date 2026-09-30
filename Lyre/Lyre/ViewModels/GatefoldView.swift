@@ -529,13 +529,23 @@ struct LinerRow: Identifiable {
     let title: String
     let duration: TimeInterval
     let isCurrent: Bool
+    /// Set for streamed podcast episodes, which download rather than queue.
+    var download: LinerDownloadMark? = nil
+}
+
+/// Where a streamed episode's download stands, as the liner shows it.
+enum LinerDownloadMark: Equatable {
+    case available
+    case downloading(progress: Double)
+    case downloaded
 }
 
 /// Right interior: the printed liner. One vinyl side at a time, with the side's runtime in
 /// the header and an A·B control at the foot when the album has more than one side.
 ///
 /// Rows are selectable two ways: a tap plays the track, and a rightward swipe queues it —
-/// the same swipe that queues a song everywhere else in the app. The swipe is a plain
+/// the same swipe that queues a song everywhere else in the app. A streamed podcast
+/// episode can't be queued, so on its row the swipe and menu download it instead. The swipe is a plain
 /// `.gesture`, deliberately not a high-priority one: a vertical drag has to keep reaching
 /// the enclosing ScrollView so a long tracklist still scrolls, and SwiftUI only hands this
 /// gesture the drags the scroll view does not claim. The cost is that a horizontal drag
@@ -551,6 +561,8 @@ struct LinerPanel: View {
     let onSelect: (Int) -> Void
     let onQueue: (Int, QueuePlacement) -> Void
     let onSideChange: (Int) -> Void
+    /// Downloads, cancels or removes the episode behind a row with a download mark.
+    var onDownload: ((Int) -> Void)? = nil
 
     @Environment(\.sleeveTheme) private var theme
     @Environment(\.colorSchemeContrast) private var contrast
@@ -651,6 +663,20 @@ struct LinerPanel: View {
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                switch row.download {
+                case .downloading(let progress):
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(theme.accent)
+                case .downloaded:
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 9))
+                        .foregroundColor(theme.ink.opacity(0.45))
+                        .accessibilityLabel("Downloaded")
+                case .available, nil:
+                    EmptyView()
+                }
+
                 Text(gatefoldDuration(row.duration))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(theme.ink.opacity(0.45))
@@ -667,26 +693,36 @@ struct LinerPanel: View {
         // shortcut for the bottom of the queue. Holding still cannot be mistaken for
         // the list's scroll, the swipe, or a tap.
         .contextMenu {
-            Button {
-                queue(row, placement: .next)
-            } label: {
-                Label(String(localized: "queue.action.playNext"), systemImage: "text.insert")
-            }
-            Button {
-                queue(row, placement: .last)
-            } label: {
-                Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
+            if let mark = row.download {
+                Button {
+                    onDownload?(row.id)
+                } label: {
+                    Label(Self.downloadActionTitle(mark), systemImage: Self.downloadActionIcon(mark))
+                }
+            } else {
+                Button {
+                    queue(row, placement: .next)
+                } label: {
+                    Label(String(localized: "queue.action.playNext"), systemImage: "text.insert")
+                }
+                Button {
+                    queue(row, placement: .last)
+                } label: {
+                    Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
+                }
             }
         }
         .animation(.easeOut(duration: 0.18), value: isQueued)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(row.number). \(row.title)")
         .accessibilityAddTraits(row.isCurrent ? [.isButton, .isSelected] : .isButton)
-        .accessibilityAction(named: Text(String(localized: "queue.action.playNext"))) {
-            queue(row, placement: .next)
-        }
-        .accessibilityAction(named: Text(String(localized: "queue.action.addToQueue"))) {
-            queue(row, placement: .last)
+        .accessibilityActions {
+            if let mark = row.download {
+                Button(Self.downloadActionTitle(mark)) { onDownload?(row.id) }
+            } else {
+                Button(String(localized: "queue.action.playNext")) { queue(row, placement: .next) }
+                Button(String(localized: "queue.action.addToQueue")) { queue(row, placement: .last) }
+            }
         }
     }
 
@@ -696,8 +732,28 @@ struct LinerPanel: View {
             .onEnded { value in
                 guard value.translation.width >= queueSwipeDistance,
                       abs(value.translation.width) > abs(value.translation.height) else { return }
-                queue(row, placement: .last)
+                if row.download != nil {
+                    onDownload?(row.id)
+                } else {
+                    queue(row, placement: .last)
+                }
             }
+    }
+
+    private static func downloadActionTitle(_ mark: LinerDownloadMark) -> String {
+        switch mark {
+        case .available:   return String(localized: "download.action.download")
+        case .downloading: return String(localized: "download.action.cancel")
+        case .downloaded:  return String(localized: "download.action.remove")
+        }
+    }
+
+    private static func downloadActionIcon(_ mark: LinerDownloadMark) -> String {
+        switch mark {
+        case .available:   return "arrow.down.circle"
+        case .downloading: return "xmark.circle"
+        case .downloaded:  return "trash"
+        }
     }
 
     private func queue(_ row: LinerRow, placement: QueuePlacement) {

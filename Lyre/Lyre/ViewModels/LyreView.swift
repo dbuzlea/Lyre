@@ -36,24 +36,34 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 // Shake to Shuffle
 //   ShakeDetector (UIViewControllerRepresentable) delivers shake events to
 //   `handleShake()`, which shuffles all songs and starts playback if hold is off.
+//   The hold state is handed to the detector as a plain value on every update and
+//   checked there, before the callback runs: the callback is a closure kept by a UIKit
+//   controller, and a closure kept that way can read a stale copy of this view's
+//   @State — which is how a shake used to shuffle with hold on.
 
 // MARK: - Shake Detection
 
 private struct ShakeDetector: UIViewControllerRepresentable {
+    /// A plain value, so every toggle of the hold switch reaches the controller.
+    let isHoldEnabled: Bool
     let onShake: () -> Void
 
     func makeUIViewController(context: Context) -> ShakeViewController {
         let vc = ShakeViewController()
+        vc.isHoldEnabled = isHoldEnabled
         vc.onShake = onShake
         return vc
     }
 
     func updateUIViewController(_ uiViewController: ShakeViewController, context: Context) {
+        uiViewController.isHoldEnabled = isHoldEnabled
         uiViewController.onShake = onShake
     }
 }
 
-private final class ShakeViewController: UIViewController {
+final class ShakeViewController: UIViewController {
+    /// While hold is on, shakes are ignored here, before anything else sees them.
+    var isHoldEnabled = false
     var onShake: (() -> Void)?
 
     override var canBecomeFirstResponder: Bool { true }
@@ -64,7 +74,8 @@ private final class ShakeViewController: UIViewController {
     }
 
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        if motion == .motionShake { onShake?() }
+        guard motion == .motionShake, !isHoldEnabled else { return }
+        onShake?()
     }
 }
 
@@ -92,6 +103,7 @@ struct LyreView: View {
     @State private var artworkCarouselIndex: Int = 0
     @State private var playlistArtworkCarouselIndex: Int = 0
     @State private var podcastArtworkCarouselIndex: Int = 0
+    @State private var showPodcastSearch = false
     /// Screen height while a corner is being dragged; nil when resting on a preset.
     @State private var liveScreenHeight: CGFloat?
     /// Screen height at the moment the current corner drag began.
@@ -112,7 +124,7 @@ struct LyreView: View {
                     )
             }
         }
-        .background(ShakeDetector { handleShake() })
+        .background(ShakeDetector(isHoldEnabled: isHoldEnabled) { handleShake() })
         .ignoresSafeArea()
         .onAppear {
             resetBacklightTimer()
@@ -127,6 +139,9 @@ struct LyreView: View {
             UIDevice.current.endGeneratingDeviceOrientationNotifications()
             bannerTask?.cancel()
         }
+        .onChange(of: musicService.playbackNotice) { _, notice in
+            if let notice { showBanner(notice.text) }
+        }
         .onChange(of: currentScreen) { _, newScreen in
             // Left the Queue screen mid-move (orientation change, say). The model
             // already holds the new order, so commit it to the player rather than
@@ -139,6 +154,9 @@ struct LyreView: View {
             NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)
         ) { _ in
             handleOrientationChange()
+        }
+        .sheet(isPresented: $showPodcastSearch) {
+            PodcastSearchView(musicService: musicService)
         }
         .fullScreenCover(isPresented: $showArtworkCarousel) {
             switch artworkCarouselMode {
@@ -236,7 +254,8 @@ struct LyreView: View {
                 queueMoveOffset: $queueMoveOffset,
                 isHoldEnabled: isHoldEnabled,
                 onInteraction: resetBacklightTimer,
-                onBanner: showBanner
+                onBanner: showBanner,
+                onOpenPodcastSearch: { showPodcastSearch = true }
             )
             // ScrollWheelView draws itself at a fixed native size, so scale it
             // down to the layout's wheel size or it would spill past its frame
@@ -411,7 +430,7 @@ struct LyreView: View {
             switch currentScreen {
             case .playlists, .playlistDetail:
                 artworkCarouselMode = .playlists
-            case .podcasts, .podcastDetail:
+            case .podcasts, .podcastDetail, .downloadedPodcasts:
                 artworkCarouselMode = .podcasts
             case .nowPlaying:
                 break // preserve last artworkCarouselMode when returning from artwork carousel

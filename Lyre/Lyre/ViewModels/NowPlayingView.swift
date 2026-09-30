@@ -49,16 +49,17 @@ struct NowPlayingView: View {
 
             Divider().background(themeSettings.currentTheme.dividerColor)
 
-            if musicService.currentTrack != nil || musicService.currentMediaItem != nil {
+            if musicService.hasNowPlaying {
                 let track = musicService.currentTrack
                 let mediaItem = musicService.currentMediaItem
-                let title: String = track?.title ?? mediaItem?.title ?? "Unknown"
-                let subtitle: String = track?.artistName ?? mediaItem?.podcastTitle ?? mediaItem?.artist ?? ""
+                let episode = musicService.currentEpisode
+                let title: String = track?.title ?? mediaItem?.title ?? episode?.title ?? "Unknown"
+                let subtitle: String = track?.artistName ?? mediaItem?.podcastTitle ?? mediaItem?.artist ?? episode?.showTitle ?? ""
                 let isPodcast = track == nil
 
                 VStack(spacing: 8) {
                     // Artwork
-                    artworkView(track: track, mediaItem: mediaItem, isPodcast: isPodcast)
+                    artworkView(track: track, mediaItem: mediaItem, episode: episode, isPodcast: isPodcast)
                         .accessibilityLabel(isPodcast ? "Podcast artwork" : "Album artwork")
 
                     VStack(spacing: 2) {
@@ -143,8 +144,15 @@ struct NowPlayingView: View {
     }
 
     @ViewBuilder
-    private func artworkView(track: AppTrack?, mediaItem: MPMediaItem?, isPodcast: Bool) -> some View {
-        if let artwork = track?.musicKitSong?.artwork {
+    private func artworkView(track: AppTrack?, mediaItem: MPMediaItem?, episode: PodcastEpisode?, isPodcast: Bool) -> some View {
+        if let episode {
+            // Streamed: the artwork comes from the feed.
+            LocalArtworkImage(cacheKey: "episode.\(episode.id)", size: 100, artwork: nil, remoteURL: episode.artworkURL) { image in
+                image.resizable().frame(width: 100, height: 100).cornerRadius(8)
+            } placeholder: {
+                artworkPlaceholder(isPodcast: true)
+            }
+        } else if let artwork = track?.musicKitSong?.artwork {
             ArtworkImage(artwork, width: 100).cornerRadius(8)
         } else if let item = isPodcast ? mediaItem : (track?.mpItem ?? mediaItem) {
             LocalArtworkImage(cacheKey: "mp.\(item.persistentID)", size: 100, artwork: item.artwork) { image in
