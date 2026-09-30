@@ -12,6 +12,8 @@ struct PlaylistListView: View {
     let playlists: [AppPlaylist]
     @Binding var selection: Int
     let themeSettings: ThemeSettings
+    /// Drives the "enable access in Settings" hint under the empty-library message.
+    var isAuthorized: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -27,28 +29,45 @@ struct PlaylistListView: View {
 
             Divider().background(themeSettings.currentTheme.dividerColor)
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(Array(playlists.enumerated()), id: \.offset) { index, playlist in
-                            Text(playlist.name)
-                                .font(.system(size: 12))
-                                .foregroundStyle(selection == index
-                                    ? themeSettings.currentTheme.highlightTextColor
-                                    : themeSettings.currentTheme.screenTextColor)
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(selection == index
-                                    ? themeSettings.currentTheme.highlightColor
-                                    : Color.clear)
-                                .selectionBarRefraction(when: selection == index)
-                                .id(index)
+            if playlists.isEmpty {
+                VStack(spacing: 6) {
+                    Spacer()
+                    Text(String(localized: "empty.playlists"))
+                        .font(.system(size: 14))
+                        .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
+                    if !isAuthorized {
+                        Text(String(localized: "empty.enableAccess"))
+                            .font(.system(size: 11))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.4))
+                            .padding(.horizontal, 24)
+                    }
+                    Spacer()
+                }
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(Array(playlists.enumerated()), id: \.offset) { index, playlist in
+                                Text(playlist.name)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(selection == index
+                                        ? themeSettings.currentTheme.highlightTextColor
+                                        : themeSettings.currentTheme.screenTextColor)
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(selection == index
+                                        ? themeSettings.currentTheme.highlightColor
+                                        : Color.clear)
+                                    .selectionBarRefraction(when: selection == index)
+                                    .id(index)
+                            }
                         }
                     }
-                }
-                .onAppear { proxy.scrollTo(selection, anchor: .center) }
-                .onChange(of: selection) { _, newValue in
-                    withAnimation { proxy.scrollTo(newValue, anchor: .center) }
+                    .onAppear { proxy.scrollTo(selection, anchor: .center) }
+                    .onChange(of: selection) { _, newValue in
+                        withAnimation { proxy.scrollTo(newValue, anchor: .center) }
+                    }
                 }
             }
         }

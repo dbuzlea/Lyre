@@ -281,10 +281,10 @@ struct HighlightColorView: View {
 struct AboutView: View {
     let themeSettings: ThemeSettings
 
-    /// Marketing version plus build number from the bundle, e.g. "2.0 (3)".
+    /// Marketing version plus build number from the bundle, e.g. "2.2 (5)".
     private var versionString: String {
         let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "2.0"
+        let version = info?["CFBundleShortVersionString"] as? String ?? "2.2"
         guard let build = info?["CFBundleVersion"] as? String else { return version }
         return "\(version) (\(build))"
     }

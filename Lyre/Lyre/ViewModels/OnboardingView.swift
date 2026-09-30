@@ -289,7 +289,9 @@ struct OnboardingView: View {
 
 // MARK: - Chrome
 
-private struct OnboardingBackground: View {
+/// Shared with `AccessRecoveryView` so a revoked-access prompt reads as the same
+/// screen family as onboarding rather than a one-off alert.
+struct OnboardingBackground: View {
     var body: some View {
         LinearGradient(
             colors: [Color(red: 0.04, green: 0.04, blue: 0.10), Color(red: 0.07, green: 0.07, blue: 0.16)],

@@ -71,11 +71,18 @@ struct SongListView: View {
             Divider().background(themeSettings.currentTheme.dividerColor)
 
             if songs.isEmpty {
-                VStack {
+                VStack(spacing: 6) {
                     Spacer()
                     Text(String(localized: "empty.songs"))
                         .font(.system(size: 14))
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
+                    if !musicService.isAuthorized {
+                        Text(String(localized: "empty.enableAccess"))
+                            .font(.system(size: 11))
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.4))
+                            .padding(.horizontal, 24)
+                    }
                     Spacer()
                 }
             } else {

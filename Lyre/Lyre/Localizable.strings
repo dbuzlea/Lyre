@@ -289,6 +289,11 @@
 "empty.songs" = "No songs in library";
 "empty.albums" = "No albums in library";
 "empty.artists" = "No artists in library";
+"empty.playlists" = "No playlists in library";
+/* Shown under the empty-library message on Songs/Albums/Artists/Playlists when Media &
+   Apple Music access isn't granted — the far more likely reason those lists are empty
+   for a returning user than a genuinely empty library. */
+"empty.enableAccess" = "Enable Media & Apple Music access in Settings to see your library.";
 "empty.podcasts" = "No shows to stream. Use Search Podcasts to find one.";
 "podcasts.search" = "Search Podcasts";
 "podcasts.downloaded" = "Downloaded";
@@ -332,6 +337,16 @@
 "error.retry" = "Retry";
 "error.dismiss" = "Dismiss";
 "error.loadLibrary" = "Could not load your music library. Please try again.";
+
+/* MARK: - Access Recovery */
+/* Full-screen prompt shown in place of the player when Media & Apple Music access is
+   revoked after onboarding — mirrors onboarding's own access-denied screen. */
+"accessRecovery.title" = "Media & Apple Music Access Needed";
+"accessRecovery.message" = "Apple Music access was turned off. Turn it back on in Settings to keep playing your library.";
+"accessRecovery.openSettings" = "Open Settings";
+"accessRecovery.notNow" = "Not Now";
+"accessRecovery.restoredTitle" = "Access Restored";
+"accessRecovery.reloading" = "Reloading your library…";
 
 /* MARK: - Accessibility */
 "a11y.holdSwitch.enabled" = "Hold switch, enabled";

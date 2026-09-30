@@ -106,20 +106,23 @@ struct LyreScreenView: View {
                             albums: musicService.albums,
                             selection: $menuSelection,
                             themeSettings: themeSettings,
-                            sectionLetters: musicService.albumSectionLetters
+                            sectionLetters: musicService.albumSectionLetters,
+                            isAuthorized: musicService.isAuthorized
                         )
                     case .artists:
                         ArtistListView(
                             artists: musicService.artists,
                             selection: $menuSelection,
                             themeSettings: themeSettings,
-                            sectionLetters: musicService.artistSectionLetters
+                            sectionLetters: musicService.artistSectionLetters,
+                            isAuthorized: musicService.isAuthorized
                         )
                     case .playlists:
                         PlaylistListView(
                             playlists: musicService.playlists,
                             selection: $menuSelection,
-                            themeSettings: themeSettings
+                            themeSettings: themeSettings,
+                            isAuthorized: musicService.isAuthorized
                         )
                     case .podcasts:
                         PodcastsScreen(

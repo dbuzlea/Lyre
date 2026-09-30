@@ -234,6 +234,10 @@ class MusicService: ObservableObject {
     // MARK: - Playback State
 
     @Published var isAuthorized  = false
+    /// Drives the full-screen AccessRecoveryView in place of `lastError == .notAuthorized`
+    /// alone, so the "access restored, reloading…" phase stays up through the reload that
+    /// follows instead of disappearing the instant `lastError` clears. See `markAccessNeedsRecovery()`.
+    @Published var isShowingAccessRecovery = false
     @Published var isLoading     = false
     /// True once a load has finished, whatever it found. Lets the UI distinguish
     /// "no music" from "haven't looked yet".
@@ -494,6 +498,32 @@ class MusicService: ObservableObject {
             || MPMediaLibrary.authorizationStatus() == .authorized
     }
 
+    /// Onboarding owns its own "access needed" screen, so the revoked-access prompt below
+    /// only fires for a returning user — never on top of onboarding's own denied state.
+    private static var onboardingCompleted: Bool {
+        UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
+    }
+
+    /// Persists across a relaunch, because toggling Media & Apple Music access in
+    /// Settings routinely terminates the app — the in-memory `isShowingAccessRecovery`
+    /// flag alone would be lost, and the very next launch would land straight on the
+    /// main menu with no acknowledgement that access had ever been a problem.
+    private static var accessRecoveryPending: Bool {
+        get { UserDefaults.standard.bool(forKey: "accessRecoveryPending") }
+        set { UserDefaults.standard.set(newValue, forKey: "accessRecoveryPending") }
+    }
+
+    /// Set when the user dismisses the denied-access prompt without fixing it, so it
+    /// doesn't force its way back on screen on every subsequent launch or foreground
+    /// while access is still off. Persisted for the same reason `accessRecoveryPending`
+    /// is: the app can be relaunched before the user ever returns. Cleared the moment
+    /// access is found granted again — see `beginAccessRecoveryIfPending()` — so the
+    /// *next* time access is revoked, the prompt is back to showing itself right away.
+    private static var accessRecoverySkipped: Bool {
+        get { UserDefaults.standard.bool(forKey: "accessRecoverySkipped") }
+        set { UserDefaults.standard.set(newValue, forKey: "accessRecoverySkipped") }
+    }
+
     /// `MusicSubscription` only reports a meaningful value once MusicKit itself is
     /// authorized. Before that, `canPlayCatalogContent` is false for *every* app,
     /// subscriber or not — reading it early makes a paying subscriber look unsubscribed.
@@ -501,13 +531,67 @@ class MusicService: ObservableObject {
         MusicAuthorization.currentStatus == .authorized
     }
 
+    /// Marks the full-screen recovery prompt pending, both for this session and (via
+    /// UserDefaults) for whatever process eventually finds access granted again. Stays
+    /// off screen if the user already skipped it for this revocation — `lastError` is
+    /// still set, in case some other surface wants to know access is off, but nothing
+    /// forces its way back in front of the user until access actually comes back.
+    private func markAccessNeedsRecovery() async {
+        guard Self.onboardingCompleted else { return }
+        Self.accessRecoveryPending = true
+        await MainActor.run {
+            lastError = .notAuthorized
+            if !Self.accessRecoverySkipped { isShowingAccessRecovery = true }
+        }
+    }
+
+    /// Lets the user into the app without fixing access. Called by AccessRecoveryView's
+    /// "Not Now" button.
+    func skipAccessRecovery() {
+        Self.accessRecoverySkipped = true
+        isShowingAccessRecovery = false
+    }
+
+    /// True when this launch/foreground owes the user a recovery confirmation — either
+    /// because the prompt is already on screen this session, or because a previous
+    /// session left access pending and was killed before it could confirm the fix.
+    /// Clears a prior skip: once access is actually back, the restoring screen is
+    /// shown regardless — skipping only ever silenced the denied-access ask.
+    private func beginAccessRecoveryIfPending() async -> Bool {
+        let pending = await MainActor.run { isShowingAccessRecovery } || Self.accessRecoveryPending
+        guard pending else { return false }
+        Self.accessRecoverySkipped = false
+        await MainActor.run {
+            lastError = nil
+            isShowingAccessRecovery = true
+        }
+        return true
+    }
+
+    /// Keeps the recovery prompt up for a couple of seconds after the reload finishes,
+    /// so "access restored" is never just a flash before the menu appears underneath
+    /// it. Albums are the last thing `loadLibraryAttempt` publishes, so the cover-intake
+    /// animation has shown nothing but placeholder tiles up to this point — this settle
+    /// is what gives the user's own covers, now available, a couple of real cycles
+    /// on screen instead of never appearing at all.
+    private func resolveAccessRecovery() async {
+        try? await Task.sleep(for: .seconds(2))
+        Self.accessRecoveryPending = false
+        await MainActor.run { isShowingAccessRecovery = false }
+    }
+
     private func checkCurrentStatus() async {
         let granted = Self.hasAnyLibraryAccess
         await MainActor.run { isAuthorized = granted }
-        guard granted else { return }
+        guard granted else {
+            await markAccessNeedsRecovery()
+            return
+        }
+        let isRecovering = await beginAccessRecoveryIfPending()
         setupNotificationsIfAuthorized()
         await refreshSubscriptionState()
         await loadLibrary()
+        if isRecovering { await resolveAccessRecovery() }
     }
 
     func requestAuthorization() async {
@@ -672,7 +756,11 @@ class MusicService: ObservableObject {
             isAuthorized = granted
             return previous
         }
-        guard granted else { return }
+        guard granted else {
+            await markAccessNeedsRecovery()
+            return
+        }
+        let isRecovering = await beginAccessRecoveryIfPending()
         setupNotificationsIfAuthorized()
 
         if !wasAuthorized { await refreshSubscriptionState() }
@@ -681,9 +769,12 @@ class MusicService: ObservableObject {
         let needsReload = await MainActor.run {
             !isLoading && (!hasLoadedLibrary || isLibraryEmpty || modifiedDate != lastLibraryModifiedDate)
         }
-        guard needsReload else { return }
+        // A recovery always reloads, even if nothing about the on-device library looks
+        // different: it's the signal AccessRecoveryView waits on to know the library is
+        // genuinely current again, not just a heuristic for whether a reload is worth it.
+        if needsReload || isRecovering { await loadLibrary() }
 
-        await loadLibrary()
+        if isRecovering { await resolveAccessRecovery() }
     }
 
     /// Reacts to the media library becoming available after a load came up empty.
@@ -1282,7 +1373,7 @@ class MusicService: ObservableObject {
         guard let removed = playbackQueue.removeUpNext(at: offset) else { return nil }
         logger.info("Removed '\(removed.title)' from the queue")
         if let item = removed.mpItem {
-            performQueueTransaction("remove '\(removed.title)'") { queue in
+            performQueueTransaction("remove '\(removed.title)'", refillAfter: true) { queue in
                 guard let existing = queue.items.first(where: { $0.persistentID == item.persistentID }) else { return }
                 queue.remove(existing)
             }
@@ -1329,6 +1420,7 @@ class MusicService: ObservableObject {
     /// from it rather than trusting that the edit landed exactly as asked.
     private func performQueueTransaction(
         _ description: String,
+        refillAfter: Bool = false,
         _ edit: @escaping (MPMusicPlayerControllerMutableQueue) -> Void
     ) {
         pendingQueueTransactions += 1
@@ -1347,9 +1439,12 @@ class MusicService: ObservableObject {
                 // still in flight gets to rewrite the model.
                 guard self.pendingQueueTransactions == 0 else { return }
                 self.syncQueueModel(with: items)
-                // Removing the tail of Up Next can leave the queue short enough to
-                // need topping up again.
-                self.refillQueueIfNeeded()
+                // Only a shrinking edit (removing a track) can leave Up Next short
+                // enough to need topping up again — an append/insert only grows it, and
+                // refilling there bulk-added the rest of `queueSourceTracks` onto the
+                // single song a user had just deliberately added, the moment Up Next
+                // happened to already be at or under the refill threshold.
+                if refillAfter { self.refillQueueIfNeeded() }
             }
         }
     }
