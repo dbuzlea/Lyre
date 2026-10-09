@@ -15,10 +15,15 @@ import SwiftUI
 // wheel and one button: pressing the center button picks up the highlighted row
 // (`movingOffset`), the wheel then carries it through the list, and a second press
 // drops it. The carried row is drawn with an up/down arrow glyph and a dashed edge so
-// it is obvious the wheel is moving the song rather than the cursor.
+// it is obvious the wheel is moving the song rather than the cursor. A swipe left on the
+// center button plays the highlighted song now, and a swipe right takes it out.
 //
 // The footer hint changes with the mode because there is nothing else on the device to
 // discover these gestures from.
+//
+// The list is the same one every player shows (`MusicService.upcoming`): Up Next, or
+// while a podcast plays, the show's later episodes. Those play in the show's order, so
+// they can't be moved, removed or cleared; pressing the center button on one plays it.
 struct QueueView: View {
     /// The Clear Queue row sits one step *above* the first song rather than taking
     /// index 0, so every other offset still maps straight onto Up Next. It also means
@@ -26,13 +31,18 @@ struct QueueView: View {
     /// user has to scroll up to it deliberately.
     static let clearRowOffset = -1
 
+    /// The highest the cursor goes: the Clear Queue row, or the first row when the list
+    /// can't be edited and so has no Clear row.
+    static func topOffset(canEdit: Bool) -> Int { canEdit ? clearRowOffset : 0 }
+
     @ObservedObject var musicService: MusicService
     let themeSettings: ThemeSettings
     @Binding var selection: Int
     /// Up Next offset of the row the user is carrying, or nil when simply browsing.
     let movingOffset: Int?
 
-    private var upNext: [AppTrack] { musicService.upNext }
+    private var upNext: [AppTrack] { musicService.upcoming }
+    private var canEdit: Bool { musicService.canEditUpcoming }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -47,7 +57,7 @@ struct QueueView: View {
                 // Shuffle makes the player choose its own next track, so the order
                 // below is the queue's, not the order it will be heard in. Saying so
                 // beats looking broken when a queued song is passed over.
-                if musicService.shuffleMode != .off {
+                if musicService.shuffleMode != .off, canEdit {
                     Label(String(localized: "queue.shuffleOn"), systemImage: "shuffle")
                         .font(.system(size: 8))
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
@@ -63,10 +73,11 @@ struct QueueView: View {
         // clamped both on arrival and whenever the queue changes underneath it.
         .onAppear { clampSelection() }
         .onChange(of: upNext.count) { _, _ in clampSelection() }
+        .onChange(of: canEdit) { _, _ in clampSelection() }
     }
 
     private func clampSelection() {
-        selection = upNext.isEmpty ? 0 : min(max(Self.clearRowOffset, selection), upNext.count - 1)
+        selection = upNext.isEmpty ? 0 : min(max(Self.topOffset(canEdit: canEdit), selection), upNext.count - 1)
     }
 
     // MARK: - Header
@@ -92,7 +103,7 @@ struct QueueView: View {
 
     @ViewBuilder
     private var nowPlayingRow: some View {
-        if let current = musicService.playbackQueue.current {
+        if let current = musicService.nowPlayingTrack {
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 3) {
                     Image(systemName: musicService.isPlaying ? "play.fill" : "pause.fill")
@@ -121,8 +132,10 @@ struct QueueView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    clearRow
-                        .id(rowID(Self.clearRowOffset))
+                    if canEdit {
+                        clearRow
+                            .id(rowID(Self.clearRowOffset))
+                    }
                     ForEach(Array(upNext.enumerated()), id: \.offset) { offset, track in
                         row(offset: offset, track: track)
                             .id(rowID(offset))
@@ -228,7 +241,9 @@ struct QueueView: View {
         // Whichever gesture the highlighted row responds to, spelled out — there is
         // nowhere else on the device to discover it.
         let key: String.LocalizationValue
-        if movingOffset != nil {
+        if !canEdit {
+            key = "queue.hint.episodes"
+        } else if movingOffset != nil {
             key = "queue.hint.moving"
         } else if selection == Self.clearRowOffset {
             key = "queue.hint.clear"
@@ -241,7 +256,8 @@ struct QueueView: View {
             .foregroundStyle(movingOffset == nil
                 ? themeSettings.currentTheme.screenSecondaryTextColor
                 : themeSettings.currentTheme.highlightColor)
-            .lineLimit(1)
+            .lineLimit(2)
+            .multilineTextAlignment(.center)
             .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity, alignment: .center)
     }

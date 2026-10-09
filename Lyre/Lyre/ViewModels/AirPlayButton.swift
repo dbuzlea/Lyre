@@ -60,7 +60,33 @@ struct AirPlayButton: View {
     }
 
     private var accessibilityLabel: String {
-        if let device = routeMonitor.airPlayDeviceName {
+        AirPlayRouteButton<EmptyView>.accessibilityLabel(device: routeMonitor.airPlayDeviceName)
+    }
+}
+
+// MARK: - Player AirPlay Button
+//
+// AirPlay in a player's own style (the Spool's keys, the Gramophone's brass): the
+// player draws `label`, told whether audio is on an AirPlay device now, and the system
+// route picker lies over it to take the tap. Unlike the footer's glyph it's always
+// there: it's a control of the player's, and the picker it opens also offers the
+// phone's own speaker and Bluetooth.
+struct AirPlayRouteButton<Label: View>: View {
+    @ObservedObject private var routeMonitor: AudioRouteMonitor = .shared
+    let identifier: String
+    @ViewBuilder let label: (_ isActive: Bool) -> Label
+
+    var body: some View {
+        label(routeMonitor.airPlayDeviceName != nil)
+            .overlay { RoutePickerRepresentable() }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Self.accessibilityLabel(device: routeMonitor.airPlayDeviceName))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier(identifier)
+    }
+
+    static func accessibilityLabel(device: String?) -> String {
+        if let device {
             return String(format: String(localized: "airPlay.playingOn"), device)
         }
         return String(localized: "airPlay.label")

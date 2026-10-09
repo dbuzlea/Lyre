@@ -69,6 +69,13 @@ nonisolated struct PodcastEpisode: Identifiable, Hashable {
 
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
     static func == (lhs: PodcastEpisode, rhs: PodcastEpisode) -> Bool { lhs.id == rhs.id }
+
+    /// The episode as a track, for lists of what's playing and what's next. Shares the
+    /// episode's id.
+    var asTrack: AppTrack {
+        AppTrack(id: id, title: title, artistName: showTitle, albumTitle: showTitle,
+                 duration: duration, mpItem: mediaItem)
+    }
 }
 
 nonisolated struct PodcastShow: Identifiable, Hashable, Equatable {

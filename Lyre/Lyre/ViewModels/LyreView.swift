@@ -16,6 +16,8 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 // Root container that assembles the complete Lyre interface. It owns all navigation
 // and selection state, delegates gesture interpretation to ScrollWheelView, and
 // composes the visual layers (body gradient, screen, scroll wheel, hold switch).
+// When Settings → Player Style is Spool, SpoolPlayerView takes the place of all of
+// those layers; the shake, orientation and sheet handling below still apply.
 // Key responsibilities:
 //
 // Navigation state
@@ -29,14 +31,32 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   timer is cancelled when the duration is set to "Always On".
 //
 // Artwork Carousel
-//   Landscape orientation triggers `handleOrientationChange()`, which locks the
-//   interface orientation to landscape and presents ArtworkCarouselView as a fullScreenCover.
-//   Returning to portrait dismisses Artwork Carousel and navigates to Now Playing.
+//   Follows the shape of the window, not the orientation of the device: whenever the
+//   classic player's window is wider than tall, `windowShapeChanged(isWide:)` presents
+//   ArtworkCarouselView as a fullScreenCover, and when it becomes taller than wide again
+//   the carousel closes onto Now Playing. On an ordinary iPhone that is the same as
+//   turning the phone. On iPhone Duo it is also what unfolding does — the inner display
+//   is wide, and it ignores orientation locks — so opening the phone opens the carousel.
+//   Not available with the Spool or Gramophone player styles; those stay upright.
+//
+//   The carousel's Back button rotates the interface upright on a phone that honours the
+//   request, and holds it there (`holdUpright`) until the device itself is turned upright,
+//   so a phone still lying sideways does not swing straight back into the carousel. Where
+//   the request is ignored, as on the Duo's inner display, Back just shows the wheel in
+//   the wide window until it next becomes tall.
+//
+// Search
+//   The Search screen is typed into on the keyboard. LyreView keeps the query and its
+//   results (see LibrarySearch), so the screen can list them and the wheel can act on
+//   them. While the keyboard is up the click wheel is lowered out of view, below the
+//   bottom edge, and it rises back into place once the keyboard goes. Opening Search
+//   from the main menu starts a new search; coming back to it from a result keeps it.
 //
 // Shake to Shuffle
 //   ShakeDetector (UIViewControllerRepresentable) delivers shake events to
 //   `handleShake()`, which shuffles all songs and starts playback if hold is off.
-//   The hold state is handed to the detector as a plain value on every update and
+//   The Spool player has no shake to shuffle: there, a shake does nothing.
+//   The hold state and the player style are handed to the detector as a plain value on every update and
 //   checked there, before the callback runs: the callback is a closure kept by a UIKit
 //   controller, and a closure kept that way can read a stale copy of this view's
 //   @State — which is how a shake used to shuffle with hold on.
@@ -44,19 +64,23 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 // MARK: - Shake Detection
 
 private struct ShakeDetector: UIViewControllerRepresentable {
-    /// A plain value, so every toggle of the hold switch reaches the controller.
+    /// Plain values, so every toggle of the hold switch, and every change of player
+    /// style, reaches the controller.
     let isHoldEnabled: Bool
+    let isShakeOff: Bool
     let onShake: () -> Void
 
     func makeUIViewController(context: Context) -> ShakeViewController {
         let vc = ShakeViewController()
         vc.isHoldEnabled = isHoldEnabled
+        vc.isShakeOff = isShakeOff
         vc.onShake = onShake
         return vc
     }
 
     func updateUIViewController(_ uiViewController: ShakeViewController, context: Context) {
         uiViewController.isHoldEnabled = isHoldEnabled
+        uiViewController.isShakeOff = isShakeOff
         uiViewController.onShake = onShake
     }
 }
@@ -64,24 +88,98 @@ private struct ShakeDetector: UIViewControllerRepresentable {
 final class ShakeViewController: UIViewController {
     /// While hold is on, shakes are ignored here, before anything else sees them.
     var isHoldEnabled = false
+    /// Set for a player style without shake to shuffle (the Spool). The controller then
+    /// gives up first responder too: held by a controller with no text input, it makes
+    /// the keyboard come up whenever a menu opens.
+    var isShakeOff = false {
+        didSet {
+            guard isShakeOff != oldValue, isViewLoaded, view.window != nil else { return }
+            if isShakeOff { resignFirstResponder() } else { becomeFirstResponder() }
+        }
+    }
     var onShake: (() -> Void)?
 
-    override var canBecomeFirstResponder: Bool { true }
+    override var canBecomeFirstResponder: Bool { !isShakeOff }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         becomeFirstResponder()
+        // Typing in a search field takes first responder from this controller, and
+        // nothing gives it back when the keyboard goes; without it, shakes stop arriving.
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardDidHide),
+                                               name: UIResponder.keyboardDidHideNotification, object: nil)
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        NotificationCenter.default.removeObserver(self, name: UIResponder.keyboardDidHideNotification, object: nil)
+    }
+
+    @objc private func keyboardDidHide() {
+        guard !isShakeOff, view.window != nil else { return }
+        becomeFirstResponder()
     }
 
     override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        guard motion == .motionShake, !isHoldEnabled else { return }
+        guard motion == .motionShake, !isHoldEnabled, !isShakeOff else { return }
         onShake?()
+    }
+}
+
+// MARK: - Orientation Lock
+
+/// Applies the supported orientations and rotation requests through this view's own
+/// window scene. Replaces a walk of `UIApplication.shared.connectedScenes`, which picks
+/// an arbitrary scene and need not be the one this view is in.
+private struct OrientationLock: UIViewControllerRepresentable {
+    let mask: UIInterfaceOrientationMask
+    /// Bumped to ask for an upright interface now, rather than waiting for the device.
+    let uprightRequest: Int
+
+    func makeUIViewController(context: Context) -> OrientationLockController {
+        OrientationLockController()
+    }
+
+    func updateUIViewController(_ controller: OrientationLockController, context: Context) {
+        controller.apply(mask: mask, uprightRequest: uprightRequest)
+    }
+}
+
+final class OrientationLockController: UIViewController {
+    private var mask: UIInterfaceOrientationMask?
+    private var appliedUprightRequest = 0
+    private var pendingUprightRequest = 0
+
+    func apply(mask: UIInterfaceOrientationMask, uprightRequest: Int) {
+        pendingUprightRequest = uprightRequest
+        if mask != self.mask {
+            self.mask = mask
+            AppDelegate.orientationLock = mask
+        }
+        flush()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // Anything applied before this controller reached a window had no scene to go to.
+        flush()
+    }
+
+    private func flush() {
+        guard let window = view.window else { return }
+        window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        guard pendingUprightRequest != appliedUprightRequest else { return }
+        appliedUprightRequest = pendingUprightRequest
+        // Ignored by displays that do not honour orientation locks, the Duo's inner one
+        // among them; LyreView copes with that by following the window's shape.
+        window.windowScene?.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
     }
 }
 
 struct LyreView: View {
     @ObservedObject var musicService: MusicService
     @State private var themeSettings = ThemeSettings()
+    @State private var foldMonitor = FoldPostureMonitor()
     @State private var currentScreen: LyreScreen = .menu
     @State private var navigationStack: [LyreScreen] = []
     @State private var selectionMemory: [LyreScreen: SelectionState] = [:]
@@ -98,37 +196,88 @@ struct LyreView: View {
     /// Restarted on every wheel touch event, so it must not be tracked state — see OneShotTimer.
     @State private var backlightTimer = OneShotTimer()
     @State private var showArtworkCarousel = false
+    /// Whether the window is wider than tall — what opens the Artwork Carousel.
+    @State private var isWindowWide = false
+    /// Set by the carousel's Back button, so a window that is still wide shows the wheel
+    /// instead of reopening the carousel. Cleared once the window is tall again.
+    @State private var carouselDismissedWhileWide = false
+    /// Keeps the interface upright after Back until the device is turned upright, so a
+    /// phone still lying sideways does not rotate straight back into the carousel.
+    @State private var holdUpright = false
+    @State private var uprightRequest = 0
     @State private var artworkCarouselMode: ArtworkCarouselMode = .albums
     // Tracks the index selected in Artwork Carousel independently of menu navigation
     @State private var artworkCarouselIndex: Int = 0
     @State private var playlistArtworkCarouselIndex: Int = 0
     @State private var podcastArtworkCarouselIndex: Int = 0
     @State private var showPodcastSearch = false
+    @State private var searchQuery = ""
+    @State private var searchResults: [LibrarySearchResult] = []
+    @State private var keyboard = KeyboardMonitor()
     /// Screen height while a corner is being dragged; nil when resting on a preset.
     @State private var liveScreenHeight: CGFloat?
     /// Screen height at the moment the current corner drag began.
     @State private var resizeStartHeight: CGFloat?
+    /// This view ignores the safe area so the body bleeds to the edges; ContentView
+    /// measures the insets instead. See `EnvironmentValues.windowSafeArea`.
+    @Environment(\.windowSafeArea) private var safeArea
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                bodyGradient
-                    .ignoresSafeArea()
-
-                lyreControls(in: geometry.size)
-                    .scaleEffect(layoutScale(for: geometry.size), anchor: .top)
-                    .frame(
-                        width: geometry.size.width,
-                        height: geometry.size.height,
-                        alignment: .top
-                    )
+        Group {
+            switch themeSettings.playerStyle {
+            case .classic:
+                classicPlayer
+            case .spool:
+                SpoolPlayerView(
+                    musicService: musicService,
+                    themeSettings: themeSettings,
+                    foldMonitor: foldMonitor
+                )
+                .transition(.opacity)
+            case .gramophone:
+                GramophonePlayerView(
+                    musicService: musicService,
+                    themeSettings: themeSettings,
+                    foldMonitor: foldMonitor
+                )
+                .transition(.opacity)
             }
         }
-        .background(ShakeDetector(isHoldEnabled: isHoldEnabled) { handleShake() })
+        .animation(.easeInOut(duration: 0.35), value: themeSettings.playerStyle)
+        .modifier(HingeObserver(monitor: foldMonitor))
+        .background(ShakeDetector(isHoldEnabled: isHoldEnabled,
+                                  isShakeOff: themeSettings.playerStyle != .classic) { handleShake() })
+        .background(OrientationLock(mask: orientationMask, uprightRequest: uprightRequest))
         .ignoresSafeArea()
+        .background {
+            // Measured outside the safe area so it is the window's own shape. `initial`
+            // matters: a Duo already open at launch must start in the carousel.
+            GeometryReader { proxy in
+                Color.clear
+                    .onChange(of: proxy.size.width > proxy.size.height, initial: true) { _, isWide in
+                        isWindowWide = isWide
+                    }
+            }
+            .ignoresSafeArea()
+        }
+        .onChange(of: isWindowWide) { _, isWide in
+            windowShapeChanged(isWide: isWide)
+        }
+        .onChange(of: themeSettings.playerStyle) { _, _ in
+            // Switching to the classic player inside a wide window, as on an open Duo,
+            // should land in the carousel just as unfolding would have.
+            windowShapeChanged(isWide: isWindowWide)
+        }
         .onAppear {
             resetBacklightTimer()
             UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+            #if DEBUG
+            // `--uitest-open-search` starts on the Search screen, for UI tests: turning
+            // the wheel to it with synthesized drags is not reliable enough to test with.
+            if ProcessInfo.processInfo.arguments.contains("--uitest-open-search") {
+                navigateTo(.search)
+            }
+            #endif
         }
         .task {
             // Covers the hand-off out of onboarding: if authorization was granted but
@@ -142,6 +291,27 @@ struct LyreView: View {
         .onChange(of: musicService.playbackNotice) { _, notice in
             if let notice { showBanner(notice.text) }
         }
+        .task(id: searchQuery) {
+            // Brief pause so a burst of typing searches once, at the end of it.
+            if !searchResults.isEmpty || !searchQuery.isEmpty {
+                try? await Task.sleep(for: .milliseconds(120))
+                guard !Task.isCancelled else { return }
+            }
+            searchResults = LibrarySearch.results(for: searchQuery, in: musicService)
+            if currentScreen == .search { menuSelection = 0 }
+        }
+        .onChange(of: searchQuery) {
+            // Typing is using the player, as much as turning the wheel is.
+            resetBacklightTimer()
+        }
+        .onChange(of: currentScreen) { oldScreen, newScreen in
+            // Search opened from the main menu starts afresh; returning to it from a
+            // result it found leaves it as it was.
+            if newScreen == .search, oldScreen == .menu {
+                searchQuery = ""
+                selectionMemory[.search] = nil
+            }
+        }
         .onChange(of: currentScreen) { _, newScreen in
             // Left the Queue screen mid-move (orientation change, say). The model
             // already holds the new order, so commit it to the player rather than
@@ -153,7 +323,7 @@ struct LyreView: View {
         .onReceive(
             NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)
         ) { _ in
-            handleOrientationChange()
+            releaseUprightHoldIfUpright()
         }
         .sheet(isPresented: $showPodcastSearch) {
             PodcastSearchView(musicService: musicService)
@@ -165,22 +335,45 @@ struct LyreView: View {
                     content: .albums(musicService.albums),
                     musicService: musicService,
                     selectedIndex: $artworkCarouselIndex,
-                    onDismiss: { forcePortrait(); showArtworkCarousel = false }
+                    onDismiss: { dismissArtworkCarousel() }
                 )
             case .playlists:
                 ArtworkCarouselView(
                     content: .playlists(Array(musicService.playlists)),
                     musicService: musicService,
                     selectedIndex: $playlistArtworkCarouselIndex,
-                    onDismiss: { forcePortrait(); showArtworkCarousel = false }
+                    onDismiss: { dismissArtworkCarousel() }
                 )
             case .podcasts:
                 ArtworkCarouselView(
                     content: .podcasts(musicService.podcastShows),
                     musicService: musicService,
                     selectedIndex: $podcastArtworkCarouselIndex,
-                    onDismiss: { forcePortrait(); showArtworkCarousel = false }
+                    onDismiss: { dismissArtworkCarousel() }
                 )
+            }
+        }
+    }
+
+    private var classicPlayer: some View {
+        GeometryReader { geometry in
+            ZStack {
+                bodyGradient
+                    .ignoresSafeArea()
+
+                lyreControls(in: geometry.size)
+                    // Each side edge's own inset, read live. iOS 27.1 can put a vertical
+                    // bar along one side for as long as a configuration lasts, and the
+                    // controls must not sit under it. Zero on both sides of an upright
+                    // iPhone, so the layout there is unchanged.
+                    .padding(.leading, safeArea.leading)
+                    .padding(.trailing, safeArea.trailing)
+                    .scaleEffect(layoutScale(for: geometry.size), anchor: .top)
+                    .frame(
+                        width: geometry.size.width,
+                        height: geometry.size.height,
+                        alignment: .top
+                    )
             }
         }
     }
@@ -206,7 +399,9 @@ struct LyreView: View {
                     detailSelection: $detailSelection,
                     isBacklightOn: isBacklightOn,
                     queueMoveOffset: queueMoveOffset,
-                    banner: banner
+                    banner: banner,
+                    searchQuery: $searchQuery,
+                    searchResults: searchResults
                 )
                 .frame(width: displayedLayout(in: containerSize).dimensions.width,
                        height: displayedLayout(in: containerSize).dimensions.height)
@@ -255,7 +450,8 @@ struct LyreView: View {
                 isHoldEnabled: isHoldEnabled,
                 onInteraction: resetBacklightTimer,
                 onBanner: showBanner,
-                onOpenPodcastSearch: { showPodcastSearch = true }
+                onOpenPodcastSearch: { showPodcastSearch = true },
+                searchResults: searchResults
             )
             // ScrollWheelView draws itself at a fixed native size, so scale it
             // down to the layout's wheel size or it would spill past its frame
@@ -265,6 +461,13 @@ struct LyreView: View {
             .frame(width: displayedLayout(in: containerSize).wheelSize,
                    height: displayedLayout(in: containerSize).wheelSize)
             .animation(.easeInOut(duration: 0.3), value: themeSettings.screenSize)
+            // Lowered out of view while the keyboard is up, and back when it goes. The
+            // offset keeps its place in the layout, so the screen above doesn't move.
+            // KeyboardMonitor animates the change alongside the keyboard.
+            .offset(y: keyboard.isVisible ? wheelHiddenOffset(in: containerSize) : 0)
+            .opacity(keyboard.isVisible ? 0 : 1)
+            .allowsHitTesting(!keyboard.isVisible)
+            .accessibilityHidden(keyboard.isVisible)
             .padding(.bottom, 40)
         }
     }
@@ -288,6 +491,12 @@ struct LyreView: View {
             startPoint: .top,
             endPoint: .bottom
         )
+    }
+
+    /// How far down the wheel goes to be out of view: its own height, the gap under it,
+    /// the home indicator, and a little more so its shadow clears the edge too.
+    private func wheelHiddenOffset(in containerSize: CGSize) -> CGFloat {
+        displayedLayout(in: containerSize).wheelSize + 40 + safeArea.bottom + 40
     }
 
     /// Smallest scale `layoutScale(for:)` will shrink the controls to.
@@ -418,58 +627,79 @@ struct LyreView: View {
 
     // MARK: - Orientation Handling
 
-    private func handleOrientationChange() {
-        let orientation = UIDevice.current.orientation
-        // Ignore ambiguous orientations (face up/down/unknown)
-        guard orientation != .faceUp,
-              orientation != .faceDown,
-              orientation != .unknown else { return }
+    /// The classic player may turn sideways — that is how the carousel opens. The Spool
+    /// and the Gramophone stay upright, as does the classic player just after Back.
+    // TODO: Modernization - Consider adopting `prefersInterfaceOrientationLocked` (iOS 26+)
+    // as the modern replacement for orientation locking via `supportedInterfaceOrientations`.
+    private var orientationMask: UIInterfaceOrientationMask {
+        guard themeSettings.playerStyle == .classic, !holdUpright else { return .portrait }
+        return .allButUpsideDown
+    }
 
-        if orientation.isLandscape && !showArtworkCarousel {
-            AppDelegate.orientationLock = .landscape
-            switch currentScreen {
-            case .playlists, .playlistDetail:
-                artworkCarouselMode = .playlists
-            case .podcasts, .podcastDetail, .downloadedPodcasts:
-                artworkCarouselMode = .podcasts
-            case .nowPlaying:
-                break // preserve last artworkCarouselMode when returning from artwork carousel
-            default:
-                artworkCarouselMode = .albums
-            }
-            switch artworkCarouselMode {
-            case .albums:
-                if let track = musicService.currentTrack,
-                   let idx = musicService.albums.firstIndex(where: { $0.title == track.albumTitle }) {
-                    artworkCarouselIndex = idx
-                }
-            case .playlists:
-                if let playlistID = musicService.currentPlaylistID,
-                   let idx = musicService.playlists.firstIndex(where: { $0.id == playlistID }) {
-                    playlistArtworkCarouselIndex = idx
-                }
-            case .podcasts:
-                if let showTitle = musicService.currentPodcastShowTitle,
-                   let idx = musicService.podcastShows.firstIndex(where: { $0.title == showTitle }) {
-                    podcastArtworkCarouselIndex = idx
-                }
-            }
-            logger.info("Artwork Carousel opened: \(String(describing: artworkCarouselMode))")
-            showArtworkCarousel = true
-        } else if orientation.isPortrait && showArtworkCarousel {
+    private func windowShapeChanged(isWide: Bool) {
+        // The Spool and the Gramophone have no Artwork Carousel.
+        guard themeSettings.playerStyle == .classic else { return }
+
+        if isWide {
+            guard !showArtworkCarousel, !carouselDismissedWhileWide else { return }
+            openArtworkCarousel()
+        } else {
+            carouselDismissedWhileWide = false
+            guard showArtworkCarousel else { return }
             logger.info("Artwork Carousel dismissed, returning to now playing")
             showArtworkCarousel = false
-            AppDelegate.orientationLock = .portrait
             navigateTo(.nowPlaying)
         }
     }
 
-    private func forcePortrait() {
-        AppDelegate.orientationLock = .portrait
-        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
-            scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+    private func openArtworkCarousel() {
+        switch currentScreen {
+        case .playlists, .playlistDetail:
+            artworkCarouselMode = .playlists
+        case .podcasts, .podcastDetail, .downloadedPodcasts:
+            artworkCarouselMode = .podcasts
+        case .nowPlaying:
+            break // preserve last artworkCarouselMode when returning from artwork carousel
+        default:
+            artworkCarouselMode = .albums
         }
+        switch artworkCarouselMode {
+        case .albums:
+            if let track = musicService.currentTrack,
+               let idx = musicService.albums.firstIndex(where: { $0.title == track.albumTitle }) {
+                artworkCarouselIndex = idx
+            }
+        case .playlists:
+            if let playlistID = musicService.currentPlaylistID,
+               let idx = musicService.playlists.firstIndex(where: { $0.id == playlistID }) {
+                playlistArtworkCarouselIndex = idx
+            }
+        case .podcasts:
+            if let showTitle = musicService.currentPodcastShowTitle,
+               let idx = musicService.podcastShows.firstIndex(where: { $0.title == showTitle }) {
+                podcastArtworkCarouselIndex = idx
+            }
+        }
+        logger.info("Artwork Carousel opened: \(String(describing: artworkCarouselMode))")
+        showArtworkCarousel = true
+    }
+
+    /// The carousel's Back button. Asks for an upright interface and holds it there; where
+    /// that is honoured the window turns tall and the wheel returns. Where it is not, the
+    /// window stays wide and `carouselDismissedWhileWide` keeps the carousel from reopening.
+    private func dismissArtworkCarousel() {
+        carouselDismissedWhileWide = isWindowWide
+        holdUpright = true
+        uprightRequest += 1
+        showArtworkCarousel = false
+    }
+
+    /// Not a layout decision: only lifts the upright hold once the device is physically
+    /// upright, so the next turn sideways opens the carousel again. The window's shape,
+    /// not the device, still decides what is shown.
+    private func releaseUprightHoldIfUpright() {
+        guard holdUpright, UIDevice.current.orientation.isPortrait else { return }
+        holdUpright = false
     }
 
     // MARK: - Navigation Helpers

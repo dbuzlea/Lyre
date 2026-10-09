@@ -20,9 +20,15 @@ import MediaPlayer
 // The title bar carries an AirPlay button (see AirPlayButton) for choosing where
 // audio plays.
 //
-// Shuffle and Repeat rows are selectable via the scroll wheel: `selection` (bound
-// from the parent) tracks which row is focused (0 = Shuffle, 1 = Repeat). Pressing
-// the center button cycles the highlighted row's mode.
+// Shuffle and Repeat rows, and while a podcast plays a Speed row, are selectable via the
+// scroll wheel: `selection` (bound from the parent) tracks which row is focused (0 =
+// Shuffle, 1 = Repeat, 2 = Speed). Pressing the center button cycles the highlighted
+// row's setting; Speed steps through the same speeds the other players offer.
+//
+// The artwork is the largest element: it grows to fill whatever height the screen has
+// left after everything below it, up to the screen's width, so it scales with the
+// screen size (and the Nano Tall / Duo layouts) without pushing the Shuffle and Repeat
+// rows off screen. Only when even the 100pt minimum doesn't fit does the screen scroll.
 //
 // The GeometryReader progress bar scales the highlight fill to a 0–1 fraction of
 // the available width. The 8pt scrub indicator dot only appears while the wheel is
@@ -33,6 +39,19 @@ struct NowPlayingView: View {
     let themeSettings: ThemeSettings
     @Binding var selection: Int
     @ObservedObject private var routeMonitor = AudioRouteMonitor.shared
+
+    /// Height of everything under the artwork, measured so the artwork can take the rest.
+    /// Nil until the first layout, when the artwork is drawn at its minimum.
+    @State private var detailsHeight: CGFloat?
+
+    /// The artwork never shrinks below this; on screens too short even for it, the
+    /// details scroll instead.
+    private static let minArtworkSide: CGFloat = 100
+    /// Gap between the artwork and the details, matching the details' own spacing.
+    private static let artworkSpacing: CGFloat = 8
+    /// Library and podcast artwork is decoded once at this size and scaled to fit, so a
+    /// resize doesn't decode (and cache) the cover again at every new size.
+    private static let artworkDecodeSize: CGFloat = 400
 
     var body: some View {
         VStack(spacing: 12) {
@@ -57,75 +76,85 @@ struct NowPlayingView: View {
                 let subtitle: String = track?.artistName ?? mediaItem?.podcastTitle ?? mediaItem?.artist ?? episode?.showTitle ?? ""
                 let isPodcast = track == nil
 
-                VStack(spacing: 8) {
-                    // Artwork
-                    artworkView(track: track, mediaItem: mediaItem, episode: episode, isPodcast: isPodcast)
-                        .accessibilityLabel(isPodcast ? "Podcast artwork" : "Album artwork")
+                GeometryReader { viewport in
+                    VStack(spacing: Self.artworkSpacing) {
+                        // Artwork
+                        artworkView(track: track, mediaItem: mediaItem, episode: episode, isPodcast: isPodcast,
+                                    side: artworkSide(in: viewport.size))
+                            .accessibilityLabel(isPodcast ? "Podcast artwork" : "Album artwork")
 
-                    VStack(spacing: 2) {
-                        Text(title)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(themeSettings.currentTheme.screenTextColor)
-                            .lineLimit(2).multilineTextAlignment(.center)
-                        Text(subtitle)
-                            .font(.system(size: 11))
-                            .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
-                            .lineLimit(1)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("\(title), by \(subtitle)")
+                        VStack(spacing: 8) {
+                            VStack(spacing: 2) {
+                                Text(title)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(themeSettings.currentTheme.screenTextColor)
+                                    .lineLimit(2).multilineTextAlignment(.center)
+                                Text(subtitle)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
+                                    .lineLimit(1)
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("\(title), by \(subtitle)")
 
-                    // Progress bar. A separate view observing only the clock, so the
-                    // position ticking does not redraw the rest of the screen.
-                    PlaybackProgressView(
-                        clock: musicService.clock,
-                        duration: musicService.duration,
-                        isScrubbing: musicService.isScrubbing,
-                        themeSettings: themeSettings
-                    )
-                    .padding(.horizontal, 4)
+                            // Progress bar. A separate view observing only the clock, so the
+                            // position ticking does not redraw the rest of the screen.
+                            PlaybackProgressView(
+                                clock: musicService.clock,
+                                duration: musicService.duration,
+                                isScrubbing: musicService.isScrubbing,
+                                themeSettings: themeSettings
+                            )
+                            .padding(.horizontal, 4)
 
-                    // Playback status
-                    HStack {
-                        Image(systemName: musicService.isPlaying ? "play.fill" : "pause.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(themeSettings.currentTheme.screenTextColor)
-                            .accessibilityHidden(true)
-                        Text(musicService.isPlaying ? String(localized: "nowPlaying.playing") : String(localized: "nowPlaying.paused"))
-                            .font(.system(size: 10))
-                            .foregroundStyle(themeSettings.currentTheme.screenTextColor)
-                    }
-                    .accessibilityLabel(musicService.isPlaying ? "Now playing" : "Paused")
+                            // Playback status
+                            HStack {
+                                Image(systemName: musicService.isPlaying ? "play.fill" : "pause.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(themeSettings.currentTheme.screenTextColor)
+                                    .accessibilityHidden(true)
+                                Text(musicService.isPlaying ? String(localized: "nowPlaying.playing") : String(localized: "nowPlaying.paused"))
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(themeSettings.currentTheme.screenTextColor)
+                            }
+                            .accessibilityLabel(musicService.isPlaying ? "Now playing" : "Paused")
 
-                    // Output device, only when audio has left the phone.
-                    if let device = routeMonitor.airPlayDeviceName {
-                        HStack(spacing: 3) {
-                            Image(systemName: "airplayaudio")
-                                .font(.system(size: 8))
-                                .accessibilityHidden(true)
-                            Text(device)
-                                .font(.system(size: 9))
-                                .lineLimit(1)
+                            // Output device, only when audio has left the phone.
+                            if let device = routeMonitor.airPlayDeviceName {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "airplayaudio")
+                                        .font(.system(size: 8))
+                                        .accessibilityHidden(true)
+                                    Text(device)
+                                        .font(.system(size: 9))
+                                        .lineLimit(1)
+                                }
+                                .foregroundStyle(themeSettings.currentTheme.highlightColor)
+                                .accessibilityElement(children: .combine)
+                                .accessibilityLabel(String(format: String(localized: "airPlay.playingOn"), device))
+                            }
+
+                            Divider().background(themeSettings.currentTheme.dividerColor).padding(.vertical, 4)
+
+                            // Shuffle / Repeat, and a podcast's speed
+                            VStack(alignment: .leading, spacing: 4) {
+                                rowItem(icon: musicService.shuffleMode.icon, label: String(localized: "nowPlaying.shuffle"),
+                                        value: musicService.shuffleMode.rawValue, index: 0)
+                                rowItem(icon: musicService.repeatMode.icon, label: String(localized: "nowPlaying.repeat"),
+                                        value: musicService.repeatMode.rawValue, index: 1)
+                                if musicService.isPlayingPodcast {
+                                    rowItem(icon: "gauge.with.dots.needle.67percent", label: String(localized: "nowPlaying.speed"),
+                                            value: SpoolPlayerView.speedText(musicService.podcastRate), index: 2)
+                                }
+                            }
                         }
-                        .foregroundStyle(themeSettings.currentTheme.highlightColor)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel(String(format: String(localized: "airPlay.playingOn"), device))
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { detailsHeight = $0 }
                     }
-
-                    Divider().background(themeSettings.currentTheme.dividerColor).padding(.vertical, 4)
-
-                    // Shuffle / Repeat
-                    VStack(alignment: .leading, spacing: 4) {
-                        rowItem(icon: musicService.shuffleMode.icon, label: String(localized: "nowPlaying.shuffle"),
-                                value: musicService.shuffleMode.rawValue, index: 0)
-                        rowItem(icon: musicService.repeatMode.icon, label: String(localized: "nowPlaying.repeat"),
-                                value: musicService.repeatMode.rawValue, index: 1)
-                    }
+                    // On the shorter screen sizes this content is taller than the screen.
+                    // Scrolling it under the pinned title bar keeps the title bar (and its
+                    // AirPlay button) on screen instead of pushing it off the top.
+                    .modifier(ScrollsToSelection(selection: selection))
                 }
-                // On the shorter screen sizes this content is taller than the screen.
-                // Scrolling it under the pinned title bar keeps the title bar (and its
-                // AirPlay button) on screen instead of pushing it off the top.
-                .modifier(ScrollsToSelection(selection: selection))
             } else {
                 VStack {
                     Spacer()
@@ -137,41 +166,49 @@ struct NowPlayingView: View {
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
                     Spacer()
                 }
+                Spacer()
             }
-
-            Spacer()
         }
+    }
+
+    /// The largest square that fits beside the details in `viewport`: as wide as the
+    /// screen, as tall as the space the details leave, never under the minimum.
+    private func artworkSide(in viewport: CGSize) -> CGFloat {
+        guard let detailsHeight else { return Self.minArtworkSide }
+        let fitting = min(viewport.width, viewport.height - detailsHeight - Self.artworkSpacing)
+        return max(Self.minArtworkSide, fitting.rounded(.down))
     }
 
     @ViewBuilder
-    private func artworkView(track: AppTrack?, mediaItem: MPMediaItem?, episode: PodcastEpisode?, isPodcast: Bool) -> some View {
+    private func artworkView(track: AppTrack?, mediaItem: MPMediaItem?, episode: PodcastEpisode?, isPodcast: Bool, side: CGFloat) -> some View {
+        let radius = max(8, side * 0.04)
         if let episode {
             // Streamed: the artwork comes from the feed.
-            LocalArtworkImage(cacheKey: "episode.\(episode.id)", size: 100, artwork: nil, remoteURL: episode.artworkURL) { image in
-                image.resizable().frame(width: 100, height: 100).cornerRadius(8)
+            LocalArtworkImage(cacheKey: "episode.\(episode.id)", size: Self.artworkDecodeSize, artwork: nil, remoteURL: episode.artworkURL) { image in
+                image.resizable().scaledToFill().frame(width: side, height: side).clipShape(.rect(cornerRadius: radius))
             } placeholder: {
-                artworkPlaceholder(isPodcast: true)
+                artworkPlaceholder(isPodcast: true, side: side, radius: radius)
             }
         } else if let artwork = track?.musicKitSong?.artwork {
-            ArtworkImage(artwork, width: 100).cornerRadius(8)
+            ArtworkImage(artwork, width: side, height: side).clipShape(.rect(cornerRadius: radius))
         } else if let item = isPodcast ? mediaItem : (track?.mpItem ?? mediaItem) {
-            LocalArtworkImage(cacheKey: "mp.\(item.persistentID)", size: 100, artwork: item.artwork) { image in
-                image.resizable().frame(width: 100, height: 100).cornerRadius(8)
+            LocalArtworkImage(cacheKey: "mp.\(item.persistentID)", size: Self.artworkDecodeSize, artwork: item.artwork) { image in
+                image.resizable().scaledToFill().frame(width: side, height: side).clipShape(.rect(cornerRadius: radius))
             } placeholder: {
-                artworkPlaceholder(isPodcast: isPodcast)
+                artworkPlaceholder(isPodcast: isPodcast, side: side, radius: radius)
             }
         } else {
-            artworkPlaceholder(isPodcast: isPodcast)
+            artworkPlaceholder(isPodcast: isPodcast, side: side, radius: radius)
         }
     }
 
-    private func artworkPlaceholder(isPodcast: Bool) -> some View {
-        RoundedRectangle(cornerRadius: 8)
+    private func artworkPlaceholder(isPodcast: Bool, side: CGFloat, radius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: radius)
             .fill(themeSettings.currentTheme.screenTextColor.opacity(0.1))
-            .frame(width: 100, height: 100)
+            .frame(width: side, height: side)
             .overlay {
                 Image(systemName: isPodcast ? "mic.fill" : "music.note")
-                    .font(.system(size: 35))
+                    .font(.system(size: side * 0.35))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.3))
             }
     }

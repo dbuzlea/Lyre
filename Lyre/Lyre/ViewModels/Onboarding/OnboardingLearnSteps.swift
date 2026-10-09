@@ -416,10 +416,11 @@ struct ShortcutsStep: View {
             // Each row acts out its gesture once, in turn, as the page settles.
             VStack(alignment: .leading, spacing: 22) {
                 shortcut(.swipe, 0, "onboarding.shortcuts.swipe.title", "onboarding.shortcuts.swipe.detail")
-                shortcut(.rotate, 1, "onboarding.shortcuts.rotate.title", "onboarding.shortcuts.rotate.detail")
-                shortcut(.shake, 2, "onboarding.shortcuts.shake.title", "onboarding.shortcuts.shake.detail")
-                shortcut(.hold, 3, "onboarding.shortcuts.hold.title", "onboarding.shortcuts.hold.detail")
-                shortcut(.resize, 4, "onboarding.shortcuts.resize.title", "onboarding.shortcuts.resize.detail")
+                shortcut(.swipeLeft, 1, "onboarding.shortcuts.swipeLeft.title", "onboarding.shortcuts.swipeLeft.detail")
+                shortcut(.rotate, 2, "onboarding.shortcuts.rotate.title", "onboarding.shortcuts.rotate.detail")
+                shortcut(.shake, 3, "onboarding.shortcuts.shake.title", "onboarding.shortcuts.shake.detail")
+                shortcut(.hold, 4, "onboarding.shortcuts.hold.title", "onboarding.shortcuts.hold.detail")
+                shortcut(.resize, 5, "onboarding.shortcuts.resize.title", "onboarding.shortcuts.resize.detail")
             }
         } footer: {
             OnboardingPrimaryButton(title: String(localized: "onboarding.continue"), action: onNext)

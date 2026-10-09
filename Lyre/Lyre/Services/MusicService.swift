@@ -186,12 +186,49 @@ enum QueueAddOutcome: Equatable {
     case startedPlaying(count: Int, skipped: Int)
     /// Nothing in the request could be queued at all.
     case unavailable
+    /// A podcast is playing. Up Next is then its episodes, so songs can't join it.
+    case podcastPlaying
 
     /// True when some of what was asked for did not make it into the queue.
     var isPartial: Bool {
         switch self {
         case .queued(_, let skipped), .startedPlaying(_, let skipped): return skipped > 0
-        case .unavailable: return false
+        case .unavailable, .podcastPlaying: return false
+        }
+    }
+
+    /// True when anything went in, or started playing.
+    var succeeded: Bool {
+        switch self {
+        case .queued, .startedPlaying: return true
+        case .unavailable, .podcastPlaying: return false
+        }
+    }
+
+    /// What to tell the user, in the same words in every player. `name` is the song or
+    /// collection asked for, `requested` how many songs it held, and `isCollection`
+    /// picks the wording when none of it could be queued.
+    func message(name: String, requested: Int, placement: QueuePlacement, isCollection: Bool) -> String {
+        switch self {
+        case .queued(let count, _):
+            switch (placement, isPartial) {
+            case (.next, true):
+                return String(format: String(localized: "queue.addedNextPartial"), count, requested, name)
+            case (.next, false):
+                return String(format: String(localized: "queue.addedNext"), name)
+            case (.last, true):
+                return String(format: String(localized: "queue.addedPartial"), count, requested, name)
+            case (.last, false):
+                return String(format: String(localized: "queue.added"), name)
+            }
+        case .startedPlaying(let count, _):
+            return isPartial
+                ? String(format: String(localized: "queue.addedPartial"), count, requested, name)
+                : String(format: String(localized: "queue.playing"), name)
+        case .unavailable:
+            return String(localized: isCollection ? "queue.collectionUnavailable" : "queue.unavailable")
+        case .podcastPlaying:
+            return String(localized: "queue.podcastPlaying")
         }
     }
 }
@@ -314,6 +351,54 @@ class MusicService: ObservableObject {
 
     /// The tracks waiting to play after the current one.
     var upNext: [AppTrack] { playbackQueue.upNext }
+
+    /// What plays after the current item, whichever player has it: Up Next, or while an
+    /// episode streams, the show's episodes after it, as tracks.
+    var upcoming: [AppTrack] {
+        activeEngine == .stream ? streamPlayer.upcoming.map(\.asTrack) : upNext
+    }
+
+    /// Whether `upcoming` can be reordered and taken from: only a queue of songs. A
+    /// podcast's episodes play in the order the show put them out, streamed or not.
+    var canEditUpcoming: Bool { activeEngine == .library && currentPodcastShowTitle == nil }
+
+    /// What's playing, as a track: the song, or the episode streaming.
+    var nowPlayingTrack: AppTrack? {
+        activeEngine == .stream ? currentEpisode?.asTrack : currentTrack ?? playbackQueue.current
+    }
+
+    /// True while a podcast is the thing loaded, streamed or on the device. An
+    /// on-device show counts until its episodes run out.
+    var isPlayingPodcast: Bool {
+        currentEpisode != nil || (currentPodcastShowTitle != nil && currentTrack != nil)
+    }
+
+    // MARK: - Podcast Speed
+
+    /// The speeds podcasts can play at.
+    static let podcastRates: [Float] = [0.75, 1, 1.25, 1.5, 1.75, 2]
+    private static let podcastRateKey = "LyrePodcastRate"
+
+    /// The speed podcasts play at. Music always plays at normal speed.
+    @Published private(set) var podcastRate: Float =
+        Float(UserDefaults.standard.object(forKey: "LyrePodcastRate") as? Double ?? 1)
+
+    func setPodcastRate(_ rate: Float) {
+        podcastRate = rate
+        UserDefaults.standard.set(Double(rate), forKey: Self.podcastRateKey)
+        streamPlayer.rate = rate
+        applyLibraryRate()
+        logger.info("Podcast speed: \(rate)x")
+    }
+
+    /// Sets the music player's speed for what it's playing: the podcast speed for an
+    /// on-device episode, normal for music. Only while playing: a rate set on a paused
+    /// player starts it.
+    private func applyLibraryRate() {
+        guard activeEngine == .library, didSetupNotifications, isPlaying else { return }
+        let rate = currentPodcastShowTitle != nil ? podcastRate : 1
+        if abs(player.currentPlaybackRate - rate) > 0.01 { player.currentPlaybackRate = rate }
+    }
 
     // MARK: - Private
 
@@ -1030,7 +1115,14 @@ class MusicService: ObservableObject {
         track.attaching(mpItem: localItemIndex[LibraryScanner.matchKey(title: track.title, artist: track.artistName)])
     }
 
+    /// An album's songs, each once: a library can hold a song on an album more than
+    /// once (see `withoutDuplicates`), and every player lists, plays and queues the same
+    /// songs. A playlist's repeats are left alone; they're put there on purpose.
     func loadTracks(for album: AppAlbum) async -> [AppTrack] {
+        await loadAllTracks(for: album).withoutDuplicates
+    }
+
+    private func loadAllTracks(for album: AppAlbum) async -> [AppTrack] {
         // Picked from the cached library: it has no MusicKit album to expand.
         let album = await liveAlbum(for: album)
         guard let mkAlbum = album.musicKitAlbum else { return album.preloadedTracks }
@@ -1275,6 +1367,12 @@ class MusicService: ObservableObject {
     /// in one queue did (`_establishConnectionIfNeeded timeout`, seconds of frozen UI).
     @discardableResult
     func addToQueue(tracks: [AppTrack], placement: QueuePlacement = .last) async -> QueueAddOutcome {
+        // While a podcast plays, Up Next is its episodes: songs queued now would go into
+        // the music player's queue behind it, where they'd never be heard.
+        guard await MainActor.run(body: { !isPlayingPodcast }) else {
+            logger.info("Not queueing \(tracks.count) track(s): a podcast is playing")
+            return .podcastPlaying
+        }
         guard !tracks.isEmpty else { return .unavailable }
 
         let accepted = Array(tracks.prefix(Self.maxTracksPerAdd))
@@ -1341,6 +1439,7 @@ class MusicService: ObservableObject {
     /// carrying a row through the list stays instant. Call `commitQueueMove(to:)` once
     /// the move is committed. Main thread only.
     func reorderUpNext(from origin: Int, to destination: Int) {
+        guard canEditUpcoming else { return }
         playbackQueue.moveUpNext(from: origin, to: destination)
     }
 
@@ -1349,6 +1448,7 @@ class MusicService: ObservableObject {
     /// transaction so the change is atomic and playback continues untouched.
     /// Main thread only.
     func commitQueueMove(to offset: Int) {
+        guard canEditUpcoming else { return }
         let upNext = playbackQueue.upNext
         guard upNext.indices.contains(offset), let movedItem = upNext[offset].mpItem else { return }
         // Up Next offset 0 sits directly after the current track, so there is always a
@@ -1370,7 +1470,7 @@ class MusicService: ObservableObject {
     /// Main thread only.
     @discardableResult
     func removeFromQueue(at offset: Int) -> AppTrack? {
-        guard let removed = playbackQueue.removeUpNext(at: offset) else { return nil }
+        guard canEditUpcoming, let removed = playbackQueue.removeUpNext(at: offset) else { return nil }
         logger.info("Removed '\(removed.title)' from the queue")
         if let item = removed.mpItem {
             performQueueTransaction("remove '\(removed.title)'", refillAfter: true) { queue in
@@ -1385,6 +1485,7 @@ class MusicService: ObservableObject {
     /// were dropped. Main thread only.
     @discardableResult
     func clearQueue() -> Int {
+        guard canEditUpcoming else { return 0 }
         let removed = playbackQueue.removeAllUpNext()
         guard removed > 0 else { return 0 }
 
@@ -1411,6 +1512,36 @@ class MusicService: ObservableObject {
         logger.info("Cleared \(removed) track(s) from the queue")
         return removed
     }
+
+    /// Jumps straight to an Up Next track. The tracks before it are passed over and stay
+    /// behind it in the queue, as if they had played. Main thread only.
+    /// Plays an item from `upcoming`: an Up Next track, or a later episode of the show
+    /// streaming. Main thread only.
+    func playUpcoming(at offset: Int) {
+        guard activeEngine == .stream else { return playUpNext(at: offset) }
+        let upcoming = streamPlayer.upcoming
+        guard upcoming.indices.contains(upcoming.startIndex + offset) else { return }
+        logger.info("Jumping to episode '\(upcoming[upcoming.startIndex + offset].title)'")
+        // The whole list stays, so going back from the episode still works.
+        streamPlayer.play(streamPlayer.episodes, startingAt: streamPlayer.index + 1 + offset)
+    }
+
+    func playUpNext(at offset: Int) {
+        let upNext = playbackQueue.upNext
+        guard activeEngine == .library, upNext.indices.contains(offset),
+              let item = upNext[offset].mpItem else { return }
+        logger.info("Jumping to '\(upNext[offset].title)' in Up Next")
+        player.nowPlayingItem = item
+        player.play()
+    }
+
+    #if DEBUG
+    /// Fills the queue model with tracks that have nothing behind them, so Up Next can be
+    /// shown and UI-tested on a simulator with no music. The player is left alone.
+    func seedQueueForUITests(_ tracks: [AppTrack]) {
+        playbackQueue = PlaybackQueue(tracks: tracks, currentIndex: 0)
+    }
+    #endif
 
     /// Runs one queue edit against the player and reconciles the model with the result.
     ///
@@ -1754,6 +1885,7 @@ class MusicService: ObservableObject {
         streamPlayer.loadPosition = { [weak self] id in self?.podcastSubscriptions.position(for: id) ?? 0 }
         streamPlayer.savePosition = { [weak self] time, id in self?.podcastSubscriptions.setPosition(time, for: id) }
         streamPlayer.onChange = { [weak self] in self?.syncFromStreamPlayer() }
+        streamPlayer.rate = podcastRate
         streamPlayer.playbackURL = { [weak self] episode in
             self?.podcastDownloads.localFile(for: episode.id) ?? episode.streamURL
         }
@@ -1881,6 +2013,7 @@ class MusicService: ObservableObject {
         // While streaming, the music player's state is not what is playing.
         guard activeEngine == .library else { return }
         isPlaying = (player.playbackState == .playing)
+        applyLibraryRate()
         syncPlaybackModesFromPlayer()
         updateNowPlayingInfoCenter()
     }

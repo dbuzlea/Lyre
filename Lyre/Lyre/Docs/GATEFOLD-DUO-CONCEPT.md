@@ -197,22 +197,20 @@ announced; the open state posts "[Album], by [Artist], open. Side A, N tracks."
 
 ---
 
-## 8. Blocker: the carousel is unreachable on a Duo
+## 8. Resolved: the carousel trigger follows the window
 
-This has to be fixed before any Duo work, and is worth fixing regardless.
+`LyreView` used to present the carousel on `UIDevice.current.orientation.isLandscape`
+and force-lock `AppDelegate.orientationLock`. The Duo's inner display honours neither.
 
-`LyreView.swift` (`handleOrientationChange()`) only presents the carousel when
-`UIDevice.current.orientation.isLandscape`, and it force-locks
-`AppDelegate.orientationLock` through `supportedInterfaceOrientations`.
+It now follows the window's shape: whenever the classic player's window is wider than
+tall, the carousel opens (`windowShapeChanged(isWide:)`). On an ordinary iPhone that is
+the same as turning the phone. On the Duo, unfolding to the wide inner display opens
+the carousel — "open the phone, open the album". Rotation requests go through the
+view's own window scene (`OrientationLock`) instead of `UIApplication.shared`.
 
-On the Duo's inner display, reportedly **neither mechanism works**: the inner display
-does not honour supported interface orientations, and `UIDevice.orientation` will lie.
-Separately, all carousel sizing keys off `verticalSizeClass == .compact` (`coverSize`
-210 vs 260), which will not classify usefully on a near-square inner display.
-
-The fix is to re-ground the entry trigger on geometry rather than device orientation.
-The same code is fragile on iPad and in multitasking today, so this is not Duo-specific
-debt.
+Still open: carousel sizing keys off `verticalSizeClass == .compact` (`coverSize` 210 vs
+260). Panel size already derives from the measured window, but the closed cover size
+should too, once it can be checked on a Duo.
 
 ---
 
@@ -221,30 +219,28 @@ debt.
 | | |
 | --- | --- |
 | iPhone Duo announced | 9 September 2026 |
-| Hinge API ships in | Xcode 27.1 (`onHingeChange`, `UIHingeInteraction`) |
-| This project's SDK | **iOS 27.0** — no Duo simulator, no hinge API |
+| Hinge API ships in | iOS 27.1 SDK |
+| This project's SDK | **iOS 27.1** — hinge API present; Duo simulator needs the 27.1 runtime |
 
-The API details in this document come from press and developer write-ups following the
-announcement, not from Apple's documentation, which is not yet in the local doc set.
-**Verify every symbol against the real SDK before implementing section 3.**
+Verified against the SDK headers and interface (not the press write-ups, which were
+wrong about the shape):
 
-Reported shape of the API, to be confirmed:
+- SwiftUI: `View.onHingeChange(isEnabled:_:)`, handing old and new `DeviceHingeContext`.
+- `DeviceHingeContext.hinge` is `DeviceHinge?` — `nil` on every non-folding iPhone.
+- `DeviceHinge.status` is `.closed`, `.partiallyOpen` or `.fullyOpen`; `angle` is an
+  `Angle`. Update rate and precision are system policy: prefer `status`.
+- UIKit: `UIHingeInteraction`, with `UIHinge.status` and `angle` in radians.
+- The hinge does not report how the phone is standing, so book and tent postures cannot
+  be told apart from it.
 
-- SwiftUI `onHingeChange` delivers continuous angle updates.
-- `context.hinge` is `nil` on every non-folding iPhone — always nil-check.
-- `hinge.status` includes `.partiallyOpen`; a closed device reports closed and exposes
-  no division region at all.
-- `occlusionRegionKind` is **not** fold-specific — relying on it makes every modern
-  iPhone report its Dynamic Island as a fold. Foldability cannot be read from regions.
+`HingeObserver` (FoldPosture.swift) feeds `FoldPostureMonitor` from `onHingeChange`.
 
 ---
 
 ## 10. Sequencing
 
-1. **Build Gatefold flat-phone first.** It needs no Duo and no new SDK. Structure it so
-   `foldProgress` can accept a third driver, and keep the shift/scale/gutter constants in
-   one place so the Duo variant overrides rather than forks the view. *(Done — see
-   `GatefoldView.swift`.)*
-2. **Unblock the orientation gating** (section 8), independently.
-3. **Add the hinge driver** on Xcode 27.1, behind an availability check.
-4. **Posture-specific layouts** (section 2) last, once there is a device to feel them on.
+1. **Build Gatefold flat-phone first.** *(Done — see `GatefoldView.swift`.)*
+2. **Unblock the orientation gating** (section 8). *(Done.)*
+3. **Read the hinge**, behind an availability check. *(Done — posture only.)*
+4. **Drive `foldProgress` from the hinge angle** (section 3) — not yet built.
+5. **Posture-specific layouts** (section 2), once there is a device to feel them on.

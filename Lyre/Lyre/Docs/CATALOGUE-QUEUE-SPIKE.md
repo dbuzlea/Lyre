@@ -36,8 +36,10 @@ before catalogue support is possible.
 ## Running it
 
 Debug build, on a device with an Apple Music subscription. Q3 logs itself on every
-track change; the rest are triggered by **swiping left on the centre button** (the
-mirror of the swipe-right that queues a song).
+track change. The rest were triggered by **swiping left on the centre button**; that
+gesture is now Play Next in every build, so Q1, Q2 and Q4 have no trigger. To run them
+again, call `spikeAppendAsCatalogue` / `spikePlayAllAsCatalogue` from a temporary
+gesture.
 
 1. **Start a local queue.** Songs → pick a track you own → it plays.
 2. **Q1/Q2** — go to a playlist with catalogue-only tracks (an editorial playlist like

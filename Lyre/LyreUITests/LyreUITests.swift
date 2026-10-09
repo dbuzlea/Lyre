@@ -58,10 +58,10 @@ extension LyreUITests {
         button.tap()
     }
 
-    /// Welcome → past the permissions page → Meet the Scroll Wheel. "Not Now" skips
+    /// Welcome → past the permissions page → Choose Your Player. "Not Now" skips
     /// straight on; once access has been answered the page offers "Continue" instead,
     /// which leads to the music access result.
-    private func advanceToMeetTheWheel(_ app: XCUIApplication) {
+    private func advanceToChoosePlayer(_ app: XCUIApplication) {
         tap(app, "Get Started")
         let notNow = app.buttons["Not Now"]
         if notNow.waitForExistence(timeout: 5) {
@@ -70,6 +70,33 @@ extension LyreUITests {
             tap(app, "Continue")
             passMusicAccess(app)
         }
+        XCTAssertTrue(app.staticTexts["Choose Your Player"].waitForExistence(timeout: 5))
+    }
+
+    /// … → the classic player chosen → Meet the Scroll Wheel.
+    private func advanceToMeetTheWheel(_ app: XCUIApplication) {
+        advanceToChoosePlayer(app)
+        choosePlayer(app, "classic")
+        tap(app, "Continue")
+    }
+
+    private func waitFor(_ element: XCUIElement, labelContains text: String) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", text),
+                                                    object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: 3) == .completed
+    }
+
+    private func attachScreenshot(_ app: XCUIApplication, named name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private func choosePlayer(_ app: XCUIApplication, _ style: String) {
+        let choice = app.buttons["onboarding.player.\(style)"]
+        XCTAssertTrue(choice.waitForExistence(timeout: 5), "No \(style) player to choose")
+        choice.tap()
     }
 
     /// Any system alert currently on screen, such as a permission prompt.
@@ -208,6 +235,87 @@ extension LyreUITests {
     }
 }
 
+// MARK: - Onboarding: The Spool
+
+extension LyreUITests {
+
+    @MainActor
+    func testOnboardingOffersAChoiceOfPlayer() throws {
+        let app = launchFresh()
+        advanceToChoosePlayer(app)
+        XCTAssertTrue(app.buttons["onboarding.player.classic"].exists)
+        XCTAssertTrue(app.buttons["onboarding.player.spool"].exists)
+    }
+
+    @MainActor
+    func testOnboardingTeachesTheSpoolAndEndsOnIt() throws {
+        let app = launchFresh()
+        advanceToChoosePlayer(app)
+        choosePlayer(app, "spool")
+        tap(app, "Continue")
+
+        // The acted-out tour, one lesson at a time.
+        XCTAssertTrue(app.staticTexts["Meet the Spool"].waitForExistence(timeout: 5))
+        let lesson = app.descendants(matching: .any)["spool.tour.lesson"].firstMatch
+        XCTAssertTrue(lesson.waitForExistence(timeout: 5))
+        XCTAssertTrue(lesson.label.contains("Open the Deck"), "First lesson was \(lesson.label)")
+        sleep(3)
+        attachScreenshot(app, named: "onboarding-spool-tour")
+        tap(app, "Next Lesson")
+        XCTAssertTrue(waitFor(lesson, labelContains: "Find a Tape"), "Next went to \(lesson.label)")
+        tap(app, "Previous Lesson")
+        XCTAssertTrue(waitFor(lesson, labelContains: "Open the Deck"), "Previous went to \(lesson.label)")
+        tap(app, "Continue")
+
+        // Design and finish.
+        XCTAssertTrue(app.staticTexts["Make It Yours"].waitForExistence(timeout: 5))
+        let slim = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Slim'")).firstMatch
+        XCTAssertTrue(slim.exists, "The Spool's designs should be offered")
+        slim.tap()
+        attachScreenshot(app, named: "onboarding-spool-style")
+        tap(app, "Continue")
+
+        XCTAssertTrue(app.staticTexts["You're All Set!"].waitForExistence(timeout: 5))
+        let player = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'Spool'")).firstMatch
+        XCTAssertTrue(player.exists, "The summary should name the Spool")
+        tap(app, "Start Listening")
+        XCTAssertTrue(app.descendants(matching: .any)["spool.door"].firstMatch.waitForExistence(timeout: 8),
+                      "Finishing should open the Spool")
+    }
+
+    @MainActor
+    func testOnboardingCanEndOnTheGramophone() throws {
+        let app = launchFresh()
+        advanceToChoosePlayer(app)
+        choosePlayer(app, "gramophone")
+        tap(app, "Continue")
+
+        XCTAssertTrue(app.staticTexts["Make It Yours"].waitForExistence(timeout: 5))
+        let cabinet = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Cabinet'")).firstMatch
+        XCTAssertTrue(cabinet.exists, "The Gramophone's designs should be offered")
+        cabinet.tap()
+        attachScreenshot(app, named: "onboarding-gramophone-style")
+        tap(app, "Continue")
+
+        XCTAssertTrue(app.staticTexts["You're All Set!"].waitForExistence(timeout: 5))
+        tap(app, "Start Listening")
+        XCTAssertTrue(app.descendants(matching: .any)["gramophone.crate"].firstMatch.waitForExistence(timeout: 8),
+                      "Finishing should open the Gramophone")
+    }
+
+    @MainActor
+    func testTheClassicShortcutsIncludePlayNext() throws {
+        let app = launchFresh()
+        advanceToMeetTheWheel(app)
+        tap(app, "Try It Yourself")
+        tap(app, "Skip Practice")
+        XCTAssertTrue(app.staticTexts["Handy Shortcuts"].waitForExistence(timeout: 5))
+        let playNext = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS 'Swipe left on the center'")).firstMatch
+        XCTAssertTrue(playNext.exists, "The shortcuts should teach swipe left")
+    }
+}
+
 // MARK: - Onboarding: Customizing
 
 extension LyreUITests {
@@ -336,7 +444,7 @@ extension LyreUITests {
         _ = app.descendants(matching: .any)["Scroll wheel"].firstMatch.waitForExistence(timeout: 5)
 
         let expectedItems = ["Now Playing", "Songs", "Albums", "Artists",
-                             "Playlists", "Podcasts", "Settings"]
+                             "Playlists", "Podcasts", "Search", "Settings"]
         for item in expectedItems {
             XCTAssertTrue(app.staticTexts[item].waitForExistence(timeout: 3),
                           "Main menu should contain '\(item)'")

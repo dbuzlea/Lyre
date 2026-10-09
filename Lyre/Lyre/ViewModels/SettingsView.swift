@@ -19,6 +19,7 @@ struct SettingsView: View {
         String(localized: "settings.scrollSensitivity"),
         String(localized: "settings.clickSound"),
         String(localized: "settings.backlight"),
+        String(localized: "settings.playerStyle"),
         String(localized: "settings.about")
     ]
 
@@ -281,10 +282,10 @@ struct HighlightColorView: View {
 struct AboutView: View {
     let themeSettings: ThemeSettings
 
-    /// Marketing version plus build number from the bundle, e.g. "2.2 (5)".
+    /// Marketing version plus build number from the bundle, e.g. "2.5 (6)".
     private var versionString: String {
         let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "2.2"
+        let version = info?["CFBundleShortVersionString"] as? String ?? "2.5"
         guard let build = info?["CFBundleVersion"] as? String else { return version }
         return "\(version) (\(build))"
     }
@@ -573,6 +574,69 @@ struct ClickSoundSelectionView: View {
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     .frame(width: 12)
                                 Text(option)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(themeSettings.currentTheme.screenTextColor)
+                                Spacer()
+                            }
+                            .padding(.leading, 8)
+                        }
+                    }
+                    .frame(height: 28)
+                }
+            }
+
+            Spacer()
+        }
+    }
+}
+
+struct PlayerStyleSelectionView: View {
+    @Binding var selection: Int
+    let themeSettings: ThemeSettings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 10))
+                    .foregroundStyle(themeSettings.currentTheme.screenTextColor)
+                Text(String(localized: "settings.playerStyle"))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(themeSettings.currentTheme.screenTextColor)
+                Spacer()
+            }
+
+            Divider()
+                .background(themeSettings.currentTheme.dividerColor)
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(PlayerStyle.allCases.enumerated()), id: \.offset) { index, style in
+                    let isActive = themeSettings.playerStyle == style
+                    HStack {
+                        if selection == index {
+                            Rectangle()
+                                .fill(themeSettings.currentTheme.highlightColor)
+                                .overlay {
+                                    HStack {
+                                        Image(systemName: isActive ? "checkmark" : "")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
+                                            .frame(width: 12)
+                                        Text(style.displayName)
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
+                                        Spacer()
+                                    }
+                                    .padding(.leading, 8)
+                                }
+                                .selectionBarRefraction()
+                        } else {
+                            HStack {
+                                Image(systemName: isActive ? "checkmark" : "")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(themeSettings.currentTheme.screenTextColor)
+                                    .frame(width: 12)
+                                Text(style.displayName)
                                     .font(.system(size: 14))
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                 Spacer()

@@ -97,6 +97,8 @@ struct ScrollWheelView: View {
     let onBanner: (String) -> Void
     /// Opens the sheet for finding and subscribing to podcasts.
     let onOpenPodcastSearch: () -> Void
+    /// The Search screen's results, in the order it lists them.
+    var searchResults: [LibrarySearchResult] = []
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
 
@@ -431,16 +433,13 @@ struct ScrollWheelView: View {
             handleCenterSwipeRight()
         }
 
-#if DEBUG
-        // Leftward swipe runs the catalogue queue spike against the highlighted row.
-        // Debug builds only — see Docs/CATALOGUE-QUEUE-SPIKE.md. Delete with the spike.
+        // And a clearly leftward one is "play next".
         if value.translation.width <= -centerSwipeCommitDistance,
            abs(value.translation.width) > abs(value.translation.height) {
             centerSwipeFired = true
             isSelectPressed = false
             handleCenterSwipeLeft()
         }
-#endif
     }
 
     private func handleCenterDragEnded(value: DragGesture.Value) {
@@ -461,42 +460,47 @@ struct ScrollWheelView: View {
 
     // MARK: - Queue Actions
 
-    /// Swiping right on the center button queues whatever the highlighted row stands
-    /// for: a song on a song list, a whole album or playlist on the collection lists.
-    /// On the Queue screen itself it drops the row from the queue instead.
-    private func handleCenterSwipeRight() {
+    /// Swiping right on the center button adds whatever the highlighted row stands for
+    /// to the end of the queue, and swiping left plays it next: a song on a song list, a
+    /// whole album or playlist on the collection lists. On the Queue screen a right swipe
+    /// drops the row from the queue instead.
+    ///
+    /// Podcast episodes never join the queue, here or in any other player: a swipe right
+    /// on a streamed episode saves it for offline listening instead, or undoes that.
+    private func handleCenterSwipeRight() { handleCenterSwipe(placement: .last) }
+    private func handleCenterSwipeLeft() { handleCenterSwipe(placement: .next) }
+
+    private func handleCenterSwipe(placement: QueuePlacement) {
         if isHoldEnabled { return }
         onInteraction()
 
         switch currentScreen {
         case .songs:
-            queueSong(from: musicService.songs, at: songSelection)
+            queueSong(from: musicService.songs, at: songSelection, placement: placement)
         case .recentlyAdded:
-            queueSong(from: musicService.recentlyAdded, at: songSelection)
+            queueSong(from: musicService.recentlyAdded, at: songSelection, placement: placement)
         case .recentlyPlayed:
-            queueSong(from: musicService.recentlyPlayed, at: songSelection)
+            queueSong(from: musicService.recentlyPlayed, at: songSelection, placement: placement)
 
         case .albums:
             guard musicService.albums.indices.contains(menuSelection) else { break }
             let album = musicService.albums[menuSelection]
-            queueCollection(named: album.title) { await musicService.loadTracks(for: album) }
+            queueCollection(named: album.title, placement: placement) { await musicService.loadTracks(for: album) }
 
         case .playlists:
             let playlists = Array(musicService.playlists)
             guard playlists.indices.contains(menuSelection) else { break }
             let playlist = playlists[menuSelection]
-            queueCollection(named: playlist.name) { await musicService.loadTracks(for: playlist) }
+            queueCollection(named: playlist.name, placement: placement) { await musicService.loadTracks(for: playlist) }
 
         // On the Play and Shuffle rows of a detail list the swipe queues the whole
         // collection, the same as it does from the collection list.
         case .albumDetail(let album) where detailSelection < PlayShuffleRows.count:
-            queueCollection(named: album.title) { await musicService.loadTracks(for: album) }
+            queueCollection(named: album.title, placement: placement) { await musicService.loadTracks(for: album) }
         case .playlistDetail(let playlist) where detailSelection < PlayShuffleRows.count:
-            queueCollection(named: playlist.name) { await musicService.loadTracks(for: playlist) }
-        case .podcastDetail(let show) where detailSelection < PlayShuffleRows.count:
-            // Streamed episodes are URLs, which the music player's queue cannot hold.
-            let episodes = show.episodes.compactMap(\.mediaItem).map { AppTrack(from: $0) }
-            queueCollection(named: show.title) { episodes }
+            queueCollection(named: playlist.name, placement: placement) { await musicService.loadTracks(for: playlist) }
+        case .podcastDetail where detailSelection < PlayShuffleRows.count:
+            refuseEpisodes()
 
         case .albumDetail(let album):
             // The detail views load their own tracks, so the list has to be resolved
@@ -504,13 +508,13 @@ struct ScrollWheelView: View {
             let index = detailSelection - PlayShuffleRows.count
             Task {
                 let tracks = await musicService.loadTracks(for: album)
-                await MainActor.run { queueSong(from: tracks, at: index) }
+                await MainActor.run { queueSong(from: tracks, at: index, placement: placement) }
             }
         case .playlistDetail(let playlist):
             let index = detailSelection - PlayShuffleRows.count
             Task {
                 let tracks = await musicService.loadTracks(for: playlist)
-                await MainActor.run { queueSong(from: tracks, at: index) }
+                await MainActor.run { queueSong(from: tracks, at: index, placement: placement) }
             }
         case .podcastDetail(let show):
             let index = detailSelection - PlayShuffleRows.count
@@ -519,99 +523,63 @@ struct ScrollWheelView: View {
                 break
             }
             let episode = show.episodes[index]
-            if let item = episode.mediaItem {
-                queueSong(from: [AppTrack(from: item)], at: 0)
-            } else {
-                // A streamed episode can't join the music queue, so the swipe saves it
-                // for offline listening instead — or undoes that on a second swipe.
+            if placement == .last, episode.streamURL != nil {
                 toggleDownload(of: episode)
+            } else {
+                refuseEpisodes()
             }
+        case .search:
+            guard searchResults.indices.contains(menuSelection) else {
+                bumpFeedback()
+                break
+            }
+            switch searchResults[menuSelection] {
+            case .song:
+                queueSong(from: searchResults.compactMap(\.song),
+                          at: searchResults[..<menuSelection].filter { $0.song != nil }.count,
+                          placement: placement)
+            case .album(let album):
+                queueCollection(named: album.title, placement: placement) { await musicService.loadTracks(for: album) }
+            case .playlist(let playlist):
+                queueCollection(named: playlist.name, placement: placement) { await musicService.loadTracks(for: playlist) }
+            case .artist, .podcast:
+                bumpFeedback()
+            }
+
         case .queue:
-            removeSelectedFromQueue()
+            // Right takes the song out; left plays it now, as tapping a song in Up Next
+            // does on the other players. A song being carried is put down first.
+            if queueMoveOffset != nil {
+                bumpFeedback()
+            } else if placement == .last, musicService.canEditUpcoming {
+                removeSelectedFromQueue()
+            } else if placement == .next, musicService.upcoming.indices.contains(songSelection) {
+                successFeedback()
+                musicService.playUpcoming(at: songSelection)
+            } else {
+                bumpFeedback()
+            }
         default:
             // Nothing queueable on this screen.
             bumpFeedback()
         }
     }
 
-#if DEBUG
-    /// Runs whichever catalogue-spike question suits the current screen, so the four
-    /// answers can be gathered on a real library without building any UI for them:
-    ///
-    ///   song lists / album detail → Q1+Q2, append the highlighted track to the live
-    ///                               queue using play parameters
-    ///   playlist detail           → Q4, replace the queue with the whole playlist as
-    ///                               play parameters
-    ///   Now Playing               → Q3, report the now-playing item on demand
-    ///
-    /// Debug builds only. Delete with CatalogueQueueSpike.
-    private func handleCenterSwipeLeft() {
-        if isHoldEnabled { return }
-        onInteraction()
-        successFeedback()
-
-        switch currentScreen {
-        case .songs:
-            spikeAppend(from: musicService.songs, at: songSelection)
-        case .recentlyAdded:
-            spikeAppend(from: musicService.recentlyAdded, at: songSelection)
-        case .recentlyPlayed:
-            spikeAppend(from: musicService.recentlyPlayed, at: songSelection)
-        case .albumDetail(let album):
-            let index = detailSelection - PlayShuffleRows.count
-            Task {
-                let tracks = await musicService.loadTracks(for: album)
-                await MainActor.run { spikeAppend(from: tracks, at: index) }
-            }
-        case .playlistDetail(let playlist):
-            let index = detailSelection - PlayShuffleRows.count
-            Task {
-                let tracks = await musicService.loadTracks(for: playlist)
-                await MainActor.run {
-                    guard tracks.indices.contains(index) else { return }
-                    musicService.spikePlayAllAsCatalogue(tracks, startingAt: index)
-                    onBanner("Spike: Q4 all-catalogue queue")
-                }
-            }
-        case .nowPlaying:
-            musicService.spikeReportNowPlaying()
-            onBanner("Spike: Q3 logged")
-        default:
-            bumpFeedback()
-        }
+    /// Episodes play from their show; they don't go in the queue.
+    private func refuseEpisodes() {
+        bumpFeedback()
+        onBanner(String(localized: "queue.episodes"))
     }
 
-    private func spikeAppend(from tracks: [AppTrack], at index: Int) {
-        guard tracks.indices.contains(index) else {
-            bumpFeedback()
-            return
-        }
-        musicService.spikeAppendAsCatalogue(tracks[index])
-        onBanner("Spike: Q1/Q2 appended")
-    }
-#endif
-
-    private func queueSong(from tracks: [AppTrack], at index: Int) {
+    private func queueSong(from tracks: [AppTrack], at index: Int, placement: QueuePlacement) {
         guard tracks.indices.contains(index) else {
             bumpFeedback()
             return
         }
         let track = tracks[index]
         Task {
-            let outcome = await musicService.addToQueue(track)
-            await MainActor.run {
-                switch outcome {
-                case .queued:
-                    successFeedback()
-                    onBanner(String(format: String(localized: "queue.added"), track.title))
-                case .startedPlaying:
-                    successFeedback()
-                    onBanner(String(format: String(localized: "queue.playing"), track.title))
-                case .unavailable:
-                    bumpFeedback()
-                    onBanner(String(localized: "queue.unavailable"))
-                }
-            }
+            let outcome = await musicService.addToQueue(track, placement: placement)
+            await MainActor.run { report(outcome, name: track.title, requested: 1, placement: placement) }
         }
     }
 
@@ -636,28 +604,23 @@ struct ScrollWheelView: View {
     /// Queues a whole album or playlist. The contents are loaded first — a collection
     /// row knows its name but not its tracks — and the banner reports a partial add
     /// rather than letting a half-queued album look complete.
-    private func queueCollection(named name: String, tracks load: @escaping () async -> [AppTrack]) {
+    private func queueCollection(named name: String, placement: QueuePlacement,
+                                 tracks load: @escaping () async -> [AppTrack]) {
         Task {
             let tracks = await load()
-            let outcome = await musicService.addToQueue(tracks: tracks)
+            let outcome = await musicService.addToQueue(tracks: tracks, placement: placement)
             await MainActor.run {
-                switch outcome {
-                case .queued(let count, _), .startedPlaying(let count, _):
-                    successFeedback()
-                    if outcome.isPartial {
-                        onBanner(String(format: String(localized: "queue.addedPartial"),
-                                        count, tracks.count, name))
-                    } else if case .startedPlaying = outcome {
-                        onBanner(String(format: String(localized: "queue.playing"), name))
-                    } else {
-                        onBanner(String(format: String(localized: "queue.added"), name))
-                    }
-                case .unavailable:
-                    bumpFeedback()
-                    onBanner(String(localized: "queue.collectionUnavailable"))
-                }
+                report(outcome, name: name, requested: tracks.count, placement: placement, isCollection: true)
             }
         }
+    }
+
+    /// Says what a queue add did, in the words every player uses.
+    private func report(_ outcome: QueueAddOutcome, name: String, requested: Int,
+                        placement: QueuePlacement, isCollection: Bool = false) {
+        if outcome.succeeded { successFeedback() } else { bumpFeedback() }
+        onBanner(outcome.message(name: name, requested: requested, placement: placement,
+                                 isCollection: isCollection))
     }
 
     private func removeSelectedFromQueue() {
@@ -745,9 +708,13 @@ struct ScrollWheelView: View {
     }
 
     private func openPodcastShow(_ show: PodcastShow) {
+        open(.podcastDetail(show))
+    }
+
+    /// Goes forward to `target`, so Menu comes back here.
+    private func open(_ target: LyreScreen) {
         saveSelectionState()
         navigationStack.append(currentScreen)
-        let target = LyreScreen.podcastDetail(show)
         restoreSelectionState(for: target)
         withAnimation(.easeInOut(duration: 0.15)) { currentScreen = target }
     }
@@ -792,7 +759,7 @@ struct ScrollWheelView: View {
         case .queue:
             return songSelection == QueueView.clearRowOffset
                 ? String(localized: "queue.clear")
-                : track(musicService.upNext, songSelection)
+                : track(musicService.upcoming, songSelection)
         case .albums:
             return pick(musicService.albums.map(\.title), menuSelection)
         case .artists:
@@ -807,6 +774,10 @@ struct ScrollWheelView: View {
             }
         case .downloadedPodcasts:
             return pick(musicService.downloadedPodcastShows().map(\.title), menuSelection)
+        case .search:
+            guard searchResults.indices.contains(menuSelection) else { return "" }
+            let result = searchResults[menuSelection]
+            return "\(result.title), \(result.subtitle)"
         case .podcastDetail(let show):
             return detailSelection < PlayShuffleRows.count
                 ? detailRow(detailSelection, item: "")
@@ -833,6 +804,8 @@ struct ScrollWheelView: View {
             return pick([String(localized: "settings.clickSound.on"), String(localized: "settings.clickSound.off")], menuSelection)
         case .backlightDurationSelection:
             return pick(BacklightDuration.allCases.map(\.rawValue), menuSelection)
+        case .playerStyleSelection:
+            return pick(PlayerStyle.allCases.map(\.displayName), menuSelection)
         case .nowPlaying:
             // Scrolling here scrubs, so the position is what changed.
             return String(format: String(localized: "wheel.a11y.position"),
@@ -885,13 +858,14 @@ struct ScrollWheelView: View {
             // Queue row sits above the first song, so the cursor stops there.
             if queueMoveOffset != nil {
                 didScroll = moveCarriedQueueRow(by: -1)
-            } else if !musicService.upNext.isEmpty, songSelection > QueueView.clearRowOffset {
+            } else if !musicService.upcoming.isEmpty,
+                      songSelection > QueueView.topOffset(canEdit: musicService.canEditUpcoming) {
                 songSelection -= 1
                 didScroll = true
             } else {
                 didScroll = false
             }
-        case .albums, .playlists, .artists, .podcasts, .downloadedPodcasts, .settings, .themeSelection, .screenSizeSelection, .highlightColorSelection, .scrollSensitivitySelection, .clickSoundSelection, .backlightDurationSelection:
+        case .albums, .playlists, .artists, .podcasts, .downloadedPodcasts, .search, .settings, .themeSelection, .screenSizeSelection, .highlightColorSelection, .scrollSensitivitySelection, .clickSoundSelection, .backlightDurationSelection, .playerStyleSelection:
             if menuSelection > 0 {
                 menuSelection -= 1
                 didScroll = true
@@ -933,7 +907,7 @@ struct ScrollWheelView: View {
 
         switch currentScreen {
         case .menu:
-            maxIndex = 9 // Now Playing, Queue, Songs, Recently Added, Recently Played, Albums, Artists, Playlists, Podcasts, Settings
+            maxIndex = MainMenuView.items.count - 1
             if menuSelection < maxIndex {
                 menuSelection += 1
                 didScroll = true
@@ -949,7 +923,7 @@ struct ScrollWheelView: View {
                 didScroll = false
             }
         case .queue:
-            maxIndex = max(0, musicService.upNext.count - 1)
+            maxIndex = max(0, musicService.upcoming.count - 1)
             if queueMoveOffset != nil {
                 didScroll = moveCarriedQueueRow(by: 1)
             } else if songSelection < maxIndex {
@@ -1015,8 +989,16 @@ struct ScrollWheelView: View {
             } else {
                 didScroll = false
             }
+        case .search:
+            maxIndex = searchResults.count - 1
+            if menuSelection < maxIndex {
+                menuSelection += 1
+                didScroll = true
+            } else {
+                didScroll = false
+            }
         case .settings:
-            maxIndex = 6 // Theme, Screen Size, Highlight Color, Scroll Speed, Click Sound, Backlight, About
+            maxIndex = SettingsView.items.count - 1 // Theme … Backlight, Player Style, About
             if menuSelection < maxIndex {
                 menuSelection += 1
                 didScroll = true
@@ -1065,6 +1047,14 @@ struct ScrollWheelView: View {
             }
         case .backlightDurationSelection:
             maxIndex = BacklightDuration.allCases.count - 1
+            if menuSelection < maxIndex {
+                menuSelection += 1
+                didScroll = true
+            } else {
+                didScroll = false
+            }
+        case .playerStyleSelection:
+            maxIndex = PlayerStyle.allCases.count - 1
             if menuSelection < maxIndex {
                 menuSelection += 1
                 didScroll = true
@@ -1184,6 +1174,11 @@ struct ScrollWheelView: View {
                 menuSelection = 0
                 songSelection = 0
                 detailSelection = 0
+            case .search:
+                // Results change with every search, so the cursor starts at the top.
+                menuSelection = 0
+                songSelection = 0
+                detailSelection = 0
             case .albums, .artists, .playlists, .podcasts, .downloadedPodcasts:
                 // Keep menuSelection for list position, reset others
                 songSelection = 0
@@ -1203,6 +1198,10 @@ struct ScrollWheelView: View {
                 detailSelection = 0
             case .backlightDurationSelection:
                 menuSelection = BacklightDuration.allCases.firstIndex(of: themeSettings.backlightDuration) ?? 0
+                songSelection = 0
+                detailSelection = 0
+            case .playerStyleSelection:
+                menuSelection = PlayerStyle.allCases.firstIndex(of: themeSettings.playerStyle) ?? 0
                 songSelection = 0
                 detailSelection = 0
             case .recentlyAdded, .recentlyPlayed:
@@ -1289,7 +1288,8 @@ struct ScrollWheelView: View {
             case 6: menuTarget = .artists
             case 7: menuTarget = .playlists
             case 8: menuTarget = .podcasts
-            case 9: menuTarget = .settings
+            case 9: menuTarget = .search
+            case 10: menuTarget = .settings
             default:
                 _ = navigationStack.popLast()
                 return
@@ -1306,7 +1306,14 @@ struct ScrollWheelView: View {
         case .queue:
             // One button, so reordering is pick-up / put-down: the first press lifts
             // the highlighted row, the wheel carries it, the next press drops it.
-            if queueMoveOffset != nil {
+            // A podcast's episodes can't be moved: the press plays the one highlighted.
+            if !musicService.canEditUpcoming {
+                if musicService.upcoming.indices.contains(songSelection) {
+                    musicService.playUpcoming(at: songSelection)
+                } else {
+                    bumpFeedback()
+                }
+            } else if queueMoveOffset != nil {
                 dropCarriedQueueRow()
             } else if songSelection == QueueView.clearRowOffset {
                 clearQueue()
@@ -1379,6 +1386,24 @@ struct ScrollWheelView: View {
                 openPodcastShow(shows[menuSelection])
             }
 
+        case .search:
+            guard searchResults.indices.contains(menuSelection) else {
+                bumpFeedback()
+                break
+            }
+            switch searchResults[menuSelection] {
+            case .song(let track):
+                // The songs found play in the order listed, from the one chosen, as a
+                // song chosen from Songs plays on through the rest.
+                let songs = searchResults.compactMap(\.song)
+                let index = songs.firstIndex { $0.id == track.id } ?? 0
+                startPlayback { await musicService.play(tracks: songs, startingAt: index) }
+            case .album(let album):       open(.albumDetail(album))
+            case .artist(let artist):     open(.artistDetail(artist))
+            case .playlist(let playlist): open(.playlistDetail(playlist))
+            case .podcast(let show):      openPodcastShow(show)
+            }
+
         case .podcastDetail(let show):
             let episodes = show.episodes
             let row = detailSelection
@@ -1445,7 +1470,8 @@ struct ScrollWheelView: View {
             case 3: settingsTarget = .scrollSensitivitySelection
             case 4: settingsTarget = .clickSoundSelection
             case 5: settingsTarget = .backlightDurationSelection
-            case 6: settingsTarget = .about
+            case 6: settingsTarget = .playerStyleSelection
+            case 7: settingsTarget = .about
             default:
                 _ = navigationStack.popLast()
                 return
@@ -1495,6 +1521,11 @@ struct ScrollWheelView: View {
                 themeSettings.backlightDuration = BacklightDuration.allCases[menuSelection]
             }
 
+        case .playerStyleSelection:
+            if menuSelection < PlayerStyle.allCases.count {
+                themeSettings.playerStyle = PlayerStyle.allCases[menuSelection]
+            }
+
         case .about:
             // Replays the introduction. ContentView swaps back to onboarding as soon as
             // the flag clears; the journey starts again from its first step.
@@ -1502,14 +1533,22 @@ struct ScrollWheelView: View {
             hasCompletedOnboarding = false
 
         case .nowPlaying:
+            // Each press changes the highlighted row's setting and moves on to the next
+            // row: Shuffle, Repeat, and while a podcast plays, Speed.
+            let rows = musicService.isPlayingPodcast ? 3 : 2
+            let row = min(menuSelection, rows - 1)
             Task {
-                if menuSelection == 0 {
+                switch row {
+                case 0:
                     await musicService.toggleShuffleMode()
-                    await MainActor.run { menuSelection = 1 }
-                } else {
+                case 1:
                     await musicService.toggleRepeatMode()
-                    await MainActor.run { menuSelection = 0 }
+                default:
+                    let rates = MusicService.podcastRates
+                    let at = rates.firstIndex(of: musicService.podcastRate) ?? 0
+                    musicService.setPodcastRate(rates[(at + 1) % rates.count])
                 }
+                await MainActor.run { menuSelection = (row + 1) % rows }
             }
         }
     }
@@ -1533,15 +1572,9 @@ struct ScrollWheelView: View {
         generator.prepare()
         generator.impactOccurred()
         
-        // Restart the current track if it's been playing for more than 3 seconds;
-        // otherwise skip to the previous track (standard music player behavior).
-        Task {
-            if musicService.currentTime > 3 {
-                await musicService.seek(to: 0)
-            } else {
-                await musicService.skipToPrevious()
-            }
-        }
+        // Back to the start of the song once it's under way, else the song before; on a
+        // podcast, 15 seconds back. The same on every player (see PlayerActions).
+        Task { await musicService.skip(forward: false) }
     }
     
     private func handleNext() {
@@ -1552,7 +1585,8 @@ struct ScrollWheelView: View {
         generator.prepare()
         generator.impactOccurred()
         
-        Task { await musicService.skipToNext() }
+        // The next song; on a podcast, 30 seconds on, as the lock screen does.
+        Task { await musicService.skip(forward: true) }
     }
 }
 

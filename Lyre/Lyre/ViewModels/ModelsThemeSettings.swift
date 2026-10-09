@@ -105,6 +105,45 @@ class ThemeSettings {
         }
     }
 
+    var playerStyle: PlayerStyle {
+        didSet {
+            UserDefaults.standard.set(playerStyle.rawValue, forKey: "LyrePlayerStyle")
+        }
+    }
+
+    /// The Spool's body and finish. Any finish goes on either body.
+    var spoolModel: SpoolModel {
+        didSet {
+            UserDefaults.standard.set(spoolModel.rawValue, forKey: "LyreSpoolModel")
+        }
+    }
+
+    var spoolFinish: SpoolFinish {
+        didSet {
+            UserDefaults.standard.set(spoolFinish.rawValue, forKey: "LyreSpoolFinish")
+        }
+    }
+
+    /// The Gramophone's design and finish. Any finish goes on either design.
+    var gramophoneModel: GramophoneModel {
+        didSet {
+            UserDefaults.standard.set(gramophoneModel.rawValue, forKey: "LyreGramophoneModel")
+        }
+    }
+
+    var gramophoneFinish: GramophoneFinish {
+        didSet {
+            UserDefaults.standard.set(gramophoneFinish.rawValue, forKey: "LyreGramophoneFinish")
+        }
+    }
+
+    /// The faint crackle of the record under the music. On unless turned off.
+    var gramophoneSurfaceNoise: Bool {
+        didSet {
+            UserDefaults.standard.set(gramophoneSurfaceNoise, forKey: "LyreGramophoneSurfaceNoise")
+        }
+    }
+
     /// Maps theme names persisted before the 1.0 rename onto their current
     /// equivalents, so an existing install keeps its chosen finish instead of
     /// silently falling back to the default.
@@ -209,6 +248,24 @@ class ThemeSettings {
         } else {
             self.backlightDuration = .tenSeconds
         }
+
+        // Load player style (defaults to the click-wheel player)
+        if let savedStyle = UserDefaults.standard.string(forKey: "LyrePlayerStyle"),
+           let style = PlayerStyle(rawValue: savedStyle) {
+            self.playerStyle = style
+        } else {
+            self.playerStyle = .classic
+        }
+
+        self.spoolModel = UserDefaults.standard.string(forKey: "LyreSpoolModel")
+            .flatMap(SpoolModel.init(rawValue:)) ?? .original
+        self.spoolFinish = UserDefaults.standard.string(forKey: "LyreSpoolFinish")
+            .flatMap(SpoolFinish.init(rawValue:)) ?? .blue
+        self.gramophoneModel = UserDefaults.standard.string(forKey: "LyreGramophoneModel")
+            .flatMap(GramophoneModel.init(rawValue:)) ?? .horn
+        self.gramophoneFinish = UserDefaults.standard.string(forKey: "LyreGramophoneFinish")
+            .flatMap(GramophoneFinish.init(rawValue:)) ?? .mahogany
+        self.gramophoneSurfaceNoise = UserDefaults.standard.object(forKey: "LyreGramophoneSurfaceNoise") as? Bool ?? true
 
         // Finally, set the theme style
         self.themeStyle = loadedThemeStyle

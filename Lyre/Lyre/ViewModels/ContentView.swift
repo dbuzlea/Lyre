@@ -30,6 +30,21 @@ struct ContentView: View {
     @StateObject private var musicService = MusicService()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(\.scenePhase) private var scenePhase
+    /// The whole window and its safe region, measured here, outside LyreView's
+    /// `.ignoresSafeArea()`, which hides the insets from everything inside it. See
+    /// `EnvironmentValues.windowSafeArea`.
+    @State private var fullFrame: CGRect = .zero
+    @State private var safeFrame: CGRect = .zero
+
+    /// GeometryProxy.safeAreaInsets reads zero once the safe area is ignored anywhere
+    /// above, so the insets come from comparing the two frames instead.
+    private var windowSafeArea: EdgeInsets {
+        guard fullFrame != .zero, safeFrame != .zero else { return EdgeInsets() }
+        return EdgeInsets(top: max(0, safeFrame.minY - fullFrame.minY),
+                          leading: max(0, safeFrame.minX - fullFrame.minX),
+                          bottom: max(0, fullFrame.maxY - safeFrame.maxY),
+                          trailing: max(0, fullFrame.maxX - safeFrame.maxX))
+    }
 
     var body: some View {
         ZStack {
@@ -37,6 +52,7 @@ struct ContentView: View {
                 if hasCompletedOnboarding {
                     LyreView(musicService: musicService)
                         .ignoresSafeArea()
+                        .environment(\.windowSafeArea, windowSafeArea)
                 } else {
                     OnboardingView(
                         hasCompletedOnboarding: $hasCompletedOnboarding,
@@ -57,6 +73,19 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.4), value: musicService.isShowingAccessRecovery)
+        .background {
+            ZStack {
+                frameReader { fullFrame = $0 }
+                    .ignoresSafeArea()
+                // The keyboard is left out: these insets are the status bar's and the
+                // home indicator's. With it in, bringing the keyboard up re-laid out
+                // the Gramophone's stage against an inset that moved on every frame of
+                // the keyboard's animation, which never settled and hung the app. A
+                // player that needs room for the keyboard asks KeyboardMonitor.
+                frameReader { safeFrame = $0 }
+                    .ignoresSafeArea(.keyboard)
+            }
+        }
         .onAppear {
             logger.info("App started — onboarding completed: \(hasCompletedOnboarding)")
         }
@@ -93,6 +122,24 @@ struct ContentView: View {
             }
         }
     }
+}
+
+private extension ContentView {
+    func frameReader(_ update: @escaping (CGRect) -> Void) -> some View {
+        GeometryReader { proxy in
+            let frame = proxy.frame(in: .global)
+            Color.clear
+                .onAppear { update(frame) }
+                .onChange(of: frame) { _, frame in update(frame) }
+        }
+    }
+}
+
+extension EnvironmentValues {
+    /// The window's safe area, for views that draw edge to edge under
+    /// `.ignoresSafeArea()` but still need to keep content clear of the status bar
+    /// and home indicator. Inside such a view SwiftUI reports zero insets.
+    @Entry var windowSafeArea = EdgeInsets()
 }
 
 #Preview {

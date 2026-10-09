@@ -93,22 +93,29 @@ The App ID `com.pinkhatcreations.lyreapp` must also have the MusicKit service en
 | Tap left zone | Restart track or skip to previous |
 | Tap right zone | Skip to next track |
 | Center circle | Select / confirm |
-| Swipe right on center circle | Add the highlighted song to the queue |
+| Swipe right on center circle | Add the highlighted song to the end of the queue |
+| Swipe left on center circle | Play the highlighted song next |
 
 ### Queue
 
-Swipe right on the center circle to queue whatever the highlighted row stands for:
+Swipe right on the center circle to add whatever the highlighted row stands for to the end of the queue, or swipe left to play it next:
 
 | Where | What gets queued |
 |-------|------------------|
 | Songs, Recently Added, Recently Played | the highlighted song |
-| An album's or playlist's track list, a podcast's episodes | the highlighted track |
+| An album's or playlist's track list | the highlighted track |
 | **Albums** | the whole album |
 | **Playlists** | the whole playlist |
 
-Each addition goes to the bottom of the queue, and a banner confirms it on screen. With nothing playing, what you added starts playing instead of waiting. If part of a collection can't be played, the banner says how much went in ("Queued 9 of 12").
+A banner confirms each addition on screen. With nothing playing, what you added starts playing instead of waiting. If part of a collection can't be played, the banner says how much went in ("Queued 9 of 12").
 
-In the **Artwork Carousel**, open a sleeve and the liner tracklist works the same way by touch: tap a track to play it, swipe it right to queue it.
+The queue works the same in every player — the classic wheel, the Artwork Carousel and the Spool:
+
+- **Podcast episodes are never queued.** They play from their show. On a streamed episode, swiping right downloads it for offline listening instead (or removes the download).
+- **While a podcast plays, Up Next is the show's later episodes**, in the show's order: they can't be moved, removed or cleared, and pressing Center on one plays it. Songs can't be queued until the podcast stops; a banner says so.
+- **An album lists, plays and queues each song once**, even when the library holds a song on it twice. A playlist keeps its repeats.
+
+In the **Artwork Carousel**, open a sleeve and the liner tracklist works the same way by touch: tap a track to play it, swipe it right to queue it, or touch and hold for Play Next.
 
 **Menu → Queue** lists what is playing followed by Up Next, and is also where the order is changed:
 

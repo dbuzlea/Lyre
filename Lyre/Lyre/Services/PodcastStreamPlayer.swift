@@ -63,6 +63,19 @@ final class PodcastStreamPlayer {
     static let skipForwardInterval: TimeInterval = 30
     static let skipBackwardInterval: TimeInterval = 15
 
+    /// The episodes still to come after the one playing.
+    var upcoming: ArraySlice<PodcastEpisode> {
+        episodes.indices.contains(index) ? episodes[(index + 1)...] : []
+    }
+
+    /// The speed episodes play at, 1 for normal. Speech keeps its pitch.
+    var rate: Float = 1 {
+        didSet {
+            player.defaultRate = rate
+            if player.rate != 0 { player.rate = rate }
+        }
+    }
+
     private let player = AVPlayer()
     private var statusObservation: NSKeyValueObservation?
     private var itemStatusObservation: NSKeyValueObservation?
@@ -182,6 +195,8 @@ final class PodcastStreamPlayer {
         logger.info("Playing '\(episode.title)' from \(url.isFileURL ? "download" : url.absoluteString)")
 
         let item = AVPlayerItem(url: url)
+        // Keeps a voice's pitch at any speed, without the warble music settings give it.
+        item.audioTimePitchAlgorithm = .timeDomain
         // Duration only becomes known once the item is ready; report it then.
         itemStatusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             let failed = item.status == .failed

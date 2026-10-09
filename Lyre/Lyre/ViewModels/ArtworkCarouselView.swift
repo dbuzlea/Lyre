@@ -45,6 +45,13 @@ enum ArtworkCarouselContent {
     case playlists([AppPlaylist])
     case podcasts([PodcastShow])
 
+    /// Whether its records and their tracks can go in the queue. A show's episodes
+    /// can't, in any player: they play from the show.
+    var isQueueable: Bool {
+        if case .podcasts = self { return false }
+        return true
+    }
+
     var itemCount: Int {
         switch self {
         case .albums(let items): return items.count
@@ -770,7 +777,8 @@ struct ArtworkCarouselView: View {
             // scrub or a flip. Empty (and so switched off) unless this is the closed,
             // centred cover.
             .contextMenu {
-                if index == centeredIndex, !isOpen {
+                // Shows have no queue menu: their episodes are never queued.
+                if index == centeredIndex, !isOpen, content.isQueueable {
                     collectionQueueMenu(for: index)
                 }
             }
@@ -789,11 +797,11 @@ struct ArtworkCarouselView: View {
             .accessibilityLabel(coverAccessibilityLabel(index: index))
             .accessibilityHint("Opens the sleeve")
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction(named: Text(String(localized: "queue.action.playNext"))) {
-                queueCollection(at: index, placement: .next)
-            }
-            .accessibilityAction(named: Text(String(localized: "queue.action.addToQueue"))) {
-                queueCollection(at: index, placement: .last)
+            .accessibilityActions {
+                if content.isQueueable {
+                    Button(String(localized: "queue.action.playNext")) { queueCollection(at: index, placement: .next) }
+                    Button(String(localized: "queue.action.addToQueue")) { queueCollection(at: index, placement: .last) }
+                }
             }
             // Only the centred cover carries this, so a test can open the sleeve
             // without knowing which album happens to be in the middle.
@@ -1150,6 +1158,7 @@ struct ArtworkCarouselView: View {
                     showsSideControl: sides.count > 1,
                     onSelect: { globalIndex in playTrack(at: globalIndex) },
                     onQueue: { globalIndex, placement in queueTrack(at: globalIndex, placement: placement) },
+                    canQueue: content.isQueueable,
                     onSideChange: { flipRecord(to: $0) },
                     onDownload: { globalIndex in toggleDownload(at: globalIndex) }
                 )
@@ -1340,14 +1349,10 @@ struct ArtworkCarouselView: View {
         let track: AppTrack
         switch content {
         case .podcasts:
-            guard backFaceEpisodes.indices.contains(globalIndex) else { return }
-            // Streamed episodes are URLs, which the music player's queue cannot hold.
-            guard let item = backFaceEpisodes[globalIndex].mediaItem else {
-                impact(.rigid, 0.4)
-                showToast(String(localized: "queue.streamedEpisode"))
-                return
-            }
-            track = AppTrack(from: item)
+            // Episodes play from their show; they don't go in the queue, in any player.
+            impact(.rigid, 0.4)
+            showToast(String(localized: "queue.episodes"))
+            return
         case .albums, .playlists:
             guard backFaceTracks.indices.contains(globalIndex) else { return }
             track = backFaceTracks[globalIndex]
@@ -1357,7 +1362,7 @@ struct ArtworkCarouselView: View {
             let outcome = await musicService.addToQueue(track, placement: placement)
             await MainActor.run {
                 reportQueued(outcome, name: track.title, requested: 1, placement: placement,
-                             unavailableMessage: String(localized: "queue.unavailable"))
+                             isCollection: false)
             }
         }
     }
@@ -1384,6 +1389,11 @@ struct ArtworkCarouselView: View {
         guard index < content.itemCount else { return }
         let name = content.title(at: index)
         let content = self.content
+        if case .podcasts = content {
+            impact(.rigid, 0.4)
+            showToast(String(localized: "queue.episodes"))
+            return
+        }
 
         Task {
             let tracks: [AppTrack]
@@ -1392,46 +1402,24 @@ struct ArtworkCarouselView: View {
                 tracks = await musicService.loadTracks(for: items[index])
             case .playlists(let items):
                 tracks = await musicService.loadTracks(for: items[index])
-            case .podcasts(let items):
-                tracks = items[index].episodes.compactMap(\.mediaItem).map { AppTrack(from: $0) }
+            case .podcasts:
+                tracks = []
             }
             let outcome = await musicService.addToQueue(tracks: tracks, placement: placement)
             await MainActor.run {
                 reportQueued(outcome, name: name, requested: tracks.count, placement: placement,
-                             unavailableMessage: String(localized: "queue.collectionUnavailable"))
+                             isCollection: true)
             }
         }
     }
 
-    /// Tells the user what a queue add did, in the same words the scroll wheel uses.
-    private func reportQueued(
-        _ outcome: QueueAddOutcome,
-        name: String,
-        requested: Int,
-        placement: QueuePlacement,
-        unavailableMessage: String
-    ) {
+    /// Tells the user what a queue add did, in the words every player uses.
+    private func reportQueued(_ outcome: QueueAddOutcome, name: String, requested: Int,
+                              placement: QueuePlacement, isCollection: Bool) {
         trace("queue \(placement == .next ? "next" : "last"): \(outcome)")
-        switch outcome {
-        case .queued(let count, _):
-            impact(.light, 0.7)
-            switch (placement, outcome.isPartial) {
-            case (.next, true):
-                showToast(String(format: String(localized: "queue.addedNextPartial"), count, requested, name))
-            case (.next, false):
-                showToast(String(format: String(localized: "queue.addedNext"), name))
-            case (.last, true):
-                showToast(String(format: String(localized: "queue.addedPartial"), count, requested, name))
-            case (.last, false):
-                showToast(String(format: String(localized: "queue.added"), name))
-            }
-        case .startedPlaying:
-            impact(.light, 0.7)
-            showToast(String(format: String(localized: "queue.playing"), name))
-        case .unavailable:
-            impact(.rigid, 0.4)
-            showToast(unavailableMessage)
-        }
+        if outcome.succeeded { impact(.light, 0.7) } else { impact(.rigid, 0.4) }
+        showToast(outcome.message(name: name, requested: requested, placement: placement,
+                                  isCollection: isCollection))
     }
 
     private func showToast(_ message: String) {

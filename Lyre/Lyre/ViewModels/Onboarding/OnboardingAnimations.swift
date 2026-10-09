@@ -257,7 +257,7 @@ struct DrawnCheckmark: View {
 
 /// The icon for one shortcut, which acts out its gesture once, `delay` after appearing.
 struct ShortcutDemoIcon: View {
-    enum Demo { case swipe, rotate, shake, hold, resize }
+    enum Demo { case swipe, swipeLeft, rotate, shake, hold, resize }
 
     let demo: Demo
     var delay: Double = 0
@@ -288,6 +288,8 @@ struct ShortcutDemoIcon: View {
         switch demo {
         case .swipe:
             Image(systemName: "hand.point.right").font(.title2).foregroundStyle(.white)
+        case .swipeLeft:
+            Image(systemName: "hand.point.left").font(.title2).foregroundStyle(.white)
         case .rotate:
             Image(systemName: "iphone").font(.title2).foregroundStyle(.white)
         case .shake:
@@ -311,6 +313,10 @@ struct ShortcutDemoIcon: View {
         switch demo {
         case .swipe:
             withAnimation(.easeOut(duration: 0.35)) { offsetX = 12 }
+            try? await Task.sleep(for: .milliseconds(450))
+            withAnimation(.easeInOut(duration: 0.3)) { offsetX = 0 }
+        case .swipeLeft:
+            withAnimation(.easeOut(duration: 0.35)) { offsetX = -12 }
             try? await Task.sleep(for: .milliseconds(450))
             withAnimation(.easeInOut(duration: 0.3)) { offsetX = 0 }
         case .rotate:

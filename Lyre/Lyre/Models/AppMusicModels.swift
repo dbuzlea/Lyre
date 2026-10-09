@@ -84,21 +84,71 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
     let musicKitAlbum: Album?
     let mpArtwork: MPMediaItemArtwork?
     var preloadedTracks: [AppTrack]
+    /// Set when the Spool shows a playlist as a mixtape: the playlist it was made from.
+    let mixtape: AppPlaylist?
+    /// Set when the Spool shows a podcast as a spoken-word tape: the show it was made from.
+    let podcast: PodcastShow?
 
     init(
         id: String, title: String, artistName: String,
         releaseDate: Date? = nil, musicKitAlbum: Album? = nil,
         mpArtwork: MPMediaItemArtwork? = nil,
-        preloadedTracks: [AppTrack] = []
+        preloadedTracks: [AppTrack] = [],
+        mixtape: AppPlaylist? = nil,
+        podcast: PodcastShow? = nil
     ) {
         self.id = id; self.title = title; self.artistName = artistName
         self.releaseDate = releaseDate; self.musicKitAlbum = musicKitAlbum
         self.mpArtwork = mpArtwork
         self.preloadedTracks = preloadedTracks
+        self.mixtape = mixtape
+        self.podcast = podcast
     }
 
     static func == (lhs: AppAlbum, rhs: AppAlbum) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
+// MARK: - Duplicate Songs
+
+nonisolated extension Array where Element == AppTrack {
+    /// An album's songs with repeated copies of a song taken out. A library can list
+    /// one song on an album more than once:
+    ///
+    /// • a stand-in with no length beside the real copy, on a local album; and
+    /// • the same song added twice, as Apple Music does when it's added again from a
+    ///   single or a playlist. Both copies have a length, and both play the same file.
+    ///
+    /// A copy with no length goes when the album has the same title with a length. A
+    /// copy with a length goes when an earlier song has the same title and the same
+    /// length, to within `lengthTolerance`. The first copy stays, in its place. Songs
+    /// that really share a title (an interlude and its reprise) run for different
+    /// lengths, so they stay, as do songs with no length at all.
+    var withoutDuplicates: [AppTrack] {
+        let timed = Set(filter { $0.duration > 0 }.map(\.titleKey))
+        var kept: [AppTrack] = []
+        for track in self {
+            if track.duration > 0 {
+                let isRepeat = kept.contains {
+                    $0.titleKey == track.titleKey && abs($0.duration - track.duration) <= Self.lengthTolerance
+                }
+                if !isRepeat { kept.append(track) }
+            } else if !timed.contains(track.titleKey) {
+                kept.append(track)
+            }
+        }
+        return kept
+    }
+
+    /// How far apart two copies' lengths can be and still be the same recording; the
+    /// store and a local file can round the same song differently.
+    static var lengthTolerance: TimeInterval { 2 }
+}
+
+private extension AppTrack {
+    nonisolated var titleKey: String {
+        title.trimmingCharacters(in: .whitespaces).lowercased()
+    }
 }
 
 // MARK: - AppArtist

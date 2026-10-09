@@ -11,7 +11,22 @@
 "menu.artists" = "Artists";
 "menu.playlists" = "Playlists";
 "menu.podcasts" = "Podcasts";
+"menu.search" = "Search";
 "menu.settings" = "Settings";
+
+/* MARK: - Search */
+"search.prompt" = "Songs, albums, artists…";
+"search.hint" = "Type to search your songs, albums, artists, playlists and podcasts.";
+"search.noResults" = "No Results";
+"search.clear" = "Clear Search";
+"search.kind.artist" = "Artist";
+"search.kind.album" = "Album";
+"search.kind.song" = "Song";
+"search.kind.playlist" = "Playlist";
+"search.kind.podcast" = "Podcast";
+"spool.search.prompt" = "Search tapes and songs";
+"gramophone.search.prompt" = "Search records and songs";
+"gramophone.index" = "Index";
 
 /* MARK: - Now Playing */
 "nowPlaying.title" = "Now Playing";
@@ -20,6 +35,7 @@
 "nowPlaying.paused" = "Paused";
 "nowPlaying.scrubbing" = "Scrubbing";
 "nowPlaying.shuffle" = "Shuffle";
+"nowPlaying.speed" = "Speed";
 "nowPlaying.repeat" = "Repeat";
 
 "airPlay.label" = "AirPlay";
@@ -40,12 +56,13 @@
 "queue.nowPlaying" = "NOW PLAYING";
 "queue.upNextCount" = "%d up next";
 "queue.empty" = "Queue is empty";
-"queue.empty.hint" = "Swipe right on the center button to add a song, album or playlist.";
+"queue.empty.hint" = "Swipe right on the center button to add a song, album or playlist, or left to play it next.";
 "queue.clear" = "Clear Queue";
 "queue.shuffleOn" = "Shuffle is on — play order will vary";
-"queue.hint.browse" = "Select to move · Swipe right to remove";
+"queue.hint.browse" = "Select to move · Swipe left to play · Swipe right to remove";
 "queue.hint.moving" = "Scroll to move · Select to drop";
 "queue.hint.clear" = "Select to empty the queue";
+"queue.hint.episodes" = "Select to play an episode";
 
 /* Transient banners shown on screen after a queue action */
 "queue.added" = "Queued: %@";
@@ -61,6 +78,8 @@
 "queue.cleared" = "Queue cleared";
 "queue.reordered" = "Queue updated";
 "queue.unavailable" = "That song can't be queued";
+"queue.podcastPlaying" = "Songs can't be queued while a podcast plays";
+"queue.episodes" = "Episodes play from their show and can't be queued";
 
 /* MARK: - Settings */
 "settings.title" = "Settings";
@@ -70,6 +89,7 @@
 "settings.scrollSensitivity" = "Scroll Speed";
 "settings.clickSound" = "Click Sound";
 "settings.backlight" = "Backlight";
+"settings.playerStyle" = "Player Style";
 "settings.about" = "About";
 
 /* MARK: - Settings Values */
@@ -80,6 +100,148 @@
 "settings.scrollSensitivity.normal" = "Normal";
 "settings.scrollSensitivity.fast" = "Fast";
 "settings.highlightColor.default" = "Default";
+"settings.playerStyle.classic" = "Classic";
+"settings.playerStyle.spool" = "Spool";
+"settings.playerStyle.gramophone" = "Gramophone";
+"gramophone.brand" = "Gramophone";
+"gramophone.design.horn" = "Horn";
+"gramophone.design.cabinet" = "Cabinet";
+"gramophone.finish.mahogany" = "Mahogany";
+"gramophone.finish.oak" = "Golden Oak";
+"gramophone.finish.walnut" = "Walnut";
+"gramophone.finish.lacquer" = "Black Lacquer";
+"gramophone.record.broadcast" = "Broadcast";
+"gramophone.record.a11y" = "Record: %@";
+"gramophone.record.hint" = "Hold to see its sleeve and choose a song.";
+"gramophone.tonearm" = "Tonearm";
+"gramophone.tonearm.value" = "On band %d of %d";
+"gramophone.tonearm.resting" = "On its rest";
+"gramophone.tonearm.noRecord" = "No record";
+"gramophone.tonearm.lift" = "Lift the needle";
+"gramophone.tonearm.lower" = "Lower the needle";
+"gramophone.crank" = "Crank";
+"gramophone.crank.hint" = "Wind it a full turn to shuffle all your songs.";
+"gramophone.brake.start" = "START";
+"gramophone.brake.stop" = "STOP";
+"gramophone.brake.a11y.start" = "Start";
+"gramophone.brake.a11y.stop" = "Stop";
+"gramophone.speed" = "Speed";
+"gramophone.switch" = "Play Switch";
+"gramophone.switch.on" = "On";
+"gramophone.switch.off" = "Off";
+"gramophone.lookInside" = "Look at the Turntable";
+"gramophone.lookInside.hint" = "Shows the record and the tonearm from above.";
+"gramophone.stepBack" = "Step Back";
+"gramophone.booklet" = "Instruction Booklet";
+"gramophone.crate" = "Records";
+"gramophone.crate.open" = "Open the record crate";
+"gramophone.crate.close" = "Close the drawer";
+"gramophone.stack.position" = "%1$d of %2$d";
+"gramophone.stack.hint" = "Opens its sleeve. Swipe up or down to look through the stack.";
+"gramophone.rack.remove" = "Remove";
+"gramophone.rack.remove.action" = "Remove from Up Next";
+"gramophone.rack.reorder" = "Reorder Up Next";
+"gramophone.rack.close" = "Close Up Next";
+"gramophone.rack.empty" = "Nothing in Up Next";
+"gramophone.rack.hint" = "Plays it. Swipe up or down to flip through Up Next.";
+"gramophone.rack.instructions" = "Swipe down to flip · Tap to play · Hold to reorder · Swipe left to remove";
+"gramophone.stack.instructions" = "Swipe to look through · Tap to open · Hold to queue";
+"gramophone.shelf.recordings" = "Home Recordings";
+"gramophone.shelf.broadcasts" = "Broadcasts";
+"gramophone.shelf.recordings.empty" = "No home recordings yet. Playlists in your library show up here.";
+"gramophone.sleeve.close" = "Put the Record Back";
+"gramophone.noRecord" = "Choose a record from the drawer first";
+"gramophone.noRecord.title" = "No record";
+"gramophone.noRecord.hint" = "Open the drawer to choose one";
+"gramophone.shuffle.title" = "Shuffle";
+"gramophone.shuffle.done" = "Wound up: shuffling all your songs";
+"gramophone.shuffle.empty" = "No songs to shuffle";
+"gramophone.settings.booklet" = "Instructions for the Owner";
+"gramophone.settings.design" = "Design";
+"gramophone.settings.finish" = "Finish";
+"gramophone.settings.soundEffects.detail" = "The needle, the crank, the brake, and the record's crackle.";
+"gramophone.settings.surfaceNoise" = "Surface Noise";
+"gramophone.settings.surfaceNoise.detail" = "A faint crackle and the turntable turning under the music while a record plays.";
+"gramophone.settings.switchTo" = "Switch to %@";
+
+/* MARK: - Gramophone Tutorial */
+"gramophone.tour.playSwitch.title" = "The Play Switch";
+"gramophone.tour.playSwitch.detail" = "Flip the play switch on the front to start the record and look down at the turntable. Flip it off, or tap the chevron, to step back.";
+"gramophone.tour.findRecord.title" = "Find a Record";
+"gramophone.tour.findRecord.detail" = "Tap the drawer to pull it out. Swipe the top record to look through the stack, or run a finger along the index to jump to a letter.";
+"gramophone.tour.putOn.title" = "Put It On";
+"gramophone.tour.putOn.detail" = "Tap a record to open its sleeve, then tap a song. The record goes on the turntable and the needle drops on that song.";
+"gramophone.tour.queue.title" = "Queue a Record";
+"gramophone.tour.queue.detail" = "Hold a record in the drawer, or a song in its sleeve, to choose Play Next or Add to Queue.";
+"gramophone.tour.queued" = "Playing next";
+"gramophone.tour.tonearm.title" = "The Tonearm";
+"gramophone.tour.tonearm.detail" = "Lift the tonearm to pause, and set it down on another band to play that song. Put it back on its rest to stop.";
+"gramophone.tour.brake.title" = "The Brake";
+"gramophone.tour.brake.detail" = "Flip the brake to stop and start the record without lifting the needle.";
+"gramophone.tour.holdRecord.title" = "What's Playing";
+"gramophone.tour.holdRecord.detail" = "Hold the record on the turntable to open its sleeve and pick another song from it.";
+"gramophone.tour.upNext.title" = "Up Next";
+"gramophone.tour.upNext.detail" = "Tap the bin of records to go through Up Next. Swipe down to flip, tap one to play it, hold to reorder, or swipe left to remove.";
+"gramophone.tour.crank.title" = "Shuffle";
+"gramophone.tour.crank.detail" = "Wind the crank a full turn to shuffle all your songs.";
+"gramophone.tour.broadcasts.title" = "Recordings and Broadcasts";
+"gramophone.tour.broadcasts.detail" = "The drawer's dividers switch between albums, home recordings (your playlists) and broadcasts (your podcasts). While a broadcast plays, the knob sets its speed.";
+"gramophone.tour.booklet.title" = "This Booklet";
+"gramophone.tour.booklet.detail" = "The book button at the top opens these instructions: design, finish, sound, and playback.";
+"onboarding.player.gramophone.detail" = "A wind-up gramophone. Pick a record from the crate and drop the needle on a song.";
+"onboarding.gramophoneStyle.message" = "Choose the gramophone's design and its wood.";
+"onboarding.gramophoneStyle.horn.detail" = "A tabletop machine with a flared horn.";
+"onboarding.gramophoneStyle.cabinet.detail" = "An upright console with doors that open as it plays.";
+"onboarding.done.gramophone.message" = "Here's your Gramophone. You can change any of this later in its instruction booklet.";
+"onboarding.done.gramophone.hint" = "Open the drawer to choose a record, flip the play switch to look in at the turntable, drag the tonearm onto a song, and wind the crank to shuffle.";
+
+/* MARK: - Spool */
+"spool.brand" = "SPOOL";
+"spool.play" = "Play";
+"spool.pause" = "Pause";
+"spool.next" = "Fast Forward";
+"spool.previous" = "Rewind";
+"spool.eject" = "Eject";
+"spool.shuffleAll" = "Shuffle All Songs";
+"spool.shuffle.done" = "Shuffling all your songs";
+"spool.shuffle.empty" = "No songs to shuffle";
+"spool.options" = "Options";
+"spool.noTape" = "No tape";
+"spool.noTape.hint" = "Tap the door to choose a tape";
+"spool.sideA" = "A";
+"spool.shelf.title" = "Tapes";
+"spool.shelf.empty" = "No albums in your library";
+"spool.shelf.hint.closed" = "Choose a tape to play it.";
+"spool.shelf.hint.open" = "Choose a tape, then close the Spool to play.";
+"spool.shelf.albums" = "Albums";
+"spool.shelf.mixtapes" = "Mixtapes";
+"spool.shelf.mixtapes.empty" = "No mixtapes yet. Playlists in your library show up here.";
+"spool.mixtape.madeBy" = "Made by %@";
+"spool.mixtape.sideA" = "Side A";
+"spool.mixtape.sideB" = "Side B";
+"spool.shelf.podcasts" = "Podcasts";
+"spool.shelf.podcasts.empty" = "No podcasts yet. Find a show to follow, and its episodes come in on tape.";
+"spool.shelf.findShows" = "Find Shows";
+"spool.tape.spokenWord" = "Spoken Word";
+"spool.tape.episode" = "1 episode";
+"spool.tape.episodes" = "%d episodes";
+"spool.podcast" = "Podcast";
+"spool.podcast.latest" = "Latest %@";
+"spool.podcast.playLatest" = "Play Latest";
+"spool.podcast.downloaded" = "Downloaded";
+"spool.case.playing" = "Playing";
+"spool.skipForward" = "Skip Forward 30 Seconds";
+"spool.skipBack" = "Skip Back 15 Seconds";
+"spool.speed" = "Podcast Speed";
+"spool.queue.hint.episodes" = "Tap an episode to play it";
+"spool.closeToPlay" = "Close the Spool to start playing.";
+"spool.switchToClassic" = "Switch to Classic Player";
+"spool.carousel.hint" = "Swipe a tape left to play it, or right to queue it.";
+"spool.carousel.insert" = "Loads this tape and plays it.";
+"spool.carousel.close" = "Close";
+"spool.door.open" = "Opens the door to change tapes.";
+"spool.door.close" = "Closes the door without changing tapes.";
+"spool.cassette.a11y" = "Cassette: %@";
 
 /* MARK: - Onboarding */
 "onboarding.getStarted" = "Get Started";
@@ -181,7 +343,9 @@
 "onboarding.shortcuts.title" = "Handy Shortcuts";
 "onboarding.shortcuts.message" = "A few extras for later. You don't need to remember these now.";
 "onboarding.shortcuts.swipe.title" = "Swipe right on the center";
-"onboarding.shortcuts.swipe.detail" = "Adds the highlighted song to your queue, or downloads a podcast episode.";
+"onboarding.shortcuts.swipe.detail" = "Adds the highlighted song to the end of your queue, or downloads a podcast episode.";
+"onboarding.shortcuts.swipeLeft.title" = "Swipe left on the center";
+"onboarding.shortcuts.swipeLeft.detail" = "Plays the highlighted song next, ahead of the rest of your queue.";
 "onboarding.shortcuts.rotate.title" = "Turn your phone sideways";
 "onboarding.shortcuts.rotate.detail" = "Flip through album, playlist and podcast covers.";
 "onboarding.shortcuts.shake.title" = "Shake to shuffle";
@@ -246,6 +410,22 @@
 "onboarding.done.speed" = "Scroll speed";
 "onboarding.done.click" = "Click sound";
 "onboarding.done.backlight" = "Screen timeout";
+"onboarding.player.title" = "Choose Your Player";
+"onboarding.player.message" = "Two ways to play your music. You can switch any time in Settings.";
+"onboarding.player.classic.detail" = "A screen and a click wheel, like the classic pocket players. Spin to browse, press to choose.";
+"onboarding.player.spool.detail" = "A cassette deck. Pick a tape from the rack, load it, and press play.";
+"onboarding.spool.title" = "Meet the Spool";
+"onboarding.spool.message" = "Watch each move, then try it on the deck. You can see these again any time in the Spool's owner's manual.";
+"onboarding.spoolStyle.title" = "Make It Yours";
+"onboarding.spoolStyle.message" = "Choose the deck's design and finish.";
+"onboarding.spoolStyle.original.detail" = "Stands upright, with the keys on a rail down the side.";
+"onboarding.spoolStyle.slim.detail" = "Lies flat, with the keys along the top and a pill-shaped window.";
+"onboarding.done.spool.message" = "Here's your Spool. You can change any of this later in its owner's manual.";
+"onboarding.done.spool.replay" = "To watch the lessons again, open the owner's manual with the orange button (the … button on the slim) and go to Tutorial.";
+"onboarding.done.player" = "Player";
+"onboarding.done.design" = "Design";
+"onboarding.done.finish" = "Finish";
+"onboarding.done.sounds" = "Sound effects";
 "onboarding.done.replay" = "To see this introduction again, open Settings, then About, and press the center button.";
 "about.replay" = "Press ● to replay the intro";
 "color.white" = "White";
@@ -307,7 +487,6 @@
 "podcastSearch.noResults" = "No podcasts found";
 "podcastSearch.failed" = "Search isn't available right now. Check your connection and try again.";
 "podcastSearch.subscribeFailed" = "Couldn't Subscribe";
-"queue.streamedEpisode" = "Streamed episodes can't be queued";
 "download.started" = "Downloading “%@”";
 "download.cancelled" = "Download cancelled";
 "download.removed" = "Removed download of “%@”";
@@ -361,3 +540,78 @@
 "a11y.paused" = "Paused";
 "a11y.podcastArtwork" = "Podcast artwork";
 "a11y.albumArtwork" = "Album artwork";
+
+/* Spool tape formats and the J-card track list */
+"spool.tape.single" = "Single";
+"spool.tape.ep" = "EP";
+"spool.tape.song" = "1 song";
+"spool.tape.songs" = "%d songs";
+"spool.carousel.showSongs" = "Show Songs";
+"spool.jcard.empty" = "No songs on this tape";
+"spool.jcard.hint" = "Choose a song to start the tape there.";
+
+/* Spool designs and finishes */
+"spool.design" = "Design";
+"spool.finish" = "Finish";
+"spool.design.original" = "Original ’79";
+"spool.design.slim" = "Slim ’83";
+"spool.finish.blue" = "Denim Blue";
+"spool.finish.silver" = "Brushed Silver";
+"spool.finish.red" = "Cherry Red";
+"spool.finish.black" = "Gunmetal";
+"spool.finish.gold" = "Champagne Gold";
+"spool.finish.sport" = "Sport Yellow";
+
+/* Spool settings, laid out as the player's owner's manual */
+"spool.tour.lessonOf" = "LESSON %d OF %d";
+"spool.tour.previous" = "Previous Lesson";
+"spool.tour.next" = "Next Lesson";
+"spool.tour.replay" = "Play Again";
+"spool.tour.openRack.title" = "Open the Deck";
+"spool.tour.openRack.detail" = "Tap the door, press Eject, or swipe in from the right edge to open the door and bring out your tapes.";
+"spool.tour.browse.title" = "Find a Tape";
+"spool.tour.browse.detail" = "Drag the rack up or down to flip through your tapes. The colored tabs show which letter you're in.";
+"spool.tour.loadTape.title" = "Load It";
+"spool.tour.loadTape.detail" = "Swipe the front tape left into the door to play it. Swipe it right to add it to Up Next, or hold it to choose Play Next.";
+"spool.tour.openCase.title" = "Choose a Song";
+"spool.tour.openCase.detail" = "Albums come in cases. Tap one to open it, then tap a song to start the tape there, or hold a song to queue it.";
+"spool.tour.shelves.title" = "Albums, Mixtapes, Podcasts";
+"spool.tour.shelves.detail" = "Switch shelves with the dividers at the top of the rack. Playlists are hand-labeled mixtapes, and podcasts are spoken-word tapes.";
+"spool.tour.keys.title" = "The Keys";
+"spool.tour.keys.detail" = "Play starts and pauses the tape. Tap fast-forward to skip to the next song, or rewind to go back to the start of this one, then the one before. Hold Eject to shuffle all your songs.";
+"spool.tour.wind.title" = "Wind Through a Song";
+"spool.tour.wind.detail" = "Hold fast-forward or rewind to wind through the song you're on. Let go to play from there.";
+"spool.tour.holdDoor.title" = "What's Playing";
+"spool.tour.holdDoor.detail" = "Hold the door to take out the playing album's case and pick another song from it.";
+"spool.tour.upNext.title" = "Up Next";
+"spool.tour.upNext.detail" = "Pull up the grip under the door, or tap the counter. Tap a song to play it, hold one to move it, or swipe it away.";
+"spool.tour.podcasts.title" = "Podcasts";
+"spool.tour.podcasts.detail" = "While a podcast plays, the wind keys jump forward 30 and back 15 seconds, the counter shows the time left, and the knob below it sets the speed.";
+"spool.tour.manual.title" = "This Manual";
+"spool.tour.manual.detail" = "The orange button (the … button on the slim) opens the owner's manual: design, finish, sound, playback, and this tutorial.";
+"spool.settings.tutorial" = "Tutorial";
+"spool.settings.manual" = "OWNER'S MANUAL";
+"spool.settings.done" = "Done";
+"spool.settings.sound" = "Sound";
+"spool.settings.soundEffects" = "Sound Effects";
+"spool.settings.soundEffects.detail" = "The keys, the door and the motor, and the click wheel's click. Silent when the ringer is off.";
+"spool.settings.playback" = "Playback";
+"spool.settings.shuffle" = "Shuffle";
+"spool.settings.repeat" = "Repeat";
+"spool.settings.repeat.off" = "Off";
+"spool.settings.repeat.all" = "All";
+"spool.settings.repeat.one" = "One";
+"spool.settings.player" = "Player";
+"spool.settings.classic.detail" = "The click-wheel player. Your music keeps playing.";
+
+/* Spool Up Next tray */
+"spool.queue.title" = "Up Next";
+"spool.queue.open" = "Show Up Next";
+"spool.queue.close" = "Put Away Up Next";
+"spool.queue.clear" = "Clear";
+"spool.queue.empty" = "Nothing up next";
+"spool.queue.empty.hint" = "Hold a tape in the rack, or a song in its case, to queue it.";
+"spool.queue.hint" = "Tap to play · Hold to move · Swipe left to remove";
+"spool.stereo" = "STEREO";
+"spool.subtitle" = "STEREO CASSETTE PLAYER";
+"spool.case.close" = "Close Case";

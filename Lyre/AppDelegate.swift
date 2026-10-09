@@ -11,7 +11,9 @@ import OSLog
 private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "AppDelegate")
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-    // Dynamically controlled so Artwork Carousel can lock to landscape
+    // Set by LyreView's OrientationLock: the classic player may turn sideways to open the
+    // Artwork Carousel, the other players stay upright. Some displays ignore it, iPhone
+    // Duo's inner display among them, so nothing may depend on it being honoured.
     static var orientationLock: UIInterfaceOrientationMask = .portrait
 
     func application(

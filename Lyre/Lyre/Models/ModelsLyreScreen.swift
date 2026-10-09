@@ -30,6 +30,8 @@ enum LyreScreen: Equatable, Hashable {
     case podcastDetail(PodcastShow)
     /// Everything playable offline, reached from the Downloaded row of Podcasts.
     case downloadedPodcasts
+    /// The library searched by typing, reached from Search on the main menu.
+    case search
     case settings
     case themeSelection
     case screenSizeSelection
@@ -37,6 +39,7 @@ enum LyreScreen: Equatable, Hashable {
     case scrollSensitivitySelection
     case clickSoundSelection
     case backlightDurationSelection
+    case playerStyleSelection
     case recentlyAdded
     case recentlyPlayed
     case about

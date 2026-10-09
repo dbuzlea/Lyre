@@ -560,6 +560,9 @@ struct LinerPanel: View {
     let showsSideControl: Bool
     let onSelect: (Int) -> Void
     let onQueue: (Int, QueuePlacement) -> Void
+    /// False for a podcast's episodes, which never go in the queue: their rows offer no
+    /// queue actions, and swiping one right only downloads it.
+    var canQueue = true
     let onSideChange: (Int) -> Void
     /// Downloads, cancels or removes the episode behind a row with a download mark.
     var onDownload: ((Int) -> Void)? = nil
@@ -699,7 +702,7 @@ struct LinerPanel: View {
                 } label: {
                     Label(Self.downloadActionTitle(mark), systemImage: Self.downloadActionIcon(mark))
                 }
-            } else {
+            } else if canQueue {
                 Button {
                     queue(row, placement: .next)
                 } label: {
@@ -719,7 +722,7 @@ struct LinerPanel: View {
         .accessibilityActions {
             if let mark = row.download {
                 Button(Self.downloadActionTitle(mark)) { onDownload?(row.id) }
-            } else {
+            } else if canQueue {
                 Button(String(localized: "queue.action.playNext")) { queue(row, placement: .next) }
                 Button(String(localized: "queue.action.addToQueue")) { queue(row, placement: .last) }
             }
@@ -734,7 +737,7 @@ struct LinerPanel: View {
                       abs(value.translation.width) > abs(value.translation.height) else { return }
                 if row.download != nil {
                     onDownload?(row.id)
-                } else {
+                } else if canQueue {
                     queue(row, placement: .last)
                 }
             }

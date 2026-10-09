@@ -38,12 +38,21 @@ struct LyreApp: App {
     /// test started in whatever state the device happened to be in — a suite that
     /// passes on a device that has been used and fails on a fresh one. Reading them
     /// here makes the starting point explicit.
+    ///
+    /// Either one also forgets a player chosen in an earlier run, so a test that picks the
+    /// Spool in onboarding can't leave the next test on it. A test that wants the Spool
+    /// says so in its arguments (`-LyrePlayerStyle spool`), which still apply.
     private static func applyUITestLaunchArguments() {
         let arguments = ProcessInfo.processInfo.arguments
+        let defaults = UserDefaults.standard
         if arguments.contains("--uitest-complete-onboarding") {
-            UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
+            defaults.set(true, forKey: "hasCompletedOnboarding")
+            defaults.removeObject(forKey: "LyrePlayerStyle")
         } else if arguments.contains("--uitest-reset-onboarding") {
-            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+            defaults.set(false, forKey: "hasCompletedOnboarding")
+            defaults.removeObject(forKey: "LyrePlayerStyle")
+            // From the first step, not wherever an earlier run stopped.
+            defaults.removeObject(forKey: "onboardingStep")
         }
     }
 }

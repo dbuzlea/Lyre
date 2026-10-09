@@ -96,7 +96,7 @@ enum OnboardingBodyFamily: CaseIterable, Identifiable {
 /// A tappable choice with a leading visual, a name, an optional explanation and a
 /// checkmark when chosen. Large enough to hit easily, and read by VoiceOver as one
 /// selectable button.
-private struct ChoiceRow<Leading: View>: View {
+struct ChoiceRow<Leading: View>: View {
     let title: String
     var detail: String? = nil
     var badge: String? = nil
@@ -146,7 +146,7 @@ private struct ChoiceRow<Leading: View>: View {
 }
 
 /// A named color swatch in a grid.
-private struct SwatchButton: View {
+struct SwatchButton: View {
     let name: String
     let colors: [Color]
     /// A tiny screen with its highlight bar, drawn inside the body color. Finishes can
@@ -198,9 +198,9 @@ private struct SwatchButton: View {
     }
 }
 
-private let swatchColumns = [GridItem(.adaptive(minimum: 84), spacing: 12)]
+let swatchColumns = [GridItem(.adaptive(minimum: 84), spacing: 12)]
 
-private func continueButton(_ action: @escaping () -> Void) -> some View {
+func continueButton(_ action: @escaping () -> Void) -> some View {
     OnboardingPrimaryButton(title: String(localized: "onboarding.continue"), action: action)
 }
 
@@ -523,6 +523,64 @@ struct DoneStep: View {
     let onFinish: () -> Void
 
     var body: some View {
+        switch themeSettings.playerStyle {
+        case .spool:      spoolSummary
+        case .gramophone: gramophoneSummary
+        case .classic:    classicSummary
+        }
+    }
+
+    /// The Gramophone's choices.
+    private var gramophoneSummary: some View {
+        OnboardingPage(title: String(localized: "onboarding.allSet"), compact: true,
+                       message: String(localized: "onboarding.done.gramophone.message")) {
+            VStack(spacing: 20) {
+                VStack(spacing: 0) {
+                    summaryRow("onboarding.done.player", PlayerStyle.gramophone.displayName)
+                    summaryRow("onboarding.done.design", themeSettings.gramophoneModel.displayName)
+                    summaryRow("onboarding.done.finish", themeSettings.gramophoneFinish.displayName)
+                    summaryRow("onboarding.done.sounds",
+                               themeSettings.clickSoundEnabled ? String(localized: "onboarding.on") : String(localized: "onboarding.off"),
+                               last: true)
+                }
+                .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.06)))
+
+                Text(String(localized: "onboarding.done.gramophone.hint"))
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .multilineTextAlignment(.center)
+            }
+        } footer: {
+            OnboardingPrimaryButton(title: String(localized: "onboarding.startListening"), action: onFinish)
+        }
+    }
+
+    /// The Spool's choices, and where to find the tour again.
+    private var spoolSummary: some View {
+        OnboardingPage(title: String(localized: "onboarding.allSet"), compact: true,
+                       message: String(localized: "onboarding.done.spool.message")) {
+            VStack(spacing: 20) {
+                VStack(spacing: 0) {
+                    summaryRow("onboarding.done.player", PlayerStyle.spool.displayName)
+                    summaryRow("onboarding.done.design", themeSettings.spoolModel.displayName)
+                    summaryRow("onboarding.done.finish", themeSettings.spoolFinish.displayName)
+                    summaryRow("onboarding.done.sounds",
+                               themeSettings.clickSoundEnabled ? String(localized: "onboarding.on") : String(localized: "onboarding.off"),
+                               last: true)
+                }
+                .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.06)))
+
+                Text(String(localized: "onboarding.done.spool.replay"))
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .multilineTextAlignment(.center)
+            }
+        } footer: {
+            OnboardingPrimaryButton(title: String(localized: "onboarding.startListening"), action: onFinish)
+        }
+    }
+
+    private var classicSummary: some View {
         OnboardingPage(title: String(localized: "onboarding.allSet"), compact: true,
                        message: String(localized: "onboarding.done.message")) {
             VStack(spacing: 20) {

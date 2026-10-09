@@ -33,6 +33,9 @@ struct LyreScreenView: View {
     var queueMoveOffset: Int? = nil
     /// Transient message about the last wheel action, shown over the screen.
     var banner: String? = nil
+    /// What's typed on the Search screen, and what it found (see LibrarySearch).
+    var searchQuery: Binding<String> = .constant("")
+    var searchResults: [LibrarySearchResult] = []
 
     private var showNowPlayingFooter: Bool {
         switch currentScreen {
@@ -166,6 +169,13 @@ struct LyreScreenView: View {
                             selection: $detailSelection,
                             themeSettings: themeSettings
                         )
+                    case .search:
+                        SearchView(
+                            query: searchQuery,
+                            results: searchResults,
+                            selection: $menuSelection,
+                            themeSettings: themeSettings
+                        )
                     case .settings:
                         SettingsView(selection: $menuSelection, themeSettings: themeSettings)
                     case .themeSelection:
@@ -180,6 +190,8 @@ struct LyreScreenView: View {
                         ClickSoundSelectionView(selection: $menuSelection, themeSettings: themeSettings)
                     case .backlightDurationSelection:
                         BacklightDurationSelectionView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .playerStyleSelection:
+                        PlayerStyleSelectionView(selection: $menuSelection, themeSettings: themeSettings)
                     case .about:
                         AboutView(themeSettings: themeSettings)
                     }

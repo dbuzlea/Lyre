@@ -17,12 +17,16 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //
 // A first-time user is taken through three parts, one idea per screen:
 //
-//   Get to know Lyre   welcome → why Lyre asks for access → music access
-//   Learn the wheel    meet the wheel → hands-on practice → shortcutscommit 
-//   Make it yours      body style → finish → highlight → screen size → wheel feel
-//                      → screen timeout, each with a live preview of the device
+//   Get to know Lyre   welcome → why Lyre asks for access → music access → which
+//                      player: the classic wheel or the Spool cassette deck
+//   Learn it           classic: meet the wheel → hands-on practice → shortcuts
+//                      Spool: an acted-out tour of the deck (see SpoolTour)
+//   Make it yours      classic: body style → finish → highlight → screen size → wheel
+//                      feel → screen timeout, each with a live preview of the device
+//                      Spool: design and finish, with a drawing of the deck
 //
-// then a summary of what they chose. The customization part can be skipped as a whole
+// then a summary of what they chose. Which steps come, and the "Step n of m" count,
+// follow the player chosen (`OnboardingStep.path(for:)`). The customization part can be skipped as a whole
 // ("Use the Classic Look") or step by step, and every choice is saved the moment it is
 // made, through the same ThemeSettings the app reads — nothing is applied at the end.
 //
@@ -45,7 +49,7 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //
 // Motion: pages fade and rise in piece by piece, the progress bar springs forward
 // with a tick, and page symbols bounce as they arrive. From "Make It Yours" onward a
-// single device preview stays on screen above the pages (`OnboardingStep.previewHeight`),
+// single device preview stays on screen above the pages (`OnboardingStep.previewHeight(for:)`),
 // so each customization transforms the same device, and on the summary its screen
 // powers on before it grows into the real app. See OnboardingAnimations.swift; Reduce
 // Motion turns all of it into fades.
@@ -57,6 +61,7 @@ enum OnboardingStep: Int, CaseIterable {
     case welcome
     case permissions
     case musicAccess
+    case choosePlayer
     case meetTheWheel
     case practice
     case shortcuts
@@ -67,21 +72,38 @@ enum OnboardingStep: Int, CaseIterable {
     case screenSize
     case wheelFeel
     case backlight
+    case meetTheSpool
+    case spoolStyle
+    case gramophoneStyle
     case done
 
-    /// Steps counted in "Step n of m" — everything after the welcome.
-    static var countedSteps: Int { allCases.count - 1 }
+    /// The steps taken with each player, in order.
+    static func path(for style: PlayerStyle) -> [OnboardingStep] {
+        let start: [OnboardingStep] = [.welcome, .permissions, .musicAccess, .choosePlayer]
+        switch style {
+        case .classic:
+            return start + [.meetTheWheel, .practice, .shortcuts, .makeItYours, .bodyStyle, .finish,
+                            .highlight, .screenSize, .wheelFeel, .backlight, .done]
+        case .spool:
+            return start + [.meetTheSpool, .spoolStyle, .done]
+        case .gramophone:
+            return start + [.gramophoneStyle, .done]
+        }
+    }
 
     /// How tall the shared device preview is on this step, or nil where it isn't shown.
-    /// The wheel-feel step has its own working wheel instead.
-    var previewHeight: CGFloat? {
-        switch self {
-        case .makeItYours:                  return 280
-        case .bodyStyle, .finish, .highlight: return 190
-        case .screenSize:                   return 210
-        case .backlight:                    return 190
-        case .done:                         return 220
-        default:                            return nil
+    /// The wheel-feel step has its own working wheel instead, and the player choice its
+    /// own preview of each player.
+    func previewHeight(for style: PlayerStyle) -> CGFloat? {
+        switch (self, style) {
+        case (.makeItYours, _):                   return 280
+        case (.bodyStyle, _), (.finish, _), (.highlight, _): return 190
+        case (.screenSize, _):                    return 210
+        case (.backlight, _):                     return 190
+        case (.spoolStyle, _), (.gramophoneStyle, _): return 180
+        case (.done, .classic):                   return 220
+        case (.done, .spool), (.done, .gramophone): return 200
+        default:                                  return nil
         }
     }
 }
@@ -110,17 +132,25 @@ struct OnboardingView: View {
 
             VStack(spacing: 0) {
                 if step != .welcome {
-                    OnboardingTopBar(step: step, onBack: goBack)
+                    OnboardingTopBar(number: stepNumber, total: path.count - 1, onBack: goBack)
                         .opacity(isLaunching ? 0 : 1)
                 }
 
-                if let previewHeight = step.previewHeight {
-                    OnboardingDevicePreview(
-                        themeSettings: themeSettings,
-                        height: previewHeight,
-                        screenLevel: previewScreenLevel,
-                        onTap: step == .backlight ? { previewWakeCount += 1 } : nil
-                    )
+                if let previewHeight = step.previewHeight(for: themeSettings.playerStyle) {
+                    Group {
+                        if themeSettings.playerStyle == .spool {
+                            SpoolOnboardingPreview(themeSettings: themeSettings, height: previewHeight)
+                        } else if themeSettings.playerStyle == .gramophone {
+                            GramophoneOnboardingPreview(themeSettings: themeSettings, height: previewHeight)
+                        } else {
+                            OnboardingDevicePreview(
+                                themeSettings: themeSettings,
+                                height: previewHeight,
+                                screenLevel: previewScreenLevel,
+                                onTap: step == .backlight ? { previewWakeCount += 1 } : nil
+                            )
+                        }
+                    }
                     .scaleEffect(isLaunching ? 2.6 : 1)
                     .padding(.top, 10)
                     .zIndex(1)
@@ -209,9 +239,17 @@ struct OnboardingView: View {
         case .welcome:
             WelcomeStep(themeSettings: themeSettings, onNext: advance)
         case .permissions:
-            PermissionsStep(musicService: musicService, onNext: advance, onSkip: { go(to: .meetTheWheel) })
+            PermissionsStep(musicService: musicService, onNext: advance, onSkip: { go(to: .choosePlayer) })
         case .musicAccess:
             MusicAccessStep(musicService: musicService, onNext: advance)
+        case .choosePlayer:
+            ChoosePlayerStep(themeSettings: themeSettings, onNext: advance)
+        case .meetTheSpool:
+            MeetTheSpoolStep(themeSettings: themeSettings, onNext: advance)
+        case .spoolStyle:
+            SpoolStyleStep(themeSettings: themeSettings, onNext: advance)
+        case .gramophoneStyle:
+            GramophoneStyleStep(themeSettings: themeSettings, onNext: advance)
         case .meetTheWheel:
             MeetTheWheelStep(theme: themeSettings.currentTheme, onNext: advance)
         case .practice:
@@ -245,19 +283,28 @@ struct OnboardingView: View {
         )
     }
 
+    /// The steps for the player chosen so far.
+    private var path: [OnboardingStep] { OnboardingStep.path(for: themeSettings.playerStyle) }
+
+    /// This step's place in "Step n of m", which doesn't count the welcome.
+    private var stepNumber: Int { path.firstIndex(of: step) ?? 0 }
+
     private func advance() {
-        guard let next = OnboardingStep(rawValue: step.rawValue + 1) else { return }
-        go(to: next)
+        guard let index = path.firstIndex(of: step), index + 1 < path.count else { return }
+        go(to: path[index + 1])
     }
 
     private func goBack() {
         // From the summary, Back returns to wherever the user came from: the last
         // customization step, or the choice to skip customizing.
         let target: OnboardingStep?
-        if step == .done, UserDefaults.standard.bool(forKey: "onboardingSkippedCustomization") {
+        if step == .done, themeSettings.playerStyle == .classic,
+           UserDefaults.standard.bool(forKey: "onboardingSkippedCustomization") {
             target = .makeItYours
+        } else if let index = path.firstIndex(of: step), index > 0 {
+            target = path[index - 1]
         } else {
-            target = OnboardingStep(rawValue: step.rawValue - 1)
+            target = nil
         }
         guard let target else { return }
         movingForward = false
@@ -304,15 +351,18 @@ struct OnboardingBackground: View {
 
 /// Back button and progress through the journey.
 private struct OnboardingTopBar: View {
-    let step: OnboardingStep
+    /// The step's place on the chosen player's path, and how many steps it has, not
+    /// counting the welcome.
+    let number: Int
+    let total: Int
     let onBack: () -> Void
 
     private var progress: Double {
-        Double(step.rawValue) / Double(OnboardingStep.countedSteps)
+        Double(number) / Double(max(1, total))
     }
 
     private var stepLabel: String {
-        String(format: String(localized: "onboarding.stepOf"), step.rawValue, OnboardingStep.countedSteps)
+        String(format: String(localized: "onboarding.stepOf"), number, total)
     }
 
     var body: some View {
@@ -331,7 +381,7 @@ private struct OnboardingTopBar: View {
                 Text(stepLabel)
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.white.opacity(0.8))
-                    .contentTransition(.numericText(value: Double(step.rawValue)))
+                    .contentTransition(.numericText(value: Double(number)))
                     .accessibilityHidden(true)
             }
 
