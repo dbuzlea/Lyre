@@ -212,7 +212,6 @@
 "spool.shelf.title" = "Tapes";
 "spool.shelf.empty" = "No albums in your library";
 "spool.shelf.hint.closed" = "Choose a tape to play it.";
-"spool.shelf.hint.open" = "Choose a tape, then close the Spool to play.";
 "spool.shelf.albums" = "Albums";
 "spool.shelf.mixtapes" = "Mixtapes";
 "spool.shelf.mixtapes.empty" = "No mixtapes yet. Playlists in your library show up here.";
@@ -234,7 +233,8 @@
 "spool.skipBack" = "Skip Back 15 Seconds";
 "spool.speed" = "Podcast Speed";
 "spool.queue.hint.episodes" = "Tap an episode to play it";
-"spool.closeToPlay" = "Close the Spool to start playing.";
+"spool.closeToPlay" = "Close your iPhone to play it.";
+"spool.open.hint" = "Swipe a tape left into the deck.";
 "spool.switchToClassic" = "Switch to Classic Player";
 "spool.carousel.hint" = "Swipe a tape left to play it, or right to queue it.";
 "spool.carousel.insert" = "Loads this tape and plays it.";

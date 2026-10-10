@@ -22,10 +22,22 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //            transport keys in a strip down the right edge. Tapping the door, eject, or
 //            a swipe in from the right edge runs the tape change described under
 //            "Changing Tapes" below.
-//   open   — tape shelf on the left, deck on the right. Picking a tape loads it, and
-//            closing the phone plays it.
+//   open   — iPhone Duo, unfolded: the deck on the left with its door standing open,
+//            the tape rack on the right. Swiping a tape left flies it across into the
+//            door, with the sound of it going in, and it waits there; closing the
+//            phone shuts the door on it (its sound too) and the tape plays. See
+//            "Loading on an Open Duo" below.
 //   tent   — cassette lying flat with the keys along the bottom edge. Eject opens the
 //            tape shelf as a sheet.
+//
+// Loading on an Open Duo
+//   Tapes are chosen as on the closed deck, from the same rack: swiped left, or a song
+//   picked in a case. The tape flies from the rack into the open door and seats with the
+//   insert sound; what was playing stops, as its tape has come out. Nothing plays yet:
+//   the tape waits in the deck (`deckLoad`), its place in the rack left empty, until the
+//   phone is closed. Closing it is the door shutting: the door's sound, the motor running
+//   up, and the tape playing from the song chosen. A newer tape swiped in takes the
+//   waiting one's place.
 //
 // Changing Tapes (closed)
 //   1. The door swings open on its left-hand hinge and the old tape slides out of its
@@ -68,8 +80,8 @@ struct SpoolPlayerView: View {
     @State private var queueProgress: CGFloat = 0
     @State private var queueDragStart: CGFloat?
     @State private var containerHeight: CGFloat = 0
-    /// A tape picked on the open shelf, waiting for the phone to close.
-    @State private var loadedTape: LoadedTape?
+    /// A tape put in the open deck on an unfolded Duo, waiting for the phone to close.
+    @State private var deckLoad: DeckLoad?
     @State private var notice: String?
     /// The new tape's motor turning: from the door shutting until its first song plays,
     /// the reels spin and the play key is down while the player starts the song.
@@ -246,10 +258,13 @@ struct SpoolPlayerView: View {
             isDoorOpen = false
             switch posture {
             case .closed, .tent:
-                // Closing the phone on a loaded tape is what plays it.
-                if let tape = loadedTape {
-                    loadedTape = nil
-                    play(tape)
+                // Closing the phone shuts the door on a tape waiting in the deck: the
+                // door's sound, the motor running up, and the tape plays.
+                if let load = deckLoad {
+                    deckLoad = nil
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    SpoolSound.doorClose.play()
+                    startMotor(load.album, tracks: load.tracks, startingAt: load.index)
                 }
             case .open:
                 showShelf = false
@@ -328,51 +343,14 @@ struct SpoolPlayerView: View {
                 .offset(x: isBrowsing ? -pageShift : 0)
 
                 if isBrowsing {
-                    VStack(spacing: 10) {
-                        ShelfSearchField(query: $shelfQuery, prompt: String(localized: "spool.search.prompt"),
-                                         isFocused: $isShelfSearchFocused)
-                        ShelfDividers(
-                            shelf: $shelf,
-                            title: { ShelfSearchMatches.dividerTitle($0.title, on: $0, matches: shelfMatches) },
-                            onFindShows: { showPodcastSearch = true }
-                        )
-                        // Each shelf is its own rack, so it opens on its own front tape;
-                        // switching crossfades one rack for the other.
-                        ZStack {
-                            TapeCarousel(
-                                albums: shelfTapes,
-                                emptyText: shelfEmptyText,
-                                emptyAction: shelf == .podcasts && shelfMatches == nil
-                                    ? (String(localized: "spool.shelf.findShows"), { showPodcastSearch = true })
-                                    : nil,
-                                // The tape in flight, or the case out of the rack, leaves a gap.
-                                hiddenID: flight?.hiddenID ?? openCase?.album.id,
-                                onInsert: { album, frame in insertTape(album, from: frame) },
-                                onShowSongs: { album, frame in openCaseOf(album, from: frame) },
-                                onQueue: { album, placement in queue(album, placement: placement) },
-                                onClose: closeDeck,
-                                frontID: shelfFrontID
-                            )
-                            // Rebuilt for each search too, so it opens on a tape that's
-                            // there.
-                            .id("\(shelf.rawValue):\(shelfMatches?.query ?? "")")
-                            .transition(.opacity)
-                            // Going through the rack is the sign typing is done.
-                            .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { _ in
-                                isShelfSearchFocused = false
-                            })
-                        }
-                    }
-                    .frame(width: carouselWidth)
-                    // Stops above the keyboard while it's up. LyreView ignores the
-                    // keyboard's safe area, so the rack has to make the room itself.
-                    .padding(.bottom, max(0, keyboard.height - safeArea.bottom))
-                    // Full height: the rack runs from under the header to just above
-                    // the home indicator.
-                    .padding(.top, 8)
-                    .padding(.trailing, 8)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-                    .zIndex(1)
+                    rackColumn(showsClose: true)
+                        .frame(width: carouselWidth)
+                        // Full height: the rack runs from under the header to just above
+                        // the home indicator.
+                        .padding(.top, 8)
+                        .padding(.trailing, 8)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .zIndex(1)
                 }
             }
             // A swipe in from the right edge opens the door, like the eject key.
@@ -564,43 +542,109 @@ struct SpoolPlayerView: View {
         }
     }
 
-    private var openLayout: some View {
-        HStack(spacing: 0) {
-            TapeShelfView(
-                albums: musicService.albums,
-                hint: String(localized: "spool.shelf.hint.open"),
-                selectedID: loadedTape?.album.id,
-                songs: musicService.songs
-            ) { album in
-                insert(album, thenPlay: false)
+    /// The rack and what's over it: the search field and the shelf dividers. Beside the
+    /// open door on the closed deck, and on the right of an open Duo.
+    private func rackColumn(showsClose: Bool) -> some View {
+        VStack(spacing: 10) {
+            ShelfSearchField(query: $shelfQuery, prompt: String(localized: "spool.search.prompt"),
+                             isFocused: $isShelfSearchFocused)
+            ShelfDividers(
+                shelf: $shelf,
+                title: { ShelfSearchMatches.dividerTitle($0.title, on: $0, matches: shelfMatches) },
+                onFindShows: { showPodcastSearch = true }
+            )
+            // Each shelf is its own rack, so it opens on its own front tape;
+            // switching crossfades one rack for the other.
+            ZStack {
+                TapeCarousel(
+                    albums: shelfTapes,
+                    emptyText: shelfEmptyText,
+                    emptyAction: shelf == .podcasts && shelfMatches == nil
+                        ? (String(localized: "spool.shelf.findShows"), { showPodcastSearch = true })
+                        : nil,
+                    // The tape in flight, the case out of the rack, or a tape waiting in an
+                    // open Duo's deck, leaves a gap.
+                    hiddenID: flight?.hiddenID ?? openCase?.album.id ?? deckLoad?.album.id,
+                    onInsert: { album, frame in insertTape(album, from: frame) },
+                    onShowSongs: { album, frame in openCaseOf(album, from: frame) },
+                    onQueue: { album, placement in queue(album, placement: placement) },
+                    onClose: closeDeck,
+                    showsClose: showsClose,
+                    frontID: shelfFrontID
+                )
+                // Rebuilt for each search too, so it opens on a tape that's there.
+                .id("\(shelf.rawValue):\(shelfMatches?.query ?? "")")
+                .transition(.opacity)
+                // Going through the rack is the sign typing is done.
+                .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { _ in
+                    isShelfSearchFocused = false
+                })
             }
-            .background(theme.body.opacity(0.35))
-            .clipShape(RoundedRectangle(cornerRadius: 20))
-            .environment(\.colorScheme, .dark)
-            .padding(12)
+        }
+        // Stops above the keyboard while it's up. LyreView ignores the keyboard's safe
+        // area, so the rack has to make the room itself.
+        .padding(.bottom, max(0, keyboard.height - safeArea.bottom))
+    }
 
-            // The deck's door stands open, so it is dark inside.
-            VStack(spacing: 16) {
-                Spacer(minLength: 0)
-                cassette(axis: .vertical)
-                    .opacity(loadedTape == nil && !musicService.hasNowPlaying ? 0.35 : 1)
-                if loadedTape != nil {
-                    Text(String(localized: "spool.closeToPlay"))
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(.white.opacity(0.12), in: Capsule())
-                }
-                Spacer(minLength: 0)
+    /// An unfolded iPhone Duo: the deck on the left, its door standing open, and the rack
+    /// on the right. A tape swiped left from the rack flies across into the door and
+    /// waits there; closing the phone plays it (see "Loading on an Open Duo").
+    private var openLayout: some View {
+        GeometryReader { geometry in
+            HStack(spacing: 16) {
+                unfoldedDeck
+                    .frame(width: geometry.size.width * 0.46)
+                rackColumn(showsClose: false)
+                    .padding(.top, 8)
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 20))
-            .overlay(alignment: .topTrailing) { optionsMenu.padding(12) }
             .padding(12)
         }
+    }
+
+    /// The deck with its door open, waiting for a tape: the one swiped in from the rack,
+    /// or the one already playing.
+    private var unfoldedDeck: some View {
+        VStack(spacing: 18) {
+            HStack {
+                brand
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                Spacer(minLength: 8)
+                optionsMenu
+            }
+            Spacer(minLength: 0)
+            CassetteDoor(
+                isOpen: true,
+                // Empty while a tape is on its way in: the old one has come out.
+                showsTape: flight == nil && (deckLoad != nil || musicService.hasNowPlaying),
+                hinge: model == .original ? .leading : .bottom,
+                window: model == .original
+                    ? .inset(CGRect(x: 0.24, y: 0.18, width: 0.52, height: 0.64))
+                    : .pill(CGRect(x: 0.08, y: 0.2, width: 0.84, height: 0.6)),
+                // Bare: the closed door's caption, "tap the door to choose a tape", is
+                // for the closed deck; here the tape comes from the rack beside it.
+                markings: AnyView(EmptyView()),
+                onSeatFrame: { seatFrame = $0 }
+            ) {
+                cassette(axis: model.tapeAxis)
+            }
+            .aspectRatio(model == .original ? 0.66 : 1.42, contentMode: .fit)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("spool.door")
+            .accessibilityValue(deckLoad.map { $0.album.tapeTitle } ?? "")
+            Spacer(minLength: 0)
+            Text(String(localized: deckLoad == nil ? "spool.open.hint" : "spool.closeToPlay"))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(theme.ink)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(theme.ink.opacity(0.12), in: Capsule())
+                .contentTransition(.opacity)
+                .animation(.easeInOut(duration: 0.2), value: deckLoad == nil)
+                .accessibilityIdentifier("spool.open.hint")
+        }
+        .padding(.vertical, 12)
     }
 
     // MARK: - Pieces
@@ -694,7 +738,7 @@ struct SpoolPlayerView: View {
 
     private func cassette(axis: Axis) -> some View {
         // A tape that isn't playing yet sits still at the start of side A.
-        let tape = pendingTape ?? loadedTape?.album
+        let tape = pendingTape ?? deckLoad?.album
         let isIdle = tape != nil || pendingTrack != nil
         // The tape in the deck, if what's playing came from it.
         let seated = pendingTrack != nil ? nil : tape ?? seatedTape.flatMap { seated in
@@ -789,8 +833,8 @@ struct SpoolPlayerView: View {
     /// stand out to the left and push in to the right; along a top or bottom edge they
     /// stand up and push down. Play latches down while the tape plays.
     private func keyBank(axis: Axis, compact: Bool = false) -> some View {
-        let isPlaying = (musicService.isPlaying && loadedTape == nil) || isMotorRunning
-        let isPodcast = musicService.isPlayingPodcast && loadedTape == nil && pendingTrack == nil
+        let isPlaying = (musicService.isPlaying && deckLoad == nil) || isMotorRunning
+        let isPodcast = musicService.isPlayingPodcast && deckLoad == nil && pendingTrack == nil
         let proud: Edge = axis == .vertical ? .leading : .top
         let layout = axis == .vertical
             ? AnyLayout(VStackLayout(spacing: 2))
@@ -952,7 +996,7 @@ struct SpoolPlayerView: View {
             return
         }
         showNotice(String(localized: "spool.shuffle.done"))
-        loadedTape = nil
+        deckLoad = nil
         pendingTape = nil
         seatedTape = nil
         Task {
@@ -1059,9 +1103,9 @@ struct SpoolPlayerView: View {
     // MARK: - Actions
 
     private func playPause() {
-        if let tape = loadedTape {
-            loadedTape = nil
-            play(tape)
+        if let load = deckLoad {
+            deckLoad = nil
+            startMotor(load.album, tracks: load.tracks, startingAt: load.index)
         } else if musicService.hasNowPlaying {
             Task { await musicService.togglePlayPause() }
         } else {
@@ -1169,6 +1213,24 @@ struct SpoolPlayerView: View {
         // once it is in, the door is shut and its motor has run up.
         if musicService.isPlaying {
             Task { await musicService.togglePlayPause() }
+        }
+
+        // On an open Duo the door stays open: the tape goes in and waits there until the
+        // phone is closed, which shuts the door and plays it.
+        if foldMonitor.posture == .open {
+            withAnimation(.easeIn(duration: 0.42)) {
+                flight?.hasLanded = true
+            } completion: {
+                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                SpoolSound.cassetteInsert.play()
+                var swap = Transaction()
+                swap.disablesAnimations = true
+                withTransaction(swap) {
+                    deckLoad = DeckLoad(album: album, tracks: tracks, index: index)
+                    flight = nil
+                }
+            }
+            return
         }
 
         withAnimation(.easeIn(duration: 0.42)) {
@@ -1304,7 +1366,7 @@ struct SpoolPlayerView: View {
     /// wind frame by frame; the player is moved along a few times a second, so a playing
     /// song is heard in snatches, the way a cueing deck sounds.
     private func startWinding(forward: Bool) {
-        guard musicService.hasNowPlaying, musicService.duration > 0, loadedTape == nil else { return }
+        guard musicService.hasNowPlaying, musicService.duration > 0, deckLoad == nil else { return }
         windTask?.cancel()
         musicService.startScrubbing()
         windTask = Task {
@@ -1370,7 +1432,7 @@ struct SpoolPlayerView: View {
                 if thenPlay {
                     play(tape)
                 } else {
-                    loadedTape = tape
+                    deckLoad = DeckLoad(album: album, tracks: Task { tracks }, index: 0)
                 }
             }
         }
@@ -1481,6 +1543,14 @@ private struct CaseScene {
 private struct LoadedTape: Equatable {
     let album: AppAlbum
     let tracks: [AppTrack]
+}
+
+/// A tape put in the open deck on an unfolded Duo, and the song to start it from. Its
+/// songs load while it waits; closing the phone plays it.
+private struct DeckLoad {
+    let album: AppAlbum
+    let tracks: Task<[AppTrack], Never>
+    let index: Int
 }
 
 // MARK: - Elapsed Time

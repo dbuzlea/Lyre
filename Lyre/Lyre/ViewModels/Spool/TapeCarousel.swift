@@ -96,6 +96,9 @@ struct TapeCarousel: View {
     /// Queues the whole album: next, or at the end.
     let onQueue: (AppAlbum, QueuePlacement) -> Void
     let onClose: () -> Void
+    /// Whether the header has a button to put the rack away. Not on an open iPhone Duo,
+    /// where the rack stands beside the deck for as long as the phone is open.
+    var showsClose = true
     /// The tape at the front. The rack opens on it and keeps it current, so coming back
     /// finds the rack where it was left.
     @Binding var frontID: String?
@@ -306,14 +309,16 @@ struct TapeCarousel: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("spool.carousel.nowShowing")
             Spacer(minLength: 8)
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(theme.keySymbol)
-                    .frame(width: 34, height: 34)
-                    .background(theme.keyLight.opacity(0.75), in: Circle())
+            if showsClose {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(theme.keySymbol)
+                        .frame(width: 34, height: 34)
+                        .background(theme.keyLight.opacity(0.75), in: Circle())
+                }
+                .accessibilityLabel(String(localized: "spool.carousel.close"))
             }
-            .accessibilityLabel(String(localized: "spool.carousel.close"))
         }
     }
 

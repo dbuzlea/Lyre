@@ -47,6 +47,45 @@ final class SpoolUITests: XCTestCase {
         attachScreenshot(app, named: "after-insert")
     }
 
+    /// An unfolded iPhone Duo: the deck on the left, the rack on the right. A tape swiped
+    /// in waits in the open door; closing the phone (the debug posture, standing in for
+    /// the hinge) shuts the door and plays it.
+    @MainActor
+    func testOnAnOpenDuoASwipedTapeWaitsInTheDeckUntilThePhoneCloses() throws {
+        let app = launchSpool(extraArguments: ["-SpoolFoldPosture", "open"])
+        let hint = element(app, "spool.open.hint")
+        XCTAssertTrue(hint.waitForExistence(timeout: 10), "The open Duo layout didn't show")
+        XCTAssertTrue(hint.label.contains("Swipe a tape"), "The open deck didn't ask for a tape: \(hint.label)")
+
+        // The single is a bare tape, so a swipe left loads it rather than opening a case.
+        let single = element(app, ID.single)
+        XCTAssertTrue(single.waitForExistence(timeout: 5), "The rack isn't beside the deck")
+        attachScreenshot(app, named: "duo-open")
+        single.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        sleep(1)
+        single.swipeLeft()
+
+        // It goes in and waits: the hint says to close the phone, and nothing has played.
+        expectation(for: NSPredicate(format: "label CONTAINS 'Close your iPhone'"), evaluatedWith: hint)
+        waitForExpectations(timeout: 4)
+        XCTAssertFalse(element(app, "spool.notice").exists, "The tape played before the phone was closed")
+        attachScreenshot(app, named: "duo-tape-in-deck")
+
+        // Close the phone: the door shuts on the tape and it goes to play. The sample tapes
+        // have nothing behind them, so playing them is refused with a notice.
+        element(app, "spool.settings").tap()
+        let closed = app.buttons["Closed"]
+        for _ in 0..<8 where !closed.isHittable { app.swipeUp() }
+        closed.tap()
+        // Closing goes to play the tape at once, under the sheet; its notice lasts a moment.
+        let notice = element(app, "spool.notice")
+        XCTAssertTrue(notice.waitForExistence(timeout: 6),
+                      "Closing the phone didn't play the tape waiting in the deck")
+        element(app, "spool.settings.done").tap()
+        XCTAssertTrue(waitForDisappearance(of: hint, timeout: 4), "The open layout stayed after closing")
+        attachScreenshot(app, named: "duo-closed")
+    }
+
     @MainActor
     func testTappingATapeInTheRackBringsItForwardToBeSwiped() throws {
         let app = launchSpool()

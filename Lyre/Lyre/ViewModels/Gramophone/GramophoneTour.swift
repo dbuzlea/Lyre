@@ -269,7 +269,8 @@ struct TourMachineScript {
                     machine.finger = Self.indexPoint(letter)
                     machine.indexLetter = TourMachineView.letters[letter]
                 }
-                machine.stackIndex = min(letter, TourCrate.titles.count - 1)
+                // The strip starts with "#", so letter 1 (A) is the first record.
+                machine.stackIndex = min(letter - 1, TourCrate.titles.count - 1)
                 await pause(260)
             }
             await lift()
