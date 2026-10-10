@@ -1,6 +1,18 @@
 # Lyre
 
-A SwiftUI iOS app for listening to your Apple Music library through a touch-based scroll wheel — navigation stack with selection memory, 30 finishes, and a retro LCD aesthetic.
+A SwiftUI iOS app for listening to your Apple Music library through a player you can touch, in three styles: a **Classic** scroll wheel (navigation stack with selection memory, 30 finishes and a retro LCD aesthetic), a **Spool** cassette deck, and a 3D **Gramophone**. All three share search, the same queueing gestures and the same playback rules; on an unfolded iPhone Duo the Spool lays out its deck beside its tape rack.
+
+This file covers the Classic player in detail. The [project README](../../README.md) shows every player, its gestures, search and the iPhone Duo layout, with screenshots.
+
+## Player Styles
+
+| Player | What it is | Where its code lives |
+|---|---|---|
+| Classic | The click wheel, documented below | `ViewModels/` (LyreView, ScrollWheelView, LyreScreenView) |
+| Spool | A cassette deck: tape rack, cassette cases, transport keys, Up Next tray, owner's manual with a tutorial | `ViewModels/Spool/` |
+| Gramophone | A SceneKit gramophone: record crate, sleeves, tonearm, brake, crank, Up Next bin, booklet with a tutorial | `ViewModels/Gramophone/` |
+
+The Spool and the Gramophone share `ViewModels/Players/` (the shelf library, search field, A–Z index and tutorial pager). Actions every player offers, such as Previous, podcast skips and episode downloads, live in `Services/PlayerActions.swift`; search lives in `Models/LibrarySearch.swift`.
 
 ## Features
 
@@ -47,8 +59,8 @@ Each finish styles the body gradient, screen background, text colors, highlight 
 
 ## Requirements
 
-- iOS 17.6+
-- Xcode 27.0+
+- iOS 26.5+
+- Xcode 27.1+ (for the iPhone Duo SDK)
 - Apple Developer account (for the MusicKit capability)
 - Physical iOS device (MusicKit requires a real device for full library access)
 - An Apple Music subscription with a non-empty library
@@ -109,7 +121,7 @@ Swipe right on the center circle to add whatever the highlighted row stands for 
 
 A banner confirms each addition on screen. With nothing playing, what you added starts playing instead of waiting. If part of a collection can't be played, the banner says how much went in ("Queued 9 of 12").
 
-The queue works the same in every player — the classic wheel, the Artwork Carousel and the Spool:
+The queue works the same in every player — the classic wheel, the Artwork Carousel, the Spool and the Gramophone. Holding an album or a song in the Spool's rack and cases or the Gramophone's crate and sleeves offers the same two choices, Play Next and Add to Queue:
 
 - **Podcast episodes are never queued.** They play from their show. On a streamed episode, swiping right downloads it for offline listening instead (or removes the download).
 - **While a podcast plays, Up Next is the show's later episodes**, in the show's order: they can't be moved, removed or cleared, and pressing Center on one plays it. Songs can't be queued until the podcast stops; a banner says so.
@@ -124,6 +136,7 @@ In the **Artwork Carousel**, open a sleeve and the liner tracklist works the sam
 | Pick up a song | Press Center on the highlighted row |
 | Move it | Rotate the wheel — the song travels with the cursor |
 | Put it down | Press Center (or Menu) again |
+| Play a song now | Swipe left on the center circle |
 | Remove a song | Swipe right on the center circle |
 | Clear the queue | Scroll up past the first song to **Clear Queue**, then press Center |
 
@@ -153,6 +166,7 @@ Menu
 ├── Artists
 ├── Playlists
 ├── Podcasts
+├── Search
 └── Settings
     ├── Theme
     ├── Screen Size
@@ -160,6 +174,7 @@ Menu
     ├── Scroll Sensitivity
     ├── Click Sound
     ├── Backlight
+    ├── Player Style
     └── About
 ```
 
@@ -167,9 +182,13 @@ Menu
 
 Rotate the device to landscape while browsing Albums, Playlists, or Podcasts to enter the artwork carousel. Swipe left/right to browse covers, tap to select.
 
+### Search
+
+Choose Search from the main menu and type: the keyboard comes up and the click wheel lowers out of view until it goes, then scrolls the results (artists, albums, songs, playlists and podcasts). Center press plays a song or opens anything else; a center swipe queues it.
+
 ### Shake to Shuffle
 
-Shake the device from any screen (with Hold disabled) to immediately shuffle all songs and navigate to Now Playing.
+Shake the device from any screen (with Hold disabled) to immediately shuffle all songs and navigate to Now Playing. The Spool shuffles when Eject is held, and the Gramophone when its crank is wound a full turn.
 
 ---
 
