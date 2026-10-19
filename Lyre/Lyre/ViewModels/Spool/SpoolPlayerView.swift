@@ -33,7 +33,9 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 // Loading on an Open Duo
 //   Tapes are chosen as on the closed deck, from the same rack: swiped left, or a song
 //   picked in a case. The tape flies from the rack into the open door and seats with the
-//   insert sound; what was playing stops, as its tape has come out. Nothing plays yet:
+//   insert sound; what was playing stops, as its tape has come out. A case opens over the
+//   rack, its song list above the tray, so a song picked from it is seen to leave the
+//   tray, stand upright and go across into the door. Nothing plays yet:
 //   the tape waits in the deck (`deckLoad`), its place in the rack left empty, until the
 //   phone is closed. Closing it is the door shutting: the door's sound, the motor running
 //   up, and the tape playing from the song chosen. A newer tape swiped in takes the
@@ -82,6 +84,10 @@ struct SpoolPlayerView: View {
     @State private var containerHeight: CGFloat = 0
     /// A tape put in the open deck on an unfolded Duo, waiting for the phone to close.
     @State private var deckLoad: DeckLoad?
+    /// The rack's half of an unfolded Duo, where a case opens.
+    @State private var openRackFrame: CGRect = .zero
+    /// A tape waiting to go in, as it would clear songs queued by hand.
+    @State private var pendingPlay: PendingPlay?
     @State private var notice: String?
     /// The new tape's motor turning: from the door shutting until its first song plays,
     /// the reels spin and the play key is down while the player starts the song.
@@ -157,8 +163,11 @@ struct SpoolPlayerView: View {
                             // The tape is already in the deck: the case goes back and
                             // the tape plays from the chosen song.
                             closeCase()
-                            SpoolSound.buttonPress.play()
-                            play(LoadedTape(album: scene.album, tracks: tracks), startingAt: index)
+                            musicService.play(asking: { pendingPlay = $0 },
+                                              addToQueue: queueSong(index, of: tracks, on: scene.album)) {
+                                SpoolSound.buttonPress.play()
+                                play(LoadedTape(album: scene.album, tracks: tracks), startingAt: index)
+                            }
                             return
                         }
                         // The case goes as the cassette leaves its tray for the deck.
@@ -183,7 +192,9 @@ struct SpoolPlayerView: View {
                     },
                     onReady: {
                         withAnimation(.spring(response: 0.62, dampingFraction: 0.84)) { caseProgress = 1 }
-                    }
+                    },
+                    // On an open Duo the case opens over the rack, leaving the deck in view.
+                    bounds: foldMonitor.posture == .open && openRackFrame.width > 0 ? openRackFrame : nil
                 )
                 .transition(.opacity)
                 .zIndex(3)
@@ -239,6 +250,7 @@ struct SpoolPlayerView: View {
         .sheet(isPresented: $showPodcastSearch) {
             PodcastSearchView(musicService: musicService)
         }
+        .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
         .sheet(isPresented: $showShelf) {
             TapeShelfView(albums: musicService.albums, hint: String(localized: "spool.shelf.hint.closed"),
                           songs: musicService.songs) { album in
@@ -596,6 +608,9 @@ struct SpoolPlayerView: View {
                     .frame(width: geometry.size.width * 0.46)
                 rackColumn(showsClose: false)
                     .padding(.top, 8)
+                    .onGeometryChange(for: CGRect.self) { proxy in
+                        proxy.frame(in: .named(Self.coordinateSpace))
+                    } action: { openRackFrame = $0 }
             }
             .padding(12)
         }
@@ -990,6 +1005,21 @@ struct SpoolPlayerView: View {
 
     /// Every song, shuffled, straight into the deck.
     private func shuffleAll() {
+        // A shuffle replaces Up Next: ask first if it holds songs queued by hand.
+        musicService.play(asking: { pendingPlay = $0 }, addToQueue: {
+            let songs = library.songs.shuffled()
+            queue(songs, placement: .last, name: String(localized: "menu.songs"))
+        }) { shuffleEverything() }
+    }
+
+    /// Queueing song `index` of `tracks` instead of playing it, offered when asking; nil
+    /// for a show's episodes, which aren't queued.
+    private func queueSong(_ index: Int, of tracks: [AppTrack], on album: AppAlbum) -> (() -> Void)? {
+        guard !album.isPodcast, tracks.indices.contains(index) else { return nil }
+        return { queue([tracks[index]], placement: .last, name: tracks[index].title) }
+    }
+
+    private func shuffleEverything() {
         let songs = library.songs.shuffled()
         guard !songs.isEmpty else {
             showNotice(String(localized: "spool.shuffle.empty"))
@@ -1199,6 +1229,24 @@ struct SpoolPlayerView: View {
     /// case passes the tracks it already loaded; a swiped tape loads its own.
     private func insertTape(_ album: AppAlbum, from frame: CGRect,
                             startingAt index: Int = 0, tracks preloaded: [AppTrack]? = nil) {
+        guard flight == nil else { return }
+        // A new tape replaces Up Next: ask first if it holds songs queued by hand, before
+        // the old tape comes out.
+        // Queued instead: the song picked from its case, or a tape swiped in whole.
+        let addToQueue: (() -> Void)? = if let preloaded {
+            queueSong(index, of: preloaded, on: album)
+        } else if album.isPodcast {
+            nil
+        } else {
+            { queue(album, placement: .last) }
+        }
+        musicService.play(asking: { pendingPlay = $0 }, addToQueue: addToQueue) {
+            changeTape(album, from: frame, startingAt: index, tracks: preloaded)
+        }
+    }
+
+    private func changeTape(_ album: AppAlbum, from frame: CGRect,
+                            startingAt index: Int, tracks preloaded: [AppTrack]?) {
         guard flight == nil else { return }
         isShelfSearchFocused = false
         // Start loading now; the flight and the slide back cover most of the wait.
@@ -1430,7 +1478,10 @@ struct SpoolPlayerView: View {
                 }
                 let tape = LoadedTape(album: album, tracks: tracks)
                 if thenPlay {
-                    play(tape)
+                    musicService.play(asking: { pendingPlay = $0 },
+                                      addToQueue: album.isPodcast ? nil : { queue(tracks, placement: .last, name: album.tapeTitle) }) {
+                        play(tape)
+                    }
                 } else {
                     deckLoad = DeckLoad(album: album, tracks: Task { tracks }, index: 0)
                 }

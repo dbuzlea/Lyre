@@ -130,6 +130,40 @@ struct SpoolSettingsView: View {
                     .buttonStyle(.plain)
                     .padding(.top, 10)
                     .accessibilityIdentifier("spool.settings.gramophone")
+
+                    Button {
+                        onDone()
+                        themeSettings.playerStyle = .disc
+                    } label: {
+                        HStack {
+                            rowLabel(String(format: String(localized: "gramophone.settings.switchTo"),
+                                            PlayerStyle.disc.displayName))
+                            Spacer(minLength: 8)
+                            Image(systemName: "opticaldiscdrive")
+                                .font(.system(size: 22))
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 10)
+                    .accessibilityIdentifier("spool.settings.disc")
+
+                    Button {
+                        onDone()
+                        themeSettings.playerStyle = .liquid
+                    } label: {
+                        HStack {
+                            rowLabel(String(format: String(localized: "gramophone.settings.switchTo"),
+                                            PlayerStyle.liquid.displayName))
+                            Spacer(minLength: 8)
+                            Image(systemName: "drop")
+                                .font(.system(size: 22))
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 10)
+                    .accessibilityIdentifier("spool.settings.liquid")
                 }
 
                 #if DEBUG

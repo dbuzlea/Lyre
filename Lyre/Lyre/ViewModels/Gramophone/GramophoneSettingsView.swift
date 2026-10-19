@@ -103,6 +103,8 @@ struct GramophoneSettingsView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         playerButton(.classic, symbol: "circle.circle")
                         playerButton(.spool, symbol: "recordingtape")
+                        playerButton(.disc, symbol: "opticaldiscdrive")
+                        playerButton(.liquid, symbol: "drop")
                     }
                 }
 
@@ -120,6 +122,13 @@ struct GramophoneSettingsView: View {
                     .pickerStyle(.segmented)
                 }
                 #endif
+
+                // The version, as at the foot of every player's settings.
+                Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
+                    .font(.system(size: 11))
+                    .opacity(0.5)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("gramophone.settings.version")
             }
             .padding(24)
         }
@@ -176,6 +185,13 @@ struct GramophoneSettingsView: View {
             }
             content()
         }
+    }
+
+    private var versionString: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? ""
+        guard let build = info?["CFBundleVersion"] as? String else { return version }
+        return "\(version) (\(build))"
     }
 
     /// Directions numbered I, II, III, as the booklets were.

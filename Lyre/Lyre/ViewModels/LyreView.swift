@@ -37,7 +37,11 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   the carousel closes onto Now Playing. On an ordinary iPhone that is the same as
 //   turning the phone. On iPhone Duo it is also what unfolding does — the inner display
 //   is wide, and it ignores orientation locks — so opening the phone opens the carousel.
-//   Not available with the Spool or Gramophone player styles; those stay upright.
+//   The Liquid player turns sideways into it too. Like the classic player's lists, the
+//   page it's on decides the covers (see LiquidLocation): albums (and artists and songs),
+//   playlists or podcasts, turned to the album open; from Now Playing, the menu or
+//   search, it opens on what's playing. The Spool, the
+//   Gramophone and the Disc have none; those stay upright.
 //
 //   The carousel's Back button rotates the interface upright on a phone that honours the
 //   request, and holds it there (`holdUpright`) until the device itself is turned upright,
@@ -211,6 +215,9 @@ struct LyreView: View {
     @State private var playlistArtworkCarouselIndex: Int = 0
     @State private var podcastArtworkCarouselIndex: Int = 0
     @State private var showPodcastSearch = false
+    /// A play waiting to be confirmed, as it would clear songs queued by hand: a song
+    /// chosen with the wheel, or a shake's shuffle.
+    @State private var pendingPlay: PendingPlay?
     @State private var searchQuery = ""
     @State private var searchResults: [LibrarySearchResult] = []
     @State private var keyboard = KeyboardMonitor()
@@ -223,27 +230,20 @@ struct LyreView: View {
     @Environment(\.windowSafeArea) private var safeArea
 
     var body: some View {
-        Group {
-            switch themeSettings.playerStyle {
-            case .classic:
-                classicPlayer
-            case .spool:
-                SpoolPlayerView(
-                    musicService: musicService,
-                    themeSettings: themeSettings,
-                    foldMonitor: foldMonitor
-                )
-                .transition(.opacity)
-            case .gramophone:
-                GramophonePlayerView(
-                    musicService: musicService,
-                    themeSettings: themeSettings,
-                    foldMonitor: foldMonitor
-                )
-                .transition(.opacity)
-            }
+        // Switching players plays out as a small show (see PlayerSwitchStage).
+        PlayerSwitchStage(style: themeSettings.playerStyle, musicService: musicService) { style in
+            playerView(for: style)
         }
-        .animation(.easeInOut(duration: 0.35), value: themeSettings.playerStyle)
+        #if DEBUG
+        // `-LyreSwitchDemo spool` switches to that player a few seconds after launch, to
+        // film the switch.
+        .task {
+            guard let name = UserDefaults.standard.string(forKey: "LyreSwitchDemo"),
+                  let target = PlayerStyle(rawValue: name) else { return }
+            try? await Task.sleep(for: .seconds(4))
+            themeSettings.playerStyle = target
+        }
+        #endif
         .modifier(HingeObserver(monitor: foldMonitor))
         .background(ShakeDetector(isHoldEnabled: isHoldEnabled,
                                   isShakeOff: themeSettings.playerStyle != .classic) { handleShake() })
@@ -328,6 +328,7 @@ struct LyreView: View {
         .sheet(isPresented: $showPodcastSearch) {
             PodcastSearchView(musicService: musicService)
         }
+        .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
         .fullScreenCover(isPresented: $showArtworkCarousel) {
             switch artworkCarouselMode {
             case .albums:
@@ -346,12 +347,49 @@ struct LyreView: View {
                 )
             case .podcasts:
                 ArtworkCarouselView(
-                    content: .podcasts(musicService.podcastShows),
+                    content: .podcasts(musicService.mergedPodcastShows()),
                     musicService: musicService,
                     selectedIndex: $podcastArtworkCarouselIndex,
                     onDismiss: { dismissArtworkCarousel() }
                 )
             }
+        }
+    }
+
+    /// The player for a style, as the switch stage shows it.
+    @ViewBuilder
+    private func playerView(for style: PlayerStyle) -> some View {
+        switch style {
+        case .classic:
+            classicPlayer
+        case .spool:
+            SpoolPlayerView(
+                musicService: musicService,
+                themeSettings: themeSettings,
+                foldMonitor: foldMonitor
+            )
+            .transition(.opacity)
+        case .gramophone:
+            GramophonePlayerView(
+                musicService: musicService,
+                themeSettings: themeSettings,
+                foldMonitor: foldMonitor
+            )
+            .transition(.opacity)
+        case .disc:
+            DiscPlayerView(
+                musicService: musicService,
+                themeSettings: themeSettings,
+                foldMonitor: foldMonitor
+            )
+            .transition(.opacity)
+        case .liquid:
+            LiquidPlayerView(
+                musicService: musicService,
+                themeSettings: themeSettings,
+                foldMonitor: foldMonitor
+            )
+            .transition(.opacity)
         }
     }
 
@@ -451,7 +489,8 @@ struct LyreView: View {
                 onInteraction: resetBacklightTimer,
                 onBanner: showBanner,
                 onOpenPodcastSearch: { showPodcastSearch = true },
-                searchResults: searchResults
+                searchResults: searchResults,
+                onAskToPlay: { pendingPlay = $0 }
             )
             // ScrollWheelView draws itself at a fixed native size, so scale it
             // down to the layout's wheel size or it would spill past its frame
@@ -627,18 +666,18 @@ struct LyreView: View {
 
     // MARK: - Orientation Handling
 
-    /// The classic player may turn sideways — that is how the carousel opens. The Spool
-    /// and the Gramophone stay upright, as does the classic player just after Back.
+    /// The classic and Liquid players may turn sideways — that is how the carousel opens.
+    /// The others stay upright, as does either of those just after Back.
     // TODO: Modernization - Consider adopting `prefersInterfaceOrientationLocked` (iOS 26+)
     // as the modern replacement for orientation locking via `supportedInterfaceOrientations`.
     private var orientationMask: UIInterfaceOrientationMask {
-        guard themeSettings.playerStyle == .classic, !holdUpright else { return .portrait }
+        guard Self.hasArtworkCarousel(themeSettings.playerStyle), !holdUpright else { return .portrait }
         return .allButUpsideDown
     }
 
     private func windowShapeChanged(isWide: Bool) {
-        // The Spool and the Gramophone have no Artwork Carousel.
-        guard themeSettings.playerStyle == .classic else { return }
+        // Only the classic and Liquid players have the Artwork Carousel.
+        guard Self.hasArtworkCarousel(themeSettings.playerStyle) else { return }
 
         if isWide {
             guard !showArtworkCarousel, !carouselDismissedWhileWide else { return }
@@ -652,7 +691,39 @@ struct LyreView: View {
         }
     }
 
+    /// The players that turn sideways into the Artwork Carousel.
+    private static func hasArtworkCarousel(_ style: PlayerStyle) -> Bool {
+        style == .classic || style == .liquid
+    }
+
     private func openArtworkCarousel() {
+        if themeSettings.playerStyle == .liquid, let shelf = LiquidLocation.shared.shelf {
+            // Liquid's page: its shelf's covers, turned to the album open, if one is.
+            switch shelf {
+            case .albums:    artworkCarouselMode = .albums
+            case .playlists: artworkCarouselMode = .playlists
+            case .podcasts:  artworkCarouselMode = .podcasts
+            }
+            pointCarouselAtNowPlaying()
+            if let album = LiquidLocation.shared.album { pointCarousel(at: album) }
+            return
+        } else if themeSettings.playerStyle == .liquid {
+            // Now Playing, the menu or search: open on what's playing.
+            if musicService.currentPodcastShowTitle != nil {
+                artworkCarouselMode = .podcasts
+            } else if musicService.currentPlaylistID != nil {
+                artworkCarouselMode = .playlists
+            } else {
+                artworkCarouselMode = .albums
+            }
+        } else {
+            classicCarouselMode()
+        }
+        pointCarouselAtNowPlaying()
+    }
+
+    /// The classic player opens the carousel for the screen it's on.
+    private func classicCarouselMode() {
         switch currentScreen {
         case .playlists, .playlistDetail:
             artworkCarouselMode = .playlists
@@ -663,6 +734,28 @@ struct LyreView: View {
         default:
             artworkCarouselMode = .albums
         }
+    }
+
+    /// Turns the carousel to `album` (or playlist, or show), when the library has it.
+    private func pointCarousel(at album: AppAlbum) {
+        switch artworkCarouselMode {
+        case .albums:
+            if let index = musicService.albums.firstIndex(where: { $0.id == album.id }) {
+                artworkCarouselIndex = index
+            }
+        case .playlists:
+            if let id = album.mixtape?.id, let index = musicService.playlists.firstIndex(where: { $0.id == id }) {
+                playlistArtworkCarouselIndex = index
+            }
+        case .podcasts:
+            if let index = musicService.mergedPodcastShows().firstIndex(where: { $0.title == album.title }) {
+                podcastArtworkCarouselIndex = index
+            }
+        }
+    }
+
+    /// Turns the carousel to what's playing, and opens it.
+    private func pointCarouselAtNowPlaying() {
         switch artworkCarouselMode {
         case .albums:
             if let track = musicService.currentTrack,
@@ -676,7 +769,7 @@ struct LyreView: View {
             }
         case .podcasts:
             if let showTitle = musicService.currentPodcastShowTitle,
-               let idx = musicService.podcastShows.firstIndex(where: { $0.title == showTitle }) {
+               let idx = musicService.mergedPodcastShows().firstIndex(where: { $0.title == showTitle }) {
                 podcastArtworkCarouselIndex = idx
             }
         }
@@ -779,6 +872,23 @@ struct LyreView: View {
     private func handleShake() {
         guard !isHoldEnabled, !musicService.songs.isEmpty else { return }
         resetBacklightTimer()
+        // A shuffle replaces Up Next: ask first if it holds songs queued by hand.
+        musicService.play(asking: { pendingPlay = $0 }, addToQueue: { queueEverythingShuffled() }) {
+            shuffleEverything()
+        }
+    }
+
+    /// Every song, shuffled, onto the end of Up Next instead of playing them now.
+    private func queueEverythingShuffled() {
+        let shuffled = musicService.songs.shuffled()
+        Task {
+            let outcome = await musicService.addToQueue(tracks: shuffled, placement: .last)
+            showBanner(outcome.message(name: String(localized: "menu.songs"), requested: shuffled.count,
+                                       placement: .last, isCollection: true))
+        }
+    }
+
+    private func shuffleEverything() {
         let shuffled = musicService.songs.shuffled()
         Task {
             let outcome = await musicService.play(tracks: shuffled, startingAt: 0)

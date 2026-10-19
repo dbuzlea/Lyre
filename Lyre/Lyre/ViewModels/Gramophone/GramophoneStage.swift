@@ -176,8 +176,29 @@ final class GramophoneStage {
         view.pointOfView = cameraNode
         view.backgroundColor = .clear
         view.antialiasingMode = .multisampling4X
-        view.preferredFramesPerSecond = 60
         view.isUserInteractionEnabled = false
+        applyFrameRate()
+    }
+
+    // MARK: - Frame Rate
+
+    /// Until when something besides the record is moving.
+    private var smoothUntil: Date = .distantPast
+
+    /// Drawn 60 times a second for `seconds`, while something moves.
+    private func boost(_ seconds: TimeInterval) {
+        guard seconds > 0 else { return }
+        smoothUntil = max(smoothUntil, Date().addingTimeInterval(seconds + 0.1))
+        applyFrameRate()
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds + 0.15) { [weak self] in self?.applyFrameRate() }
+    }
+
+    /// 30 frames a second while all that moves is the record turning (a slow, even turn
+    /// looks the same at 30 as at 60, for half the work), 60 while the camera, the arm,
+    /// the drawer or a record moves. 30 throughout in Low Power Mode.
+    private func applyFrameRate() {
+        let moving = driver != nil || Date() < smoothUntil
+        view?.preferredFramesPerSecond = moving && !ProcessInfo.processInfo.isLowPowerModeEnabled ? 60 : 30
     }
 
     // MARK: - Design and Finish
@@ -791,6 +812,9 @@ final class GramophoneStage {
     /// The tonearm at `angle` over the deck (as TonearmGeometry measures it), lifted
     /// off the record or not.
     func setArm(angle: Double, lifted: Bool, animated: Bool) {
+        // A swing of the arm is drawn smoothly; its creep along the groove as the record
+        // plays, a hair a tick, needn't be.
+        if abs(angle - armAngle) > 0.01 || lifted != isArmLifted { boost(animated ? 0.5 : 0.25) }
         armAngle = angle
         isArmLifted = lifted
         SCNTransaction.begin()
@@ -802,6 +826,7 @@ final class GramophoneStage {
 
     func setSwitch(on: Bool, animated: Bool = true) {
         isSwitchOn = on
+        if animated { boost(0.22) }
         SCNTransaction.begin()
         SCNTransaction.animationDuration = animated ? 0.22 : 0
         switchLever.simdEulerAngles.z = on ? -0.6 : 0.6
@@ -809,6 +834,8 @@ final class GramophoneStage {
     }
 
     func setCrank(degrees: Double) {
+        // Turned by the finger: drawn smoothly while it turns.
+        if degrees != crankDegrees { boost(0.25) }
         crankDegrees = degrees
         crank.simdEulerAngles.x = Float(degrees * .pi / 180)
     }
@@ -816,6 +843,7 @@ final class GramophoneStage {
     /// The drawer pulled out, or pushed back in.
     func setDrawer(open: Bool, animated: Bool = true) {
         isDrawerOpen = open
+        if animated { boost(0.6) }
         SCNTransaction.begin()
         SCNTransaction.animationDuration = animated ? 0.6 : 0
         SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -1053,6 +1081,7 @@ final class GramophoneStage {
 
     /// Changes made over `duration` seconds, eased; returns when they're done.
     private func animate(_ duration: TimeInterval, _ changes: () -> Void) async {
+        boost(duration)
         SCNTransaction.begin()
         SCNTransaction.animationDuration = duration
         SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -1172,6 +1201,7 @@ final class GramophoneStage {
                 continuation.resume(returning: finished)
             }
             self.driver = driver
+            boost(duration)
             driver.start()
         }
     }

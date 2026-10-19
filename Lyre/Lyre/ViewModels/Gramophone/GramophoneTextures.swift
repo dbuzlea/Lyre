@@ -270,8 +270,10 @@ enum RecordLabelArt {
         return await LocalArtworkCache.shared.image(from: url, key: LocalArtworkCache.key("label.\(key)", size: size), size: size)
     }
 
-    /// The cover of an album in the media library, found by its title.
-    private static func library(albumTitle: String, size: CGFloat) async -> UIImage? {
+    /// The cover of an album in the media library, found by its title. Searching the
+    /// library takes a moment on a big one, so it's done off the main thread.
+    @concurrent
+    nonisolated private static func library(albumTitle: String, size: CGFloat) async -> UIImage? {
         guard !albumTitle.isEmpty, MPMediaLibrary.authorizationStatus() == .authorized else { return nil }
         let key = LocalArtworkCache.key("library.\(albumTitle)", size: size)
         if let hit = LocalArtworkCache.shared.cachedImage(for: key) { return hit }

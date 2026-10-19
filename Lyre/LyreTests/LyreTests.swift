@@ -674,6 +674,32 @@ struct MusicServiceTests {
         #expect(service.podcastShows.isEmpty)
     }
 
+    /// A subscription to a show, with episodes published `days` ago.
+    private func feedShow(_ title: String, url: String, episodes: [(String, Double)]) -> PodcastShow {
+        PodcastShow(feed: FeedShow(
+            feedURL: URL(string: url)!, title: title, author: nil, artworkURL: nil,
+            episodes: episodes.map { name, days in
+                FeedEpisode(guid: "\(url)#\(name)", title: name,
+                            audioURL: URL(string: "https://example.invalid/\(name.hashValue).mp3")!,
+                            published: Date(timeIntervalSinceNow: -days * 86_400), duration: 600, artworkURL: nil)
+            },
+            lastRefreshed: .now))
+    }
+
+    @Test func aShowHeardTwoWaysIsOneShowWithEveryEpisodeOnce() {
+        let service = MusicService()
+        service.podcastShows = [
+            feedShow("Morning Somewhere", url: "https://example.invalid/a.xml", episodes: [("Monday", 3), ("Tuesday", 2)]),
+            feedShow("Morning Somewhere", url: "https://example.invalid/b.xml", episodes: [("Tuesday", 2), ("Wednesday", 1)]),
+            feedShow("Other Show", url: "https://example.invalid/c.xml", episodes: [("Pilot", 10)])
+        ]
+        let shows = service.mergedPodcastShows()
+        #expect(shows.map(\.title) == ["Morning Somewhere", "Other Show"])
+        // Together, each episode once, newest first.
+        #expect(shows[0].episodes.map(\.title) == ["Wednesday", "Tuesday", "Monday"])
+        #expect(shows[1].episodes.map(\.title) == ["Pilot"])
+    }
+
     @Test func initialPlaybackState() {
         let service = MusicService()
         #expect(service.isPlaying == false)
@@ -1189,9 +1215,10 @@ struct GramophoneTests {
 @MainActor
 struct SpoolSoundTests {
 
-    /// The Spool's sounds and the Gramophone's.
+    /// The Spool's sounds, the Gramophone's and the Disc's.
     private var allNames: [String] {
         SpoolSound.allCases.map(\.rawValue) + GramophoneSound.allCases.map(\.rawValue)
+            + DiscSound.allCases.map(\.rawValue)
     }
 
     @Test func everySoundIsBundledAsAPlayableSystemSound() throws {
@@ -1226,6 +1253,15 @@ struct SpoolSoundTests {
             let file = try AVAudioFile(forReading: url)
             let seconds = Double(file.length) / file.fileFormat.sampleRate
             #expect(seconds > 0.1 && seconds < 0.8, "\(sound.rawValue) runs \(seconds) s")
+        }
+    }
+
+    @Test func theDiscsSoundsLandWithWhatTheyreFor() throws {
+        for sound in DiscSound.allCases {
+            let url = try #require(Bundle.main.url(forResource: sound.rawValue, withExtension: "wav"))
+            let file = try AVAudioFile(forReading: url)
+            let seconds = Double(file.length) / file.fileFormat.sampleRate
+            #expect(seconds > 0.05 && seconds < 0.8, "\(sound.rawValue) runs \(seconds) s")
         }
     }
 

@@ -304,6 +304,54 @@ extension LyreUITests {
     }
 
     @MainActor
+    func testOnboardingTeachesTheDiscAndEndsOnIt() throws {
+        let app = launchFresh()
+        advanceToChoosePlayer(app)
+        choosePlayer(app, "disc")
+        tap(app, "Continue")
+
+        XCTAssertTrue(app.staticTexts["Meet the Disc"].waitForExistence(timeout: 5))
+        let lesson = app.descendants(matching: .any)["disc.tour.lesson"].firstMatch
+        XCTAssertTrue(lesson.waitForExistence(timeout: 5))
+        XCTAssertTrue(lesson.label.contains("Open the Lid"), "First lesson was \(lesson.label)")
+        sleep(2)
+        attachScreenshot(app, named: "onboarding-disc-tour")
+        tap(app, "Continue")
+
+        XCTAssertTrue(app.staticTexts["Make It Yours"].waitForExistence(timeout: 5))
+        let graphite = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Graphite'")).firstMatch
+        XCTAssertTrue(graphite.exists, "The Disc's finishes should be offered")
+        graphite.tap()
+        attachScreenshot(app, named: "onboarding-disc-style")
+        tap(app, "Continue")
+
+        XCTAssertTrue(app.staticTexts["You're All Set!"].waitForExistence(timeout: 5))
+        tap(app, "Start Listening")
+        XCTAssertTrue(app.descendants(matching: .any)["disc.lid"].firstMatch.waitForExistence(timeout: 8),
+                      "Finishing should open the Disc")
+    }
+
+    @MainActor
+    func testOnboardingCanEndOnLiquid() throws {
+        let app = launchFresh()
+        advanceToChoosePlayer(app)
+        choosePlayer(app, "liquid")
+        tap(app, "Continue")
+
+        // The tutorial, one lesson at a time.
+        XCTAssertTrue(app.staticTexts["Meet Liquid"].waitForExistence(timeout: 5))
+        let lesson = app.descendants(matching: .any)["liquid.tour.lesson"].firstMatch
+        XCTAssertTrue(lesson.waitForExistence(timeout: 5))
+        XCTAssertTrue(lesson.label.contains("Change Songs"), "First lesson was \(lesson.label)")
+        tap(app, "Continue")
+
+        XCTAssertTrue(app.staticTexts["You're All Set!"].waitForExistence(timeout: 5))
+        tap(app, "Start Listening")
+        XCTAssertTrue(app.descendants(matching: .any)["liquid.menu.albums"].firstMatch.waitForExistence(timeout: 8),
+                      "Finishing should open Liquid")
+    }
+
+    @MainActor
     func testTheClassicShortcutsIncludePlayNext() throws {
         let app = launchFresh()
         advanceToMeetTheWheel(app)

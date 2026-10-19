@@ -36,7 +36,10 @@ import SwiftUI
 // and can be pushed back open, and letting go closes it or springs it back open.
 //
 // The case is laid out in SpoolPlayerView's coordinate space, filling the screen, so the
-// rack's frames and the deck's seat can be used as they are.
+// rack's frames and the deck's seat can be used as they are. On an unfolded iPhone Duo it
+// opens within the rack's half instead (`bounds`): the lid and its song list over the
+// tray on the right, the open deck left in view on the left, so a song picked can be seen
+// going across into the door.
 
 struct CassetteCaseView: View {
     let album: AppAlbum
@@ -60,6 +63,9 @@ struct CassetteCaseView: View {
     /// Called once the case has been drawn closed in its slot, which is when it can start
     /// to open: started any sooner, the open state is the first one drawn.
     var onReady: () -> Void = {}
+    /// Where the case opens, in SpoolPlayerView's coordinate space; nil for the whole
+    /// screen. An unfolded Duo's rack, so the deck beside it stays in view.
+    var bounds: CGRect? = nil
 
     @Environment(\.windowSafeArea) private var safeArea
 
@@ -77,7 +83,7 @@ struct CassetteCaseView: View {
         // as something this view depends on, and the list would never refresh.
         let tracks = self.tracks
         GeometryReader { geometry in
-            let layout = Layout(size: geometry.size, safeArea: safeArea)
+            let layout = Layout(size: geometry.size, safeArea: safeArea, bounds: bounds)
             AnimatableFold(progress: progress) { p in
                 scene(p: p, layout: layout, tracks: tracks)
             }
@@ -379,6 +385,9 @@ struct CassetteCaseView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            // Swiped right, a song offers Play Next and Add to Queue, as every list in
+            // Lyre does; an episode, its download.
+            .rowSwipeActions(swipeActions(for: track), captionColor: SpoolPalette.labelInk.opacity(0.65))
             // Holding a song queues it rather than playing it; holding an episode, which
             // plays from the case, offers its download.
             .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track,
@@ -397,6 +406,13 @@ struct CassetteCaseView: View {
                 .fill(SpoolPalette.labelInk.opacity(0.12))
                 .frame(height: 1)
         }
+    }
+
+    private func swipeActions(for track: AppTrack) -> [RowSwipeAction] {
+        if album.isPodcast {
+            return album.podcast?.episodes.first { $0.id == track.id }.map(RowSwipeAction.download) ?? []
+        }
+        return RowSwipeAction.queue { onQueue([track], $0) }
     }
 
     /// An episode: its title, and the day it came out with how long it runs.
@@ -515,10 +531,11 @@ struct CassetteCaseView: View {
         /// lid standing upright, at progress 0.65, about where the finger has got to.
         var lidTravel: CGFloat { lid.height / 0.35 }
 
-        init(size: CGSize, safeArea: EdgeInsets) {
-            let frame = CGRect(x: Self.margin, y: safeArea.top + 12,
-                               width: size.width - 2 * Self.margin,
-                               height: size.height - safeArea.top - safeArea.bottom - 24)
+        init(size: CGSize, safeArea: EdgeInsets, bounds: CGRect? = nil) {
+            let frame = bounds.map { $0.insetBy(dx: 4, dy: 4) }
+                ?? CGRect(x: Self.margin, y: safeArea.top + 12,
+                          width: size.width - 2 * Self.margin,
+                          height: size.height - safeArea.top - safeArea.bottom - 24)
             // The tray fits the cassette; the lid takes the rest, for the song list.
             let trayHeight = (frame.width - 2 * Self.trayInset.width) / CassetteView.aspectRatio
                 + 2 * Self.trayInset.height

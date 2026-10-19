@@ -34,10 +34,15 @@ enum AppHelpers {
     /// The name as the Music library sorts it: a leading "The", "A" or "An" is
     /// ignored, so "The Weeknd" files under W. MusicKit returns lists in this order,
     /// and local lists are sorted by this key so both sources agree.
+    ///
+    /// Called for every name in a sort or an index, so it looks at the first few
+    /// characters only, lowercased once, rather than lowercasing and counting the whole
+    /// name for each article.
     static func sortKey(for name: String) -> Substring {
-        for article in leadingArticles
-        where name.count > article.count && name.lowercased().hasPrefix(article) {
-            return name.dropFirst(article.count).drop(while: \.isWhitespace)
+        let head = name.prefix(4).lowercased()
+        for article in leadingArticles where head.hasPrefix(article) {
+            let rest = name.dropFirst(article.count)
+            if !rest.isEmpty { return rest.drop(while: \.isWhitespace) }
         }
         return Substring(name)
     }

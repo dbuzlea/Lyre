@@ -102,6 +102,9 @@ struct GramophonePlayerView: View {
     /// The front record pushed aside, with the button to take it out showing.
     @State private var isRemoveShown = false
 
+    /// A record waiting to go on, as it would clear songs queued by hand.
+    @State private var pendingPlay: PendingPlay?
+
     @AppStorage("GramophoneShelf") private var shelf: SpoolShelf = .albums
     /// What's typed over the crate, and the records it leaves on each shelf; nil when
     /// nothing is being searched for.
@@ -181,9 +184,13 @@ struct GramophonePlayerView: View {
                 RecordSleeveView(
                     album: album,
                     loadTracks: { await library.tracks(for: album) },
-                    onPick: { tracks, index in
-                        openSleeve = nil
-                        put(album, tracks: tracks, startingAt: index)
+                    onPick: { tracks, index, whole in
+                        // Queued instead: the whole record for Play or Shuffle, else the song.
+                        let queued = whole ? tracks : [tracks[index]]
+                        put(album, tracks: tracks, startingAt: index,
+                            addToQueue: album.isPodcast ? nil : {
+                                queue(queued, placement: .last, name: whole ? album.tapeTitle : tracks[index].title)
+                            })
                     },
                     onQueue: { tracks, placement in
                         queue(tracks, placement: placement, name: tracks.count == 1 ? tracks[0].title : album.tapeTitle)
@@ -243,6 +250,7 @@ struct GramophonePlayerView: View {
         .sheet(isPresented: $showPodcastSearch) {
             PodcastSearchView(musicService: musicService)
         }
+        .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
         .task(id: crackleIsOn) { await playSurfaceNoise() }
         // The 3D machine follows what's playing.
         .onChange(of: [model.rawValue, themeSettings.gramophoneFinish.rawValue], initial: true) {
@@ -1196,9 +1204,26 @@ struct GramophonePlayerView: View {
     /// comes to the turntable, the record comes out of its sleeve and down onto the
     /// platter, the arm swings over and lowers the needle onto the song's band, and it
     /// plays.
+    /// `addToQueue` is what to queue instead, offered when asking; `asks` is false for a
+    /// record that plays on from Up Next rather than replacing it.
     private func put(_ album: AppAlbum?, title: String? = nil, label: RecordLabel? = nil,
                      tracks: [AppTrack], startingAt index: Int,
+                     addToQueue: (() -> Void)? = nil, asks: Bool = true,
                      play start: (() async -> PlaybackStartOutcome)? = nil) {
+        guard asks else {
+            putRecord(album, title: title, label: label, tracks: tracks, startingAt: index, play: start)
+            return
+        }
+        // A new record replaces Up Next: ask first if it holds songs queued by hand,
+        // before the record on the turntable comes off.
+        musicService.play(asking: { pendingPlay = $0 }, addToQueue: addToQueue) {
+            putRecord(album, title: title, label: label, tracks: tracks, startingAt: index, play: start)
+        }
+    }
+
+    private func putRecord(_ album: AppAlbum?, title: String?, label: RecordLabel?,
+                           tracks: [AppTrack], startingAt index: Int,
+                           play start: (() async -> PlaybackStartOutcome)?) {
         guard !tracks.isEmpty else {
             showNotice(String(localized: "playback.nothingPlayable"))
             return
@@ -1245,7 +1270,8 @@ struct GramophonePlayerView: View {
     private func putWhole(_ album: AppAlbum) {
         Task {
             let tracks = await library.tracks(for: album)
-            put(album, tracks: tracks, startingAt: 0)
+            put(album, tracks: tracks, startingAt: 0,
+                addToQueue: album.isPodcast ? nil : { queue(tracks, placement: .last, name: album.tapeTitle) })
         }
     }
 
@@ -1272,6 +1298,23 @@ struct GramophonePlayerView: View {
             return
         }
         let (index, time) = record.grooves.position(at: fraction)
+        // Another song on the record put on starts the record again from there, which
+        // replaces Up Next: ask first if it holds songs queued by hand. Said no to, the
+        // arm goes back to the song that's playing.
+        let startsAgain = seated.map { record.id == $0.id } == true
+            && !(index == record.currentIndex && musicService.hasNowPlaying)
+        if startsAgain, musicService.listenerQueuedCount > 0 {
+            let song = seated.flatMap { $0.tracks.indices.contains(index) && $0.album?.isPodcast != true ? $0.tracks[index] : nil }
+            pendingPlay = PendingPlay(action: { lowerNeedle(on: record, at: index, time: time) },
+                                      addToQueue: song.map { song in { queue([song], placement: .last, name: song.title) } },
+                                      onCancel: { syncArm(animated: true) })
+            return
+        }
+        lowerNeedle(on: record, at: index, time: time)
+    }
+
+    /// The needle down on song `index` of `record`, `time` into it, and that song playing.
+    private func lowerNeedle(on record: RecordOnPlatter, at index: Int, time: TimeInterval) {
         GramophoneSound.needleDrop.play()
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         isArmParked = false
@@ -1358,10 +1401,12 @@ struct GramophonePlayerView: View {
             showNotice(String(localized: "gramophone.shuffle.empty"))
             return
         }
-        showNotice(String(localized: "gramophone.shuffle.done"))
+        // Said now only if there's nothing to ask first.
+        if musicService.listenerQueuedCount == 0 { showNotice(String(localized: "gramophone.shuffle.done")) }
         // The record shows the first few dozen; the rest follow in the queue.
         put(nil, title: String(localized: "gramophone.shuffle.title"),
-            tracks: Array(songs.prefix(Self.recordLength)), startingAt: 0) {
+            tracks: Array(songs.prefix(Self.recordLength)), startingAt: 0,
+            addToQueue: { queue(songs, placement: .last, name: String(localized: "menu.songs")) }) {
             await musicService.play(tracks: songs, startingAt: 0)
         }
     }
@@ -1388,15 +1433,18 @@ struct GramophonePlayerView: View {
 
     /// A record taken from the bin or Up Next, put on as one from the drawer is: the
     /// camera comes to the turntable, the old record comes off, this one goes down with
-    /// its song's cover on the label, the needle drops, and it plays. Its bands are that
-    /// song and the ones after it in Up Next, as they'll play.
+    /// its song's cover on the label, the needle drops, and it plays. The rest of Up Next
+    /// stays, the songs that were ahead of it now behind it, so its bands are that song
+    /// and then the rest of Up Next, as they'll play.
     private func playFromQueue(at offset: Int) {
         closeQueue()
         let upcoming = musicService.upcoming
         guard upcoming.indices.contains(offset) else { return }
         let track = upcoming[offset]
+        let after = upcoming.indices.filter { $0 != offset }.map { upcoming[$0] }
+        // Plays on from Up Next rather than replacing it, so nothing to ask.
         put(nil, title: TapeFormat.displayTitle(track.albumTitle), label: .track(track),
-            tracks: Array(upcoming[offset...].prefix(Self.recordLength)), startingAt: 0) {
+            tracks: Array(([track] + after).prefix(Self.recordLength)), startingAt: 0, asks: false) {
             musicService.playUpcoming(at: offset)
             return .started
         }

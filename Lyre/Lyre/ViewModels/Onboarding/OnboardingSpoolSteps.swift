@@ -13,6 +13,9 @@ import SwiftUI
 //
 //   Classic   meet the wheel → practice → shortcuts → make it yours → … → summary
 //   Spool     meet the Spool → design and finish → summary
+//   Gramophone  design and finish → summary
+//   Disc      meet the Disc → finish → summary
+//   Liquid    meet Liquid → summary (it has nothing to choose: the music colours it)
 //
 // The Spool's lessons are the acted-out tour the owner's manual keeps (SpoolTour), so
 // what's learned here can be watched again later from the player itself.
@@ -33,6 +36,12 @@ struct ChoosePlayerStep: View {
                     } else if themeSettings.playerStyle == .gramophone {
                         GramophoneOnboardingPreview(themeSettings: themeSettings, height: 160)
                             .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                    } else if themeSettings.playerStyle == .disc {
+                        DiscOnboardingPreview(themeSettings: themeSettings, height: 160)
+                            .transition(.opacity.combined(with: .scale(scale: 0.94)))
+                    } else if themeSettings.playerStyle == .liquid {
+                        LiquidOnboardingPreview(height: 160)
+                            .transition(.opacity.combined(with: .scale(scale: 0.94)))
                     } else {
                         OnboardingDevicePreview(themeSettings: themeSettings, height: 160)
                             .transition(.opacity.combined(with: .scale(scale: 0.94)))
@@ -48,6 +57,10 @@ struct ChoosePlayerStep: View {
                            detail: String(localized: "onboarding.player.spool.detail"))
                     choice(.gramophone, symbol: "opticaldisc",
                            detail: String(localized: "onboarding.player.gramophone.detail"))
+                    choice(.disc, symbol: "opticaldiscdrive",
+                           detail: String(localized: "onboarding.player.disc.detail"))
+                    choice(.liquid, symbol: "drop",
+                           detail: String(localized: "onboarding.player.liquid.detail"))
                 }
             }
         } footer: {
@@ -211,5 +224,112 @@ struct GramophoneOnboardingPreview: View {
             .animation(.spring(response: 0.4, dampingFraction: 0.85), value: themeSettings.gramophoneModel)
             .animation(.easeInOut(duration: 0.3), value: themeSettings.gramophoneFinish)
             .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Meet the Disc
+
+struct MeetTheDiscStep: View {
+    let themeSettings: ThemeSettings
+    let onNext: () -> Void
+
+    var body: some View {
+        OnboardingPage(title: String(localized: "onboarding.disc.title"), compact: true,
+                       message: String(localized: "onboarding.disc.message")) {
+            DiscTourPager(theme: themeSettings.discFinish.theme, ink: .white)
+        } footer: {
+            continueButton(onNext)
+        }
+    }
+}
+
+// MARK: - Disc Finish
+
+struct DiscStyleStep: View {
+    let themeSettings: ThemeSettings
+    let onNext: () -> Void
+
+    var body: some View {
+        OnboardingPage(title: String(localized: "onboarding.spoolStyle.title"), compact: true,
+                       message: String(localized: "onboarding.discStyle.message")) {
+            LazyVGrid(columns: swatchColumns, spacing: 12) {
+                ForEach(DiscFinish.allCases) { finish in
+                    let theme = finish.theme
+                    SwatchButton(name: finish.displayName,
+                                 colors: [theme.bodyLight, theme.bodyDark],
+                                 isSelected: themeSettings.discFinish == finish) {
+                        themeSettings.discFinish = finish
+                    }
+                }
+            }
+        } footer: {
+            continueButton(onNext)
+        }
+    }
+}
+
+/// The Disc as chosen so far, in its finish, scaled up to `height`. Purely visual.
+struct DiscOnboardingPreview: View {
+    let themeSettings: ThemeSettings
+    var height: CGFloat = 200
+
+    var body: some View {
+        DiscSketch(theme: themeSettings.discFinish.theme)
+            .scaleEffect(height / DiscSketch.height)
+            .frame(height: height)
+            .frame(maxWidth: .infinity)
+            .animation(.easeInOut(duration: 0.3), value: themeSettings.discFinish)
+            .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Liquid
+
+/// The Liquid player in miniature: a cover filling a phone, with the wave on its right
+/// edge pulled part way in, carrying the next one. Purely visual.
+struct LiquidOnboardingPreview: View {
+    var height: CGFloat = 200
+
+    var body: some View {
+        let width = height * 0.5
+        ZStack {
+            LinearGradient(colors: [Color(red: 0.17, green: 0.29, blue: 0.48), Color(red: 0.09, green: 0.14, blue: 0.22)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            Circle()
+                .fill(Color(red: 0.91, green: 0.54, blue: 0.23))
+                .frame(width: width * 0.5)
+                .offset(x: -width * 0.12, y: -height * 0.14)
+            LinearGradient(colors: [Color(red: 0.54, green: 0.23, blue: 0.29), Color(red: 0.16, green: 0.08, blue: 0.13)],
+                           startPoint: .top, endPoint: .bottom)
+                .mask(LiquidWaveShape(side: .right, centerY: height * 0.45, progress: 0.24))
+            VStack(alignment: .leading, spacing: 3) {
+                Spacer()
+                Capsule().fill(.white).frame(width: width * 0.5, height: 5)
+                Capsule().fill(.white.opacity(0.6)).frame(width: width * 0.32, height: 4)
+                Capsule().fill(.white.opacity(0.35)).frame(height: 2).padding(.top, 6)
+            }
+            .padding(10)
+            .padding(.bottom, 8)
+        }
+        .frame(width: width, height: height)
+        .clipShape(RoundedRectangle(cornerRadius: width * 0.14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: width * 0.14, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 1.5))
+        .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Meet Liquid
+
+struct MeetLiquidStep: View {
+    let onNext: () -> Void
+
+    var body: some View {
+        OnboardingPage(title: String(localized: "onboarding.liquid.title"), compact: true,
+                       message: String(localized: "onboarding.liquid.message")) {
+            LiquidTourPager(ink: .white)
+        } footer: {
+            continueButton(onNext)
+        }
     }
 }

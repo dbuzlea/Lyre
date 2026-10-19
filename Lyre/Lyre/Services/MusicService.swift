@@ -7,6 +7,7 @@ import Foundation
 import MusicKit
 import MediaPlayer
 import OSLog
+import UIKit
 internal import Combine
 
 private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "MusicService")
@@ -265,8 +266,21 @@ class MusicService: ObservableObject {
     @Published var songs:        [AppTrack]    = [] { didSet { songSectionLetters = Self.sectionLetters(songs.map(\.title)) } }
     @Published var albums:       [AppAlbum]    = [] { didSet { albumSectionLetters = Self.sectionLetters(albums.map(\.title)) } }
     @Published var artists:      [AppArtist]   = [] { didSet { artistSectionLetters = Self.sectionLetters(artists.map(\.name)) } }
-    @Published var playlists:    [AppPlaylist] = []
-    @Published var podcastShows: [PodcastShow] = []
+    @Published var playlists:    [AppPlaylist] = [] {
+        didSet { shelfMixtapes = playlists.map(AppAlbum.init(mixtape:)).sorted { AppHelpers.sortsBefore($0.title, $1.title) } }
+    }
+    @Published var podcastShows: [PodcastShow] = [] {
+        didSet {
+            mergedShows = Self.merge(podcastShows)
+            shelfPodcasts = mergedShows.map(AppAlbum.init(podcast:)).sorted { AppHelpers.sortsBefore($0.title, $1.title) }
+        }
+    }
+    /// The playlists as the shelves show them, filed by name; and the shows, each once
+    /// with its downloaded and streamed episodes together. Worked out when the lists
+    /// change rather than on every redraw of a screen that shows them.
+    private(set) var shelfMixtapes: [AppAlbum] = []
+    private(set) var shelfPodcasts: [AppAlbum] = []
+    private var mergedShows: [PodcastShow] = []
 
     // MARK: - Playback State
 
@@ -352,6 +366,23 @@ class MusicService: ObservableObject {
     /// The tracks waiting to play after the current one.
     var upNext: [AppTrack] { playbackQueue.upNext }
 
+    /// The songs the listener put in Up Next themselves (Play Next, Add to Queue), by id
+    /// and how many times, as against the rest of what's playing carrying on. Starting
+    /// something new replaces Up Next, so every player asks first while any of these are
+    /// still waiting (see `replaceQueuePrompt`).
+    @Published private(set) var listenerQueued: [String: Int] = [:]
+
+    /// How many of the songs in Up Next the listener queued themselves.
+    var listenerQueuedCount: Int {
+        guard !listenerQueued.isEmpty else { return 0 }
+        var remaining = listenerQueued
+        return upNext.reduce(0) { count, track in
+            guard let left = remaining[track.id], left > 0 else { return count }
+            remaining[track.id] = left - 1
+            return count + 1
+        }
+    }
+
     /// What plays after the current item, whichever player has it: Up Next, or while an
     /// episode streams, the show's episodes after it, as tracks.
     var upcoming: [AppTrack] {
@@ -431,6 +462,10 @@ class MusicService: ObservableObject {
     private var nowPlayingObserver:    NSObjectProtocol?
     private var libraryChangeObserver: NSObjectProtocol?
     private var playbackTimeUpdateTimer: Timer?
+    /// In the background nothing shows the time, so the ticker rests there (a podcast
+    /// keeps Lyre running) and catches up on the way back.
+    private var isInBackground = false
+    private var appStateObservers: [NSObjectProtocol] = []
 
     private static let maxRetryAttempts = 3
     private static let retryDelays: [TimeInterval] = [0, 2, 5]
@@ -1197,6 +1232,8 @@ class MusicService: ObservableObject {
             queueSourceTracks = tracks
             queueSourceNextIndex = windowEnd
             playbackQueue = PlaybackQueue(tracks: window.tracks, currentIndex: startIndex)
+            // A new list: nothing in it was queued by hand.
+            listenerQueued = [:]
             setPlayerQueue(items: window.items, startItem: window.items[startIndex], thenPlay: true)
             currentTrack = window.tracks[startIndex]
             isPlaying = true
@@ -1312,6 +1349,8 @@ class MusicService: ObservableObject {
     /// ones through the stream engine.
     func playPodcastEpisodes(_ episodes: [PodcastEpisode], startingAt index: Int = 0, podcastShowTitle: String? = nil) async {
         guard episodes.indices.contains(index) else { return }
+        // A show's episodes take over Up Next; nothing in it is queued by hand any more.
+        await MainActor.run { listenerQueued = [:] }
         guard episodes[index].streamURL != nil else {
             // An on-device show. Any episode without a media item behind it is dropped,
             // and the start index is found again among the survivors.
@@ -1321,10 +1360,15 @@ class MusicService: ObservableObject {
             return
         }
 
-        logger.info("Streaming podcast '\(podcastShowTitle ?? "unknown")': \(episodes.count) episode(s) at index \(index)")
+        // A show can mix episodes on the iPhone with ones from its feed (see
+        // `mergedPodcastShows`); the stream player takes only those it can stream, and
+        // the start is found again among them.
+        let streamable = episodes.filter { $0.streamURL != nil }
+        guard let start = streamable.firstIndex(of: episodes[index]) else { return }
+        logger.info("Streaming podcast '\(podcastShowTitle ?? "unknown")': \(streamable.count) episode(s) at index \(start)")
         await MainActor.run {
             activateStreamEngine()
-            streamPlayer.play(episodes, startingAt: index)
+            streamPlayer.play(streamable, startingAt: start)
             currentPlaylistID = nil
             currentPodcastShowTitle = podcastShowTitle
         }
@@ -1430,6 +1474,7 @@ class MusicService: ObservableObject {
                     queue.insert(Self.queueDescriptor(for: resolved.items), after: anchor ?? queue.items.last)
                 }
             }
+            for track in resolved.tracks { listenerQueued[track.id, default: 0] += 1 }
             logger.info("Queued \(resolved.items.count) track(s) \(placement == .next ? "next" : "last"), skipped \(skipped); Up Next is now \(self.playbackQueue.upNextCount)")
             return .queued(count: resolved.tracks.count, skipped: skipped)
         }
@@ -1447,7 +1492,7 @@ class MusicService: ObservableObject {
     /// queue and put back after whatever now precedes it in the model, both inside one
     /// transaction so the change is atomic and playback continues untouched.
     /// Main thread only.
-    func commitQueueMove(to offset: Int) {
+    func commitQueueMove(to offset: Int, then completion: (() -> Void)? = nil) {
         guard canEditUpcoming else { return }
         let upNext = playbackQueue.upNext
         guard upNext.indices.contains(offset), let movedItem = upNext[offset].mpItem else { return }
@@ -1456,7 +1501,7 @@ class MusicService: ObservableObject {
         let precedingItem = playbackQueue.tracks[playbackQueue.currentIndex + offset].mpItem
 
         logger.info("Moving '\(upNext[offset].title)' to Up Next position \(offset + 1)")
-        performQueueTransaction("move '\(upNext[offset].title)'") { queue in
+        performQueueTransaction("move '\(upNext[offset].title)'", then: completion) { queue in
             guard let existing = queue.items.first(where: { $0.persistentID == movedItem.persistentID }) else { return }
             let anchor = precedingItem.flatMap { preceding in
                 queue.items.first { $0.persistentID == preceding.persistentID }
@@ -1471,6 +1516,9 @@ class MusicService: ObservableObject {
     @discardableResult
     func removeFromQueue(at offset: Int) -> AppTrack? {
         guard canEditUpcoming, let removed = playbackQueue.removeUpNext(at: offset) else { return nil }
+        if let count = listenerQueued[removed.id] {
+            listenerQueued[removed.id] = count > 1 ? count - 1 : nil
+        }
         logger.info("Removed '\(removed.title)' from the queue")
         if let item = removed.mpItem {
             performQueueTransaction("remove '\(removed.title)'", refillAfter: true) { queue in
@@ -1488,6 +1536,7 @@ class MusicService: ObservableObject {
         guard canEditUpcoming else { return 0 }
         let removed = playbackQueue.removeAllUpNext()
         guard removed > 0 else { return 0 }
+        listenerQueued = [:]
 
         // Forget the list playback came from as well. Clearing only the loaded window
         // would leave the refill free to put the rest of that library straight back,
@@ -1526,20 +1575,34 @@ class MusicService: ObservableObject {
         streamPlayer.play(streamPlayer.episodes, startingAt: streamPlayer.index + 1 + offset)
     }
 
+    /// Plays song `offset` of Up Next now, keeping the rest of Up Next. The song comes to
+    /// the front first and plays from there, so the songs that were ahead of it wait
+    /// behind it rather than being skipped over and dropped as played.
     func playUpNext(at offset: Int) {
         let upNext = playbackQueue.upNext
         guard activeEngine == .library, upNext.indices.contains(offset),
               let item = upNext[offset].mpItem else { return }
-        logger.info("Jumping to '\(upNext[offset].title)' in Up Next")
-        player.nowPlayingItem = item
-        player.play()
+        logger.info("Playing '\(upNext[offset].title)' from Up Next now")
+        let playIt = { [weak self] in
+            guard let self else { return }
+            self.player.nowPlayingItem = item
+            self.player.play()
+        }
+        guard offset > 0, canEditUpcoming else { return playIt() }
+        reorderUpNext(from: offset, to: 0)
+        commitQueueMove(to: 0, then: playIt)
     }
 
     #if DEBUG
     /// Fills the queue model with tracks that have nothing behind them, so Up Next can be
     /// shown and UI-tested on a simulator with no music. The player is left alone.
-    func seedQueueForUITests(_ tracks: [AppTrack]) {
-        playbackQueue = PlaybackQueue(tracks: tracks, currentIndex: 0)
+    func seedQueueForUITests(_ tracks: [AppTrack], startingAt index: Int = 0) {
+        playbackQueue = PlaybackQueue(tracks: tracks, currentIndex: index)
+        // `--queued-by-hand` makes Up Next songs the listener queued, so starting
+        // something new asks first.
+        if ProcessInfo.processInfo.arguments.contains("--queued-by-hand") {
+            listenerQueued = Dictionary(tracks.dropFirst().map { ($0.id, 1) }, uniquingKeysWith: +)
+        }
     }
     #endif
 
@@ -1552,6 +1615,7 @@ class MusicService: ObservableObject {
     private func performQueueTransaction(
         _ description: String,
         refillAfter: Bool = false,
+        then completion: (() -> Void)? = nil,
         _ edit: @escaping (MPMusicPlayerControllerMutableQueue) -> Void
     ) {
         pendingQueueTransactions += 1
@@ -1565,6 +1629,8 @@ class MusicService: ObservableObject {
                 if let error {
                     logger.error("Queue transaction (\(description)) failed: \(error.localizedDescription)")
                 }
+                // Whatever waits on this edit, once the player has made it.
+                defer { completion?() }
                 // Queueing several songs in a row leaves earlier transactions
                 // reporting a queue that is already out of date, so only the last one
                 // still in flight gets to rewrite the model.
@@ -1782,6 +1848,36 @@ class MusicService: ObservableObject {
         .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
+    /// Every show once, whatever way it came: a podcast that's both on the iPhone and
+    /// subscribed to in Lyre is one show, with its downloaded and streamed episodes
+    /// together, newest first, and an episode that's both downloaded and in the feed
+    /// listed once (the downloaded copy). What the Spool, the Gramophone, the Disc,
+    /// Liquid and the Artwork Carousel show as their podcasts.
+    func mergedPodcastShows() -> [PodcastShow] { mergedShows }
+
+    private static func merge(_ podcastShows: [PodcastShow]) -> [PodcastShow] {
+        var order: [String] = []
+        var groups: [String: [PodcastShow]] = [:]
+        for show in podcastShows {
+            let key = show.title.lowercased()
+            if groups[key] == nil { order.append(key) }
+            groups[key, default: []].append(show)
+        }
+        return order.compactMap { key in
+            guard let shows = groups[key] else { return nil }
+            guard shows.count > 1 else { return shows.first }
+            // The subscription leads: its id, feed and artwork.
+            let lead = shows.first(where: \.isStreamed) ?? shows[0]
+            var seen = Set<String>()
+            let episodes = shows.flatMap(\.episodes)
+                .sorted { ($0.mediaItem != nil ? 0 : 1) < ($1.mediaItem != nil ? 0 : 1) }
+                .filter { seen.insert($0.title.lowercased()).inserted }
+                .sorted { ($0.published ?? .distantPast) > ($1.published ?? .distantPast) }
+            return PodcastShow(id: lead.id, title: lead.title, episodes: episodes,
+                               feedURL: lead.feedURL, artworkURL: shows.lazy.compactMap(\.artworkURL).first)
+        }
+    }
+
     /// Whether this episode is the one loaded in either player.
     func isCurrentEpisode(_ episode: PodcastEpisode) -> Bool {
         if let currentEpisode { return currentEpisode.id == episode.id }
@@ -1995,6 +2091,24 @@ class MusicService: ObservableObject {
             Task { await self.handleMediaLibraryChanged() }
         }
 
+        appStateObservers = [
+            NotificationCenter.default.addObserver(
+                forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                self.isInBackground = true
+                self.syncPlaybackTimeTicker()
+            },
+            NotificationCenter.default.addObserver(
+                forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                self.isInBackground = false
+                self.tickPlaybackTime()
+                self.syncPlaybackTimeTicker()
+            }
+        ]
+
         playbackStateObserver = NotificationCenter.default.addObserver(
             forName: .MPMusicPlayerControllerPlaybackStateDidChange,
             object: player, queue: .main
@@ -2089,24 +2203,33 @@ class MusicService: ObservableObject {
             return
         }
 
-        guard isPlaying else {
+        guard isPlaying, !isInBackground else {
             playbackTimeUpdateTimer?.invalidate()
             playbackTimeUpdateTimer = nil
             return
         }
         guard playbackTimeUpdateTimer == nil else { return }
 
-        playbackTimeUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self, !self.isScrubbing else { return }
-            let time = self.activeEngine == .stream ? self.streamPlayer.currentTime : self.player.currentPlaybackTime
-            // A stream only learns its real duration once it has buffered.
-            if self.activeEngine == .stream, self.duration != self.streamPlayer.duration {
-                self.duration = self.streamPlayer.duration
-            }
-            // The timer fires on the main run loop already. Skipping unchanged values
-            // keeps a paused-but-ticking edge case from republishing the same time.
-            if self.clock.time != time { self.clock.time = time }
+        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tickPlaybackTime() }
         }
+        // A little slack lets the system fire it alongside other work.
+        timer.tolerance = 0.1
+        RunLoop.main.add(timer, forMode: .common)
+        playbackTimeUpdateTimer = timer
+    }
+
+    /// Reads the player's time into the clock.
+    private func tickPlaybackTime() {
+        guard !isScrubbing else { return }
+        let time = activeEngine == .stream ? streamPlayer.currentTime : player.currentPlaybackTime
+        // A stream only learns its real duration once it has buffered.
+        if activeEngine == .stream, duration != streamPlayer.duration {
+            duration = streamPlayer.duration
+        }
+        // Skipping unchanged values keeps a paused-but-ticking edge case from
+        // republishing the same time.
+        if clock.time != time { clock.time = time }
     }
 
     // MARK: - Now Playing Info Center (lockscreen / control center)

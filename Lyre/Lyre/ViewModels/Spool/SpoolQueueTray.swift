@@ -40,6 +40,8 @@ struct SpoolQueueTray: View {
 
     @Environment(\.spoolTheme) private var theme
     @State private var dragStart: CGFloat?
+    /// Asking before Up Next is emptied from the Clear button.
+    @State private var isConfirmingClear = false
     /// The label pulled out of the stack, and whether its cassette has left it.
     @State private var pulledID: String?
     @State private var isPulledEmpty = false
@@ -108,16 +110,18 @@ struct SpoolQueueTray: View {
                 }
                 Spacer(minLength: 8)
                 if !upNext.isEmpty, canEdit {
-                    Button(String(localized: "spool.queue.clear")) {
-                        musicService.clearQueue()
-                        onNotice(String(localized: "queue.cleared"))
-                    }
+                    // Asked first: emptying Up Next can't be undone.
+                    Button(String(localized: "spool.queue.clear")) { isConfirmingClear = true }
                     .font(.system(size: 13, weight: .semibold))
                     .padding(.horizontal, 12)
                     .frame(height: 30)
                     .background(theme.keyLight, in: Capsule())
                     .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 1)
                     .accessibilityIdentifier("spool.queue.clear")
+                    .clearQueuePrompt(isPresented: $isConfirmingClear, count: upNext.count) {
+                        musicService.clearQueue()
+                        onNotice(String(localized: "queue.cleared"))
+                    }
                 }
                 Button(action: onClose) {
                     Image(systemName: "chevron.down")

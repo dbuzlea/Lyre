@@ -75,6 +75,8 @@ struct ScrollWheelView: View {
     // Center button gesture state (tap vs. swipe-right disambiguation)
     @State private var isCenterDragging = false
     @State private var centerSwipeFired = false
+    /// Asking before Up Next is emptied from the Clear Queue row.
+    @State private var isConfirmingClear = false
 
     // Touch imprint effect
     @State private var touchLocation: CGPoint = .zero
@@ -99,6 +101,9 @@ struct ScrollWheelView: View {
     let onOpenPodcastSearch: () -> Void
     /// The Search screen's results, in the order it lists them.
     var searchResults: [LibrarySearchResult] = []
+    /// Asks before a play that would clear songs queued by hand. LyreView shows the
+    /// question, over the whole player rather than the wheel.
+    var onAskToPlay: (PendingPlay) -> Void = { _ in }
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = true
 
@@ -295,6 +300,9 @@ struct ScrollWheelView: View {
                 .accessibilityAction(named: "Add to Queue") { handleCenterSwipeRight() }
         }
         .frame(width: 280, height: 280)
+        .clearQueuePrompt(isPresented: $isConfirmingClear, count: musicService.upNext.count) {
+            clearQueue()
+        }
     }
     
     private func handleWheelRotation(value: DragGesture.Value) {
@@ -1242,7 +1250,17 @@ struct ScrollWheelView: View {
     /// that cannot play would leave a phantom entry in the back stack. Reporting the
     /// failure matters because the alternative, quietly playing the nearest playable
     /// track instead, looks like the wheel selected the wrong row.
-    private func startPlayback(_ start: @escaping () async -> PlaybackStartOutcome) {
+    /// `queueable` says whether what's highlighted can be queued instead, offered when
+    /// asking; queueing it is the center swipe right, which the prompt leaves highlighted.
+    private func startPlayback(queueable: Bool = true, _ start: @escaping () async -> PlaybackStartOutcome) {
+        // Starting something new replaces Up Next: ask first if it holds songs queued by hand.
+        musicService.play(asking: onAskToPlay,
+                          addToQueue: queueable ? { handleCenterSwipe(placement: .last) } : nil) {
+            beginPlayback(start)
+        }
+    }
+
+    private func beginPlayback(_ start: @escaping () async -> PlaybackStartOutcome) {
         saveSelectionState()
         navigationStack.append(currentScreen)
         Task {
@@ -1316,7 +1334,8 @@ struct ScrollWheelView: View {
             } else if queueMoveOffset != nil {
                 dropCarriedQueueRow()
             } else if songSelection == QueueView.clearRowOffset {
-                clearQueue()
+                // Asked first: emptying Up Next can't be undone.
+                if musicService.upNext.isEmpty { bumpFeedback() } else { isConfirmingClear = true }
             } else if songSelection < musicService.upNext.count {
                 queueMoveOffset = songSelection
             } else {
@@ -1423,7 +1442,8 @@ struct ScrollWheelView: View {
                 startIndex = row - PlayShuffleRows.count
             }
             if items.indices.contains(startIndex) {
-                startPlayback {
+                // A show's episodes aren't queued.
+                startPlayback(queueable: false) {
                     await musicService.playPodcastEpisodes(
                         items, startingAt: startIndex, podcastShowTitle: show.title
                     )

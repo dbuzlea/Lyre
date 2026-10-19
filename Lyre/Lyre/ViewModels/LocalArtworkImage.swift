@@ -27,6 +27,17 @@ nonisolated final class LocalArtworkCache: @unchecked Sendable {
     }()
 
     /// Keyed by owner and size, because the same cover is drawn at several sizes.
+    /// A streamed show's cover as downloaded, so each size it's drawn at (a tile, an
+    /// open case, the droplet) is cut from one download rather than fetching it again.
+    private let downloads: NSCache<NSURL, NSData> = {
+        let cache = NSCache<NSURL, NSData>()
+        cache.totalCostLimit = 40 * 1024 * 1024
+        return cache
+    }()
+    /// Downloads under way, so covers asked for together share one.
+    private var inFlight: [URL: Task<Data?, Never>] = [:]
+    private let lock = NSLock()
+
     static func key(_ owner: String, size: CGFloat) -> NSString {
         "\(owner)@\(Int(size.rounded()))" as NSString
     }
@@ -51,14 +62,30 @@ nonisolated final class LocalArtworkCache: @unchecked Sendable {
     @concurrent
     func image(from url: URL, key: NSString, size: CGFloat) async -> UIImage? {
         if let hit = images.object(forKey: key) { return hit }
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
-              let image = UIImage(data: data) else { return nil }
+        guard let data = await data(from: url), let image = UIImage(data: data) else { return nil }
         // Feed artwork is often 3000pt square; keep only what the screen can show.
         let pixels = size * 3
         let target = image.size.width > pixels ? CGSize(width: pixels, height: pixels * image.size.height / image.size.width) : image.size
         let decoded = await image.byPreparingThumbnail(ofSize: target) ?? image
         images.setObject(decoded, forKey: key)
         return decoded
+    }
+
+    /// A cover's bytes: kept from an earlier download, joined to one under way, or
+    /// downloaded now.
+    @concurrent
+    private func data(from url: URL) async -> Data? {
+        if let kept = downloads.object(forKey: url as NSURL) { return kept as Data }
+        let task: Task<Data?, Never> = lock.withLock {
+            if let running = inFlight[url] { return running }
+            let task = Task<Data?, Never> { try? await URLSession.shared.data(from: url).0 }
+            inFlight[url] = task
+            return task
+        }
+        let data = await task.value
+        lock.withLock { inFlight[url] = nil }
+        if let data { downloads.setObject(data as NSData, forKey: url as NSURL, cost: data.count) }
+        return data
     }
 }
 

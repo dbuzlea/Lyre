@@ -137,6 +137,13 @@ class ThemeSettings {
         }
     }
 
+    /// The Disc's finish.
+    var discFinish: DiscFinish {
+        didSet {
+            UserDefaults.standard.set(discFinish.rawValue, forKey: "LyreDiscFinish")
+        }
+    }
+
     /// The faint crackle of the record under the music. On unless turned off.
     var gramophoneSurfaceNoise: Bool {
         didSet {
@@ -265,6 +272,8 @@ class ThemeSettings {
             .flatMap(GramophoneModel.init(rawValue:)) ?? .horn
         self.gramophoneFinish = UserDefaults.standard.string(forKey: "LyreGramophoneFinish")
             .flatMap(GramophoneFinish.init(rawValue:)) ?? .mahogany
+        self.discFinish = UserDefaults.standard.string(forKey: "LyreDiscFinish")
+            .flatMap(DiscFinish.init(rawValue:)) ?? .silver
         self.gramophoneSurfaceNoise = UserDefaults.standard.object(forKey: "LyreGramophoneSurfaceNoise") as? Bool ?? true
 
         // Finally, set the theme style

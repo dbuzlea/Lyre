@@ -578,7 +578,6 @@ struct LinerPanel: View {
     private var separatorOpacity: Double { contrast == .increased ? 0.24 : 0.08 }
 
     /// Sideways travel before a drag counts as "queue this row".
-    private let queueSwipeDistance: CGFloat = 44
 
     private var sideDuration: TimeInterval {
         rows.reduce(0) { $0 + $1.duration }
@@ -689,12 +688,11 @@ struct LinerPanel: View {
         // watching for touches. That gesture competed with the Button and the enclosing
         // ScrollView for every tap, which is exactly the kind of fight a tap loses.
         .buttonStyle(LinerRowButtonStyle(ink: theme.ink))
-        // Simultaneous so the swipe cannot claim the touch from the row's own Button —
-        // attached exclusively, a drag on a Button stops its action from firing.
-        .simultaneousGesture(queueSwipe(for: row))
-        // Touch and hold offers both placements; swipe right stays the one-move
-        // shortcut for the bottom of the queue. Holding still cannot be mistaken for
-        // the list's scroll, the swipe, or a tap.
+        // Swiped right, a song offers Play Next and Add to Queue, as every list in Lyre
+        // does (a long swipe plays it next); an episode, its download.
+        .rowSwipeActions(swipeActions(for: row), captionColor: theme.ink.opacity(0.6))
+        // Touch and hold offers the same. Holding still cannot be mistaken for the
+        // list's scroll, the swipe, or a tap.
         .contextMenu {
             if let mark = row.download {
                 Button {
@@ -729,18 +727,12 @@ struct LinerPanel: View {
         }
     }
 
-    /// Recognises only the rightward drags the enclosing ScrollView leaves alone.
-    private func queueSwipe(for row: LinerRow) -> some Gesture {
-        DragGesture(minimumDistance: 16)
-            .onEnded { value in
-                guard value.translation.width >= queueSwipeDistance,
-                      abs(value.translation.width) > abs(value.translation.height) else { return }
-                if row.download != nil {
-                    onDownload?(row.id)
-                } else if canQueue {
-                    queue(row, placement: .last)
-                }
-            }
+    private func swipeActions(for row: LinerRow) -> [RowSwipeAction] {
+        if let mark = row.download {
+            return [RowSwipeAction(title: Self.downloadActionTitle(mark), symbol: Self.downloadActionIcon(mark),
+                                   tint: RowSwipeAction.downloadTint) { onDownload?(row.id) }]
+        }
+        return canQueue ? RowSwipeAction.queue { queue(row, placement: $0) } : []
     }
 
     private static func downloadActionTitle(_ mark: LinerDownloadMark) -> String {

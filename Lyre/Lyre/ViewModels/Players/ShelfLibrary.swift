@@ -80,9 +80,7 @@ struct ShelfLibrary {
                 .sorted { AppHelpers.sortsBefore($0.title, $1.title) }
         }
         #endif
-        return musicService.playlists
-            .map(AppAlbum.init(mixtape:))
-            .sorted { AppHelpers.sortsBefore($0.title, $1.title) }
+        return musicService.shelfMixtapes
     }
 
     /// The podcasts, as spoken-word tapes or broadcast discs, filed by name.
@@ -106,9 +104,8 @@ struct ShelfLibrary {
             .sorted { AppHelpers.sortsBefore($0.title, $1.title) }
         }
         #endif
-        return musicService.podcastShows
-            .map(AppAlbum.init(podcast:))
-            .sorted { AppHelpers.sortsBefore($0.title, $1.title) }
+        // Each show once, its downloaded and streamed episodes together.
+        return musicService.shelfPodcasts
     }
 
     /// Every song, for a shuffle of them all; the sample albums' songs when samples

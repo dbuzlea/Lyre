@@ -9,7 +9,9 @@ import SwiftUI
 //
 // The tutorial as every player's manual shows it: one lesson at a time, acted out on a
 // miniature of the player above its name and what to do, with Previous, Next and Play
-// Again under it. Tapping the miniature plays the lesson again.
+// Again under it. Tapping the miniature plays the lesson again. Swiping across the pager
+// turns the lessons too — left for the next, right for the one before — and each lesson
+// slides in from the side it's coming from.
 //
 // Each player brings its own lessons and its own miniature (SpoolTourScene,
 // GramophoneTourScene); the pager is shared so the tutorials work the same way.
@@ -32,6 +34,8 @@ struct TourPager<Lesson: TourLesson, Scene: View>: View {
     @State private var index = 0
     /// Bumped to play the lesson on screen again.
     @State private var replays = 0
+    /// Which way the last turn went, so the next lesson slides in from that side.
+    @State private var forward = true
 
     private var lesson: Lesson { lessons[index] }
 
@@ -39,7 +43,9 @@ struct TourPager<Lesson: TourLesson, Scene: View>: View {
         VStack(spacing: 14) {
             scene(lesson, replays)
                 .id(lesson)
-                .transition(.opacity)
+                .transition(.asymmetric(
+                    insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
+                    removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)))
                 .contentShape(Rectangle())
                 .onTapGesture { replays += 1 }
                 .accessibilityHidden(true)
@@ -77,6 +83,30 @@ struct TourPager<Lesson: TourLesson, Scene: View>: View {
             }
             .foregroundStyle(ink)
         }
+        .clipped()
+        .contentShape(Rectangle())
+        // A swipe across turns the lessons, as the arrows do. Simultaneous, so a tap on
+        // the miniature still replays it and a page around the pager still scrolls.
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 20)
+                .onEnded { value in
+                    let dx = value.translation.width
+                    let flung = value.predictedEndTranslation.width
+                    guard abs(dx) > abs(value.translation.height) * 1.4,
+                          abs(dx) > 50 || abs(flung) > 160 else { return }
+                    if dx < 0, index < lessons.count - 1 {
+                        go(by: 1)
+                    } else if dx > 0, index > 0 {
+                        go(by: -1)
+                    }
+                }
+        )
+        .accessibilityAction(named: String(localized: "spool.tour.next")) {
+            if index < lessons.count - 1 { go(by: 1) }
+        }
+        .accessibilityAction(named: String(localized: "spool.tour.previous")) {
+            if index > 0 { go(by: -1) }
+        }
     }
 
     private var dots: some View {
@@ -107,7 +137,8 @@ struct TourPager<Lesson: TourLesson, Scene: View>: View {
 
     private func go(by step: Int) {
         UISelectionFeedbackGenerator().selectionChanged()
-        withAnimation(.easeInOut(duration: 0.2)) { index += step }
+        forward = step > 0
+        withAnimation(.easeInOut(duration: 0.28)) { index += step }
     }
 }
 

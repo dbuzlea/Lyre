@@ -120,6 +120,8 @@ struct ArtworkCarouselView: View {
     let onDismiss: () -> Void
 
     @State private var position: CGFloat = 0
+    /// A play waiting to be confirmed, as it would clear songs queued by hand.
+    @State private var pendingPlay: PendingPlay?
     @State private var lastTranslation: CGFloat = 0
 
     // Gatefold state. `foldProgress` is the only value the visuals read.
@@ -326,6 +328,7 @@ struct ArtworkCarouselView: View {
                 }
             }
         }
+        .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
     }
 
     // MARK: - Geometry
@@ -1275,6 +1278,15 @@ struct ArtworkCarouselView: View {
     // MARK: - Playback
 
     private func playTrack(at globalIndex: Int) {
+        // Starting something new replaces Up Next: ask first if it holds songs queued by hand.
+        let queueable: Bool = if case .podcasts = content { false } else { true }
+        musicService.play(asking: { pendingPlay = $0 },
+                          addToQueue: queueable ? { queueTrack(at: globalIndex, placement: .last) } : nil) {
+            startTrack(at: globalIndex)
+        }
+    }
+
+    private func startTrack(at globalIndex: Int) {
         switch content {
         case .podcasts:
             Task {
@@ -1458,6 +1470,23 @@ struct ArtworkCarouselView: View {
             return
         }
         let queue = shuffled ? backFaceTracks.shuffled() : backFaceTracks
+        let name = content.title(at: selectedIndex)
+        musicService.play(asking: { pendingPlay = $0 }, addToQueue: { queueAll(queue, name: name) }) {
+            startAll(queue)
+        }
+    }
+
+    /// The open record's songs onto the end of Up Next, in the order Play or Shuffle chose.
+    private func queueAll(_ tracks: [AppTrack], name: String) {
+        Task {
+            let outcome = await musicService.addToQueue(tracks: tracks, placement: .last)
+            await MainActor.run {
+                reportQueued(outcome, name: name, requested: tracks.count, placement: .last, isCollection: true)
+            }
+        }
+    }
+
+    private func startAll(_ queue: [AppTrack]) {
         Task {
             let outcome = await musicService.play(tracks: queue, startingAt: 0, playlistID: backFacePlaylistID)
             await MainActor.run {

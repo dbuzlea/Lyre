@@ -20,7 +20,9 @@ struct RecordSleeveView: View {
     let album: AppAlbum
     let loadTracks: () async -> [AppTrack]
     /// The tracks, and the one to start from.
-    let onPick: ([AppTrack], Int) -> Void
+    /// The songs, the one to start from, and whether the whole record was asked for
+    /// (Play, Shuffle) rather than one song.
+    let onPick: ([AppTrack], Int, Bool) -> Void
     let onQueue: ([AppTrack], QueuePlacement) -> Void
     let onClose: () -> Void
     /// The song playing, marked in the list.
@@ -152,7 +154,7 @@ struct RecordSleeveView: View {
 
             if let tracks, !tracks.isEmpty {
                 HStack(spacing: 8) {
-                    Button { pick(tracks, 0) } label: {
+                    Button { pick(tracks, 0, whole: true) } label: {
                         Label(String(localized: album.isPodcast ? "spool.podcast.playLatest" : "detail.play"),
                               systemImage: "play.fill")
                             .foregroundStyle(theme.paper)
@@ -162,7 +164,7 @@ struct RecordSleeveView: View {
                     }
                     .accessibilityIdentifier("gramophone.sleeve.play")
                     if !album.isPodcast {
-                        Button { pick(tracks.shuffled(), 0) } label: {
+                        Button { pick(tracks.shuffled(), 0, whole: true) } label: {
                             Label(String(localized: "detail.shuffle"), systemImage: "shuffle")
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
@@ -207,7 +209,7 @@ struct RecordSleeveView: View {
     }
 
     private func row(_ track: AppTrack, index: Int, of tracks: [AppTrack], episode: PodcastEpisode?) -> some View {
-        Button { pick(tracks, index) } label: {
+        Button { pick(tracks, index, whole: false) } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Group {
                     if track.id == playingID {
@@ -241,6 +243,11 @@ struct RecordSleeveView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Swiped right, a song offers Play Next and Add to Queue, as every list in Lyre
+        // does; an episode, its download.
+        .rowSwipeActions(album.isPodcast ? episode.map(RowSwipeAction.download) ?? []
+                                         : RowSwipeAction.queue { onQueue([track], $0) },
+                         captionColor: SpoolPalette.labelInk.opacity(0.65))
         // Holding a song offers to queue it; holding an episode, its download.
         .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track, episode: episode, onQueue: onQueue))
         .accessibilityIdentifier("gramophone.sleeve.track.\(index)")
@@ -249,8 +256,8 @@ struct RecordSleeveView: View {
         }
     }
 
-    private func pick(_ tracks: [AppTrack], _ index: Int) {
+    private func pick(_ tracks: [AppTrack], _ index: Int, whole: Bool) {
         withAnimation(.easeIn(duration: 0.2)) { shown = false }
-        onPick(tracks, index)
+        onPick(tracks, index, whole)
     }
 }

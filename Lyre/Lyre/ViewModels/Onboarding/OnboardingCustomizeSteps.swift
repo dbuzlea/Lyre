@@ -526,7 +526,56 @@ struct DoneStep: View {
         switch themeSettings.playerStyle {
         case .spool:      spoolSummary
         case .gramophone: gramophoneSummary
+        case .disc:       discSummary
+        case .liquid:     liquidSummary
         case .classic:    classicSummary
+        }
+    }
+
+    /// The Liquid player: nothing to choose, so how to use it.
+    private var liquidSummary: some View {
+        OnboardingPage(title: String(localized: "onboarding.allSet"), compact: true,
+                       message: String(localized: "onboarding.done.liquid.message")) {
+            VStack(spacing: 20) {
+                VStack(spacing: 0) {
+                    summaryRow("onboarding.done.player", PlayerStyle.liquid.displayName)
+                    summaryRow("onboarding.done.sounds",
+                               themeSettings.clickSoundEnabled ? String(localized: "onboarding.on") : String(localized: "onboarding.off"),
+                               last: true)
+                }
+                .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.06)))
+
+                Text(String(localized: "onboarding.done.liquid.hint"))
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .multilineTextAlignment(.center)
+            }
+        } footer: {
+            OnboardingPrimaryButton(title: String(localized: "onboarding.startListening"), action: onFinish)
+        }
+    }
+
+    /// The Disc's choices.
+    private var discSummary: some View {
+        OnboardingPage(title: String(localized: "onboarding.allSet"), compact: true,
+                       message: String(localized: "onboarding.done.disc.message")) {
+            VStack(spacing: 20) {
+                VStack(spacing: 0) {
+                    summaryRow("onboarding.done.player", PlayerStyle.disc.displayName)
+                    summaryRow("onboarding.done.finish", themeSettings.discFinish.displayName)
+                    summaryRow("onboarding.done.sounds",
+                               themeSettings.clickSoundEnabled ? String(localized: "onboarding.on") : String(localized: "onboarding.off"),
+                               last: true)
+                }
+                .background(RoundedRectangle(cornerRadius: 14).fill(.white.opacity(0.06)))
+
+                Text(String(localized: "onboarding.done.disc.hint"))
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.75))
+                    .multilineTextAlignment(.center)
+            }
+        } footer: {
+            OnboardingPrimaryButton(title: String(localized: "onboarding.startListening"), action: onFinish)
         }
     }
 

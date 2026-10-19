@@ -75,6 +75,9 @@ enum OnboardingStep: Int, CaseIterable {
     case meetTheSpool
     case spoolStyle
     case gramophoneStyle
+    case meetTheDisc
+    case discStyle
+    case meetLiquid
     case done
 
     /// The steps taken with each player, in order.
@@ -88,6 +91,10 @@ enum OnboardingStep: Int, CaseIterable {
             return start + [.meetTheSpool, .spoolStyle, .done]
         case .gramophone:
             return start + [.gramophoneStyle, .done]
+        case .disc:
+            return start + [.meetTheDisc, .discStyle, .done]
+        case .liquid:
+            return start + [.meetLiquid, .done]
         }
     }
 
@@ -100,9 +107,9 @@ enum OnboardingStep: Int, CaseIterable {
         case (.bodyStyle, _), (.finish, _), (.highlight, _): return 190
         case (.screenSize, _):                    return 210
         case (.backlight, _):                     return 190
-        case (.spoolStyle, _), (.gramophoneStyle, _): return 180
+        case (.spoolStyle, _), (.gramophoneStyle, _), (.discStyle, _): return 180
         case (.done, .classic):                   return 220
-        case (.done, .spool), (.done, .gramophone): return 200
+        case (.done, .spool), (.done, .gramophone), (.done, .disc), (.done, .liquid): return 200
         default:                                  return nil
         }
     }
@@ -142,6 +149,10 @@ struct OnboardingView: View {
                             SpoolOnboardingPreview(themeSettings: themeSettings, height: previewHeight)
                         } else if themeSettings.playerStyle == .gramophone {
                             GramophoneOnboardingPreview(themeSettings: themeSettings, height: previewHeight)
+                        } else if themeSettings.playerStyle == .disc {
+                            DiscOnboardingPreview(themeSettings: themeSettings, height: previewHeight)
+                        } else if themeSettings.playerStyle == .liquid {
+                            LiquidOnboardingPreview(height: previewHeight)
                         } else {
                             OnboardingDevicePreview(
                                 themeSettings: themeSettings,
@@ -250,6 +261,12 @@ struct OnboardingView: View {
             SpoolStyleStep(themeSettings: themeSettings, onNext: advance)
         case .gramophoneStyle:
             GramophoneStyleStep(themeSettings: themeSettings, onNext: advance)
+        case .meetTheDisc:
+            MeetTheDiscStep(themeSettings: themeSettings, onNext: advance)
+        case .discStyle:
+            DiscStyleStep(themeSettings: themeSettings, onNext: advance)
+        case .meetLiquid:
+            MeetLiquidStep(onNext: advance)
         case .meetTheWheel:
             MeetTheWheelStep(theme: themeSettings.currentTheme, onNext: advance)
         case .practice:

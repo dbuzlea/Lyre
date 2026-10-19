@@ -86,6 +86,32 @@ final class SpoolUITests: XCTestCase {
         attachScreenshot(app, named: "duo-closed")
     }
 
+    /// On an unfolded Duo a case opens over the rack, not the whole screen, so the deck
+    /// stays in view; a song picked from it goes into the open door and waits there.
+    @MainActor
+    func testOnAnOpenDuoACaseOpensOverTheRackAndItsSongGoesIntoTheDoor() throws {
+        let app = launchSpool(extraArguments: ["-SpoolFoldPosture", "open"])
+        let hint = element(app, "spool.open.hint")
+        XCTAssertTrue(hint.waitForExistence(timeout: 10), "The open Duo layout didn't show")
+        let door = element(app, ID.door)
+
+        element(app, ID.firstTape).tap()
+        let song = element(app, "spool.jcard.track.2")
+        XCTAssertTrue(song.waitForExistence(timeout: 5), "The case didn't open")
+        sleep(1)
+        // The case keeps to the rack's side: the deck is still there, to its left.
+        let tray = element(app, "spool.case.cassette")
+        XCTAssertTrue(tray.exists)
+        XCTAssertGreaterThan(tray.frame.minX, door.frame.maxX - 1, "The case covered the deck")
+        attachScreenshot(app, named: "duo-case-over-rack")
+
+        song.tap()
+        expectation(for: NSPredicate(format: "label CONTAINS 'Close your iPhone'"), evaluatedWith: hint)
+        waitForExpectations(timeout: 5)
+        XCTAssertFalse(song.exists, "The case stayed open after a song was picked")
+        attachScreenshot(app, named: "duo-case-song-in-door")
+    }
+
     @MainActor
     func testTappingATapeInTheRackBringsItForwardToBeSwiped() throws {
         let app = launchSpool()
@@ -684,6 +710,73 @@ final class SpoolUITests: XCTestCase {
 
     // MARK: - Up Next
 
+    /// With songs queued by hand, putting a new tape in asks first, as it would clear them:
+    /// the ✕ leaves the deck and the queue alone; Add to Queue queues the tape instead;
+    /// Clear and Play goes ahead.
+    @MainActor
+    func testPlayingATapeOverAQueueBuiltByHandAsksFirst() throws {
+        let app = launchSpool(extraArguments: ["--spool-sample-queue", "--queued-by-hand"])
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let single = element(app, ID.single)
+        XCTAssertTrue(single.waitForExistence(timeout: 3))
+        single.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        sleep(1)
+        single.swipeLeft()
+
+        let prompt = element(app, "queue.replace")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 3), "Playing a tape over a queue built by hand didn't ask")
+        XCTAssertTrue(app.staticTexts["Playing this clears the 8 songs you've queued."].exists,
+                      "The prompt didn't say how many queued songs would go")
+        XCTAssertTrue(element(app, "queue.replace.queue").exists, "No Add to Queue in the prompt")
+        attachScreenshot(app, named: "replace-queue-prompt")
+
+        // The ✕ in the corner cancels.
+        element(app, "queue.replace.cancel").tap()
+        XCTAssertTrue(waitForDisappearance(of: prompt, timeout: 2))
+        XCTAssertTrue(single.exists, "Cancelling still put the tape in")
+
+        // Add to Queue queues the tape and leaves it in the rack.
+        single.swipeLeft()
+        XCTAssertTrue(prompt.waitForExistence(timeout: 3))
+        element(app, "queue.replace.queue").tap()
+        XCTAssertTrue(element(app, "spool.notice").waitForExistence(timeout: 5), "Add to Queue said nothing")
+        XCTAssertTrue(single.exists, "Add to Queue put the tape in")
+
+        // Clear and Play goes ahead.
+        single.swipeLeft()
+        XCTAssertTrue(prompt.waitForExistence(timeout: 3))
+        element(app, "queue.replace.play").tap()
+        XCTAssertTrue(waitForDisappearance(of: single, timeout: 5), "Clear and Play didn't put the tape in")
+    }
+
+    /// Clearing Up Next asks first: Cancel keeps the songs, Clear Queue empties it.
+    @MainActor
+    func testClearingUpNextAsksFirst() throws {
+        let app = launchSpool(extraArguments: ["--spool-sample-queue"])
+        let grip = element(app, "spool.queue.grip")
+        XCTAssertTrue(grip.waitForExistence(timeout: 10), "No Up Next grip under the door")
+        grip.tap()
+        XCTAssertTrue(element(app, "spool.queue.row.0").waitForExistence(timeout: 3))
+
+        let clear = element(app, "spool.queue.clear")
+        clear.tap()
+        let prompt = app.alerts["Clear the Queue?"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 3), "Clear didn't ask first")
+        XCTAssertTrue(prompt.staticTexts["This removes 8 songs from Up Next. What's playing now keeps playing."].exists,
+                      "The prompt didn't say how many songs would go")
+        attachScreenshot(app, named: "clear-queue-prompt")
+        prompt.buttons["Cancel"].tap()
+        XCTAssertTrue(app.staticTexts["8 up next"].waitForExistence(timeout: 2), "Cancel still cleared the queue")
+
+        clear.tap()
+        XCTAssertTrue(prompt.waitForExistence(timeout: 3))
+        prompt.buttons["Clear Queue"].tap()
+        XCTAssertTrue(waitForDisappearance(of: element(app, "spool.queue.row.0"), timeout: 3),
+                      "Clear Queue didn't empty Up Next")
+    }
+
     @MainActor
     func testTappingTheGripBringsUpUpNextAndASwipeRemovesASong() throws {
         let app = launchSpool(finish: "gold", extraArguments: ["--spool-sample-queue"])
@@ -781,10 +874,11 @@ final class SpoolUITests: XCTestCase {
         }
 
         settings.tap()
+        XCTAssertTrue(element(app, "spool.settings.done").waitForExistence(timeout: 3), "Settings did not open")
+        // The tutorial and the designs come first; the finishes are under them, and
+        // aren't made until they're scrolled to.
         let gold = element(app, "spool.settings.finish.gold")
-        XCTAssertTrue(gold.waitForExistence(timeout: 3), "Settings did not open")
-        // The tutorial comes first; the finishes are under it.
-        for _ in 0..<6 where !gold.isHittable { app.swipeUp() }
+        for _ in 0..<8 where !(gold.exists && gold.isHittable) { app.swipeUp() }
         gold.tap()
         XCTAssertTrue(gold.isSelected, "The finish picked is not shown as chosen")
         attachScreenshot(app, named: "settings")
@@ -811,6 +905,33 @@ final class SpoolUITests: XCTestCase {
         let play = app.buttons["Play"]
         XCTAssertTrue(door.waitForExistence(timeout: 3) && play.exists)
         XCTAssertLessThan(play.frame.maxY, door.frame.minY, "Still the original's layout")
+    }
+
+    /// Swiped right, a song in a case slides aside onto Play Next and Add to Queue, as
+    /// in every list in Lyre, without loading the tape.
+    @MainActor
+    func testSwipingASongInACaseOffersPlayNextAndAddToQueue() throws {
+        let app = launchSpool()
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let tape = element(app, ID.firstTape)
+        XCTAssertTrue(tape.waitForExistence(timeout: 3))
+        sleep(1)
+        tape.tap()
+        let song = element(app, "spool.jcard.track.2")
+        XCTAssertTrue(song.waitForExistence(timeout: 5), "The case didn't open")
+        sleep(1)
+        let from = song.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 150, dy: 0)))
+        let playNext = app.buttons["Play Next"].firstMatch
+        XCTAssertTrue(playNext.waitForExistence(timeout: 3), "Swiping the song offered nothing")
+        XCTAssertTrue(app.buttons["Add to Queue"].firstMatch.exists, "No Add to Queue")
+        XCTAssertTrue(song.exists, "The swipe played the song")
+        attachScreenshot(app, named: "spool-case-swiped")
+        playNext.tap()
+        XCTAssertTrue(waitForDisappearance(of: playNext, timeout: 5), "The row stayed open")
+        XCTAssertTrue(song.exists, "Play Next played the song")
     }
 
     // MARK: - Helpers

@@ -342,6 +342,52 @@ final class GramophoneUITests: XCTestCase {
         attachScreenshot(app, named: "tour-tonearm")
     }
 
+    /// Swiped right, a song in a sleeve slides aside onto Play Next and Add to Queue, as
+    /// in every list in Lyre, without lowering the arm.
+    @MainActor
+    func testSwipingASongInASleeveOffersPlayNextAndAddToQueue() throws {
+        let app = launchGramophone()
+        openCrate(app)
+        let first = element(app, "gramophone.stack.sample-1")
+        XCTAssertTrue(first.waitForExistence(timeout: 8))
+        sleep(1)
+        first.swipeRight()
+        let second = element(app, "gramophone.stack.sample-2")
+        XCTAssertTrue(second.waitForExistence(timeout: 3))
+        second.swipeRight()
+        let single = element(app, "gramophone.stack.sample-3")
+        XCTAssertTrue(single.waitForExistence(timeout: 3))
+        single.tap()
+        let song = element(app, "gramophone.sleeve.track.0")
+        XCTAssertTrue(song.waitForExistence(timeout: 3), "The sleeve didn't open")
+        sleep(1)
+        let from = song.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 150, dy: 0)))
+        let playNext = app.buttons["Play Next"].firstMatch
+        XCTAssertTrue(playNext.waitForExistence(timeout: 3), "Swiping the song offered nothing")
+        XCTAssertTrue(app.buttons["Add to Queue"].firstMatch.exists, "No Add to Queue")
+        XCTAssertTrue(song.exists, "The swipe played the song")
+        attachScreenshot(app, named: "gramophone-sleeve-swiped")
+        playNext.tap()
+        XCTAssertTrue(waitForDisappearance(playNext), "The row stayed open")
+        XCTAssertTrue(song.exists, "Play Next played the song")
+    }
+
+    /// The booklet ends with the app's version, as every player's settings do.
+    @MainActor
+    func testTheBookletShowsTheVersion() throws {
+        let app = launchGramophone()
+        let booklet = element(app, "gramophone.settings")
+        XCTAssertTrue(booklet.waitForExistence(timeout: 10))
+        booklet.tap()
+        let version = element(app, "gramophone.settings.version")
+        for _ in 0..<10 where !(version.exists && version.isHittable) { app.swipeUp() }
+        XCTAssertTrue(version.exists, "The booklet doesn't say its version")
+        let expected = Bundle(for: Self.self).object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+        XCTAssertTrue(version.label.hasPrefix("Version "), "Version line reads \(version.label)")
+        attachScreenshot(app, named: "gramophone-version \(expected)")
+    }
+
     // MARK: - Helpers
 
     /// Scrolls the booklet up until `element` can be tapped.
