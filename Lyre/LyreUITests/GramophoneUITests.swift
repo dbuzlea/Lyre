@@ -390,46 +390,69 @@ final class GramophoneUITests: XCTestCase {
 
     // MARK: - iPhone Duo
 
-    /// Opened with the fold across the middle, the iPhone Duo has the machine above and
-    /// a bin of records below, flipped through like Up Next's rack.
+    /// LYRE-13: an open Duo, fold across the middle, has the covers in a row under the
+    /// machine, with search and the dividers above them.
     @MainActor
-    func testAnOpenDuoHasABinOfRecordsToFlipThrough() throws {
+    func testAnOpenDuoHasACarouselOfCoversUnderTheMachine() throws {
         let app = launchGramophone(extraArguments: ["-SpoolFoldPosture", "open"])
-        let front = element(app, "gramophone.bin.front")
-        XCTAssertTrue(front.waitForExistence(timeout: 10), "No bin under the machine")
+        let front = element(app, "gramophone.carousel.front")
+        XCTAssertTrue(front.waitForExistence(timeout: 10), "No carousel under the machine")
         XCTAssertTrue(element(app, "gramophone.drawer").exists || element(app, "gramophone.crate").exists,
-                      "The machine isn't above the bin")
+                      "The machine isn't above the carousel")
+        XCTAssertTrue(app.textFields["shelf.search.field"].exists, "No search above the carousel")
         XCTAssertEqual(front.value as? String, "1 of 12")
-        attachScreenshot(app, named: "duo-bin")
+        attachScreenshot(app, named: "duo-carousel")
 
-        // Swiped down, the front record tips forward and the next is in front; up, back.
-        front.swipeDown()
-        sleep(1)
-        XCTAssertEqual(element(app, "gramophone.bin.front").value as? String, "2 of 12")
-        element(app, "gramophone.bin.front").swipeUp()
-        sleep(1)
-        XCTAssertEqual(element(app, "gramophone.bin.front").value as? String, "1 of 12")
+        // Swiped left, the row moves along (a flick coasts past several); right, back to the start.
+        front.swipeLeft()
+        let moved = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value != '1 of 12'"),
+                                              object: element(app, "gramophone.carousel.front"))
+        XCTAssertEqual(XCTWaiter().wait(for: [moved], timeout: 3), .completed, "Swiping didn't move the row")
+        attachScreenshot(app, named: "duo-carousel-swiped")
+        for _ in 0..<3 where element(app, "gramophone.carousel.front").value as? String != "1 of 12" {
+            element(app, "gramophone.carousel.front").swipeRight()
+            sleep(1)
+        }
+        XCTAssertEqual(element(app, "gramophone.carousel.front").value as? String, "1 of 12")
 
-        // Tapped, its sleeve opens.
-        element(app, "gramophone.bin.front").tap()
+        // Tapped, its sleeve opens, the record sliding out.
+        element(app, "gramophone.carousel.front").tap()
         XCTAssertTrue(element(app, "gramophone.sleeve").waitForExistence(timeout: 5), "Tapping didn't open the sleeve")
-        attachScreenshot(app, named: "duo-bin-sleeve")
+        attachScreenshot(app, named: "duo-carousel-sleeve")
         element(app, "gramophone.sleeve.close").tap()
 
-        // The songs have a divider of their own.
-        element(app, "gramophone.bin.songs").tap()
-        sleep(1)
-        XCTAssertTrue((element(app, "gramophone.bin.front").value as? String)?.hasPrefix("1 of ") == true)
-        attachScreenshot(app, named: "duo-bin-songs")
+        // The songs have a divider of their own, each song as its album's cover.
+        element(app, "gramophone.carousel.songs").tap()
+        XCTAssertTrue(element(app, "gramophone.carousel.front").waitForExistence(timeout: 3))
+        XCTAssertTrue((element(app, "gramophone.carousel.front").value as? String)?.hasPrefix("1 of ") == true)
+        attachScreenshot(app, named: "duo-carousel-songs")
+
+        // Search narrows the row.
+        element(app, "gramophone.carousel.albums").tap()
+        let field = app.textFields["shelf.search.field"]
+        field.tap()
+        field.typeText("Sample EP")
+        XCTAssertTrue(waitFor(element(app, "gramophone.carousel.front"), label: "Sample EP"),
+                      "Search didn't narrow the covers")
+    }
+
+    private func waitFor(_ element: XCUIElement, value: String) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: 3) == .completed
+    }
+
+    private func waitFor(_ element: XCUIElement, label: String) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", label), object: element)
+        return XCTWaiter().wait(for: [expectation], timeout: 3) == .completed
     }
 
     /// Any other iPhone, or a Duo closed, keeps the machine to itself.
     @MainActor
-    func testAPhoneThatDoesntFoldHasNoBin() throws {
+    func testAPhoneThatDoesntFoldHasNoCarousel() throws {
         let app = launchGramophone()
         XCTAssertTrue(element(app, "gramophone.settings").waitForExistence(timeout: 10))
         sleep(1)
-        XCTAssertFalse(element(app, "gramophone.bin").exists, "A bin on a phone that doesn't fold")
+        XCTAssertFalse(element(app, "gramophone.carousel").exists, "Covers under the machine on a phone that doesn't fold")
     }
 
     // MARK: - Helpers

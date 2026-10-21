@@ -58,8 +58,9 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //
 // iPhone Duo, opened and turned so the fold runs across the middle (the inner screen
 // taller than wide): the machine, with Up Next's rack beside it, takes the top half, and
-// the bottom half is a bin of records to flip through (GramophoneCrateBin). Only the Duo
-// reports a hinge, so no other iPhone ever shows the bin.
+// the bottom half is the covers in a row to swipe through (GramophoneCoverCarousel). Only
+// the Duo reports a hinge, so no other iPhone ever shows it. Open on its side, the machine
+// simply has the whole wider screen.
 //
 // Otherwise everything is laid out for a phone held upright, in every fold posture. With Reduce
 // Motion on, the camera cuts between the two rather than moving.
@@ -141,12 +142,12 @@ struct GramophonePlayerView: View {
     private var model: GramophoneModel { themeSettings.gramophoneModel }
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
-    /// iPhone Duo open with its fold across the middle: the machine above, the bin below.
+    /// iPhone Duo open with its fold across the middle: the machine above, the covers below.
     private var isDuoSplit: Bool {
         foldMonitor.posture == .open && containerWidth > 0 && containerHeight > containerWidth
     }
 
-    /// The bin's share of the screen, under the fold (its safe area besides).
+    /// The covers' share of the screen, under the fold (its safe area besides).
     private var binHeight: CGFloat { isDuoSplit ? (containerHeight / 2).rounded() : 0 }
 
     var body: some View {
@@ -167,7 +168,7 @@ struct GramophonePlayerView: View {
 
             overhead
                 .padding(safeArea)
-                // Above the fold, on a Duo with the bin below.
+                // Above the fold, on a Duo with the covers below.
                 .padding(.bottom, binHeight)
                 .frame(maxWidth: 560)
                 // Laid out all along, so the camera knows where to come down to, but
@@ -185,7 +186,7 @@ struct GramophonePlayerView: View {
                 .allowsHitTesting(vantage != .rack)
 
             if isDuoSplit {
-                GramophoneCrateBin(
+                GramophoneCoverCarousel(
                     library: library,
                     musicService: musicService,
                     onOpen: openRecord,
@@ -363,7 +364,7 @@ struct GramophonePlayerView: View {
         if ProcessInfo.processInfo.arguments.contains("--gramophone-reset-crate") {
             for key in ["GramophoneShelf", "GramophoneAlbumFrontID", "GramophoneRecordingFrontID",
                         "GramophoneBroadcastFrontID", "GramophoneBinDivider"]
-                + GramophoneCrateBin.Divider.allCases.map({ "GramophoneBinPlace." + $0.rawValue }) {
+                + GramophoneCoverCarousel.Divider.allCases.map({ "GramophoneBinPlace." + $0.rawValue }) {
                 UserDefaults.standard.removeObject(forKey: key)
             }
         }

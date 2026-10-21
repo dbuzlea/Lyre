@@ -159,7 +159,7 @@
 "gramophone.shelf.recordings" = "Home Recordings";
 "gramophone.shelf.broadcasts" = "Broadcasts";
 "gramophone.shelf.songs" = "Songs";
-"gramophone.bin.hint" = "Swipe down for the next record, up for the one before. Double-tap to open it.";
+"gramophone.carousel.hint" = "Swipe up or down to move along the covers. Double-tap to open the one in the middle.";
 "gramophone.shelf.recordings.empty" = "No home recordings yet. Playlists in your library show up here.";
 "gramophone.sleeve.close" = "Put the Record Back";
 "gramophone.noRecord" = "Choose a record from the drawer first";
