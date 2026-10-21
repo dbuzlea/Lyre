@@ -764,3 +764,6 @@
 "liquid.tour.droplet.detail" = "The record at the bottom of the library spins while it plays. Tap it to go back to Now Playing.";
 "onboarding.liquid.title" = "Meet Liquid";
 "onboarding.liquid.message" = "Watch each move. You can see these again any time in Liquid's settings.";
+
+/* Artwork Carousel on an unfolded iPhone Duo, where its Back button would be (LYRE-12). */
+"carousel.closeToGoBack" = "Close iPhone to go back";
