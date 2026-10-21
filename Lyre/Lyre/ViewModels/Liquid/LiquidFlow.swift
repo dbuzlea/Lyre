@@ -88,6 +88,8 @@ extension Color {
 final class LiquidTouchTracker {
     static let shared = LiquidTouchTracker()
     var lastTouch: CGPoint?
+    /// When the screen was last touched, for what waits for it to be left alone.
+    var lastTouchTime = Date()
 }
 
 /// Installs the tracker's recogniser on the window it's placed in.
@@ -129,7 +131,10 @@ struct LiquidTouchTrackerView: UIViewRepresentable {
         override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
             if let touch = touches.first, let view {
                 let point = touch.location(in: view)
-                MainActor.assumeIsolated { LiquidTouchTracker.shared.lastTouch = point }
+                MainActor.assumeIsolated {
+                    LiquidTouchTracker.shared.lastTouch = point
+                    LiquidTouchTracker.shared.lastTouchTime = Date()
+                }
             }
             state = .failed
         }

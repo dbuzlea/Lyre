@@ -388,6 +388,50 @@ final class GramophoneUITests: XCTestCase {
         attachScreenshot(app, named: "gramophone-version \(expected)")
     }
 
+    // MARK: - iPhone Duo
+
+    /// Opened with the fold across the middle, the iPhone Duo has the machine above and
+    /// a bin of records below, flipped through like Up Next's rack.
+    @MainActor
+    func testAnOpenDuoHasABinOfRecordsToFlipThrough() throws {
+        let app = launchGramophone(extraArguments: ["-SpoolFoldPosture", "open"])
+        let front = element(app, "gramophone.bin.front")
+        XCTAssertTrue(front.waitForExistence(timeout: 10), "No bin under the machine")
+        XCTAssertTrue(element(app, "gramophone.drawer").exists || element(app, "gramophone.crate").exists,
+                      "The machine isn't above the bin")
+        XCTAssertEqual(front.value as? String, "1 of 12")
+        attachScreenshot(app, named: "duo-bin")
+
+        // Swiped down, the front record tips forward and the next is in front; up, back.
+        front.swipeDown()
+        sleep(1)
+        XCTAssertEqual(element(app, "gramophone.bin.front").value as? String, "2 of 12")
+        element(app, "gramophone.bin.front").swipeUp()
+        sleep(1)
+        XCTAssertEqual(element(app, "gramophone.bin.front").value as? String, "1 of 12")
+
+        // Tapped, its sleeve opens.
+        element(app, "gramophone.bin.front").tap()
+        XCTAssertTrue(element(app, "gramophone.sleeve").waitForExistence(timeout: 5), "Tapping didn't open the sleeve")
+        attachScreenshot(app, named: "duo-bin-sleeve")
+        element(app, "gramophone.sleeve.close").tap()
+
+        // The songs have a divider of their own.
+        element(app, "gramophone.bin.songs").tap()
+        sleep(1)
+        XCTAssertTrue((element(app, "gramophone.bin.front").value as? String)?.hasPrefix("1 of ") == true)
+        attachScreenshot(app, named: "duo-bin-songs")
+    }
+
+    /// Any other iPhone, or a Duo closed, keeps the machine to itself.
+    @MainActor
+    func testAPhoneThatDoesntFoldHasNoBin() throws {
+        let app = launchGramophone()
+        XCTAssertTrue(element(app, "gramophone.settings").waitForExistence(timeout: 10))
+        sleep(1)
+        XCTAssertFalse(element(app, "gramophone.bin").exists, "A bin on a phone that doesn't fold")
+    }
+
     // MARK: - Helpers
 
     /// Scrolls the booklet up until `element` can be tapped.

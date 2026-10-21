@@ -56,7 +56,12 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   match as it changes. Pressing Search, or handling the stack, puts the keyboard
 //   away; closing the drawer clears the search.
 //
-// Everything is laid out for a phone held upright, in every fold posture. With Reduce
+// iPhone Duo, opened and turned so the fold runs across the middle (the inner screen
+// taller than wide): the machine, with Up Next's rack beside it, takes the top half, and
+// the bottom half is a bin of records to flip through (GramophoneCrateBin). Only the Duo
+// reports a hinge, so no other iPhone ever shows the bin.
+//
+// Otherwise everything is laid out for a phone held upright, in every fold posture. With Reduce
 // Motion on, the camera cuts between the two rather than moving.
 
 struct GramophonePlayerView: View {
@@ -78,6 +83,7 @@ struct GramophonePlayerView: View {
     @State private var isQueueShown = false
     @State private var queueProgress: CGFloat = 0
     @State private var containerHeight: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
     @State private var notice: String?
     @State private var noticeTask: Task<Void, Never>?
     /// The machine in 3D, and where the camera is: in front, on its way, looking down
@@ -135,6 +141,14 @@ struct GramophonePlayerView: View {
     private var model: GramophoneModel { themeSettings.gramophoneModel }
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
+    /// iPhone Duo open with its fold across the middle: the machine above, the bin below.
+    private var isDuoSplit: Bool {
+        foldMonitor.posture == .open && containerWidth > 0 && containerHeight > containerWidth
+    }
+
+    /// The bin's share of the screen, under the fold (its safe area besides).
+    private var binHeight: CGFloat { isDuoSplit ? (containerHeight / 2).rounded() : 0 }
+
     var body: some View {
         ZStack {
             // The room: a dark wall behind the table.
@@ -143,7 +157,7 @@ struct GramophonePlayerView: View {
                 .ignoresSafeArea()
 
             GramophoneStageView(stage: stage, topInset: safeArea.top + Self.topBarHeight,
-                                bottomInset: safeArea.bottom + 8)
+                                bottomInset: safeArea.bottom + (isDuoSplit ? binHeight + 12 : 8))
                 .ignoresSafeArea()
 
             if vantage == .front {
@@ -153,6 +167,8 @@ struct GramophonePlayerView: View {
 
             overhead
                 .padding(safeArea)
+                // Above the fold, on a Duo with the bin below.
+                .padding(.bottom, binHeight)
                 .frame(maxWidth: 560)
                 // Laid out all along, so the camera knows where to come down to, but
                 // only there while the camera's away from the front.
@@ -167,6 +183,23 @@ struct GramophonePlayerView: View {
                 .frame(maxWidth: 560, maxHeight: .infinity, alignment: .top)
                 .opacity(vantage == .rack ? 0 : 1)
                 .allowsHitTesting(vantage != .rack)
+
+            if isDuoSplit {
+                GramophoneCrateBin(
+                    library: library,
+                    musicService: musicService,
+                    onOpen: openRecord,
+                    onPlaySong: putSong,
+                    onQueueAlbum: { album, placement in queue(album, placement: placement) },
+                    onQueueSong: { track, placement in queue([track], placement: placement, name: track.title) }
+                )
+                .frame(height: binHeight)
+                .padding(.bottom, safeArea.bottom)
+                .frame(maxHeight: .infinity, alignment: .bottom)
+                .ignoresSafeArea(edges: .bottom)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(1.5)
+            }
 
             if isBrowsing {
                 crate
@@ -240,7 +273,11 @@ struct GramophonePlayerView: View {
         .environment(\.spoolTheme, theme.spoolTheme)
         // The crate is the Spool's rack, which reports frames in this space.
         .coordinateSpace(name: SpoolPlayerView.coordinateSpace)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { containerHeight = $0 }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: {
+            containerHeight = $0.height
+            containerWidth = $0.width
+        }
+        .animation(.spring(response: 0.45, dampingFraction: 0.85), value: isDuoSplit)
         .sheet(isPresented: $showSettings) {
             GramophoneSettingsView(musicService: musicService, themeSettings: themeSettings,
                                    foldMonitor: foldMonitor) { showSettings = false }
@@ -325,7 +362,8 @@ struct GramophonePlayerView: View {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--gramophone-reset-crate") {
             for key in ["GramophoneShelf", "GramophoneAlbumFrontID", "GramophoneRecordingFrontID",
-                        "GramophoneBroadcastFrontID"] {
+                        "GramophoneBroadcastFrontID", "GramophoneBinDivider"]
+                + GramophoneCrateBin.Divider.allCases.map({ "GramophoneBinPlace." + $0.rawValue }) {
                 UserDefaults.standard.removeObject(forKey: key)
             }
         }
@@ -1111,6 +1149,24 @@ struct GramophonePlayerView: View {
 
     /// A record tapped in the drawer: its sleeve opens to choose a song (even a
     /// single's, so it can be queued from there too).
+    /// A song from the bin: its album's record, put on at that song; a record of its own
+    /// when its album isn't in the library.
+    private func putSong(_ track: AppTrack) {
+        let title = TapeFormat.displayTitle(track.albumTitle)
+        let albums = library.albums.filter { $0.tapeTitle == title }
+        guard let album = albums.first(where: { $0.artistName == track.artistName }) ?? albums.first else {
+            put(nil, title: track.title, label: .track(track), tracks: [track], startingAt: 0,
+                addToQueue: { queue([track], placement: .last, name: track.title) })
+            return
+        }
+        Task {
+            let tracks = await library.tracks(for: album)
+            let index = tracks.firstIndex { $0.id == track.id } ?? tracks.firstIndex { $0.title == track.title } ?? 0
+            put(album, tracks: tracks.isEmpty ? [track] : tracks, startingAt: tracks.isEmpty ? 0 : index,
+                addToQueue: { queue([track], placement: .last, name: track.title) })
+        }
+    }
+
     private func openRecord(_ album: AppAlbum) {
         isCrateSearchFocused = false
         UIImpactFeedbackGenerator(style: .light).impactOccurred()

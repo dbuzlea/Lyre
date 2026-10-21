@@ -934,6 +934,38 @@ final class SpoolUITests: XCTestCase {
         XCTAssertTrue(song.exists, "Play Next played the song")
     }
 
+    /// An episode heard before is marked by its title: a tick once played, half a
+    /// circle part way through.
+    @MainActor
+    func testEpisodesHeardBeforeAreMarked() throws {
+        // The newest Cassette Culture episode played, the one before it started.
+        let app = launchSpool(extraArguments: [
+            "-podcast.episodeHistory",
+            "{\"cassette culture|episode 12: sample episode\" = 2; \"cassette culture|episode 11: sample episode\" = 1;}"
+        ])
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let podcasts = element(app, "spool.shelf.podcasts")
+        XCTAssertTrue(podcasts.waitForExistence(timeout: 3))
+        podcasts.tap()
+        let show = element(app, "spool.tape.podcast:feed:https://example.invalid/feed-1.xml")
+        XCTAssertTrue(show.waitForExistence(timeout: 3))
+        sleep(1)
+        show.tap()
+
+        let newest = element(app, "spool.jcard.track.0")
+        XCTAssertTrue(newest.waitForExistence(timeout: 3), "The show's case did not open")
+        sleep(1)
+        attachScreenshot(app, named: "episodes-marked")
+        XCTAssertTrue(newest.label.contains("Played"), "The played episode isn't marked: \(newest.label)")
+        let next = element(app, "spool.jcard.track.1")
+        XCTAssertTrue(next.label.contains("In Progress"), "The started episode isn't marked: \(next.label)")
+        let unheard = element(app, "spool.jcard.track.2")
+        XCTAssertFalse(unheard.label.contains("Played") || unheard.label.contains("In Progress"),
+                       "An unheard episode is marked: \(unheard.label)")
+    }
+
     // MARK: - Helpers
 
     private func launchSpool(model: String = "original", finish: String = "blue",

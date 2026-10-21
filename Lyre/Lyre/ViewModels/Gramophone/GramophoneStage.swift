@@ -676,6 +676,15 @@ final class GramophoneStage {
     static let rackSleeveSide: Float = 0.24
     /// Where the record at the front of the bin stands, along the bin.
     private static let rackFrontZ: Float = 0.05
+    /// The bin, inside: its floor, how long it is, and its low front wall, which
+    /// records flipped forward lie over.
+    static let rackFloor: Float = 0.014
+    static let rackLength: Float = 0.22
+    static let rackWallHeight: Float = 0.06
+    static let rackWallThickness: Float = 0.012
+    /// The front wall's inner face (along the bin) and its top.
+    static var rackWallInside: Float { rackLength / 2 - rackWallThickness / 2 }
+    static var rackWallTop: Float { rackFloor + rackWallHeight }
 
     /// Up Next's records, standing on end in a bin, covers to its front (its +z).
     private func buildRack() {
@@ -683,15 +692,15 @@ final class GramophoneStage {
         rackSleeves = [:]
         rack.simdPosition = Self.rackPosition
         rack.simdEulerAngles.y = Self.rackYaw
-        let width: Float = 0.27, length: Float = 0.22
-        rack.addChildNode(box(width + 0.012, 0.014, length + 0.012, chamfer: 0.003, material: trim))
+        let width: Float = 0.27, length = Self.rackLength, floor = Self.rackFloor
+        rack.addChildNode(box(width + 0.012, floor, length + 0.012, chamfer: 0.003, material: trim))
         for x in [-width / 2, width / 2] {
             let side = box(0.012, 0.1, length, chamfer: 0.002, material: wood)
-            side.simdPosition = SIMD3(x, 0.014, 0)
+            side.simdPosition = SIMD3(x, floor, 0)
             rack.addChildNode(side)
         }
-        let front = box(width + 0.012, 0.06, 0.012, chamfer: 0.002, material: wood)
-        front.simdPosition = SIMD3(0, 0.014, length / 2)
+        let front = box(width + 0.012, Self.rackWallHeight, Self.rackWallThickness, chamfer: 0.002, material: wood)
+        front.simdPosition = SIMD3(0, floor, length / 2)
         rack.addChildNode(front)
         let back = box(width + 0.012, 0.15, 0.012, chamfer: 0.002, material: wood)
         back.simdPosition = SIMD3(0, 0.014, -length / 2)
@@ -711,7 +720,7 @@ final class GramophoneStage {
         let side = CGFloat(Self.rackSleeveSide)
         let frontRecord = SCNNode(geometry: SCNBox(width: side, height: side, length: 0.02, chamferRadius: 0))
         let lean = Self.rackLie(0)
-        frontRecord.simdPosition = SIMD3(0, 0.014, lean.z)
+        frontRecord.simdPosition = SIMD3(0, lean.y, lean.z)
             + SIMD3(0, cos(lean.angle), sin(lean.angle)) * Self.rackSleeveSide / 2
         frontRecord.simdEulerAngles.x = lean.angle
         frontRecord.isHidden = true
@@ -721,17 +730,34 @@ final class GramophoneStage {
     }
 
     /// How the record `depth` from the front of the bin stands (0 at the front, less
-    /// for the ones flipped past): how far along the bin its foot is, how far it's
-    /// tipped forward (radians; back is less than 0), and whether it shows.
-    static func rackLie(_ depth: Float) -> (z: Float, angle: Float, opacity: Float) {
+    /// for the ones flipped past): where its bottom edge is along the bin (`z`) and
+    /// above it (`y`), how far it's tipped forward (radians; back is less than 0), and
+    /// whether it shows.
+    ///
+    /// Standing records stand on the floor. A flipped one lies over the front wall,
+    /// resting on its top edge with its bottom edge lifted inside the bin, never through
+    /// the wall (LYRE-1): the last flipped on top and most upright, those before it
+    /// lower and flatter beneath.
+    static func rackLie(_ depth: Float) -> (z: Float, y: Float, angle: Float, opacity: Float) {
         if depth >= 0 {
             // Standing one behind another, leaning back a little; only so many show.
-            return (rackFrontZ - depth * 0.013, -0.14 - min(depth, 1) * 0.02, depth > 9 ? max(0, 10 - depth) : 1)
+            return (rackFrontZ - depth * 0.013, rackFloor, -0.14 - min(depth, 1) * 0.02,
+                    depth > 9 ? max(0, 10 - depth) : 1)
         }
-        // Flipped forward over the front of the bin, the last one flipped on top.
         let flipped = -depth
         let opacity: Float = flipped > 3 ? max(0, 4 - flipped) : 1
-        return (rackFrontZ + 0.01 + flipped * 0.008, min(flipped, 1) * 0.86 + (flipped - min(flipped, 1)) * 0.06, opacity)
+        let angle = min(flipped, 1) * 0.86 + (flipped - min(flipped, 1)) * 0.06
+        // Where it touches the wall's top edge: just clear of it, each one before the
+        // last a sleeve's thickness lower (no lower than the wall).
+        let below = min(max(flipped - 1, 0), 3)
+        let rest = rackWallTop + 0.004 + (3 - below) * 0.004
+        // Its bottom edge, a little in front of the records standing.
+        let footZ = rackFrontZ + 0.012
+        let rise = (rackWallInside - footZ) / max(tan(angle), 0.01)
+        let footY = max(rackFloor, rest - rise)
+        // Partway over (the first flip), from standing on the floor to lying on the wall.
+        let over = min(flipped, 1)
+        return (rackFrontZ + (footZ - rackFrontZ) * over, rackFloor + (footY - rackFloor) * over, angle, opacity)
     }
 
     // MARK: Building Blocks
@@ -960,7 +986,7 @@ final class GramophoneStage {
         // Between two whole places, partway from one's lie to the other's.
         let low = floor(depth), t = depth - low
         let a = Self.rackLie(low), b = Self.rackLie(low + 1)
-        sleeve.simdPosition = SIMD3(slide, 0.014, a.z + (b.z - a.z) * t)
+        sleeve.simdPosition = SIMD3(slide, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
         sleeve.simdEulerAngles.x = a.angle + (b.angle - a.angle) * t
         sleeve.opacity = CGFloat(a.opacity + (b.opacity - a.opacity) * t)
     }
@@ -1122,7 +1148,10 @@ final class GramophoneStage {
             bounds: (SIMD3(-0.32, 0.02, -0.2), SIMD3(0.32, top, 0.27)),
             aspect: Float(viewSize.width / viewSize.height), fieldOfView: Self.fieldOfView,
             yaw: 0, pitch: 0.26, margin: 0.02,
-            topInset: Float(insets.top / viewSize.height), bottomInset: Float(insets.bottom / viewSize.height))
+            topInset: Float(insets.top / viewSize.height), bottomInset: Float(insets.bottom / viewSize.height),
+            // Only with the bin taking the bottom half (iPhone Duo): the machine's room
+            // is then all above the middle of the screen.
+            fitsBand: insets.bottom > viewSize.height * 0.3)
         let recordCenter = SIMD3(Self.platterCenter.x, recordTopY, Self.platterCenter.y)
         let target = overheadRecord ?? (CGPoint(x: viewSize.width * 0.45, y: viewSize.height * 0.4), viewSize.width * 0.37)
         poses[.turntable] = GramophoneCameraPose.overhead(

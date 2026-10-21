@@ -43,6 +43,14 @@ private let logger = Logger(subsystem: "com.lyre.app", category: "DiscPlayer")
 //   from the shelf goes onto the spindle and waits there; closing the phone is the lid
 //   snapping shut, and it plays. A case opens over the shelf, leaving the deck in view.
 //
+// Discman (iPhone Duo, opened and turned so the fold runs across the middle)
+//   The phone is the player: the top half is its lid, the bottom half its body. In the
+//   lid, the disc on its spindle and the booklet of the disc in the tray, open at its
+//   track list (DiscBooklet): a song tapped there plays from it. In the body, the LCD
+//   and the keys. OPEN swaps the booklet for the shelf; a disc chosen there goes on the
+//   spindle and waits, and ⏯ or closing the phone plays it. As the hinge closes, the
+//   lid darkens and leans in after it, the light going out of the booklet.
+//
 // Up Next is the Spool's tray, pulled up from the grip under the keys. A song picked from
 // it comes out as a disc of its own and goes on the spindle; the rest of Up Next stays.
 // Holding the lid opens the case of the album playing.
@@ -58,6 +66,7 @@ struct DiscPlayerView: View {
     @State private var queueProgress: CGFloat = 0
     @State private var queueDragStart: CGFloat?
     @State private var containerHeight: CGFloat = 0
+    @State private var containerWidth: CGFloat = 0
     /// Something about to play that would clear what the listener queued.
     @State private var pendingPlay: PendingPlay?
     @State private var notice: String?
@@ -108,8 +117,8 @@ struct DiscPlayerView: View {
 
             Group {
                 switch foldMonitor.posture {
-                case .open:          openLayout
-                case .closed, .tent: closedLayout
+                case .open:          isDiscman ? AnyView(discmanLayout) : AnyView(openLayout)
+                case .closed, .tent: AnyView(closedLayout)
                 }
             }
             .padding(safeArea)
@@ -162,7 +171,10 @@ struct DiscPlayerView: View {
         .environment(\.spoolTheme, theme.spoolTheme)
         // The shelf is the Spool's rack, which reports frames in this space.
         .coordinateSpace(name: SpoolPlayerView.coordinateSpace)
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { containerHeight = $0 }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: {
+            containerHeight = $0.height
+            containerWidth = $0.width
+        }
         .sheet(isPresented: $showSettings) {
             DiscSettingsView(musicService: musicService, themeSettings: themeSettings,
                              foldMonitor: foldMonitor) { showSettings = false }
@@ -345,6 +357,139 @@ struct DiscPlayerView: View {
                     } action: { openShelfFrame = $0 }
             }
             .padding(12)
+        }
+    }
+
+    // MARK: - Discman
+
+    /// iPhone Duo, opened with the fold across the middle: the phone is the player.
+    private var isDiscman: Bool {
+        foldMonitor.posture == .open && containerWidth > 0 && containerHeight > containerWidth
+    }
+
+    /// How far the lid's open, from the hinge: 1 from upright on, less as it closes.
+    private var lidOpenness: Double {
+        guard let angle = foldMonitor.angle else { return 1 }
+        return min(1, max(0, (angle - 25) / 65))
+    }
+
+    /// The disc's album, for its booklet: the one waiting in the tray, or the one playing.
+    private var bookletAlbum: AppAlbum? {
+        if let album = deckLoad?.disc.album ?? caseOfDisc ?? (isPlayingFromSeated ? seatedDisc?.album : nil) {
+            return album
+        }
+        // Playing from elsewhere (another player, Up Next): the album, show or playlist
+        // it came from, as the library has it.
+        if let show = musicService.currentPodcastShowTitle {
+            return library.podcasts.first { $0.title == show }
+        }
+        if let playlist = musicService.currentPlaylistID {
+            return library.mixtapes.first { $0.mixtape?.id == playlist }
+        }
+        guard let track = musicService.nowPlayingTrack else { return nil }
+        let title = TapeFormat.displayTitle(track.albumTitle)
+        let albums = library.albums.filter { $0.tapeTitle == title }
+        return albums.first { $0.artistName == track.artistName } ?? albums.first
+    }
+
+    /// The lid above the fold, the body below: the disc and its booklet (or the shelf)
+    /// in the lid; the LCD and the keys in the body.
+    private var discmanLayout: some View {
+        GeometryReader { geometry in
+            let half = geometry.size.height / 2
+            VStack(spacing: 0) {
+                // The lid.
+                VStack(spacing: 10) {
+                    topBar
+                        .padding(.horizontal, 20)
+                    HStack(alignment: .top, spacing: 14) {
+                        deck(side: min(geometry.size.width * 0.42, half - 90), lidOpen: true)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(String(localized: "disc.lid"))
+                            .accessibilityValue(deckDisc?.title ?? String(localized: "disc.noDisc"))
+                            .accessibilityIdentifier("disc.lid")
+                        Group {
+                            if isBrowsing {
+                                shelfColumn(showsClose: true)
+                                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                            } else {
+                                DiscBooklet(
+                                    album: bookletAlbum,
+                                    loadTracks: { await library.tracks(for: $0) },
+                                    playingID: musicService.currentEpisode?.id ?? musicService.currentTrack?.id,
+                                    onPick: { album, tracks, index in playFromBooklet(album, tracks: tracks, at: index) },
+                                    onQueue: { tracks, placement in
+                                        queue(tracks, placement: placement, name: tracks.count == 1 ? tracks[0].title : "")
+                                    },
+                                    emptyText: String(localized: "disc.discman.empty")
+                                )
+                                .transition(.move(edge: .leading).combined(with: .opacity))
+                            }
+                        }
+                        // A case opens here, over the booklet, leaving the disc in view.
+                        .onGeometryChange(for: CGRect.self) { proxy in
+                            proxy.frame(in: .named(SpoolPlayerView.coordinateSpace))
+                        } action: { openShelfFrame = $0 }
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(maxHeight: .infinity)
+                    if deckLoad != nil {
+                        Text(String(localized: "disc.discman.waiting"))
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(theme.ink)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(theme.ink.opacity(0.12), in: Capsule())
+                            .transition(.opacity)
+                            .accessibilityIdentifier("disc.discman.waiting")
+                    }
+                }
+                .padding(.bottom, 10)
+                .frame(maxWidth: .infinity)
+                .frame(height: half)
+                // As the hinge closes the lid leans in after it, and the light goes.
+                .rotation3DEffect(.degrees((1 - lidOpenness) * 28), axis: (x: 1, y: 0, z: 0),
+                                  anchor: .bottom, perspective: 0.4)
+                .overlay {
+                    LinearGradient(colors: [.black.opacity(0.75 * (1 - lidOpenness)), .black.opacity(0.35 * (1 - lidOpenness))],
+                                   startPoint: .top, endPoint: .bottom)
+                        .allowsHitTesting(false)
+                }
+                .animation(.easeOut(duration: 0.15), value: lidOpenness)
+
+                // The hinge.
+                Capsule()
+                    .fill(theme.ink.opacity(0.12))
+                    .frame(width: 60, height: 4)
+                    .accessibilityHidden(true)
+
+                // The body.
+                VStack {
+                    Spacer(minLength: 0)
+                    controls
+                        .padding(.horizontal, 20)
+                    Spacer(minLength: 0)
+                }
+                .frame(maxHeight: .infinity)
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .onChange(of: deckLoad == nil) { _, isEmpty in
+                // A disc chosen from the shelf: back to the booklet, to see what's on it.
+                if !isEmpty, isBrowsing {
+                    withAnimation(.spring(duration: 0.4, bounce: 0.12)) { isBrowsing = false }
+                }
+            }
+        }
+    }
+
+    /// A song tapped in the booklet: the disc in the tray plays from it.
+    private func playFromBooklet(_ album: AppAlbum, tracks: [AppTrack], at index: Int) {
+        let addToQueue: (() -> Void)? = album.isPodcast ? nil : {
+            queue([tracks[index]], placement: .last, name: tracks[index].title)
+        }
+        deckLoad = nil
+        musicService.play(asking: { pendingPlay = $0 }, addToQueue: addToQueue) {
+            Task { await startPlaying(LoadedDisc(album: album), tracks: tracks, startingAt: index) }
         }
     }
 
@@ -1048,6 +1193,13 @@ struct DiscPlayerView: View {
 
     /// Pops the lid and brings the shelf up under the deck.
     private func openDeck() {
+        // As a Discman, OPEN turns the booklet over to the shelf, and back.
+        if isDiscman {
+            guard flight == nil else { return }
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            withAnimation(.spring(duration: 0.4, bounce: 0.12)) { isBrowsing.toggle() }
+            return
+        }
         guard foldMonitor.posture != .open, !isLidOpen, flight == nil, !isSpinningUp else { return }
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
         DiscSound.lidOpen.play()

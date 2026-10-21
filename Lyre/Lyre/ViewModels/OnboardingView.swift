@@ -399,7 +399,6 @@ private struct OnboardingTopBar: View {
                     .font(.subheadline.monospacedDigit())
                     .foregroundStyle(.white.opacity(0.8))
                     .contentTransition(.numericText(value: Double(number)))
-                    .accessibilityHidden(true)
             }
 
             GeometryReader { geo in
@@ -410,8 +409,8 @@ private struct OnboardingTopBar: View {
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: progress)
             }
             .frame(height: 4)
-            .accessibilityElement()
-            .accessibilityLabel(stepLabel)
+            // The step text says the same, and is big enough for VoiceOver to land on.
+            .accessibilityHidden(true)
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)

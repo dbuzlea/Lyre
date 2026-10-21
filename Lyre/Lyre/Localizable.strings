@@ -158,6 +158,8 @@
 "gramophone.stack.instructions" = "Swipe to look through · Tap to open · Hold to queue";
 "gramophone.shelf.recordings" = "Home Recordings";
 "gramophone.shelf.broadcasts" = "Broadcasts";
+"gramophone.shelf.songs" = "Songs";
+"gramophone.bin.hint" = "Swipe down for the next record, up for the one before. Double-tap to open it.";
 "gramophone.shelf.recordings.empty" = "No home recordings yet. Playlists in your library show up here.";
 "gramophone.sleeve.close" = "Put the Record Back";
 "gramophone.noRecord" = "Choose a record from the drawer first";
@@ -421,7 +423,7 @@
 "onboarding.done.click" = "Click sound";
 "onboarding.done.backlight" = "Screen timeout";
 "onboarding.player.title" = "Choose Your Player";
-"onboarding.player.message" = "Two ways to play your music. You can switch any time in Settings.";
+"onboarding.player.message" = "Five ways to play your music. You can switch any time in Settings.";
 "onboarding.player.classic.detail" = "A screen and a click wheel, like the classic pocket players. Spin to browse, press to choose.";
 "onboarding.player.spool.detail" = "A cassette deck. Pick a tape from the rack, load it, and press play.";
 "onboarding.spool.title" = "Meet the Spool";
@@ -471,6 +473,8 @@
 /* MARK: - About */
 "about.title" = "About";
 "about.version" = "Version %@";
+"episode.played" = "Played";
+"episode.inProgress" = "In Progress";
 "about.description" = "A scroll-wheel music player for your iPhone.";
 "about.builtWith" = "Built with SwiftUI & MusicKit";
 "about.copyright" = "© 2026 Daniel Buzlea";
@@ -666,6 +670,8 @@
 "disc.search.prompt" = "Search your discs";
 "disc.case.close" = "Close Case";
 "disc.open.hint" = "Swipe a case left onto the spindle.";
+"disc.discman.empty" = "No disc in the tray. Press OPEN to choose one.";
+"disc.discman.waiting" = "Press ⏯ or close your iPhone to play";
 "disc.settings.manual" = "OPERATING INSTRUCTIONS";
 "disc.settings.finish" = "Finish";
 "disc.settings.soundEffects.detail" = "The keys, the lid and the disc spinning up, and the click wheel's click. Silent when the ringer is off.";
@@ -720,6 +726,14 @@
 "liquid.fold.close" = "Close";
 "liquid.minutes" = "%d min";
 "liquid.tide.playHint" = "Plays this song now.";
+"liquid.pool.title" = "Up Next";
+"liquid.pool.library" = "Library";
+"liquid.pool.hint" = "Flick a song up to play it next, down to take it out. Hold one to move it.";
+"liquid.pool.hint.episodes" = "Tap an episode to play it.";
+"liquid.pool.playsNext" = "“%@” plays next";
+"liquid.pool.drain" = "Take Out of Up Next";
+"liquid.pool.nowPlaying" = "Now Playing";
+"liquid.visualizer.hint" = "Touch to bring the player back.";
 "liquid.tide.remove" = "Remove %@";
 "liquid.settings.sound.detail" = "Clicks and taps as you use the player. Silent when the ringer is off.";
 "onboarding.player.liquid.detail" = "Modern and minimal. The cover fills the screen; pull the wave at the edge to change songs.";

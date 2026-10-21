@@ -1,0 +1,814 @@
+{
+  "project": "LYRE",
+  "about": "Lyre's test cases: the source of truth for what Qase holds. Edit here, then run Scripts/qase_sync.py push-cases. Each case's `key` is permanent; never reuse one. `automated_by` lists the Xcode tests (Target/Suite/test) that cover the case in whole or in part; a case with no such test is checked by hand.",
+  "plans": [
+    { "title": "Smoke", "description": "Twenty minutes, every build that goes to TestFlight: can a user get in, play music and get around?", "tag": "smoke" },
+    { "title": "Release Regression", "description": "Everything, before an App Store release.", "tag": "*" },
+    { "title": "Connectivity", "description": "Offline, flaky, cellular-off and server-down behavior.", "tag": "connectivity" },
+    { "title": "Accessibility", "description": "VoiceOver, Dynamic Type, right-to-left, Reduce Motion, contrast.", "tag": "accessibility" },
+    { "title": "Foldable (iPhone Duo)", "description": "Every player closed, open, as a book and in transition.", "tag": "foldable" }
+  ],
+  "suites": [
+    { "title": "Onboarding", "description": "First launch through to the chosen player." },
+    { "title": "Music Access & Library", "description": "Permission, loading, caching and the empty and failing library." },
+    { "title": "Playback & Queue", "description": "Behavior every player shares: play, skip, queue, shuffle, repeat." },
+    { "title": "Classic Player", "description": "The click wheel and its screens." },
+    { "title": "Spool Player", "description": "The cassette deck." },
+    { "title": "Gramophone Player", "description": "The turntable." },
+    { "title": "Disc Player", "description": "The portable CD player." },
+    { "title": "Liquid Player", "description": "The modern full-screen player." },
+    { "title": "Podcasts", "description": "Search, subscriptions, streaming, downloads and played marks." },
+    { "title": "Connectivity", "description": "Every network state the app can meet." },
+    { "title": "System Integration", "description": "Audio routes, interruptions, lock screen, background, life cycle." },
+    { "title": "Foldable (iPhone Duo)", "description": "Postures and the layouts that follow them." },
+    { "title": "Accessibility & Localization", "description": "Everyone can use Lyre, in any language and text size." },
+    { "title": "Settings & Persistence", "description": "What Lyre remembers, upgrades and recovers from." }
+  ],
+  "cases": [
+    {
+      "key": "ONB-01", "suite": "Onboarding", "title": "First launch shows the welcome page with no permission prompt",
+      "priority": "high", "severity": "critical", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Lyre freshly installed (delete and reinstall).",
+      "steps": [
+        ["Launch Lyre.", "'Welcome to Lyre' and 'Get Started' are shown. There is no Back button."],
+        ["Wait five seconds without touching anything.", "No system permission alert appears."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testOnboardingWelcomePageIsShownOnFirstLaunch()", "LyreUITests/LyreUITests/testFirstLaunchShowsNoPermissionPrompt()", "LyreUITests/LyreUITests/testOnboardingWelcomePageHasNoBackButton()"]
+    },
+    {
+      "key": "ONB-02", "suite": "Onboarding", "title": "The permissions page explains before iOS asks",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Fresh install; Media & Apple Music access never answered.",
+      "steps": [
+        ["Tap Get Started.", "'Before We Ask' explains Media & Apple Music, why Lyre asks and that the library stays private. No system alert yet."],
+        ["Tap Allow Access.", "The system alert appears once."],
+        ["Tap Allow.", "Onboarding continues to the music access result, then Choose Your Player."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testOnboardingExplainsPermissionsBeforeAsking()", "LyreUITests/EnvironmentUITests/testARevokedLibraryAccessIsExplainedAndCanBeRestored()"]
+    },
+    {
+      "key": "ONB-03", "suite": "Onboarding", "title": "Declining access still lets the user into Lyre",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "negative",
+      "preconditions": "Fresh install; access never answered.",
+      "steps": [
+        ["Tap Get Started, then Not Now.", "No system alert. Onboarding goes on to Choose Your Player."],
+        ["Finish onboarding with any player.", "The player opens. Library screens say access is off and how to turn it on, rather than looking broken."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testOnboardingNotNowSkipsThePromptEntirely()"]
+    },
+    {
+      "key": "ONB-04", "suite": "Onboarding", "title": "Denying the system prompt shows how to turn access on later",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "negative",
+      "preconditions": "Fresh install.",
+      "steps": [
+        ["Tap Get Started, Allow Access, then Don't Allow in the system alert.", "The music access page explains Settings > Privacy & Security > Media & Apple Music, and offers a way on."],
+        ["Continue through onboarding.", "Lyre opens without access and without crashing."]
+      ]
+    },
+    {
+      "key": "ONB-05", "suite": "Onboarding", "title": "Each player's onboarding path ends on that player",
+      "priority": "high", "severity": "critical", "type": "functional", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Fresh install.",
+      "steps": [
+        ["Choose Classic and finish.", "Meet the wheel, practice, shortcuts, Make It Yours, summary; the click wheel opens."],
+        ["Reset onboarding; choose Spool and finish.", "Meet the Spool tour, design and finish, summary; the Spool opens."],
+        ["Repeat for Gramophone, Disc and Liquid.", "Each shows only its own steps and opens on itself."]
+      ],
+      "automated_by": ["LyreTests/OnboardingPathTests", "LyreUITests/LyreUITests/testOnboardingTeachesTheSpoolAndEndsOnIt()", "LyreUITests/LyreUITests/testOnboardingCanEndOnTheGramophone()", "LyreUITests/LyreUITests/testOnboardingTeachesTheDiscAndEndsOnIt()", "LyreUITests/LyreUITests/testOnboardingCanEndOnLiquid()", "LyreUITests/LyreUITests/testCompleteOnboardingFlowTransitionsToLyreView()"]
+    },
+    {
+      "key": "ONB-06", "suite": "Onboarding", "title": "The Choose Your Player preview never overlaps the text",
+      "priority": "medium", "severity": "minor", "type": "usability", "behavior": "positive",
+      "preconditions": "On Choose Your Player, on the smallest supported iPhone and on an iPhone Duo.",
+      "steps": [
+        ["Select each of the five players in turn.", "Each preview sits between the subtitle and the choices, never over the subtitle (regression: the horn gramophone's bell once covered it)."],
+        ["Read the subtitle.", "It says there are five ways to play."]
+      ]
+    },
+    {
+      "key": "ONB-07", "suite": "Onboarding", "title": "An interrupted onboarding resumes where it stopped",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "Fresh install.",
+      "steps": [
+        ["Go as far as Meet the Scroll Wheel.", ""],
+        ["Force-quit Lyre and open it again.", "Onboarding opens on Meet the Scroll Wheel, not the welcome page."],
+        ["Tap Back repeatedly.", "Each step goes back one, to the welcome page."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testOnboardingResumesAtTheStepReached()", "LyreUITests/LyreUITests/testOnboardingBackReturnsToWelcome()"]
+    },
+    {
+      "key": "ONB-08", "suite": "Onboarding", "title": "Classic customization is one choice per step and can be skipped",
+      "priority": "low", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Classic chosen; at Make It Yours.",
+      "steps": [
+        ["Tap Keep the Classic Look.", "Goes straight to You're All Set!"],
+        ["Go back and tap Customize.", "Body, color, highlight, screen size, wheel feel and screen timeout follow, one per step, each with a live preview."],
+        ["Skip practice on Give It a Try.", "Continue stays disabled until the lesson is done; Skip Practice moves on."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testOnboardingOffersToSkipCustomization()", "LyreUITests/LyreUITests/testOnboardingSkippingCustomizationGoesToSummary()", "LyreUITests/LyreUITests/testOnboardingCustomizationIsOneChoicePerStep()", "LyreUITests/LyreUITests/testOnboardingPracticeCanBeSkipped()"]
+    },
+
+    {
+      "key": "LIB-01", "suite": "Music Access & Library", "title": "A library of on-device music loads into every list",
+      "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Access granted; device has synced music, albums, playlists and podcasts.",
+      "steps": [
+        ["Open Songs, Albums, Artists and Playlists.", "Each lists the device's library, filed A–Z ignoring leading 'The', 'A', 'An'."],
+        ["Open an album, an artist and a playlist.", "Each shows its own songs in order."]
+      ],
+      "automated_by": ["LyreTests/SortsBeforeTests", "LyreTests/FirstLetterTests"]
+    },
+    {
+      "key": "LIB-02", "suite": "Music Access & Library", "title": "An Apple Music subscriber's cloud library loads alongside local music",
+      "priority": "high", "severity": "critical", "type": "functional", "behavior": "positive",
+      "preconditions": "Signed in with an active Apple Music subscription and a cloud library.",
+      "steps": [
+        ["Launch Lyre.", "Cloud albums and playlists appear with artwork; on-device songs are not duplicated."],
+        ["Play a cloud-only song.", "It streams and plays."]
+      ]
+    },
+    {
+      "key": "LIB-03", "suite": "Music Access & Library", "title": "A second launch shows the cached library at once",
+      "priority": "medium", "severity": "major", "type": "performance", "behavior": "positive",
+      "preconditions": "Lyre has loaded the library at least once.",
+      "steps": [
+        ["Force-quit and relaunch Lyre in airplane mode.", "Lists are populated immediately from the cache (no artwork yet is acceptable)."],
+        ["Turn airplane mode off.", "The live library replaces the cached one without the list jumping."]
+      ],
+      "automated_by": ["LyreTests/LibraryCacheTests"]
+    },
+    {
+      "key": "LIB-04", "suite": "Music Access & Library", "title": "An empty library says so instead of looking broken",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "negative",
+      "preconditions": "Access granted on a device with no music and no podcasts.",
+      "steps": [
+        ["Open Songs, Albums, Artists and Playlists in each player.", "Each shows its empty message (e.g. 'No songs in library', 'No albums in your library')."],
+        ["Wait 30 seconds.", "At most one 'Something Went Wrong' alert appears, and it doesn't close an open sheet (see known defect: library alert closes sheets)."]
+      ]
+    },
+    {
+      "key": "LIB-05", "suite": "Music Access & Library", "title": "Revoked access is explained and recovers when restored",
+      "priority": "high", "severity": "critical", "type": "functional", "behavior": "negative", "tags": ["connectivity"],
+      "preconditions": "Onboarding finished with access granted.",
+      "steps": [
+        ["In Settings > Privacy & Security > Media & Apple Music, turn Lyre off. Return to Lyre.", "'Media & Apple Music Access Needed' with Open Settings and Not Now."],
+        ["Tap Not Now.", "The player opens; the prompt doesn't force its way back on next launch."],
+        ["Turn access back on and return.", "'Access Restored — Reloading your library…' then the player with the library back."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testARevokedLibraryAccessIsExplainedAndCanBeRestored()", "LyreTests/LibraryCacheTests/revokingAccessClearsTheCache()"]
+    },
+    {
+      "key": "LIB-06", "suite": "Music Access & Library", "title": "Music added in the Music app appears on return",
+      "priority": "low", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Lyre open with a loaded library.",
+      "steps": [
+        ["Add an album to the library in the Music app, then return to Lyre.", "The album appears without relaunching."]
+      ]
+    },
+    {
+      "key": "LIB-07", "suite": "Music Access & Library", "title": "A very large library stays responsive",
+      "priority": "medium", "severity": "major", "type": "performance", "behavior": "positive",
+      "preconditions": "Library of 5,000+ songs.",
+      "steps": [
+        ["Launch Lyre cold.", "Interface responds within two seconds; no freeze while loading."],
+        ["Scroll Songs fast, and scrub the A–Z index in each player.", "Scrolling is smooth; the index jumps straight to each letter."]
+      ]
+    },
+
+    {
+      "key": "PLY-01", "suite": "Playback & Queue", "title": "Play, pause, next and previous work in every player",
+      "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Library with an album of 3+ songs.",
+      "steps": [
+        ["Play the album's first song.", "It plays; Now Playing shows title, artist and album."],
+        ["Next, then Previous within three seconds.", "Goes to song 2, then back to song 1."],
+        ["Previous more than three seconds into a song.", "Restarts the song instead of going back."],
+        ["Repeat in Classic, Spool, Gramophone, Disc and Liquid.", "Same behavior in every player."]
+      ],
+      "automated_by": ["LyreTests/MusicServiceTests"]
+    },
+    {
+      "key": "PLY-02", "suite": "Playback & Queue", "title": "Play Next and Add to Queue say the same thing in every player",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "A song playing.",
+      "steps": [
+        ["Queue a song with Play Next.", "Message 'Playing next: <song>'; it plays after the current song."],
+        ["Queue an album with Add to Queue.", "'Queued: <album>'; its songs go to the bottom of Up Next in order, each once."],
+        ["Queue an album where some songs are unavailable.", "Message says how many of how many were added."]
+      ],
+      "automated_by": ["LyreTests/QueueRuleTests", "LyreTests/PlaybackQueueTests", "LyreUITests/LiquidUITests/testSwipingASongRightOffersPlayNextAndAddToQueue()", "LyreUITests/DiscUITests/testSwipingASongInACaseOffersPlayNextAndAddToQueue()", "LyreUITests/SpoolUITests/testSwipingASongInACaseOffersPlayNextAndAddToQueue()", "LyreUITests/GramophoneUITests/testSwipingASongInASleeveOffersPlayNextAndAddToQueue()"]
+    },
+    {
+      "key": "PLY-03", "suite": "Playback & Queue", "title": "Up Next can be reordered, trimmed and cleared",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "Up Next has 4+ songs.",
+      "steps": [
+        ["Move a song in Up Next.", "Order changes and playback follows the new order."],
+        ["Remove a song.", "It's gone; the current song keeps playing."],
+        ["Clear Up Next.", "A confirmation is asked first; after it, only the current song remains."]
+      ],
+      "automated_by": ["LyreTests/PlaybackQueueTests", "LyreUITests/SpoolUITests/testClearingUpNextAsksFirst()", "LyreUITests/GramophoneUITests/testTheUpNextBinFlipsRemovesReordersAndPlays()"]
+    },
+    {
+      "key": "PLY-04", "suite": "Playback & Queue", "title": "Starting an album over a hand-built queue asks first",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "negative",
+      "preconditions": "Up Next built by hand with Play Next / Add to Queue.",
+      "steps": [
+        ["Start playing a different album.", "Lyre asks before replacing the queue."],
+        ["Cancel.", "The hand-built queue is untouched."]
+      ],
+      "automated_by": ["LyreUITests/SpoolUITests/testPlayingATapeOverAQueueBuiltByHandAsksFirst()", "LyreUITests/DiscUITests/testPuttingADiscOnOverAQueueBuiltByHandAsksFirst()"]
+    },
+    {
+      "key": "PLY-05", "suite": "Playback & Queue", "title": "Shuffle and repeat cycle and stick",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "An album playing.",
+      "steps": [
+        ["Toggle repeat three times.", "Off → All → One → Off."],
+        ["Toggle shuffle.", "Songs play in a shuffled order; turning it off restores album order."],
+        ["Shake the phone with Hold off (Classic).", "Shuffles. With Hold on, or in the Spool, shaking does nothing."]
+      ],
+      "automated_by": ["LyreTests/RepeatModeTests", "LyreTests/ShuffleModeTests", "LyreTests/ShakeToShuffleTests", "LyreUITests/DiscUITests/testModeStepsThroughRepeat()"]
+    },
+    {
+      "key": "PLY-06", "suite": "Playback & Queue", "title": "Songs can't be queued while a podcast plays",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "negative",
+      "preconditions": "A podcast episode playing.",
+      "steps": [
+        ["Try Play Next on a song.", "Message: 'Songs can't be queued while a podcast plays'. The episode keeps playing."]
+      ],
+      "automated_by": ["LyreTests/QueueRuleTests/songsAreTurnedAwayWhileAPodcastStreams()"]
+    },
+    {
+      "key": "PLY-07", "suite": "Playback & Queue", "title": "Switching players keeps what's playing",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "A song playing in any player.",
+      "steps": [
+        ["Switch to each other player in Settings.", "The hand-over plays; the same song keeps playing at the same place in the new player."]
+      ],
+      "automated_by": ["LyreUITests/LiquidUITests/testSwitchingToAnotherPlayerPlaysTheHandOverAndArrives()"]
+    },
+
+    {
+      "key": "CLS-01", "suite": "Classic Player", "title": "The wheel scrolls menus and the center button selects",
+      "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Classic player, main menu.",
+      "steps": [
+        ["Spin the wheel clockwise and counter-clockwise.", "Highlight moves down and up one item per click, with a click sound and tick."],
+        ["Press the center.", "Opens the highlighted item. MENU goes back."],
+        ["Spin fast down Songs.", "Scrolling speeds up with spin speed."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testLyreViewShowsScrollWheel()", "LyreUITests/LyreUITests/testLyreMainMenuShowsAllMenuItems()", "LyreTests/SavedSettingValueTests/aMoreSensitiveWheelStepsSoonerAndSpeedsUpSooner()"]
+    },
+    {
+      "key": "CLS-02", "suite": "Classic Player", "title": "The Hold switch locks the controls",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Classic player.",
+      "steps": [
+        ["Long-press the Hold switch.", "It shows enabled; the wheel and buttons do nothing."],
+        ["Long-press again.", "Controls work again."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testHoldSwitchTogglesOnLongPress()", "LyreUITests/LyreUITests/testHoldSwitchTogglesBackOffOnSecondLongPress()"]
+    },
+    {
+      "key": "CLS-03", "suite": "Classic Player", "title": "Now Playing shows progress, scrubbing and nothing-playing",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "Classic player.",
+      "steps": [
+        ["Open Now Playing with nothing played.", "'Nothing playing'."],
+        ["Play a song and open Now Playing.", "Title, artist, elapsed and remaining time advance each second."],
+        ["Press the center to scrub, spin, press again.", "Playback jumps to the scrubbed time."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testNowPlayingShowsNothingPlayingByDefault()", "LyreUITests/LyreUITests/testNowPlayingScreenHasTitle()", "LyreTests/FormatTimeTests"]
+    },
+    {
+      "key": "CLS-04", "suite": "Classic Player", "title": "Search lowers the wheel while typing and finds the library",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Classic player with a library.",
+      "steps": [
+        ["Open Search and type an artist's name.", "The wheel lowers out of the way; results list artists, then albums, then songs."],
+        ["Type 'zzzz'.", "'No Results'."],
+        ["Press the keyboard's Search key.", "The keyboard goes and the wheel returns."]
+      ],
+      "automated_by": ["LyreUITests/SearchUITests/testClassicSearchLowersTheWheelWhileTypingAndBringsItBack()", "LyreTests/LibrarySearchTests"]
+    },
+    {
+      "key": "CLS-05", "suite": "Classic Player", "title": "Themes, highlight, screen size, clicks and backlight apply at once",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Classic player, Settings.",
+      "steps": [
+        ["Change body/finish, highlight color, screen size, scroll sensitivity, click sound and backlight timeout.", "Each change shows immediately."],
+        ["Leave the player idle past the backlight timeout.", "The screen dims; touching the wheel lights it."],
+        ["Force-quit and relaunch.", "Every choice is kept."]
+      ],
+      "automated_by": ["LyreTests/ThemeSettingsPersistenceTests", "LyreTests/LyreThemeTests", "LyreTests/ScreenSizeTests"]
+    },
+    {
+      "key": "CLS-06", "suite": "Classic Player", "title": "The battery indicator is honest",
+      "priority": "low", "severity": "minor", "type": "functional", "behavior": "positive",
+      "preconditions": "Classic player, main menu.",
+      "steps": [
+        ["Check the battery icon at 100%, 50%, under 20% unplugged, and charging.", "Icon matches the level; red only when under 20% and unplugged; bolt when charging."],
+        ["Run on a Mac (Designed for iPad) or the simulator.", "No red low-battery warning when the level can't be read."]
+      ],
+      "automated_by": ["LyreTests/BatteryIconNameTests", "LyreTests/BatteryIsLowTests", "LyreTests/AppHelperEdgeTests/aBatteryThatCantBeReadIsNeverShownAsLow()"]
+    },
+    {
+      "key": "CLS-07", "suite": "Classic Player", "title": "Turning the phone opens the Artwork Carousel",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Classic player with albums that have artwork.",
+      "steps": [
+        ["Turn the phone to landscape.", "The Artwork Carousel opens on the albums."],
+        ["Open an album's gatefold and use its controls.", "Each control responds; long-pressing the closed cover queues the record."],
+        ["Turn upright.", "Back to the wheel."]
+      ],
+      "automated_by": ["LyreUITests/GatefoldControlsUITests/testGatefoldLeftPanelControlsRespondToTaps()", "LyreUITests/GatefoldControlsUITests/testGatefoldLeftPanelControlsAreHittable()", "LyreUITests/GatefoldControlsUITests/testLongPressOnClosedCoverQueuesTheRecord()"]
+    },
+
+    {
+      "key": "SPL-01", "suite": "Spool Player", "title": "A tape swiped into the deck loads and plays",
+      "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Spool player with albums.",
+      "steps": [
+        ["Open the deck door; find a tape in the rack.", "The rack opens with the tape at the front named in the header."],
+        ["Swipe the tape left.", "It loads, the deck closes and the album plays; reels turn at tape speed."],
+        ["Swipe a tape right instead.", "It's queued, not played."]
+      ],
+      "automated_by": ["LyreUITests/SpoolUITests/testSwipingATapeLeftLoadsItAndClosesTheDeck()", "LyreUITests/SpoolUITests/testSwipingATapeRightQueuesIt()", "LyreUITests/SpoolUITests/testHeaderNamesTheTapeAtTheFront()", "LyreTests/TapeTransportTests"]
+    },
+    {
+      "key": "SPL-02", "suite": "Spool Player", "title": "The rack's index, flicks and search find a tape",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Spool rack open, 20+ albums.",
+      "steps": [
+        ["Run a finger down the A–Z index.", "A bold letter shows beside the finger; the first tape under each letter comes forward."],
+        ["Flick the rack.", "It coasts past several tapes."],
+        ["Search for an album.", "The rack narrows to matching tapes."],
+        ["Close and reopen the rack.", "It reopens on the tape last at the front."]
+      ],
+      "automated_by": ["LyreUITests/SpoolUITests/testTheRackHasAnIndexDownItsSide()", "LyreUITests/SpoolUITests/testFlickingTheRackCoastsPastSeveralTapes()", "LyreUITests/SearchUITests/testSpoolSearchNarrowsTheRack()", "LyreUITests/SpoolUITests/testTheRackReopensOnTheTapeLastAtTheFront()"]
+    },
+    {
+      "key": "SPL-03", "suite": "Spool Player", "title": "Cases, mixtapes, singles and the podcast shelf",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Library with albums, singles, playlists and podcasts.",
+      "steps": [
+        ["Tap a cased album.", "Its case opens on the J-card; dragging the lid down folds it shut."],
+        ["Look at a single.", "Labelled as a single."],
+        ["Open the mixtape shelf.", "Playlists as mixtapes, songs split into sides A and B."],
+        ["Open the podcast shelf.", "Shows as spoken-word tapes, episodes newest first."]
+      ],
+      "automated_by": ["LyreUITests/SpoolUITests/testTappingACasedAlbumOpensItsCaseAndClosingPutsItBack()", "LyreUITests/SpoolUITests/testSinglesAreLabelledAsSingles()", "LyreUITests/SpoolUITests/testTheMixtapeShelfHoldsPlaylistsWithTheirSongsSplitIntoSides()", "LyreUITests/SpoolUITests/testThePodcastShelfOpensAShowOnItsEpisodesNewestFirst()", "LyreTests/TapeFormatTests"]
+    },
+    {
+      "key": "SPL-04", "suite": "Spool Player", "title": "The owner's manual, Slim design and finishes",
+      "priority": "low", "severity": "minor", "type": "functional", "behavior": "positive",
+      "preconditions": "Spool player.",
+      "steps": [
+        ["Open the owner's manual.", "The tutorial steps through each lesson."],
+        ["Pick the Slim design and another finish.", "The deck changes straight away."]
+      ],
+      "automated_by": ["LyreUITests/SpoolUITests/testTheOwnersManualHasATutorialToStepThrough()", "LyreUITests/SpoolUITests/testPickingTheSlimDesignInSettingsChangesTheDeck()", "LyreUITests/SpoolUITests/testTheHotlineButtonOpensSettingsAndAFinishAppliesStraightAway()"]
+    },
+
+    {
+      "key": "GRM-01", "suite": "Gramophone Player", "title": "A record from a sleeve plays when the needle drops",
+      "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Gramophone player with albums.",
+      "steps": [
+        ["Open the crate, pick an album, choose a song from its sleeve.", "The record goes on the turntable and that song plays."],
+        ["Drag the tonearm to another band.", "Playback jumps to the song under the needle."],
+        ["Lift the arm off the record.", "It returns to its rest and playback stops."]
+      ],
+      "automated_by": ["LyreUITests/GramophoneUITests/testChoosingASongFromASleevePutsTheRecordOnTheTurntable()", "LyreUITests/GramophoneUITests/testLiftingTheTonearmOffTheRecordPutsItOnItsRest()", "LyreTests/GramophoneTests"]
+    },
+    {
+      "key": "GRM-02", "suite": "Gramophone Player", "title": "The crank, the play switch and the Up Next bin",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Gramophone player.",
+      "steps": [
+        ["Press play with no record on.", "The switch springs back."],
+        ["Wind the crank a full turn.", "All songs shuffle."],
+        ["Open the Up Next bin; flip, remove, reorder and play.", "Each works as on the other players."]
+      ],
+      "automated_by": ["LyreUITests/GramophoneUITests/testThePlaySwitchSpringsBackWithNoRecord()", "LyreUITests/GramophoneUITests/testWindingTheCrankAFullTurnShufflesAllTheSongs()", "LyreUITests/GramophoneUITests/testTheUpNextBinFlipsRemovesReordersAndPlays()"]
+    },
+    {
+      "key": "GRM-03", "suite": "Gramophone Player", "title": "Horn and cabinet designs, the booklet and the drawer index",
+      "priority": "low", "severity": "minor", "type": "functional", "behavior": "positive",
+      "preconditions": "Gramophone player.",
+      "steps": [
+        ["Switch between Horn and Cabinet in the booklet.", "The machine changes; the booklet shows the version and a tutorial."],
+        ["Run a finger along the drawer's index.", "A bold letter shows above the finger; records jump by letter."]
+      ],
+      "automated_by": ["LyreUITests/GramophoneUITests/testTheBookletSwitchesTheDesign()", "LyreUITests/GramophoneUITests/testTheBookletOpensWithATutorial()", "LyreUITests/GramophoneUITests/testTheBookletShowsTheVersion()", "LyreUITests/GramophoneUITests/testTheDrawerHasAnIndexThatTakesAFinger()", "LyreUITests/GramophoneUITests/testTheHornGramophoneShowsItsFront()", "LyreUITests/GramophoneUITests/testTheCabinetGramophoneHasItsParts()"]
+    },
+
+    {
+      "key": "DSC-01", "suite": "Disc Player", "title": "A song from a case puts the disc on and shuts the lid",
+      "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Disc player with albums.",
+      "steps": [
+        ["Open the lid, pick a case, choose a song.", "The disc goes on, the lid shuts, the song plays; the display shows it."],
+        ["Tap the lid again.", "Backs out."],
+        ["Press MODE repeatedly.", "Steps through repeat modes, shown on the display."]
+      ],
+      "automated_by": ["LyreUITests/DiscUITests/testChoosingASongFromACasePutsTheDiscOnAndShutsTheLid()", "LyreUITests/DiscUITests/testTappingTheLidAgainBacksOut()", "LyreUITests/DiscUITests/testModeStepsThroughRepeat()", "LyreUITests/DiscUITests/testThePlayerShowsItsDeckDisplayAndKeys()"]
+    },
+    {
+      "key": "DSC-02", "suite": "Disc Player", "title": "Instructions, finishes and the booklet",
+      "priority": "low", "severity": "minor", "type": "functional", "behavior": "positive",
+      "preconditions": "Disc player.",
+      "steps": [
+        ["Open the instructions.", "A tutorial; picking a finish applies at once."],
+        ["Open a jewel case's booklet.", "Shows the album's songs."]
+      ],
+      "automated_by": ["LyreUITests/DiscUITests/testTheInstructionsHaveATutorialAndAFinishAppliesStraightAway()"]
+    },
+
+    {
+      "key": "LQD-01", "suite": "Liquid Player", "title": "Now Playing waves change songs and rest away",
+      "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Liquid player with a song playing in the middle of an album.",
+      "steps": [
+        ["Swipe the forward and back waves.", "Next and previous song; the first song has no back wave."],
+        ["Leave it idle.", "The waves rest away; a touch brings them back."],
+        ["Tap the cover.", "Waves go away and come back."],
+        ["Tap the song's name.", "Its album opens."]
+      ],
+      "automated_by": ["LyreUITests/LiquidUITests/testNowPlayingShowsBothWavesAndItsControls()", "LyreUITests/LiquidUITests/testTheWavesRestAwayAndATouchBringsThemBack()", "LyreUITests/LiquidUITests/testTappingTheCoverPutsTheWavesAwayAndBack()", "LyreUITests/LiquidUITests/testTheFirstSongHasNoWaveBack()", "LyreUITests/LiquidUITests/testTheSongsNameOpensItsAlbum()"]
+    },
+    {
+      "key": "LQD-02", "suite": "Liquid Player", "title": "Library: lists, card stack, search and Up Next",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "Liquid player with a library.",
+      "steps": [
+        ["Open the library menu, then Songs, Recently Played and Recently Added.", "Each opens; each list keeps its own layout (list or stack)."],
+        ["Flip through the card stack; open a cover.", "It swings open onto its album; the stack reopens on that cover later."],
+        ["Pull Up Next up from the bottom.", "It rises like a sheet; dragging down puts it away."],
+        ["Search for an album.", "It's found."]
+      ],
+      "automated_by": ["LyreUITests/LiquidUITests/testTheMenuOpensSongsAndTheRecentLists()", "LyreUITests/LiquidUITests/testTheStackFlipsThroughCoversAndOneSwingsOpen()", "LyreUITests/LiquidUITests/testEachListKeepsItsOwnLayout()", "LyreUITests/LiquidUITests/testTheStackOpensOnTheCoverItWasLeftOn()", "LyreUITests/LiquidUITests/testPullingUpNextUpRaisesItLikeASheet()", "LyreUITests/LiquidUITests/testSearchFindsAnAlbum()"]
+    },
+    {
+      "key": "LQD-03", "suite": "Liquid Player", "title": "The A–Z index shows the letter under the finger, in order",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Liquid Songs in stack and list layouts, with titles starting with accented letters, digits and non-Latin scripts.",
+      "steps": [
+        ["Read the index.", "'#' first, then A–Z, then other scripts; 'Á' and 'È' are filed under A and E, not separate."],
+        ["Run a finger along the stack's index row.", "The letter shows large and bold on a disc above the finger, and the stack jumps to it with a tick per letter."],
+        ["Run a finger down the list's index strip.", "The letter shows beside the finger, to its left."],
+        ["Lift the finger.", "The disc fades."]
+      ],
+      "automated_by": ["LyreTests/LiquidLetterIndexTests"]
+    },
+    {
+      "key": "LQD-04", "suite": "Liquid Player", "title": "Settings, tutorial and the visualizer",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Liquid player.",
+      "steps": [
+        ["Open Settings.", "The tutorial, playback options and the other players are offered."],
+        ["Open the tutorial and swipe.", "One lesson at a time."],
+        ["Start the visualizer, then touch the screen.", "The visualizer gives way to the controls."]
+      ],
+      "automated_by": ["LyreUITests/LiquidUITests/testSettingsOpenAndOfferTheOtherPlayers()", "LyreUITests/LiquidUITests/testSettingsHaveTheTutorial()", "LyreUITests/LiquidUITests/testSwipingTurnsTheTutorialsLessons()", "LyreUITests/LiquidUITests/testTheTutorialTeachesOneAtATime()", "LyreUITests/LiquidUITests/testTheVisualizerGivesWayToATouch()"]
+    },
+
+    {
+      "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",
+      "priority": "high", "severity": "critical", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Online. Podcasts > Search Podcasts.",
+      "steps": [
+        ["Type a show's name.", "Results show title, author and artwork; shows without a public feed aren't listed."],
+        ["Tap Subscribe.", "A spinner, then a green tick; the show appears under Subscribed with its episode count."],
+        ["Swipe the subscription left and delete.", "Unsubscribed; its downloads are removed."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testPodcastSearchOnlineFindsAndSubscribesToAShow()", "LyreTests/PodcastSearchConnectivityTests", "LyreTests/PodcastSubscriptionConnectivityTests/subscribingOnlineAddsTheShow()", "LyreTests/PodcastSubscriptionConnectivityTests/unsubscribingRemovesTheShow()"]
+    },
+    {
+      "key": "POD-02", "suite": "Podcasts", "title": "Subscribe by pasting a feed address",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "Online; a public RSS feed URL on the clipboard.",
+      "steps": [
+        ["Paste the URL into the search field.", "'Subscribe to this feed' with the address underneath."],
+        ["Tap it.", "Subscribed. A feed that has moved (redirect) still works."],
+        ["Paste a web page that isn't a feed.", "'Couldn't Subscribe — That address isn't a podcast feed.'"]
+      ],
+      "automated_by": ["LyreTests/PodcastFeedTests", "LyreTests/PodcastSubscriptionConnectivityTests/subscribingToAPageThatIsntAFeedSaysWhy()"]
+    },
+    {
+      "key": "POD-03", "suite": "Podcasts", "title": "Streaming an episode resumes where it was left",
+      "priority": "high", "severity": "critical", "type": "functional", "behavior": "positive",
+      "preconditions": "Subscribed to a show; online.",
+      "steps": [
+        ["Play an episode for two minutes, then play something else.", ""],
+        ["Play the episode again.", "It picks up near where it stopped. Back skips 15s, forward 30s, inside the episode."],
+        ["Change speed to 1.5×.", "Voice keeps its pitch; the speed is kept next time."],
+        ["Let it play to within 30s of the end.", "Marked played (tick); a half-heard episode shows a half circle."]
+      ],
+      "automated_by": ["LyreTests/PodcastStreamPlayerTests", "LyreTests/EpisodeHistoryTests", "LyreTests/PodcastSubscriptionStoreTests/anEpisodePicksUpWhereItWasLeftAndFinishingForgetsIt()", "LyreUITests/SpoolUITests/testWithAnEpisodeInTheKeysJumpTheSpeedKnobShowsAndUpNextListsTheRest()", "LyreUITests/SpoolUITests/testEpisodesHeardBeforeAreMarked()"]
+    },
+    {
+      "key": "POD-04", "suite": "Podcasts", "title": "Downloads: save, play offline, remove",
+      "priority": "high", "severity": "critical", "type": "functional", "behavior": "positive", "tags": ["connectivity"],
+      "preconditions": "Subscribed show; on Wi‑Fi.",
+      "steps": [
+        ["Swipe right on an episode to download.", "Progress shows; the episode moves to Downloaded when finished."],
+        ["Turn on airplane mode and play it.", "Plays from the device."],
+        ["Swipe again to remove; Remove All Downloads.", "Removed; the space used drops to zero."],
+        ["Background Lyre mid-download for five minutes.", "The download completes anyway."]
+      ],
+      "automated_by": ["LyreTests/PodcastDownloadTests"]
+    },
+    {
+      "key": "POD-05", "suite": "Podcasts", "title": "Auto-download new episodes waits for Wi‑Fi",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive", "tags": ["connectivity"],
+      "preconditions": "Auto-download New Episodes on; on cellular only.",
+      "steps": [
+        ["Wait for a subscribed show to publish an episode (or refresh after one has).", "No cellular data is used for it."],
+        ["Join Wi‑Fi.", "At most three new episodes per show download."],
+        ["Turn on Remove After Playing and finish one.", "Its download is removed."]
+      ]
+    },
+    {
+      "key": "POD-06", "suite": "Podcasts", "title": "Import and export subscriptions as OPML",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "An OPML export from another podcast app in Files.",
+      "steps": [
+        ["Import OPML… and pick the file.", "'Added N podcasts' (with how many feeds couldn't be read, if any). Already-subscribed shows aren't duplicated."],
+        ["Pick a file that isn't OPML.", "'No podcast feeds were found in that file.'"],
+        ["Export OPML… and re-import into another app.", "The same shows come across."]
+      ],
+      "automated_by": ["LyreTests/OPMLTests", "LyreTests/PodcastSubscriptionConnectivityTests/anImportOnAPatchyConnectionAddsWhatItCanAndCountsTheRest()", "LyreTests/PodcastSubscriptionConnectivityTests/anImportSkipsShowsAlreadySubscribedTo()"]
+    },
+    {
+      "key": "POD-07", "suite": "Podcasts", "title": "On-device and streamed copies of a show merge",
+      "priority": "low", "severity": "minor", "type": "functional", "behavior": "positive",
+      "preconditions": "A show both synced to the device from Apple Podcasts and subscribed in Lyre.",
+      "steps": [
+        ["Open the show in each player.", "One show, each episode once, newest first; the downloaded copy wins."],
+        ["Finish an episode in Apple Podcasts, then look in Lyre.", "Marked played in Lyre too."]
+      ],
+      "automated_by": ["LyreTests/MusicServiceTests/aShowHeardTwoWaysIsOneShowWithEveryEpisodeOnce()", "LyreTests/EpisodeHistoryTests/theSameEpisodeHeardOneWayIsMarkedTheOther()"]
+    },
+
+    {
+      "key": "NET-01", "suite": "Connectivity", "title": "Podcast search offline says to check the connection",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "negative", "tags": ["connectivity"],
+      "preconditions": "Airplane mode on.",
+      "steps": [
+        ["Search Podcasts for any name.", "'Search isn't available right now. Check your connection and try again.' — not 'No podcasts found'."],
+        ["Turn airplane mode off and search again.", "Results appear."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testPodcastSearchOfflineSaysToCheckTheConnection()", "LyreTests/PodcastSearchConnectivityTests/searchingWithoutAConnectionThrowsTheConnectionError(_:)"]
+    },
+    {
+      "key": "NET-02", "suite": "Connectivity", "title": "Subscribing offline fails clearly and can be retried",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "negative", "tags": ["connectivity"],
+      "preconditions": "Airplane mode on.",
+      "steps": [
+        ["Paste a feed URL and tap Subscribe to this feed.", "'Couldn't Subscribe' with the reason; nothing is added."],
+        ["Go back online and tap it again.", "Subscribes."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testSubscribingToAPastedFeedOfflineExplainsTheFailure()", "LyreTests/PodcastSubscriptionConnectivityTests/subscribingOfflineFailsAndAddsNothing(_:)"]
+    },
+    {
+      "key": "NET-03", "suite": "Connectivity", "title": "Subscribed shows stay listed offline with their last episodes",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "negative", "tags": ["connectivity"],
+      "preconditions": "Subscribed to two shows; then airplane mode on.",
+      "steps": [
+        ["Force-quit and relaunch; open Podcasts.", "Both shows and their episode lists are there."],
+        ["Pull to refresh / revisit Podcasts.", "Nothing disappears; no error replaces the list."]
+      ],
+      "automated_by": ["LyreTests/PodcastSubscriptionConnectivityTests/goingOfflineKeepsTheLastCopyOfEveryShow()", "LyreTests/PodcastSubscriptionConnectivityTests/aServerOutageKeepsTheLastCopyToo()"]
+    },
+    {
+      "key": "NET-04", "suite": "Connectivity", "title": "Streaming an episode offline says to download for offline",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "negative", "tags": ["connectivity"],
+      "preconditions": "Subscribed show with a not-downloaded episode; airplane mode on.",
+      "steps": [
+        ["Play the episode.", "Banner: 'You're offline. Download episodes to listen without a connection.' Playback stops cleanly."],
+        ["Play a downloaded episode.", "Plays."]
+      ],
+      "automated_by": ["LyreTests/StreamFailureTests", "LyreTests/PodcastStreamPlayerTests/anEpisodeThatCantBeReachedReportsAFailureAndStops()"]
+    },
+    {
+      "key": "NET-05", "suite": "Connectivity", "title": "Cellular data off for Lyre reads as offline, not a server fault",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "negative", "tags": ["connectivity"],
+      "preconditions": "Wi‑Fi off; Settings > Cellular > Lyre off.",
+      "steps": [
+        ["Launch Lyre as an Apple Music subscriber with no downloaded music.", "Any library error says 'No Internet Connection', not 'Service Unavailable'."],
+        ["Search Podcasts.", "The connection message from NET-01."]
+      ],
+      "automated_by": ["LyreTests/ConnectionErrorClassificationTests"]
+    },
+    {
+      "key": "NET-06", "suite": "Connectivity", "title": "A connection lost mid-stream or mid-download recovers",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "destructive", "tags": ["connectivity"],
+      "preconditions": "Streaming an episode; a download in progress.",
+      "steps": [
+        ["Turn airplane mode on for 20 seconds, then off.", "The stream either rides out the gap from its buffer or reports offline; it never hangs silently."],
+        ["Check the download.", "It resumes or goes back to not downloaded; it never claims to be downloaded when it isn't."]
+      ]
+    },
+    {
+      "key": "NET-07", "suite": "Connectivity", "title": "A slow or captive-portal network doesn't freeze Lyre",
+      "priority": "medium", "severity": "major", "type": "performance", "behavior": "negative", "tags": ["connectivity"],
+      "preconditions": "Network Link Conditioner set to '100% Loss' then 'Very Bad Network'; or a hotel Wi‑Fi sign-in page.",
+      "steps": [
+        ["Launch Lyre and use the player.", "The interface stays responsive; library on-device music plays."],
+        ["Search Podcasts.", "Fails within ~30s with the connection message; a sign-in page is never shown as results."]
+      ],
+      "automated_by": ["LyreTests/PodcastSearchConnectivityTests/aGarbledAnswerThrowsRatherThanShowingNothing()", "LyreTests/PodcastFeedTests/aFeedCutOffMidDownloadStillGivesTheEpisodesRead()"]
+    },
+    {
+      "key": "NET-08", "suite": "Connectivity", "title": "The podcast directory or a feed server being down",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "negative", "tags": ["connectivity"],
+      "preconditions": "Simulated with the -UITestNetwork serverError launch argument (debug builds).",
+      "steps": [
+        ["Search Podcasts.", "'Search isn't available right now…', not 'No podcasts found'."],
+        ["Refresh subscriptions.", "Last copies kept."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testPodcastSearchWithTheDirectoryDownSaysToTryAgain()", "LyreTests/PodcastSearchConnectivityTests/aDirectoryThatIsDownIsABadResponse(_:)", "LyreTests/PodcastFeedTests/aFeedThatIsGoneOrDownIsABadResponse(_:)"]
+    },
+
+    {
+      "key": "SYS-01", "suite": "System Integration", "title": "Lock screen, Control Center and headphone controls",
+      "priority": "high", "severity": "critical", "type": "functional", "behavior": "positive",
+      "preconditions": "A song playing, then a podcast episode streaming.",
+      "steps": [
+        ["Lock the phone; use play/pause, next, previous.", "Each works; artwork and title shown."],
+        ["Stream an episode; use the lock screen's skip buttons and scrubber.", "Back 15s, forward 30s, scrubbing seeks."],
+        ["Use wired/AirPods play-pause.", "Toggles playback."]
+      ]
+    },
+    {
+      "key": "SYS-02", "suite": "System Integration", "title": "AirPlay to a speaker or TV",
+      "priority": "medium", "severity": "major", "type": "compatibility", "behavior": "positive",
+      "preconditions": "An AirPlay device on the same network.",
+      "steps": [
+        ["Tap the AirPlay button in any player.", "The system picker lists the device."],
+        ["Pick it.", "Audio moves; the player names the device."],
+        ["Switch back to iPhone.", "Audio returns."]
+      ]
+    },
+    {
+      "key": "SYS-03", "suite": "System Integration", "title": "Calls, Siri and other apps interrupt and resume",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "negative",
+      "preconditions": "A song playing; then repeat with a podcast streaming.",
+      "steps": [
+        ["Receive a phone call; decline after ten seconds.", "Playback pauses for the call and resumes after."],
+        ["Ask Siri something.", "Ducks or pauses, then resumes."],
+        ["Play a video in another app.", "Lyre pauses and doesn't fight for audio."]
+      ]
+    },
+    {
+      "key": "SYS-04", "suite": "System Integration", "title": "Headphones unplugged or AirPods taken out pause playback",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "negative",
+      "preconditions": "Playing through headphones.",
+      "steps": [
+        ["Unplug / remove the AirPods.", "Playback pauses rather than coming out of the speaker."]
+      ]
+    },
+    {
+      "key": "SYS-05", "suite": "System Integration", "title": "Background, return and relaunch keep the user's place",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive", "tags": ["smoke"],
+      "preconditions": "Any player, somewhere inside a list.",
+      "steps": [
+        ["Go to the Home Screen for a minute, then return.", "Same screen, same place; music kept playing."],
+        ["Force-quit and relaunch.", "The chosen player opens; onboarding doesn't run again."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testComingBackFromTheBackgroundKeepsThePlayer()", "LyreUITests/EnvironmentUITests/testTheChosenPlayerSurvivesARelaunch()"]
+    },
+    {
+      "key": "SYS-06", "suite": "System Integration", "title": "Low Power Mode and thermal state",
+      "priority": "low", "severity": "minor", "type": "performance", "behavior": "positive",
+      "preconditions": "Low Power Mode on.",
+      "steps": [
+        ["Use each player for five minutes.", "Animations simplify; playback is unaffected; no stutter."]
+      ]
+    },
+    {
+      "key": "SYS-07", "suite": "System Integration", "title": "Cold launch time",
+      "priority": "medium", "severity": "normal", "type": "performance", "behavior": "positive",
+      "preconditions": "Release build on the oldest supported device.",
+      "steps": [
+        ["Force-quit and launch five times.", "The first screen appears in under 1.5s each time."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testLaunchPerformanceWithOnboardingComplete()", "LyreUITests/LyreUITests/testLaunchPerformanceFreshInstall()"]
+    },
+
+    {
+      "key": "FLD-01", "suite": "Foldable (iPhone Duo)", "title": "Each player's open layout",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive", "tags": ["foldable"],
+      "preconditions": "iPhone Duo.",
+      "steps": [
+        ["Open the Duo with the Spool.", "Deck beside the rack; a swiped tape waits in the deck and plays when the phone closes."],
+        ["Open it with the Gramophone.", "A bin of records to flip through (a phone that doesn't fold has no bin)."],
+        ["Open it with the Disc.", "It's a Discman."],
+        ["Open it with Liquid, flat and held as a book.", "The pool under the waves; as a book, the library beside them."],
+        ["Open it with Classic.", "The Artwork Carousel."]
+      ],
+      "automated_by": ["LyreUITests/SpoolUITests/testOnAnOpenDuoASwipedTapeWaitsInTheDeckUntilThePhoneCloses()", "LyreUITests/SpoolUITests/testOnAnOpenDuoACaseOpensOverTheRackAndItsSongGoesIntoTheDoor()", "LyreUITests/GramophoneUITests/testAnOpenDuoHasABinOfRecordsToFlipThrough()", "LyreUITests/GramophoneUITests/testAPhoneThatDoesntFoldHasNoBin()", "LyreUITests/DiscUITests/testAnOpenDuoIsADiscman()", "LyreUITests/LiquidUITests/testAnOpenDuoHasThePoolUnderTheWaves()", "LyreUITests/LiquidUITests/testAnOpenDuoHeldAsABookHasTheLibraryBesideTheWaves()", "LyreTests/FoldPostureMonitorTests"]
+    },
+    {
+      "key": "FLD-02", "suite": "Foldable (iPhone Duo)", "title": "Folding and unfolding mid-task loses nothing",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "destructive", "tags": ["foldable"],
+      "preconditions": "iPhone Duo, music playing.",
+      "steps": [
+        ["In each player, fold and unfold repeatedly while a sheet, a case or a search is open.", "Playback continues; no crash; whatever was open comes back or closes cleanly."],
+        ["Fold mid-onboarding.", "Onboarding keeps its step."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testRotatingDuringOnboardingKeepsTheStep()"]
+    },
+
+    {
+      "key": "A11Y-01", "suite": "Accessibility & Localization", "title": "VoiceOver can use every player",
+      "priority": "high", "severity": "critical", "type": "usability", "behavior": "positive", "tags": ["accessibility"],
+      "preconditions": "VoiceOver on.",
+      "steps": [
+        ["Classic: swipe up/down on the wheel.", "It's adjustable; the highlighted item is read out."],
+        ["Onboarding: move through each page.", "Every control has a name; the step ('Step 3 of 14') is readable."],
+        ["Each player: find and activate play, next, the library and settings.", "All reachable and named; decorative parts are skipped."],
+        ["Any A–Z index.", "Adjustable; swipes move letter by letter."]
+      ],
+      "automated_by": ["LyreUITests/LyreUITests/testScrollWheelReportsHighlightedItemToVoiceOver()", "LyreUITests/EnvironmentUITests/testTheWelcomePagePassesAnAccessibilityAudit()", "LyreUITests/EnvironmentUITests/testChoosingAPlayerPassesAnAccessibilityAudit()", "LyreUITests/EnvironmentUITests/testPodcastSearchPassesAnAccessibilityAudit()"]
+    },
+    {
+      "key": "A11Y-02", "suite": "Accessibility & Localization", "title": "Largest accessibility text size",
+      "priority": "high", "severity": "major", "type": "usability", "behavior": "positive", "tags": ["accessibility"],
+      "preconditions": "Settings > Accessibility > Display & Text Size > Larger Text at maximum.",
+      "steps": [
+        ["Go through onboarding.", "Every choice and Continue can be reached by scrolling; nothing is cut off."],
+        ["Use the main menu and Podcasts search.", "Usable; text wraps rather than truncating meaning."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testOnboardingWorksAtTheLargestTextSize()", "LyreUITests/EnvironmentUITests/testTheMainMenuWorksAtTheLargestTextSize()"]
+    },
+    {
+      "key": "A11Y-03", "suite": "Accessibility & Localization", "title": "Right-to-left languages",
+      "priority": "medium", "severity": "normal", "type": "compatibility", "behavior": "positive", "tags": ["accessibility"],
+      "preconditions": "Device language Arabic or Hebrew (or Xcode's Right-to-Left pseudolanguage).",
+      "steps": [
+        ["Go through onboarding and open each player.", "Layout mirrors where it should; the wheel and transport controls keep their physical layout; nothing overlaps."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testOnboardingWorksRightToLeft()", "LyreUITests/EnvironmentUITests/testTheMainMenuWorksRightToLeft()"]
+    },
+    {
+      "key": "A11Y-04", "suite": "Accessibility & Localization", "title": "Reduce Motion, Increase Contrast and Bold Text",
+      "priority": "medium", "severity": "normal", "type": "usability", "behavior": "positive", "tags": ["accessibility"],
+      "preconditions": "Each setting on in turn.",
+      "steps": [
+        ["Reduce Motion: switch players, open the Liquid menu and the carousel.", "Big motions become fades; nothing spins endlessly."],
+        ["Increase Contrast and Bold Text: read each player's text.", "Readable; nothing disappears into its background."]
+      ]
+    },
+    {
+      "key": "A11Y-05", "suite": "Accessibility & Localization", "title": "Landscape and rotation",
+      "priority": "low", "severity": "minor", "type": "compatibility", "behavior": "positive",
+      "preconditions": "Rotation lock off.",
+      "steps": [
+        ["Start onboarding in landscape and finish it.", "Every step reachable."],
+        ["Rotate during onboarding.", "The step is kept."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testOnboardingCanBeFinishedInLandscape()", "LyreUITests/EnvironmentUITests/testRotatingDuringOnboardingKeepsTheStep()"]
+    },
+    {
+      "key": "A11Y-06", "suite": "Accessibility & Localization", "title": "Names in any script sort and index sensibly",
+      "priority": "low", "severity": "minor", "type": "functional", "behavior": "positive",
+      "preconditions": "Library with artists in Latin with accents, Japanese, Arabic, and names starting with digits or emoji.",
+      "steps": [
+        ["Open Artists and Songs in each player.", "Digits and emoji file under #; accented names with their letter; other scripts under their own letter, after Z."]
+      ],
+      "automated_by": ["LyreTests/AppHelperEdgeTests/nonLatinNamesFileUnderTheirOwnLetter()", "LyreTests/LiquidLetterIndexTests"]
+    },
+
+    {
+      "key": "SET-01", "suite": "Settings & Persistence", "title": "An upgrade from 1.x keeps the chosen finish",
+      "priority": "medium", "severity": "major", "type": "regression", "behavior": "positive",
+      "preconditions": "A 1.x build installed with a finish such as 'Classic Black' chosen.",
+      "steps": [
+        ["Install the current build over it.", "The same finish (now 'Onyx') is shown; onboarding doesn't rerun."]
+      ],
+      "automated_by": ["LyreTests/ThemeSettingsPersistenceTests/anUpgradeFromBefore1_0KeepsItsFinish(_:_:)"]
+    },
+    {
+      "key": "SET-02", "suite": "Settings & Persistence", "title": "Damaged saved data is recovered from",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "destructive",
+      "preconditions": "Debug build.",
+      "steps": [
+        ["Corrupt the library cache and the subscriptions file (Devices window > download container, edit, replace).", ""],
+        ["Launch Lyre.", "No crash. The cache is rebuilt; settings fall back to defaults where unreadable."]
+      ],
+      "automated_by": ["LyreTests/LibraryCacheTests/aDamagedCacheIsThrownAway()", "LyreTests/LibraryCacheTests/aCacheFromAnOlderVersionIsIgnored()", "LyreTests/ThemeSettingsPersistenceTests/aDamagedSettingFallsBackRatherThanCrashing()"]
+    },
+    {
+      "key": "SET-03", "suite": "Settings & Persistence", "title": "Low storage",
+      "priority": "low", "severity": "normal", "type": "functional", "behavior": "negative",
+      "preconditions": "Device with under 200 MB free.",
+      "steps": [
+        ["Download a long episode.", "Fails cleanly (back to not downloaded); no half file is listed as downloaded."],
+        ["Relaunch.", "Lyre opens; settings and subscriptions intact."]
+      ]
+    }
+  ]
+}

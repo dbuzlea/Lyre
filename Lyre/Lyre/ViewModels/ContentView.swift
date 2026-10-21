@@ -104,7 +104,7 @@ struct ContentView: View {
         .alert(
             musicService.lastError?.alertTitle ?? "Something Went Wrong",
             isPresented: .init(
-                get: { musicService.lastError != nil && musicService.lastError != .notAuthorized },
+                get: { musicService.lastError != nil && musicService.lastError != .notAuthorized && !Self.hidesLibraryErrors },
                 set: { if !$0 { musicService.lastError = nil } }
             )
         ) {
@@ -125,6 +125,17 @@ struct ContentView: View {
 }
 
 private extension ContentView {
+    /// `--uitest-hide-library-errors` keeps the library's load errors off screen, for UI
+    /// tests about something else: the simulator has no library, so its error alert
+    /// turns up at unpredictable moments and takes any open sheet down with it.
+    static var hidesLibraryErrors: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--uitest-hide-library-errors")
+        #else
+        false
+        #endif
+    }
+
     func frameReader(_ update: @escaping (CGRect) -> Void) -> some View {
         GeometryReader { proxy in
             let frame = proxy.frame(in: .global)

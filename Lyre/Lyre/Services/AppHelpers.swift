@@ -68,9 +68,11 @@ enum AppHelpers {
         }
     }
 
-    /// Returns true when battery is critically low and not charging/full.
+    /// Returns true when battery is critically low and not charging/full. A battery
+    /// that can't be read (level -1, state unknown: a Mac with no battery, or the
+    /// simulator) is never low.
     static func batteryIsLow(level: Float, state: UIDevice.BatteryState) -> Bool {
-        level < 0.2 && state != .charging && state != .full
+        level >= 0 && level < 0.2 && state == .unplugged
     }
 }
 

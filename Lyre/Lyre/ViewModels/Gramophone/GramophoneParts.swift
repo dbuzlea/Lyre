@@ -771,7 +771,7 @@ struct GramophoneSketch: View {
                 .frame(width: 46, height: 40)
                 .offset(x: 2, y: -48)
         }
-        .frame(width: 80, height: 88)
+        .frame(width: 80, height: 88, alignment: .bottom)
     }
 
     /// An upright console with its lid up and louvered doors.

@@ -313,7 +313,8 @@ nonisolated struct GramophoneCameraPose: Equatable {
     /// view's half-height and half-width).
     static func front(bounds: (min: SIMD3<Float>, max: SIMD3<Float>), aspect: Float, fieldOfView degrees: Float,
                       yaw: Float, pitch: Float, margin: Float = 0.06,
-                      topInset: Float = 0, bottomInset: Float = 0) -> GramophoneCameraPose {
+                      topInset: Float = 0, bottomInset: Float = 0,
+                      fitsBand: Bool = false) -> GramophoneCameraPose {
         let tanH = tan(degrees * .pi / 360)
         let tanV = tanH / max(aspect, 0.1)
         // Toward the camera from what it looks at.
@@ -349,7 +350,12 @@ nonisolated struct GramophoneCameraPose: Equatable {
             for _ in 0..<40 {
                 let mid = (near + far) / 2
                 let e = extent(mid, target)
-                if e.x <= 1 - margin && e.high <= maxHigh && e.low >= minLow { far = mid } else { near = mid }
+                // Fitted where it is, or (`fitsBand`) by its height alone and then moved
+                // into the band: a band that doesn't reach the middle of the screen, as
+                // on an iPhone Duo with the bin below, could never be fitted where it is.
+                let fits = fitsBand ? e.high - e.low <= maxHigh - minLow
+                                    : e.high <= maxHigh && e.low >= minLow
+                if e.x <= 1 - margin && fits { far = mid } else { near = mid }
             }
             distance = far
             // …then centred between the insets.

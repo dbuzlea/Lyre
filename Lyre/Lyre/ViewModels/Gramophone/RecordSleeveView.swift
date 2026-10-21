@@ -220,7 +220,8 @@ struct RecordSleeveView: View {
                 }
                 .frame(width: 22, alignment: .trailing)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(track.title)
+                    // An episode's marked if played before, or part way through.
+                    EpisodeTitle(track.title, episode: episode)
                         .font(album.isMixtape ? .custom(SpoolPalette.handwriting, size: 15) : .system(size: 14, design: .serif))
                         .foregroundStyle(album.isMixtape ? SpoolPalette.pen : SpoolPalette.labelInk)
                         .lineLimit(2)

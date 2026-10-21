@@ -176,7 +176,7 @@ final class PodcastDownloads: NSObject, ObservableObject {
 
     /// A stable file name per episode. IDs are feed GUIDs, which can be anything, so
     /// they are hashed rather than used as names.
-    private nonisolated static func fileName(for episodeID: String, remoteURL: URL?) -> String {
+    nonisolated static func fileName(for episodeID: String, remoteURL: URL?) -> String {
         let hash = SHA256.hash(data: Data(episodeID.utf8)).prefix(16).map { String(format: "%02x", $0) }.joined()
         let ext = remoteURL?.pathExtension.lowercased() ?? ""
         let known = ["mp3", "m4a", "aac", "mp4", "m4v", "mov", "wav", "ogg", "opus"]

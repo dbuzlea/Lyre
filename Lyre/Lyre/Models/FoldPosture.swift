@@ -70,22 +70,49 @@ final class FoldPostureMonitor {
     /// build can never get stuck in a posture the device isn't in.
     var debugOverride: FoldPosture?
 
+    /// How far open the hinge is, in degrees: 0 shut, 180 flat. Nil without a hinge.
+    /// For effects that follow the hinge (the Disc's lid, Liquid's lava), never layout.
+    private(set) var systemAngle: Double?
+    /// Stands in for the hinge's angle (debug builds).
+    var debugAngle: Double?
+
     init() {
         #if DEBUG
-        // `-SpoolFoldPosture open` (or tent) at launch, for screenshots and UI tests.
+        // `-SpoolFoldPosture open` (or tent) at launch, for screenshots and UI tests;
+        // `-LyreHingeAngle 100` for the angle.
         if let raw = UserDefaults.standard.string(forKey: "SpoolFoldPosture") {
             debugOverride = FoldPosture(rawValue: raw)
+        }
+        if UserDefaults.standard.object(forKey: "LyreHingeAngle") != nil {
+            debugAngle = UserDefaults.standard.double(forKey: "LyreHingeAngle")
         }
         #endif
     }
 
     var posture: FoldPosture { debugOverride ?? systemPosture }
 
-    func update(_ reading: HingeReading) {
+    /// The hinge's angle, when there's a hinge (or one's stood in for): what's open
+    /// with no angle reported counts as flat.
+    var angle: Double? {
+        if let debugAngle { return debugAngle }
+        if let systemAngle { return systemAngle }
+        return posture == .open ? 180 : nil
+    }
+
+    /// Partly open, between shut and flat: propped up, as a laptop or on a table.
+    var isPartlyOpen: Bool {
+        guard posture == .open, let angle else { return false }
+        return angle < 160
+    }
+
+    func update(_ reading: HingeReading, angle: Double? = nil) {
         let posture = FoldPosture(reading)
         // Angle updates arrive continuously while the hinge moves; only a change of
-        // posture should invalidate the views that read it.
+        // posture should invalidate the views that read it. The angle is kept apart,
+        // in whole degrees, so only what follows it redraws.
         if posture != systemPosture { systemPosture = posture }
+        let rounded = angle.map { $0.rounded() }
+        if rounded != systemAngle { systemAngle = rounded }
     }
 }
 
@@ -93,7 +120,8 @@ final class FoldPostureMonitor {
 
 /// Feeds the hinge into a `FoldPostureMonitor`. Attach once, near the root.
 ///
-/// Status only, never the angle: posture chooses a layout, and the angle is for effects.
+/// Status chooses a layout; the angle (in whole degrees) is only for effects that follow
+// the hinge, read by the few views that draw them.
 /// Layout itself still comes from the size the views are given, which is what keeps every
 /// other iPhone working the same way.
 struct HingeObserver: ViewModifier {
@@ -102,7 +130,7 @@ struct HingeObserver: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 27.1, *) {
             content.onHingeChange { _, context in
-                monitor.update(HingeReading(context.hinge))
+                monitor.update(HingeReading(context.hinge), angle: context.hinge?.angle.degrees)
             }
         } else {
             content

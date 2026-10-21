@@ -49,6 +49,8 @@ struct LiquidLibraryView: View {
     let onOpenSettings: () -> Void
     /// Room kept clear at the bottom for the droplet.
     let bottomInset: CGFloat
+    /// The hinge's pull on the lava (iPhone Duo, partly open).
+    var lavaPull: CGVector = .zero
 
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.liquidFlood) private var flood
@@ -147,7 +149,8 @@ struct LiquidLibraryView: View {
                 }
             },
             onOpenSettings: onOpenSettings,
-            bottomInset: bottomInset
+            bottomInset: bottomInset,
+            pull: lavaPull
         )
         .toolbar(.hidden, for: .navigationBar)
     }
@@ -538,14 +541,53 @@ struct LiquidLetterEntry {
     let letter: String
     let index: Int
 
+    /// Each letter once, pointing at its first title, in the order an index reads:
+    /// "#" first, then A–Z, then letters of other scripts as they come. An accented
+    /// letter files under its plain one ("Ánimo" under A), so the strip isn't split
+    /// into A and Á however the titles happen to be ordered.
     static func index(_ titles: [String]) -> [LiquidLetterEntry] {
         var seen = Set<String>()
         var result: [LiquidLetterEntry] = []
         for (index, title) in titles.enumerated() {
-            let letter = AppHelpers.firstLetter(of: title)
+            let letter = filingLetter(of: title)
             if seen.insert(letter).inserted { result.append(LiquidLetterEntry(letter: letter, index: index)) }
         }
-        return result
+        return result.enumerated().sorted { lhs, rhs in
+            let left = rank(lhs.element.letter), right = rank(rhs.element.letter)
+            return left != right ? left < right : lhs.offset < rhs.offset
+        }.map(\.element)
+    }
+
+    static func filingLetter(of title: String) -> String {
+        AppHelpers.firstLetter(of: title).folding(options: .diacriticInsensitive, locale: nil)
+    }
+
+    /// Where a letter goes along the strip: "#", then A–Z, then the rest.
+    private static func rank(_ letter: String) -> Int {
+        if letter == "#" { return 0 }
+        if let scalar = letter.unicodeScalars.first, letter.unicodeScalars.count == 1,
+           ("A"..."Z").contains(scalar) {
+            return 1 + Int(scalar.value - UnicodeScalar("A").value)
+        }
+        return 100
+    }
+}
+
+/// The letter under a finger on a Liquid index, large and bold on a disc beside it, as
+/// the other players' indexes show it.
+struct LiquidLetterBubble: View {
+    let letter: String
+
+    var body: some View {
+        Text(letter)
+            .font(.system(size: 26, weight: .bold, design: .rounded))
+            .foregroundStyle(.black)
+            .frame(width: 50, height: 50)
+            .background(Circle().fill(.white))
+            .shadow(color: .black.opacity(0.5), radius: 6, y: 3)
+            .transition(.scale(scale: 0.6).combined(with: .opacity))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 
@@ -554,6 +596,8 @@ struct LiquidLetterStrip: View {
     let onJump: (Int) -> Void
 
     @State private var lastLetter: String?
+    /// Where along the strip the finger is, for the letter's bubble.
+    @State private var fingerAt: CGFloat = 0
 
     /// The first title under each letter: worked out when the titles change, not on
     /// every redraw (a finger along the index redraws it at every letter it crosses).
@@ -577,13 +621,23 @@ struct LiquidLetterStrip: View {
                         guard !letters.isEmpty else { return }
                         let row = Int((value.location.y - 8) / max(1, (geometry.size.height - 16) / CGFloat(letters.count)))
                         let entry = letters[min(letters.count - 1, max(0, row))]
+                        fingerAt = min(max(value.location.y, 26), geometry.size.height - 26)
                         guard entry.letter != lastLetter else { return }
-                        lastLetter = entry.letter
+                        withAnimation(lastLetter == nil ? .spring(response: 0.25, dampingFraction: 0.7) : nil) {
+                            lastLetter = entry.letter
+                        }
                         UISelectionFeedbackGenerator().selectionChanged()
                         onJump(entry.index)
                     }
-                    .onEnded { _ in lastLetter = nil }
+                    .onEnded { _ in withAnimation(.easeOut(duration: 0.15)) { lastLetter = nil } }
             )
+            .overlay(alignment: .topLeading) {
+                // Beside the finger, to its left, where the finger doesn't cover it.
+                if let lastLetter {
+                    LiquidLetterBubble(letter: lastLetter)
+                        .position(x: -34, y: fingerAt)
+                }
+            }
         }
         .frame(width: 24)
         .frame(maxHeight: 520)
@@ -1079,7 +1133,8 @@ struct LiquidAlbumPage: View {
                     }
                     .frame(width: 26, alignment: .leading)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(track.title)
+                        // An episode's marked if played before, or part way through.
+                        EpisodeTitle(track.title, episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil })
                             .font(.system(size: 16, weight: track.id == playingID ? .bold : .regular))
                             .lineLimit(2)
                         if album.isMixtape {

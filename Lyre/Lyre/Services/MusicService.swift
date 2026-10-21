@@ -117,7 +117,10 @@ enum MusicLoadError: LocalizedError, Equatable {
         if let urlError = error as? URLError {
             switch urlError.code {
             case .notConnectedToInternet, .networkConnectionLost,
-                 .timedOut, .cannotConnectToHost, .dnsLookupFailed:
+                 .timedOut, .cannotConnectToHost, .dnsLookupFailed,
+                 // Cellular data switched off for the app, or roaming off abroad: no
+                 // connection as far as the user can tell, not a server fault.
+                 .cannotFindHost, .dataNotAllowed, .internationalRoamingOff:
                 return .noNetwork
             default:
                 return .serverError
@@ -1784,7 +1787,7 @@ class MusicService: ObservableObject {
 
     /// True when a playback error comes down to having no connection. AVFoundation
     /// wraps the network error, so the underlying errors are searched too.
-    private static func isOffline(_ error: Error?) -> Bool {
+    static func isOffline(_ error: Error?) -> Bool {
         var next = error as NSError?
         while let current = next {
             if current.domain == NSURLErrorDomain, [
@@ -1979,13 +1982,23 @@ class MusicService: ObservableObject {
 
     private func setupStreamPlayer() {
         streamPlayer.loadPosition = { [weak self] id in self?.podcastSubscriptions.position(for: id) ?? 0 }
-        streamPlayer.savePosition = { [weak self] time, id in self?.podcastSubscriptions.setPosition(time, for: id) }
+        streamPlayer.savePosition = { [weak self] time, id in
+            guard let self else { return }
+            self.podcastSubscriptions.setPosition(time, for: id)
+            // How far it's been heard, for the lists' played marks. Read from the player:
+            // a finished episode's place is saved as 0.
+            if let episode = self.streamPlayer.current, episode.id == id {
+                EpisodeHistory.shared.record(episode, time: self.streamPlayer.currentTime,
+                                             duration: self.streamPlayer.duration)
+            }
+        }
         streamPlayer.onChange = { [weak self] in self?.syncFromStreamPlayer() }
         streamPlayer.rate = podcastRate
         streamPlayer.playbackURL = { [weak self] episode in
             self?.podcastDownloads.localFile(for: episode.id) ?? episode.streamURL
         }
         streamPlayer.onFinish = { [weak self] episode in
+            EpisodeHistory.shared.markPlayed(episode)
             guard let self, self.podcastDownloads.removeAfterPlaying else { return }
             self.podcastDownloads.remove(episode.id)
         }
@@ -2148,6 +2161,11 @@ class MusicService: ObservableObject {
 
     private func updateNowPlayingItem() {
         guard activeEngine == .library else { return }
+        // An episode playing through the music player, left for another: how far it
+        // was heard, for the lists' played marks.
+        if let previous = currentMediaItem, previous.persistentID != player.nowPlayingItem?.persistentID {
+            recordLibraryEpisode(previous, time: clock.time)
+        }
         currentMediaItem = player.nowPlayingItem
         guard let nowPlaying = player.nowPlayingItem else {
             currentTrack = nil; duration = 0
@@ -2230,6 +2248,15 @@ class MusicService: ObservableObject {
         // Skipping unchanged values keeps a paused-but-ticking edge case from
         // republishing the same time.
         if clock.time != time { clock.time = time }
+        if activeEngine != .stream, let item = currentMediaItem {
+            recordLibraryEpisode(item, time: time)
+        }
+    }
+
+    /// An episode from the media library, heard to `time`; songs aren't recorded.
+    private func recordLibraryEpisode(_ item: MPMediaItem, time: TimeInterval) {
+        guard item.mediaType.contains(.podcast) else { return }
+        EpisodeHistory.shared.record(PodcastEpisode(item: item), time: time, duration: item.playbackDuration)
     }
 
     // MARK: - Now Playing Info Center (lockscreen / control center)

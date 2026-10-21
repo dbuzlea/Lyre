@@ -283,6 +283,17 @@ struct LyreView: View {
             // Covers the hand-off out of onboarding: if authorization was granted but
             // the library never populated, load it before the user sees empty menus.
             await musicService.ensureLibraryLoaded()
+            #if DEBUG
+            // `--uitest-open-podcast-search` brings up the podcast search sheet once the
+            // library has loaded (pair it with `--uitest-hide-library-errors`: an error
+            // alert arriving while the sheet is up takes the sheet down with it).
+            if ProcessInfo.processInfo.arguments.contains("--uitest-open-podcast-search") {
+                while musicService.isLoading {
+                    try? await Task.sleep(for: .milliseconds(200))
+                }
+                showPodcastSearch = true
+            }
+            #endif
         }
         .onDisappear {
             UIDevice.current.endGeneratingDeviceOrientationNotifications()

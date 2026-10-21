@@ -418,7 +418,8 @@ struct CassetteCaseView: View {
     /// An episode: its title, and the day it came out with how long it runs.
     private func episodeRow(_ episode: PodcastEpisode) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(episode.title)
+            // Marked if played before, or part way through.
+            EpisodeTitle(episode.title, episode: episode)
                 .font(.system(size: 14, weight: .medium))
                 .lineLimit(2)
             Text([episode.published.map(Self.episodeDate), episode.duration > 0 ? Self.runningTime(episode.duration) : nil]

@@ -466,6 +466,59 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "tour-open")
     }
 
+    // MARK: - iPhone Duo
+
+    /// Opened with the fold across the middle: the waves above, Up Next's pool below,
+    /// which gives way to the library and back.
+    @MainActor
+    func testAnOpenDuoHasThePoolUnderTheWaves() throws {
+        let app = launchLiquid(["-SpoolFoldPosture", "open", "-LyreHingeAngle", "110"])
+        let pool = element(app, "liquid.pool")
+        XCTAssertTrue(pool.waitForExistence(timeout: 10), "No pool under the waves")
+        XCTAssertTrue(element(app, "liquid.nowPlaying").exists, "No Now Playing above the fold")
+        XCTAssertTrue(element(app, "liquid.pool.drop.0").exists, "Up Next isn't in the pool")
+        sleep(1)
+        attachScreenshot(app, named: "duo-pool")
+
+        // Flicked up, a drop rises into the wave: it plays next.
+        let second = element(app, "liquid.pool.drop.2")
+        XCTAssertTrue(second.exists)
+        second.swipeUp()
+        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Flicking it up said nothing")
+
+        // The library in the pool's place, and back.
+        element(app, "liquid.pool.library").tap()
+        XCTAssertTrue(element(app, "liquid.menu.albums").waitForExistence(timeout: 5), "The library didn't come up")
+        sleep(1)
+        attachScreenshot(app, named: "duo-library-below")
+        element(app, "liquid.pool.back").tap()
+        XCTAssertTrue(pool.waitForExistence(timeout: 5), "The pool didn't come back")
+    }
+
+    /// Held as a book: the library on the left page, the waves on the right.
+    @MainActor
+    func testAnOpenDuoHeldAsABookHasTheLibraryBesideTheWaves() throws {
+        // Only the Duo's inner screen turns Liquid sideways, which the simulator can't
+        // do: the book layout is asked for in an upright window instead.
+        let app = launchLiquid(["-SpoolFoldPosture", "open", "-LiquidDuoLayout", "book"])
+        XCTAssertTrue(element(app, "liquid.menu.albums").waitForExistence(timeout: 10), "No library on the left page")
+        XCTAssertTrue(element(app, "liquid.nowPlaying").exists, "No Now Playing on the right page")
+        sleep(1)
+        attachScreenshot(app, named: "duo-book")
+    }
+
+    /// Stood half open and left alone: the visualizer, until it's touched.
+    @MainActor
+    func testTheVisualizerGivesWayToATouch() throws {
+        let app = launchLiquid(["-SpoolFoldPosture", "open", "-LyreHingeAngle", "100", "--liquid-visualizer"])
+        let visualizer = element(app, "liquid.visualizer")
+        XCTAssertTrue(visualizer.waitForExistence(timeout: 10), "No visualizer")
+        sleep(1)
+        attachScreenshot(app, named: "duo-visualizer")
+        visualizer.tap()
+        XCTAssertTrue(waitForDisappearance(visualizer), "A touch didn't bring the player back")
+    }
+
     // MARK: - Helpers
 
     private func launchLiquid(_ extra: [String] = []) -> XCUIApplication {

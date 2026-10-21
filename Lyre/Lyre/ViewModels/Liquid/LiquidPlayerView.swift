@@ -26,6 +26,18 @@ import SwiftUI
 // instead, as sheets do: Now Playing dragged down slides away to show the library page
 // underneath, and Up Next pulled up from the bottom rises after the finger.
 //
+// iPhone Duo, open, the inner screen holds two places at once:
+//
+//   held as a book  the library on the left page, Now Playing on the right; choosing
+//                   something floods its colour across the fold
+//   turned, fold    Now Playing above the fold; below it, Up Next as a pool of drops
+//   across          (LiquidPool), or the library in its place
+//
+// Partly open, the hinge is gravity: the lava runs toward the fold and the waves lean
+// toward it. Stood half open and left alone for a while as the music plays, the screen
+// gives itself to a visualizer (LiquidVisualizer) until it's touched. No other iPhone
+// has a hinge, so none of this shows anywhere else.
+//
 // It drives the same MusicService as the other players, so switching styles keeps the
 // music playing, and asks before clearing songs the listener queued, as they all do.
 
@@ -51,6 +63,10 @@ struct LiquidPlayerView: View {
     @State private var pendingPlay: PendingPlay?
     @State private var notice: String?
     @State private var noticeTask: Task<Void, Never>?
+    /// iPhone Duo, fold across the middle: the library below the fold instead of Up Next.
+    @State private var isLibraryBelow = false
+    /// The visualizer, while the Duo stands half open, left alone.
+    @State private var isVisualizing = false
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -61,6 +77,12 @@ struct LiquidPlayerView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
 
+                if let duo = duoLayout(for: geometry.size) {
+                    switch duo {
+                    case .book: bookLayout(geometry)
+                    case .laptop: laptopLayout(geometry)
+                    }
+                } else {
                 switch screen ?? (musicService.nowPlayingTrack != nil ? .nowPlaying : .library) {
                 case .nowPlaying:
                     // The library waits underneath while Now Playing is dragged down.
@@ -85,6 +107,13 @@ struct LiquidPlayerView: View {
                     .offset(y: nowPlayingDrop)
                 case .library:
                     libraryLayer(geometry)
+                }
+                }
+
+                if isVisualizing {
+                    LiquidVisualizer(musicService: musicService) { wakeFromVisualizer() }
+                        .transition(.opacity)
+                        .zIndex(6)
                 }
 
                 if isTideShown {
@@ -152,6 +181,12 @@ struct LiquidPlayerView: View {
         .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
         // Where Liquid is, for the Artwork Carousel to open on when the phone turns.
         .onChange(of: path, initial: true) { reportLocation() }
+        // Left alone on a Duo stood half open, as the music plays: the visualizer.
+        .task(id: foldMonitor.isPartlyOpen && musicService.isPlaying) { await watchForRest() }
+        .onChange(of: foldMonitor.isPartlyOpen) { _, partly in
+            if !partly { withAnimation(.easeInOut(duration: 0.4)) { isVisualizing = false } }
+        }
+        .animation(.easeInOut(duration: 0.6), value: isVisualizing)
         .onChange(of: screen) { reportLocation() }
         .onAppear {
             #if DEBUG
@@ -163,6 +198,8 @@ struct LiquidPlayerView: View {
                 let middle = ProcessInfo.processInfo.arguments.contains("--liquid-sample-middle")
                 musicService.seedQueueForUITests(album.preloadedTracks, startingAt: middle ? 1 : 0)
             }
+            // `--liquid-visualizer` shows the Duo's visualizer at once, for screenshots.
+            if ProcessInfo.processInfo.arguments.contains("--liquid-visualizer") { isVisualizing = true }
             // `-LiquidShot library|albums|album|songs|tide` opens there, for screenshots.
             switch UserDefaults.standard.string(forKey: "LiquidShot") {
             case "nowPlaying": screen = .nowPlaying
@@ -252,8 +289,10 @@ struct LiquidPlayerView: View {
     private static let floodIn = 0.32
     private static let floodOut = 0.28
 
-    /// The library, with what's playing docked at the bottom as a droplet.
-    private func libraryLayer(_ geometry: GeometryProxy) -> some View {
+    /// The library, with what's playing docked at the bottom as a droplet (on a Duo's
+    /// split screen, where Now Playing is in view, the droplet's place is `dock`'s).
+    private func libraryLayer(_ geometry: GeometryProxy, lavaPull: CGVector = .zero,
+                              dock: AnyView? = nil) -> some View {
         LiquidLibraryView(
             musicService: musicService,
             path: $path,
@@ -262,11 +301,18 @@ struct LiquidPlayerView: View {
             onQueue: queue,
             onFindShows: { showPodcastSearch = true },
             onOpenSettings: { showSettings = true },
-            bottomInset: musicService.nowPlayingTrack != nil ? 104 + safeArea.bottom : safeArea.bottom
+            bottomInset: musicService.nowPlayingTrack != nil || dock != nil ? 104 + safeArea.bottom : safeArea.bottom,
+            lavaPull: lavaPull
         )
         .overlay(alignment: .bottom) {
-            LiquidDroplet(musicService: musicService) { _ in
-                flood(nowPlayingColor, in: geometry) { screen = .nowPlaying }
+            Group {
+                if let dock {
+                    dock
+                } else {
+                    LiquidDroplet(musicService: musicService) { _ in
+                        flood(nowPlayingColor, in: geometry) { screen = .nowPlaying }
+                    }
+                }
             }
             .padding(.horizontal, 14)
             .padding(.bottom, safeArea.bottom + 10)
@@ -275,6 +321,134 @@ struct LiquidPlayerView: View {
             .allowsHitTesting(!LiquidFoldState.shared.isOpen)
             .animation(.easeInOut(duration: 0.25), value: LiquidFoldState.shared.isOpen)
         }
+    }
+
+    // MARK: iPhone Duo
+
+    private enum DuoLayout { case book, laptop }
+
+    /// Open, the Duo's inner screen: wider than tall held as a book, taller turned with
+    /// the fold across the middle.
+    private func duoLayout(for size: CGSize) -> DuoLayout? {
+        guard foldMonitor.posture == .open, size.width > 0 else { return nil }
+        #if DEBUG
+        // `-LiquidDuoLayout book`: the book layout in whatever window there is. The
+        // simulator can't turn Liquid sideways, which only the Duo's inner screen does.
+        if UserDefaults.standard.string(forKey: "LiquidDuoLayout") == "book" { return .book }
+        #endif
+        return size.width > size.height ? .book : .laptop
+    }
+
+    /// How strongly the hinge pulls toward the fold: none open flat, more the further
+    /// it's closed.
+    private var hingePull: CGFloat {
+        guard foldMonitor.isPartlyOpen, let angle = foldMonitor.angle else { return 0 }
+        return CGFloat(min(1, max(0, (160 - angle) / 90)))
+    }
+
+    /// Now Playing, sharing the screen: no dragging it away (the other half is already
+    /// in view).
+    private func nowPlayingPane(lean: CGVector, onOpenLibrary: @escaping () -> Void,
+                                queueDrag: Bool) -> some View {
+        LiquidNowPlayingView(
+            musicService: musicService,
+            onOpenLibrary: onOpenLibrary,
+            onOpenQueue: openTide,
+            onOpenSettings: { showSettings = true },
+            onQueueDrag: { lift in if queueDrag { dragTide(to: lift / tideHeight, from: 0) } },
+            onQueueDragEnd: { lift, heading in
+                if queueDrag { endTideDrag(opens: heading > tideHeight * 0.3 || lift > tideHeight * 0.25) }
+            },
+            onOpenPlayingAlbum: openPlayingAlbum,
+            lean: lean
+        )
+    }
+
+    /// Held as a book: the library on the left page, Now Playing on the right.
+    private func bookLayout(_ geometry: GeometryProxy) -> some View {
+        let half = geometry.size.width / 2
+        let pull = hingePull
+        return HStack(spacing: 0) {
+            libraryLayer(geometry, lavaPull: CGVector(dx: pull, dy: 0), dock: AnyView(EmptyView()))
+                .frame(width: half)
+                .clipped()
+            // Its library button takes the left page back to the lava lamp.
+            nowPlayingPane(lean: CGVector(dx: -pull, dy: 0), onOpenLibrary: {
+                guard !path.isEmpty else { return }
+                floodAction(.liquidGround, nil) { path = [] }
+            }, queueDrag: true)
+                .frame(width: half)
+                .clipped()
+        }
+        .ignoresSafeArea()
+    }
+
+    /// Turned with the fold across: Now Playing above, Up Next's pool (or the library)
+    /// below.
+    private func laptopLayout(_ geometry: GeometryProxy) -> some View {
+        let half = geometry.size.height / 2
+        let pull = hingePull
+        return VStack(spacing: 0) {
+            nowPlayingPane(lean: CGVector(dx: 0, dy: pull), onOpenLibrary: { showBelow(library: true) },
+                           queueDrag: false)
+                .frame(height: half)
+                .clipped()
+            Group {
+                if isLibraryBelow {
+                    libraryLayer(geometry, lavaPull: CGVector(dx: 0, dy: -pull), dock: AnyView(
+                        Button { showBelow(library: false) } label: {
+                            Label(String(localized: "liquid.pool.title"), systemImage: "drop.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 18)
+                                .frame(height: 46)
+                                .background(.white.opacity(0.16), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("liquid.pool.back")
+                    ))
+                } else {
+                    LiquidPool(musicService: musicService, color: nowPlayingColor,
+                               onPick: { offset in musicService.playUpcoming(at: offset) },
+                               onNotice: showNotice,
+                               onShowLibrary: { showBelow(library: true) })
+                }
+            }
+            .frame(height: half)
+            .clipped()
+        }
+        .ignoresSafeArea()
+    }
+
+    /// Below the fold: the library, or Up Next's pool, flooding from one to the other.
+    private func showBelow(library: Bool) {
+        guard library != isLibraryBelow else { return }
+        floodAction(library ? .liquidGround : nowPlayingColor, nil) { isLibraryBelow = library }
+    }
+
+    /// Waits for the screen to be left alone (a Duo stood half open, the music playing),
+    /// then brings up the visualizer.
+    private func watchForRest() async {
+        guard foldMonitor.isPartlyOpen, musicService.isPlaying, !UIAccessibility.isVoiceOverRunning else { return }
+        var restAfter: TimeInterval = 20
+        #if DEBUG
+        // `-LiquidRestSeconds 2`, for screenshots and UI tests.
+        if UserDefaults.standard.object(forKey: "LiquidRestSeconds") != nil {
+            restAfter = UserDefaults.standard.double(forKey: "LiquidRestSeconds")
+        }
+        #endif
+        while !Task.isCancelled {
+            let idle = Date().timeIntervalSince(LiquidTouchTracker.shared.lastTouchTime)
+            if idle >= restAfter, !isVisualizing, !isTideShown, !showSettings {
+                isVisualizing = true
+            }
+            try? await Task.sleep(for: .seconds(max(1, min(5, restAfter - idle))))
+        }
+    }
+
+    private func wakeFromVisualizer() {
+        LiquidTouchTracker.shared.lastTouchTime = Date()
+        isVisualizing = false
     }
 
     private func reportLocation() {

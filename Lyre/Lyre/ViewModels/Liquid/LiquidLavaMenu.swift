@@ -35,6 +35,9 @@ struct LiquidLavaMenu: View {
     let onChoose: (LiquidRoute, CGPoint, Color) -> Void
     let onOpenSettings: () -> Void
     let bottomInset: CGFloat
+    /// iPhone Duo, partly open: the way the fold is, and how strongly the lava runs
+    /// toward it (each from -1 to 1). The hinge as gravity.
+    var pull: CGVector = .zero
 
     @State private var lamp = LavaLamp()
     @State private var source: Color?
@@ -59,6 +62,7 @@ struct LiquidLavaMenu: View {
                 isStill ? lamp.settle() : lamp.start()
             }
             .onDisappear { lamp.stop() }
+            .onChange(of: pull, initial: true) { lamp.pull = pull }
             // Nothing to see while Lyre's in the background (a podcast can keep it
             // running there), so the lamp and the tilt sensor stop until it's back.
             .onChange(of: scenePhase) { _, phase in
@@ -286,6 +290,8 @@ final class LavaLamp {
     /// slowly, so the blobs come back once the phone's been held a new way a while.
     @ObservationIgnored private var level: CGVector?
     @ObservationIgnored private var tilt: CGVector = .zero
+    /// The hinge's pull toward the fold, on an iPhone Duo partly open.
+    @ObservationIgnored var pull: CGVector = .zero
 
     /// Where each blob rests, zigzagging down the lamp, and how big it is (a share of
     /// the lamp's width).
@@ -369,6 +375,9 @@ final class LavaLamp {
             // The tilt of the phone.
             ax += tilt.dx * 950
             ay += tilt.dy * 950
+            // The hinge: partly open, the lava runs toward the fold and pools there.
+            ax += pull.dx * 420
+            ay += pull.dy * 420
             // Crowding: blobs shoulder each other aside, but may touch and run together.
             for j in next.indices where j != i {
                 let dx = blob.position.x - next[j].position.x

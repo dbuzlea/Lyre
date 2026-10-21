@@ -1613,3 +1613,52 @@ struct LibrarySearchTests {
         #expect(matches.shelfWithMatches(preferring: .mixtapes) == nil)
     }
 }
+
+// MARK: - Episode History
+
+@Suite("Episode History") @MainActor
+struct EpisodeHistoryTests {
+    /// An episode of a show of its own, so tests don't see each other's history.
+    private func episode(_ title: String, show: String, duration: TimeInterval = 1_800,
+                         guid: String = UUID().uuidString) -> PodcastEpisode {
+        let feed = FeedShow(feedURL: URL(string: "https://example.invalid/\(UUID().uuidString).xml")!,
+                            title: show, author: nil, artworkURL: nil, episodes: [], lastRefreshed: .now)
+        let item = FeedEpisode(guid: guid, title: title, audioURL: URL(string: "https://example.invalid/\(guid).mp3")!,
+                               published: .now, duration: duration, artworkURL: nil)
+        return PodcastEpisode(feedEpisode: item, show: feed)
+    }
+
+    @Test func anEpisodeNotHeardHasNoMark() {
+        let show = "Unheard \(UUID().uuidString)"
+        #expect(EpisodeHistory.shared.state(for: episode("Pilot", show: show)) == nil)
+    }
+
+    @Test func aFewSecondsInIsntStartedButHalfAMinuteIs() {
+        let history = EpisodeHistory.shared
+        let pilot = episode("Pilot", show: "Started \(UUID().uuidString)")
+        history.record(pilot, time: 10, duration: 1_800)
+        #expect(history.state(for: pilot) == nil)
+        history.record(pilot, time: 45, duration: 1_800)
+        #expect(history.state(for: pilot) == .started)
+    }
+
+    @Test func nearTheEndIsPlayedAndStaysPlayed() {
+        let history = EpisodeHistory.shared
+        let pilot = episode("Pilot", show: "Played \(UUID().uuidString)")
+        history.record(pilot, time: 1_780, duration: 1_800)
+        #expect(history.state(for: pilot) == .played)
+        // Listened to again from the start: still played.
+        history.record(pilot, time: 60, duration: 1_800)
+        #expect(history.state(for: pilot) == .played)
+    }
+
+    @Test func theSameEpisodeHeardOneWayIsMarkedTheOther() {
+        let history = EpisodeHistory.shared
+        let show = "Both Ways \(UUID().uuidString)"
+        // The same episode, downloaded and streamed: different ids, one episode.
+        let streamed = episode("Tuesday", show: show, guid: "a")
+        let saved = episode("Tuesday", show: show.uppercased(), guid: "b")
+        history.markPlayed(streamed)
+        #expect(history.state(for: saved) == .played)
+    }
+}

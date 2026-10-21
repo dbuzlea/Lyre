@@ -1,0 +1,52 @@
+{
+  "configurations": [
+    {
+      "id": "7683766A-CFED-4562-84E2-E7677813AB8E",
+      "name": "Default",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": {
+      "targets": [
+        {
+          "containerPath": "container:Lyre.xcodeproj",
+          "identifier": "ED7D715A2FB4C633003A34F2",
+          "name": "Lyre"
+        }
+      ]
+    },
+    "targetForVariableExpansion": {
+      "containerPath": "container:Lyre.xcodeproj",
+      "identifier": "ED7D715A2FB4C633003A34F2",
+      "name": "Lyre"
+    },
+    "uiTestingScreenshotsLifetime": "deleteOnSuccess",
+    "testRepetitionMode": "retryOnFailure",
+    "maximumTestRepetitions": 2
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Lyre.xcodeproj",
+        "identifier": "ED7D71672FB4C635003A34F2",
+        "name": "LyreTests"
+      },
+      "parallelizable": true
+    },
+    {
+      "target": {
+        "containerPath": "container:Lyre.xcodeproj",
+        "identifier": "ED7D71712FB4C635003A34F2",
+        "name": "LyreUITests"
+      },
+      "skippedTests": [
+        "ScreenshotTests",
+        "LyreUITestsLaunchTests",
+        "LyreUITests/testLaunchPerformanceWithOnboardingComplete()",
+        "LyreUITests/testLaunchPerformanceFreshInstall()"
+      ]
+    }
+  ],
+  "version": 1
+}

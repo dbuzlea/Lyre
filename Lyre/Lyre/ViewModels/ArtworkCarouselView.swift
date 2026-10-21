@@ -1198,7 +1198,8 @@ struct ArtworkCarouselView: View {
                     // should not un-highlight the row you just picked. The disc already
                     // says whether it is turning.
                     isCurrent: musicService.isCurrentEpisode(episode),
-                    download: downloadMark(for: episode)
+                    download: downloadMark(for: episode),
+                    episode: episode
                 )
             }
 

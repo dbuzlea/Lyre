@@ -14,10 +14,10 @@ import SwiftUI
 // under it jumps through the letters. Holding a cover queues it. One cover at a time is
 // calmer than a page of them.
 //
-// Tapping the top cover swings it open (LiquidFoldView, over the whole library), the way an album opens in the
-// Artwork Carousel: the cover turns over on its left edge, through half a revolution,
-// and lies open to the left, its inside the album's name, Play and Shuffle; under where
-// it lay is the track list.
+// Tapping the top cover turns it over (LiquidFoldView, over the whole library), as the
+// Gramophone turns a record's sleeve: the cover comes forward and flips round, its back
+// the album's name, Play and Shuffle and the track list, and the record slides partway
+// up out of its top.
 //
 // The pages offer the stack beside their grid or list (LiquidLayoutSwitch); the choice is
 // kept for every list.
@@ -394,6 +394,8 @@ struct LiquidLetterRow: View {
     let onJump: (Int) -> Void
 
     @State private var lastLetter: String?
+    /// Where along the row the finger is, for the letter's bubble.
+    @State private var fingerAt: CGFloat = 0
 
     /// The first title under each letter: worked out when the titles change, not on
     /// every redraw (a finger along the index redraws it at every letter it crosses).
@@ -427,13 +429,23 @@ struct LiquidLetterRow: View {
                         let width = max(1, (geometry.size.width - 16) / CGFloat(letters.count))
                         let column = Int((value.location.x - 8) / width)
                         let entry = letters[min(letters.count - 1, max(0, column))]
+                        fingerAt = min(max(value.location.x, 26), geometry.size.width - 26)
                         guard entry.letter != lastLetter else { return }
-                        lastLetter = entry.letter
+                        withAnimation(lastLetter == nil ? .spring(response: 0.25, dampingFraction: 0.7) : nil) {
+                            lastLetter = entry.letter
+                        }
                         UISelectionFeedbackGenerator().selectionChanged()
                         onJump(entry.index)
                     }
-                    .onEnded { _ in lastLetter = nil }
+                    .onEnded { _ in withAnimation(.easeOut(duration: 0.15)) { lastLetter = nil } }
             )
+            .overlay(alignment: .topLeading) {
+                // Above the finger, where the finger doesn't cover it.
+                if let lastLetter {
+                    LiquidLetterBubble(letter: lastLetter)
+                        .position(x: fingerAt, y: -34)
+                }
+            }
         }
         .frame(height: 30)
         .background(.white.opacity(0.07), in: Capsule())
@@ -446,12 +458,13 @@ struct LiquidLetterRow: View {
 
 // MARK: - The Fold
 
-/// A cover from the stack, swung open as the Artwork Carousel opens an album: the cover
-/// turns over to the left on its left edge, with perspective, a band of light crossing
-/// it and its shadow drawing back off what's underneath; its inside holds the name,
-/// what's on it, and Play and Shuffle (for a song, Play, Play Next and Add to Queue), and
-/// under where it lay is the track list. One driven value, `progress`, through
-/// AnimatableFold, so it can close from wherever it's got to.
+/// A cover from the stack, turned over as the Gramophone turns a sleeve: the cover comes
+/// forward to the middle of the page and flips round on its upright centre, with
+/// perspective and a band of light crossing it; its back grows down into a card holding
+/// the name, Play and Shuffle (for a song, Play, Play Next and Add to Queue) and the
+/// track list; and the record, the cover on its label, slides partway up out of the
+/// top. One driven value, `progress`, through AnimatableFold, so it can close from
+/// wherever it's got to, each step running backwards.
 struct LiquidFoldView: View {
     let item: LiquidStackItem
     /// The cover's place on screen (global) before it opened.
@@ -472,20 +485,15 @@ struct LiquidFoldView: View {
         GeometryReader { geometry in
             let origin = geometry.frame(in: .global).origin
             let closed = closedFrame.offsetBy(dx: -origin.x, dy: -origin.y)
-            let size = geometry.size
-            let panelWidth = (size.width - 20) / 2
-            let panelHeight = min(size.height * 0.64, panelWidth * 2.1)
-            let right = CGRect(x: size.width / 2, y: size.height * 0.47 - panelHeight / 2,
-                               width: panelWidth, height: panelHeight)
             AnimatableFold(progress: progress) { p in
-                scene(p: p, closed: closed, right: right, size: size)
+                scene(p: p, closed: closed, layout: Layout(size: geometry.size))
             }
         }
         .ignoresSafeArea()
         .task {
             LiquidFoldState.shared.isOpen = true
             withAnimation(reduceMotion ? .easeOut(duration: 0.25)
-                          : .spring(response: 0.68, dampingFraction: 0.74)) { progress = 1 }
+                          : .spring(response: 0.9, dampingFraction: 0.86)) { progress = 1 }
             await load()
         }
         .accessibilityElement(children: .contain)
@@ -496,7 +504,7 @@ struct LiquidFoldView: View {
     private func close() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         LiquidFoldState.shared.isOpen = false
-        withAnimation(.spring(response: 0.36, dampingFraction: 0.86)) {
+        withAnimation(reduceMotion ? .easeIn(duration: 0.2) : .spring(response: 0.55, dampingFraction: 0.9)) {
             progress = 0
         } completion: {
             onClose()
@@ -527,74 +535,92 @@ struct LiquidFoldView: View {
 
     // MARK: Scene
 
-    private func scene(p: CGFloat, closed: CGRect, right: CGRect, size: CGSize) -> some View {
-        let travel = Self.smooth(min(1, max(0, p / 0.45)))
-        let swing = min(1, max(0, (p - 0.3) / 0.7))
-        let rect = Self.lerp(closed, right, travel)
-        let left = rect.offsetBy(dx: -rect.width, dy: 0)
+    /// Where everything ends up: the card across the middle of the page, with room above
+    /// it for the record standing out of its top.
+    private struct Layout {
+        let size: CGSize
+        let width: CGFloat
+        let recordDiameter: CGFloat
+        /// How much of the record stands out of the card.
+        let recordOut: CGFloat
+        /// The card turned over: square at first, as the cover was, then grown down.
+        let square: CGRect
+        let card: CGRect
+
+        init(size: CGSize) {
+            self.size = size
+            width = min(size.width - 40, 420)
+            recordDiameter = width * 0.7
+            recordOut = recordDiameter * 0.44
+            let top = max(size.height * 0.1, 54) + recordOut
+            let height = min(size.height - top - max(size.height * 0.06, 34), width * 1.7)
+            square = CGRect(x: (size.width - width) / 2, y: top, width: width, height: width)
+            card = CGRect(x: square.minX, y: top, width: width, height: max(width, height))
+        }
+    }
+
+    private func scene(p: CGFloat, closed: CGRect, layout: Layout) -> some View {
+        let p = min(max(p, 0), 1)
+        // Forward to the middle; over, half a turn; the back grows down; the record out.
+        let travel = Self.smooth(Self.phase(p, 0, 0.45))
+        let turn = Self.phase(p, 0.2, 0.7)
+        let grow = Self.smooth(Self.phase(p, 0.45, 0.8))
+        let slide = Self.smooth(Self.phase(p, 0.7, 1))
         let isOpen = p > 0.999
-        let corner = 20 - 6 * travel
+        let square = Self.lerp(closed, layout.square, travel)
+        let rect = CGRect(x: square.minX, y: square.minY, width: square.width,
+                          height: square.height + (layout.card.height - layout.square.height) * grow)
+        let corner = 20 - 4 * travel
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
+        let recordTop = rect.minY - layout.recordOut * (reduceMotion ? (isOpen ? 1 : Double(p)) : slide)
         return ZStack(alignment: .topLeading) {
             Color.black.opacity(0.78 * Double(p))
                 .contentShape(Rectangle())
                 .onTapGesture { if isOpen { close() } }
                 .accessibilityHidden(true)
 
-            // The track list, lying under the cover all along.
-            trackPanel(isOpen: isOpen)
-                .frame(width: rect.width, height: rect.height)
-                .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-                .overlay { castShadow(p: p).clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous)) }
-                .opacity(p > 0.001 ? 1 : 0)
-                .allowsHitTesting(isOpen)
-                .position(x: rect.midX, y: rect.midY)
+            // The record, behind the card, rising out of its top once it's turned over.
+            LiquidFoldRecord(cover: item.cover, diameter: layout.recordDiameter)
+                .position(x: rect.midX, y: recordTop + layout.recordDiameter / 2)
+                .opacity(reduceMotion ? Double(p) : (turn >= 1 ? 1 : 0))
+                .accessibilityHidden(true)
 
             if isOpen {
-                // Settled: the inside of the cover, flat, where it can be touched.
-                infoPanel(isInteractive: true)
-                    .frame(width: left.width, height: left.height)
-                    .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-                    .position(x: left.midX, y: left.midY)
-            } else if reduceMotion {
-                infoPanel(isInteractive: false)
-                    .frame(width: left.width, height: left.height)
-                    .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-                    .opacity(Double(p))
-                    .position(x: left.midX, y: left.midY)
-                cover(p: p, corner: corner)
+                // Settled: the back, flat, where it can be touched.
+                backPanel(isInteractive: true)
                     .frame(width: rect.width, height: rect.height)
-                    .opacity(Double(1 - p))
+                    .clipShape(shape)
                     .position(x: rect.midX, y: rect.midY)
+            } else if reduceMotion {
+                backPanel(isInteractive: false)
+                    .frame(width: layout.card.width, height: layout.card.height)
+                    .clipShape(shape)
+                    .opacity(Double(p))
+                    .position(x: layout.card.midX, y: layout.card.midY)
+                cover(p: p, corner: corner)
+                    .frame(width: closed.width, height: closed.height)
+                    .opacity(Double(1 - p))
+                    .position(x: closed.midX, y: closed.midY)
             } else {
-                // The cover on its hinge: its two faces swap at 90°, the inside turned
+                // The cover turning over: its two faces swap edge-on, the back turned
                 // round beforehand to read the right way. Never touched while it turns.
                 ZStack {
                     cover(p: p, corner: corner)
-                        .opacity(swing < 0.5 ? 1 : 0)
-                    infoPanel(isInteractive: false)
-                        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+                        .opacity(turn < 0.5 ? 1 : 0)
+                    backPanel(isInteractive: false)
+                        .clipShape(shape)
                         .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
-                        .opacity(swing >= 0.5 ? 1 : 0)
+                        .opacity(turn >= 0.5 ? 1 : 0)
                 }
                 .frame(width: rect.width, height: rect.height)
-                .rotation3DEffect(.degrees(-Double(swing) * 180), axis: (x: 0, y: 1, z: 0),
-                                  anchor: .leading, perspective: 0.5)
+                .rotation3DEffect(.degrees(Double(turn) * 180), axis: (x: 0, y: 1, z: 0), perspective: 0.45)
+                // Lifted off the page mid-turn, as a hand turning it over would.
+                .scaleEffect(1 + 0.06 * sin(Double.pi * Double(turn)))
                 .position(x: rect.midX, y: rect.midY)
                 .allowsHitTesting(false)
             }
-
-            // The crease, darkest with the cover upright.
-            Rectangle()
-                .fill(LinearGradient(stops: [.init(color: .black.opacity(0), location: 0),
-                                             .init(color: .black.opacity(0.85), location: 0.5),
-                                             .init(color: .black.opacity(0), location: 1)],
-                                     startPoint: .leading, endPoint: .trailing))
-                .frame(width: 40, height: rect.height)
-                .position(x: rect.minX, y: rect.midY)
-                .opacity(sin(Double.pi * Double(swing)) * 0.45 + 0.08 * Double(swing))
-                .allowsHitTesting(false)
         }
-        .frame(width: size.width, height: size.height)
+        .frame(width: layout.size.width, height: layout.size.height)
         .shadow(color: .black.opacity(0.45 * Double(p)), radius: 20, y: 10)
     }
 
@@ -617,33 +643,31 @@ struct LiquidFoldView: View {
             .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
     }
 
-    /// The cover's shadow lying across the track list, drawing back as it lifts.
-    private func castShadow(p: CGFloat) -> some View {
-        let lift = max(0, min(1, (p - 0.3) / 0.45))
-        let edge = max(0.0, min(1.0, Double(1 - p)))
-        return Rectangle()
-            .fill(LinearGradient(stops: [.init(color: .black.opacity(0.88), location: 0),
-                                         .init(color: .black.opacity(0.88), location: edge),
-                                         .init(color: .black.opacity(0.1), location: min(1, edge + 0.22)),
-                                         .init(color: .black.opacity(0.04), location: 1)],
-                                 startPoint: .leading, endPoint: .trailing))
-            .opacity(Double(1 - 0.92 * lift))
-            .allowsHitTesting(false)
-    }
-
     // MARK: Panels
 
-    /// The inside of the cover: the cover small, the name, and what can be done.
-    private func infoPanel(isInteractive: Bool) -> some View {
+    /// The back of the cover: the name, what can be done, and the songs.
+    private func backPanel(isInteractive: Bool) -> some View {
         let ground = color.liquidDeep
         return ZStack {
+            // Solid underneath, so the record behind the card never shows through.
+            ground
             LiquidCover(source: item.cover)
-                .blur(radius: 26)
-                .opacity(0.55)
-            LinearGradient(colors: [ground.opacity(0.55), ground.opacity(0.95)], startPoint: .top, endPoint: .bottom)
-            VStack(spacing: 10) {
-                HStack {
-                    Spacer()
+                .blur(radius: 30)
+                .opacity(0.45)
+            LinearGradient(colors: [ground.opacity(0.7), ground.opacity(0.97)], startPoint: .top, endPoint: .bottom)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.title)
+                            .font(.system(size: 22, weight: .bold))
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.8)
+                        Text(item.subtitle)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 4)
                     Button(action: close) {
                         Image(systemName: "xmark")
                             .font(.system(size: 12, weight: .bold))
@@ -655,28 +679,12 @@ struct LiquidFoldView: View {
                     .accessibilityLabel(String(localized: "liquid.fold.close"))
                     .accessibilityIdentifier("liquid.fold.close")
                 }
-                LiquidCover(source: item.cover)
-                    .frame(width: 96, height: 96)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: .black.opacity(0.45), radius: 10, y: 6)
-                VStack(spacing: 3) {
-                    Text(item.title)
-                        .font(.system(size: 17, weight: .bold))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
-                        .minimumScaleFactor(0.8)
-                    Text(item.subtitle)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.7))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                }
-                .padding(.horizontal, 10)
-                Spacer(minLength: 4)
                 actions
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 14)
+                trackList
+                    .padding(.horizontal, -12)
             }
+            .padding(.top, 14)
+            .padding(.horizontal, 16)
             .foregroundStyle(.white)
         }
         .allowsHitTesting(isInteractive)
@@ -688,7 +696,7 @@ struct LiquidFoldView: View {
         switch item {
         case .album(let album):
             if let tracks, !tracks.isEmpty {
-                VStack(spacing: 8) {
+                HStack(spacing: 10) {
                     actionButton(String(localized: album.isPodcast ? "spool.podcast.playLatest" : "detail.play"),
                                  symbol: "play.fill", isPrimary: true, id: "liquid.fold.play") {
                         navigator.play(album, tracks, 0, true)
@@ -703,7 +711,7 @@ struct LiquidFoldView: View {
                 ProgressView().tint(.white)
             }
         case .song(let track, let list, let index, let listName):
-            VStack(spacing: 8) {
+            HStack(spacing: 8) {
                 actionButton(String(localized: "detail.play"), symbol: "play.fill", isPrimary: true, id: "liquid.fold.play") {
                     navigator.playSongs(list, index, false, listName)
                 }
@@ -743,8 +751,7 @@ struct LiquidFoldView: View {
     /// it offers Play Next and Add to Queue; what's playing has a waveform; a playlist's
     /// songs say who they're by; a show's episodes can't be queued, but are marked when
     /// downloaded, and held, offer to download or remove the download.
-    private func trackPanel(isOpen: Bool) -> some View {
-        let ground = color.liquidDeep
+    private var trackList: some View {
         let album: AppAlbum? = {
             switch item {
             case .album(let album): return album
@@ -759,17 +766,8 @@ struct LiquidFoldView: View {
         let playingID = musicService.currentEpisode?.id ?? musicService.currentTrack?.id
         let episodes = album?.podcast?.episodesNewestFirst
         return ZStack {
-            ground.opacity(0.96)
             if let tracks, !tracks.isEmpty {
                 List {
-                    Text((album?.tapeTitle ?? item.title))
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                        .tracking(1.5)
-                        .foregroundStyle(.white.opacity(0.8))
-                        .lineLimit(1)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 6, trailing: 12))
-                        .listRowSeparator(.hidden)
                     ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
                         Button {
                             if let album {
@@ -780,7 +778,8 @@ struct LiquidFoldView: View {
                         } label: {
                             trackRow(track, index: index, isPlaying: track.id == playingID,
                                      isMarked: track.id == marked, showsArtist: album?.isMixtape == true,
-                                     isPodcast: isPodcast)
+                                     isPodcast: isPodcast,
+                                     episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil })
                         }
                         .buttonStyle(.plain)
                         .modifier(QueueMenu(isEnabled: !isPodcast, track: track,
@@ -823,10 +822,11 @@ struct LiquidFoldView: View {
                 ProgressView().tint(.white)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func trackRow(_ track: AppTrack, index: Int, isPlaying: Bool, isMarked: Bool,
-                          showsArtist: Bool, isPodcast: Bool) -> some View {
+                          showsArtist: Bool, isPodcast: Bool, episode: PodcastEpisode?) -> some View {
         HStack(spacing: 8) {
             Group {
                 if isPlaying {
@@ -839,10 +839,11 @@ struct LiquidFoldView: View {
             }
             .frame(width: 20, alignment: .trailing)
             VStack(alignment: .leading, spacing: 1) {
-                Text(track.title)
+                // An episode's marked if played before, or part way through.
+                EpisodeTitle(track.title, episode: episode)
                     .font(.system(size: 14, weight: isPlaying || isMarked ? .bold : .regular))
-                    .foregroundStyle(.white)
                     .lineLimit(2)
+                    .foregroundStyle(.white)
                 if showsArtist {
                     Text(track.artistName)
                         .font(.system(size: 11))
@@ -869,8 +870,43 @@ struct LiquidFoldView: View {
 
     private static func smooth(_ t: CGFloat) -> CGFloat { t * t * (3 - 2 * t) }
 
+    /// How far through the stretch from `start` to `end` the fold is, 0 to 1.
+    private static func phase(_ p: CGFloat, _ start: CGFloat, _ end: CGFloat) -> CGFloat {
+        min(1, max(0, (p - start) / (end - start)))
+    }
+
     private static func lerp(_ a: CGRect, _ b: CGRect, _ t: CGFloat) -> CGRect {
         CGRect(x: a.minX + (b.minX - a.minX) * t, y: a.minY + (b.minY - a.minY) * t,
                width: a.width + (b.width - a.width) * t, height: a.height + (b.height - a.height) * t)
+    }
+}
+
+/// The record that slides out of a turned-over cover: near-black vinyl with its grooves
+/// catching the light, and the cover for a label.
+private struct LiquidFoldRecord: View {
+    let cover: LiquidCover.Source
+    let diameter: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle().fill(Color(white: 0.06))
+            ForEach([0.96, 0.88, 0.8, 0.72, 0.64, 0.56, 0.48], id: \.self) { scale in
+                Circle()
+                    .stroke(.white.opacity(0.06), lineWidth: 0.6)
+                    .frame(width: diameter * scale, height: diameter * scale)
+            }
+            Circle()
+                .fill(AngularGradient(colors: [.white.opacity(0), .white.opacity(0.14), .white.opacity(0),
+                                               .white.opacity(0), .white.opacity(0.1), .white.opacity(0)],
+                                      center: .center, angle: .degrees(-30)))
+            LiquidCover(source: cover)
+                .frame(width: diameter * 0.36, height: diameter * 0.36)
+                .clipShape(Circle())
+            Circle()
+                .fill(Color(white: 0.06))
+                .frame(width: diameter * 0.03, height: diameter * 0.03)
+        }
+        .frame(width: diameter, height: diameter)
+        .shadow(color: .black.opacity(0.5), radius: 10, y: 4)
     }
 }

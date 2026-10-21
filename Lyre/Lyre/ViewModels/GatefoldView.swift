@@ -531,6 +531,8 @@ struct LinerRow: Identifiable {
     let isCurrent: Bool
     /// Set for streamed podcast episodes, which download rather than queue.
     var download: LinerDownloadMark? = nil
+    /// The episode, for a show's rows: marked once it's been heard.
+    var episode: PodcastEpisode? = nil
 }
 
 /// Where a streamed episode's download stands, as the liner shows it.
@@ -659,7 +661,8 @@ struct LinerPanel: View {
                 .foregroundColor(isQueued ? theme.accent : theme.ink.opacity(row.isCurrent ? 0.9 : 0.45))
                 .frame(width: 16, alignment: .trailing)
 
-                Text(row.title)
+                // An episode's marked if played before, or part way through.
+                EpisodeTitle(row.title, episode: row.episode)
                     .font(.system(size: 12, weight: row.isCurrent ? .semibold : .regular))
                     .foregroundColor(row.isCurrent ? theme.accent : theme.ink)
                     .lineLimit(1)

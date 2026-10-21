@@ -1,0 +1,59 @@
+{
+  "configurations": [
+    {
+      "id": "2558064F-14E6-4AC9-872B-478C58E49834",
+      "name": "Default",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": {
+      "targets": [
+        {
+          "containerPath": "container:Lyre.xcodeproj",
+          "identifier": "ED7D715A2FB4C633003A34F2",
+          "name": "Lyre"
+        }
+      ]
+    },
+    "targetForVariableExpansion": {
+      "containerPath": "container:Lyre.xcodeproj",
+      "identifier": "ED7D715A2FB4C633003A34F2",
+      "name": "Lyre"
+    },
+    "uiTestingScreenshotsLifetime": "deleteOnSuccess"
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Lyre.xcodeproj",
+        "identifier": "ED7D71672FB4C635003A34F2",
+        "name": "LyreTests"
+      },
+      "parallelizable": true
+    },
+    {
+      "target": {
+        "containerPath": "container:Lyre.xcodeproj",
+        "identifier": "ED7D71712FB4C635003A34F2",
+        "name": "LyreUITests"
+      },
+      "selectedTests": [
+        "LyreUITests/testOnboardingWelcomePageIsShownOnFirstLaunch()",
+        "LyreUITests/testOnboardingExplainsPermissionsBeforeAsking()",
+        "LyreUITests/testCompleteOnboardingFlowTransitionsToLyreView()",
+        "LyreUITests/testOnboardingCanEndOnLiquid()",
+        "LyreUITests/testLyreMainMenuShowsAllMenuItems()",
+        "LyreUITests/testNowPlayingShowsNothingPlayingByDefault()",
+        "SpoolUITests/testSwipingATapeLeftLoadsItAndClosesTheDeck()",
+        "GramophoneUITests/testChoosingASongFromASleevePutsTheRecordOnTheTurntable()",
+        "DiscUITests/testChoosingASongFromACasePutsTheDiscOnAndShutsTheLid()",
+        "LiquidUITests/testNowPlayingShowsBothWavesAndItsControls()",
+        "EnvironmentUITests/testPodcastSearchOnlineFindsAndSubscribesToAShow()",
+        "EnvironmentUITests/testPodcastSearchOfflineSaysToCheckTheConnection()",
+        "EnvironmentUITests/testComingBackFromTheBackgroundKeepsThePlayer()"
+      ]
+    }
+  ],
+  "version": 1
+}

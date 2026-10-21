@@ -1,0 +1,31 @@
+{
+  "configurations": [
+    {
+      "id": "F4B3D583-1CC8-4FD1-927E-B06E16F24D81",
+      "name": "Default",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": false,
+    "targetForVariableExpansion": {
+      "containerPath": "container:Lyre.xcodeproj",
+      "identifier": "ED7D715A2FB4C633003A34F2",
+      "name": "Lyre"
+    },
+    "uiTestingScreenshotsLifetime": "keepAlways"
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Lyre.xcodeproj",
+        "identifier": "ED7D71712FB4C635003A34F2",
+        "name": "LyreUITests"
+      },
+      "selectedTests": [
+        "ScreenshotTests"
+      ]
+    }
+  ],
+  "version": 1
+}

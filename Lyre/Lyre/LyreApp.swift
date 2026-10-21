@@ -54,5 +54,12 @@ struct LyreApp: App {
             // From the first step, not wherever an earlier run stopped.
             defaults.removeObject(forKey: "onboardingStep")
         }
+        #if DEBUG
+        // Podcasts subscribed to in an earlier run would otherwise carry into this one.
+        if arguments.contains("--uitest-reset-subscriptions") {
+            try? FileManager.default.removeItem(at: URL.applicationSupportDirectory.appending(path: "PodcastSubscriptions.json"))
+        }
+        UITestNetwork.install(from: defaults)
+        #endif
     }
 }

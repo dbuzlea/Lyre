@@ -163,6 +163,29 @@ final class DiscUITests: XCTestCase {
         XCTAssertTrue(element(app, "disc.case").exists, "Play Next put the disc on")
     }
 
+    // MARK: - iPhone Duo
+
+    /// Opened with the fold across the middle, the phone is the player: the disc and its
+    /// booklet in the lid above, the LCD and keys in the body below; OPEN turns the
+    /// booklet over to the shelf.
+    @MainActor
+    func testAnOpenDuoIsADiscman() throws {
+        let app = launchDisc(extraArguments: ["-SpoolFoldPosture", "open", "-LyreHingeAngle", "110",
+                                              "--spool-sample-queue"])
+        let booklet = element(app, "disc.booklet")
+        XCTAssertTrue(booklet.waitForExistence(timeout: 10), "No booklet in the lid")
+        XCTAssertTrue(element(app, "disc.booklet.track.0").waitForExistence(timeout: 5), "The booklet has no track list")
+        XCTAssertTrue(element(app, "disc.lcd").exists, "No LCD in the body")
+        XCTAssertTrue(element(app, "disc.playPause").exists, "No keys in the body")
+        attachScreenshot(app, named: "discman")
+
+        element(app, "disc.open").tap()
+        XCTAssertTrue(element(app, "spool.tape.sample-1").waitForExistence(timeout: 5), "OPEN didn't bring the shelf")
+        XCTAssertFalse(booklet.exists, "The booklet stayed with the shelf out")
+        element(app, "disc.open").tap()
+        XCTAssertTrue(booklet.waitForExistence(timeout: 5), "OPEN again didn't bring the booklet back")
+    }
+
     // MARK: - Helpers
 
     private func launchDisc(finish: String = "silver", extraArguments: [String] = []) -> XCUIApplication {

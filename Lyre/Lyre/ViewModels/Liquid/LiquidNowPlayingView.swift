@@ -50,6 +50,9 @@ struct LiquidNowPlayingView: View {
     var onOpenPlayingAlbum: () -> Void = {}
     var onDismissDrag: (CGFloat) -> Void = { _ in }
     var onDismissDragEnd: (CGFloat, CGFloat) -> Void = { _, _ in }
+    /// iPhone Duo, partly open: which way the fold is, and how far the waves lean
+    /// toward it (each from -1 to 1). The hinge as gravity.
+    var lean: CGVector = .zero
 
     @State private var left = WaveState(side: .left)
     @State private var right = WaveState(side: .right)
@@ -297,8 +300,11 @@ struct LiquidNowPlayingView: View {
         // At rest, the beat moves the bulge; once a finger has it, the finger does. The two
         // sides sway opposite ways, so the screen rocks between them.
         let atRest = state.progress == 0
-        let progress = atRest ? pulse.swell : state.progress
-        let centerY = state.centerY + (atRest ? pulse.sway * (state.side == .left ? 1 : -1) : 0)
+        // Leaning toward the fold: the bulges slide along their edges toward it, and the
+        // one on the fold's side swells, as water runs downhill.
+        let toward = max(0, lean.dx * (state.side == .right ? 1 : -1))
+        let progress = atRest ? pulse.swell + toward * 0.05 : state.progress
+        let centerY = state.centerY + (atRest ? pulse.sway * (state.side == .left ? 1 : -1) + lean.dy * size.height * 0.2 : 0)
         let shape = LiquidWaveShape(side: state.side, centerY: centerY, progress: progress)
         let geometry = LiquidWaveGeometry(side: state.side, centerY: centerY, progress: progress, size: size)
         let isNext = state.side == .right

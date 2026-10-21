@@ -1,0 +1,45 @@
+{
+  "configurations": [
+    {
+      "id": "10938224-19A6-4BA3-8138-F2340C57DF2B",
+      "name": "Default",
+      "options": {}
+    },
+    {
+      "id": "D8BCFC26-62A0-44C2-BA58-0942AAD4F326",
+      "name": "Thread Sanitizer",
+      "options": {
+        "threadSanitizerEnabled": true,
+        "codeCoverage": false
+      }
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": {
+      "targets": [
+        {
+          "containerPath": "container:Lyre.xcodeproj",
+          "identifier": "ED7D715A2FB4C633003A34F2",
+          "name": "Lyre"
+        }
+      ]
+    },
+    "targetForVariableExpansion": {
+      "containerPath": "container:Lyre.xcodeproj",
+      "identifier": "ED7D715A2FB4C633003A34F2",
+      "name": "Lyre"
+    },
+    "testExecutionOrdering": "random"
+  },
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:Lyre.xcodeproj",
+        "identifier": "ED7D71672FB4C635003A34F2",
+        "name": "LyreTests"
+      },
+      "parallelizable": true
+    }
+  ],
+  "version": 1
+}

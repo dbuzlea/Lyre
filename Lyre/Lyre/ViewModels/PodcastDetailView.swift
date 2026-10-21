@@ -84,10 +84,10 @@ struct PodcastDetailView: View {
                                         .overlay {
                                             HStack {
                                                 VStack(alignment: .leading, spacing: 0) {
-                                                    Text(episode.title)
+                                                    EpisodeTitle(episode.title, episode: episode)
                                                         .font(.system(size: 11, weight: .medium))
-                                                        .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                         .lineLimit(1)
+                                                        .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                     Text(formatDuration(episode.duration))
                                                         .font(.system(size: 9))
                                                         .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.7))
@@ -103,10 +103,11 @@ struct PodcastDetailView: View {
                                 } else {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 0) {
-                                            Text(episode.title)
+                                            // Marked if played before, or part way through.
+                                            EpisodeTitle(episode.title, episode: episode)
                                                 .font(.system(size: 11))
-                                                .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                                 .lineLimit(1)
+                                                .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                             Text(formatDuration(episode.duration))
                                                 .font(.system(size: 9))
                                                 .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
