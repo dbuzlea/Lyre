@@ -392,16 +392,16 @@ extension EnvironmentUITests {
         // Back as a returning user, the recovery screen settles and the player is reachable.
         app.launchArguments = ["--uitest", "--uitest-complete-onboarding", "-LyrePlayerStyle", "classic"]
         app.launch()
-        // "Access restored" stays up until the library has reloaded. The simulator has
-        // access but no library, so that takes every retry, and the load's error may
-        // come up too. Waiting it out also leaves nothing pending for the next test.
+        // LYRE-5: "Access restored" gets out of the way within a few seconds even though
+        // the simulator's library can't load (it used to wait through every retry). The
+        // load's error may come up too.
         let wheel = app.descendants(matching: .any)["Scroll wheel"].firstMatch
-        let deadline = Date().addingTimeInterval(60)
+        let deadline = Date().addingTimeInterval(20)
         while !(wheel.exists && wheel.isHittable) && Date() < deadline {
             if app.alerts.firstMatch.buttons["Dismiss"].exists { app.alerts.firstMatch.buttons["Dismiss"].tap() }
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
-        XCTAssertTrue(wheel.isHittable, "With access restored, the player should come back")
+        XCTAssertTrue(wheel.isHittable, "With access restored, the player should be back within 20 s")
         XCTAssertFalse(app.staticTexts["Media & Apple Music Access Needed"].exists)
         XCTAssertFalse(app.staticTexts["Access Restored"].exists)
     }
