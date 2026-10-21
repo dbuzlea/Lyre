@@ -116,7 +116,7 @@ flaky: mark it `is_flaky` in Qase and fix it.
 | `-UITestNetwork offline` · `serverError` · `stub` | Podcast search and feeds fail offline, get HTTP 503, or answer with a canned show |
 | `--uitest-open-podcast-search` | Classic player opens with the podcast search sheet up |
 | `--uitest-reset-subscriptions` | Forget podcast subscriptions from earlier runs |
-| `--uitest-hide-library-errors` | Keep the simulator's "no library" alert out of tests about something else |
+| `--uitest-hide-library-errors` | Keep the simulator's "no library" alert out of tests about something else (it no longer closes sheets: LYRE-2) |
 | `-SpoolSampleTapes YES`, `--spool-sample-queue` | Sample albums and a queue in an empty library |
 | `-LyrePlayerStyle <style>` | Start on a player |
 

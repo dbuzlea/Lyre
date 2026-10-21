@@ -143,8 +143,9 @@
       "preconditions": "Access granted on a device with no music and no podcasts.",
       "steps": [
         ["Open Songs, Albums, Artists and Playlists in each player.", "Each shows its empty message (e.g. 'No songs in library', 'No albums in your library')."],
-        ["Wait 30 seconds.", "At most one 'Something Went Wrong' alert appears, and it doesn't close an open sheet (see known defect: library alert closes sheets)."]
-      ]
+        ["Open Podcasts › Search Podcasts, type something, and wait 30 seconds.", "Any 'Something Went Wrong' alert shows over the sheet; after Dismiss the sheet and what was typed are still there (LYRE-2)."]
+      ],
+      "automated_by": ["LyreUITests/EnvironmentUITests/testALibraryErrorShowsOverAnOpenSheetWithoutClosingIt()"]
     },
     {
       "key": "LIB-05", "suite": "Music Access & Library", "title": "Revoked access is explained and recovers when restored",
