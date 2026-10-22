@@ -26,6 +26,8 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //                        across an app relaunch (see MusicService.accessRecoveryPending).
 //   • retryable errors → an alert with a "Retry" button that calls loadLibrary() again
 //   • all other errors → an alert with a "Dismiss" cancel button to clear the state
+//   Both alerts are presented over whatever is on screen, so an open sheet stays open
+//   (see `presentLibraryError`).
 struct ContentView: View {
     @StateObject private var musicService = MusicService()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
@@ -100,34 +102,33 @@ struct ContentView: View {
         }
         .onChange(of: musicService.lastError) { _, error in
             if let error { logger.error("Music service error presented: \(error.alertTitle)") }
+            presentLibraryError(error)
         }
-        .alert(
-            musicService.lastError?.alertTitle ?? "Something Went Wrong",
-            isPresented: .init(
-                get: { musicService.lastError != nil && musicService.lastError != .notAuthorized && !Self.hidesLibraryErrors },
-                set: { if !$0 { musicService.lastError = nil } }
-            )
-        ) {
-            if musicService.lastError?.isRetryable == true {
-                Button("Retry") {
-                    Task { await musicService.loadLibrary() }
-                }
-            }
-            Button("Dismiss", role: .cancel) {
-                musicService.lastError = nil
-            }
-        } message: {
-            if let error = musicService.lastError {
-                Text(error.localizedDescription)
-            }
+    }
+
+    /// The library's load error, as an alert over whatever is on screen.
+    ///
+    /// Presented through UIKit from the top-most view controller rather than with
+    /// SwiftUI's `.alert` here at the root (LYRE-2): every player puts up its own sheets
+    /// (podcast search, settings, the carousel), and a root alert arriving while one was
+    /// open took the sheet down with it, and anything typed in it.
+    private func presentLibraryError(_ error: MusicLoadError?) {
+        guard let error, error != .notAuthorized, !Self.hidesLibraryErrors else {
+            LibraryErrorAlert.dismiss()
+            return
         }
+        LibraryErrorAlert.present(error, retry: {
+            Task { await musicService.loadLibrary() }
+        }, dismiss: {
+            musicService.lastError = nil
+        })
     }
 }
 
 private extension ContentView {
     /// `--uitest-hide-library-errors` keeps the library's load errors off screen, for UI
     /// tests about something else: the simulator has no library, so its error alert
-    /// turns up at unpredictable moments and takes any open sheet down with it.
+    /// turns up at unpredictable moments, over whatever the test is driving.
     static var hidesLibraryErrors: Bool {
         #if DEBUG
         ProcessInfo.processInfo.arguments.contains("--uitest-hide-library-errors")
@@ -155,4 +156,46 @@ extension EnvironmentValues {
 
 #Preview {
     ContentView()
+}
+
+// MARK: - Library Error Alert
+
+/// The library error alert, presented by UIKit on top of whatever is showing, so a
+/// sheet underneath stays open. One at a time: a second error while it's up replaces
+/// nothing.
+private enum LibraryErrorAlert {
+    private static weak var shown: UIAlertController?
+
+    static func present(_ error: MusicLoadError, retry: @escaping () -> Void, dismiss: @escaping () -> Void) {
+        guard shown == nil, let top = topViewController() else { return }
+        let alert = UIAlertController(title: error.alertTitle, message: error.localizedDescription,
+                                      preferredStyle: .alert)
+        if error.isRetryable {
+            alert.addAction(UIAlertAction(title: "Retry", style: .default) { _ in
+                dismiss()
+                retry()
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Dismiss", style: .cancel) { _ in dismiss() })
+        shown = alert
+        top.present(alert, animated: true)
+    }
+
+    static func dismiss() {
+        shown?.dismiss(animated: true)
+        shown = nil
+    }
+
+    /// What's on top: the key window's root, then whatever it's presenting, all the way up.
+    private static func topViewController() -> UIViewController? {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }
+        var top = window?.rootViewController
+        while let next = top?.presentedViewController, !next.isBeingDismissed {
+            top = next
+        }
+        return top
+    }
 }

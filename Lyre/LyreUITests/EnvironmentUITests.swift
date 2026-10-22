@@ -174,6 +174,39 @@ extension EnvironmentUITests {
     }
 }
 
+extension EnvironmentUITests {
+
+    /// LYRE-2: the library error alert closed whatever sheet was open, losing what was
+    /// typed. It now shows over the sheet, which is still there once it's dismissed.
+    @MainActor
+    func testALibraryErrorShowsOverAnOpenSheetWithoutClosingIt() throws {
+        let app = launch([
+            "--uitest", "--uitest-complete-onboarding", "-LyrePlayerStyle", "classic",
+            "--uitest-open-podcast-search", "--uitest-reset-subscriptions", "-UITestNetwork", "stub",
+        ])
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 30), "The podcast search sheet didn't open")
+        field.tap()
+        field.typeText("morning")
+
+        // The simulator has no library, so the load's error comes up again on its own
+        // (the foreground refresh); wait for it with the sheet open.
+        let alert = app.alerts.firstMatch
+        guard alert.waitForExistence(timeout: 40) else {
+            throw XCTSkip("No library error came up on this simulator, so there was nothing to show over the sheet")
+        }
+        XCTAssertTrue(field.exists, "The alert took the podcast search sheet down with it")
+        attachScreenshot(app, named: "library-alert-over-sheet")
+        alert.buttons["Dismiss"].tap()
+
+        XCTAssertTrue(field.waitForExistence(timeout: 3), "The sheet was gone once the alert was dismissed")
+        // The alert can arrive mid-word and take the last keystroke, but what was typed
+        // before it stays.
+        let typed = field.value as? String ?? ""
+        XCTAssertTrue(!typed.isEmpty && "morning".hasPrefix(typed), "What was typed was lost: '\(typed)'")
+    }
+}
+
 // MARK: - Accessibility
 
 extension EnvironmentUITests {

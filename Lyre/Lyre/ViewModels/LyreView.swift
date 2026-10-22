@@ -285,8 +285,7 @@ struct LyreView: View {
             await musicService.ensureLibraryLoaded()
             #if DEBUG
             // `--uitest-open-podcast-search` brings up the podcast search sheet once the
-            // library has loaded (pair it with `--uitest-hide-library-errors`: an error
-            // alert arriving while the sheet is up takes the sheet down with it).
+            // library has loaded.
             if ProcessInfo.processInfo.arguments.contains("--uitest-open-podcast-search") {
                 while musicService.isLoading {
                     try? await Task.sleep(for: .milliseconds(200))
