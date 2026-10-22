@@ -597,3 +597,38 @@ struct PodcastSubscriptionConnectivityTests {
         #expect(service.podcastShows.first { $0.feedURL == url }?.episodes.first?.title == "Wednesday")
     }
 }
+
+// MARK: - Waiting With a Limit
+
+@Suite("Access recovery timing")
+@MainActor
+struct AccessRecoveryTimingTests {
+
+    /// LYRE-5: "Access Restored" waited for a library load through every retry.
+    @Test func aSlowOperationIsWaitedForNoLongerThanTheLimit() async {
+        let start = ContinuousClock.now
+        var finished = false
+        await MusicService.awaitAtMost(.milliseconds(200)) {
+            try? await Task.sleep(for: .seconds(5))
+            finished = true
+        }
+        let waited = ContinuousClock.now - start
+        #expect(waited < .seconds(2), "Waited \(waited)")
+        #expect(!finished, "The operation should still be running")
+    }
+
+    @Test func aQuickOperationIsWaitedForToTheEnd() async {
+        let start = ContinuousClock.now
+        var finished = false
+        await MusicService.awaitAtMost(.seconds(5)) {
+            try? await Task.sleep(for: .milliseconds(100))
+            finished = true
+        }
+        #expect(finished)
+        #expect(ContinuousClock.now - start < .seconds(2))
+    }
+
+    @Test func theRecoveryScreenWaitsOnlyAFewSeconds() {
+        #expect(MusicService.recoveryReloadLimit <= .seconds(5))
+    }
+}

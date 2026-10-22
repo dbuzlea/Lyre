@@ -681,6 +681,12 @@ class MusicService: ObservableObject {
     /// Clears a prior skip: once access is actually back, the restoring screen is
     /// shown regardless — skipping only ever silenced the denied-access ask.
     private func beginAccessRecoveryIfPending() async -> Bool {
+        // Only a returning user is owed it: a flag left from before onboarding was reset
+        // would otherwise put "Access Restored" on top of onboarding (LYRE-5).
+        guard Self.onboardingCompleted else {
+            Self.accessRecoveryPending = false
+            return false
+        }
         let pending = await MainActor.run { isShowingAccessRecovery } || Self.accessRecoveryPending
         guard pending else { return false }
         Self.accessRecoverySkipped = false
@@ -703,6 +709,37 @@ class MusicService: ObservableObject {
         await MainActor.run { isShowingAccessRecovery = false }
     }
 
+    /// How long "Access Restored" waits for the reload before getting out of the way.
+    /// A library that loads is in well before this; one that can't goes through every
+    /// retry, which kept the screen up for the whole of them (LYRE-5). Past the limit
+    /// the load carries on behind the player, and any error it ends with shows as usual.
+    static let recoveryReloadLimit: Duration = .seconds(4)
+
+    /// The reload that follows access coming back, waited for no longer than
+    /// `recoveryReloadLimit`.
+    private func reloadForRecovery() async {
+        await Self.awaitAtMost(Self.recoveryReloadLimit) { [weak self] in
+            await self?.loadLibrary()
+        }
+    }
+
+    /// Waits for `operation`, but no longer than `limit`. Past it, the operation carries on,
+    /// unwaited for.
+    static func awaitAtMost(_ limit: Duration, _ operation: @escaping () async -> Void) async {
+        let (finished, signal) = AsyncStream.makeStream(of: Void.self)
+        Task {
+            await operation()
+            signal.yield()
+        }
+        let timer = Task {
+            try? await Task.sleep(for: limit)
+            signal.yield()
+        }
+        for await _ in finished { break }
+        signal.finish()
+        timer.cancel()
+    }
+
     private func checkCurrentStatus() async {
         let granted = Self.hasAnyLibraryAccess
         await MainActor.run { isAuthorized = granted }
@@ -713,8 +750,12 @@ class MusicService: ObservableObject {
         let isRecovering = await beginAccessRecoveryIfPending()
         setupNotificationsIfAuthorized()
         await refreshSubscriptionState()
-        await loadLibrary()
-        if isRecovering { await resolveAccessRecovery() }
+        if isRecovering {
+            await reloadForRecovery()
+            await resolveAccessRecovery()
+        } else {
+            await loadLibrary()
+        }
     }
 
     func requestAuthorization() async {
@@ -893,11 +934,15 @@ class MusicService: ObservableObject {
             !isLoading && (!hasLoadedLibrary || isLibraryEmpty || modifiedDate != lastLibraryModifiedDate)
         }
         // A recovery always reloads, even if nothing about the on-device library looks
-        // different: it's the signal AccessRecoveryView waits on to know the library is
-        // genuinely current again, not just a heuristic for whether a reload is worth it.
-        if needsReload || isRecovering { await loadLibrary() }
-
-        if isRecovering { await resolveAccessRecovery() }
+        // different: it's the signal AccessRecoveryView waits on (up to
+        // `recoveryReloadLimit`) to know the library is current again, not just a
+        // heuristic for whether a reload is worth it.
+        if isRecovering {
+            await reloadForRecovery()
+            await resolveAccessRecovery()
+        } else if needsReload {
+            await loadLibrary()
+        }
     }
 
     /// Reacts to the media library becoming available after a load came up empty.
