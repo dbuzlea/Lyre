@@ -767,3 +767,6 @@
 
 /* Artwork Carousel on an unfolded iPhone Duo, where its Back button would be (LYRE-12). */
 "carousel.closeToGoBack" = "Close iPhone to go back";
+
+/* Liquid album page: the top-right button that offers Play Next and Add to Queue (LYRE-14). */
+"liquid.album.queueMenu" = "Queue Album";

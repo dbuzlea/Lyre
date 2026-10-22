@@ -447,9 +447,10 @@
         ["Open the library menu, then Songs, Recently Played and Recently Added.", "Each opens; each list keeps its own layout (list or stack)."],
         ["Flip through the card stack; open a cover.", "It swings open onto its album; the stack reopens on that cover later."],
         ["Pull Up Next up from the bottom.", "It rises like a sheet; dragging down puts it away."],
-        ["Search for an album.", "It's found."]
+        ["Search for an album.", "It's found."],
+        ["Open an album and tap the button at its top right.", "Play Next and Add to Queue; either queues the whole album and says so (LYRE-14). A show has no such button."]
       ],
-      "automated_by": ["LyreUITests/LiquidUITests/testTheMenuOpensSongsAndTheRecentLists()", "LyreUITests/LiquidUITests/testTheStackFlipsThroughCoversAndOneSwingsOpen()", "LyreUITests/LiquidUITests/testEachListKeepsItsOwnLayout()", "LyreUITests/LiquidUITests/testTheStackOpensOnTheCoverItWasLeftOn()", "LyreUITests/LiquidUITests/testPullingUpNextUpRaisesItLikeASheet()", "LyreUITests/LiquidUITests/testSearchFindsAnAlbum()"]
+      "automated_by": ["LyreUITests/LiquidUITests/testTheMenuOpensSongsAndTheRecentLists()", "LyreUITests/LiquidUITests/testTheStackFlipsThroughCoversAndOneSwingsOpen()", "LyreUITests/LiquidUITests/testEachListKeepsItsOwnLayout()", "LyreUITests/LiquidUITests/testTheStackOpensOnTheCoverItWasLeftOn()", "LyreUITests/LiquidUITests/testPullingUpNextUpRaisesItLikeASheet()", "LyreUITests/LiquidUITests/testSearchFindsAnAlbum()", "LyreUITests/LiquidUITests/testAnAlbumsQueueButtonOffersPlayNextAndAddToQueue()"]
     },
     {
       "key": "LQD-03", "suite": "Liquid Player", "title": "The A–Z index shows the letter under the finger, in order",

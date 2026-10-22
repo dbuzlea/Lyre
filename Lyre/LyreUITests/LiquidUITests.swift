@@ -128,6 +128,32 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(waitForDisappearance(tide), "The tide didn't fall back")
     }
 
+    /// LYRE-14: an album's page has a button at its top right that queues the album.
+    @MainActor
+    func testAnAlbumsQueueButtonOffersPlayNextAndAddToQueue() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let albums = element(app, "liquid.menu.albums")
+        XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
+        albums.tap()
+        let cover = element(app, "liquid.cover.sample-1")
+        XCTAssertTrue(cover.waitForExistence(timeout: 5), "Albums didn't open")
+        cover.tap()
+
+        let queueButton = element(app, "liquid.album.queueMenu")
+        XCTAssertTrue(queueButton.waitForExistence(timeout: 5), "The album has no queue button")
+        queueButton.tap()
+        let playNext = app.buttons["Play Next"]
+        let addToQueue = app.buttons["Add to Queue"]
+        XCTAssertTrue(playNext.waitForExistence(timeout: 3), "No Play Next in the queue menu")
+        XCTAssertTrue(addToQueue.exists, "No Add to Queue in the queue menu")
+        attachScreenshot(app, named: "liquid-album-queue-menu")
+
+        addToQueue.tap()
+        let notice = element(app, "liquid.notice")
+        XCTAssertTrue(notice.waitForExistence(timeout: 5), "Adding the album to the queue said nothing")
+        attachScreenshot(app, named: "liquid-album-queued")
+    }
+
     @MainActor
     func testTheLibraryLeadsToAnAlbumAndTheDropletBackToNowPlaying() throws {
         let app = launchLiquid(["-LiquidShot", "library"])
