@@ -118,6 +118,10 @@ struct ArtworkCarouselView: View {
     @ObservedObject var musicService: MusicService
     @Binding var selectedIndex: Int
     let onDismiss: () -> Void
+    /// Whether Back can leave the carousel. Off on an unfolded iPhone Duo (LYRE-12): its
+    /// inner display is wide however it's held, so the carousel is the open phone's own
+    /// view and closing the phone is the way back. An open album's own back button stays.
+    var showsBackButton = true
 
     @State private var position: CGFloat = 0
     /// A play waiting to be confirmed, as it would clear songs queued by hand.
@@ -371,21 +375,30 @@ struct ArtworkCarouselView: View {
 
     private var topBar: some View {
         HStack {
-            Button(action: {
-                if isOpen { close() } else { onDismiss() }
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text(isOpen ? content.backLabel : "Back")
-                        .font(.system(size: 14))
+            if isOpen || showsBackButton {
+                Button(action: {
+                    if isOpen { close() } else { onDismiss() }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(isOpen ? content.backLabel : "Back")
+                            .font(.system(size: 14))
+                    }
+                    .foregroundColor(.white)
                 }
-                .foregroundColor(.white)
+                .accessibilityIdentifier("carousel.back")
+            } else {
+                // Where Back would be, how to get back instead.
+                Label(String(localized: "carousel.closeToGoBack"), systemImage: "iphone.gen3")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(white: 0.5))
+                    .accessibilityIdentifier("carousel.closeHint")
             }
-            .padding(.leading, 20)
-            .padding(.top, verticalSizeClass == .compact ? 8 : 14)
             Spacer()
         }
+        .padding(.leading, 20)
+        .padding(.top, verticalSizeClass == .compact ? 8 : 14)
         .frame(height: topBarHeight)
     }
 

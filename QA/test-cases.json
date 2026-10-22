@@ -721,6 +721,18 @@
       ],
       "automated_by": ["LyreUITests/EnvironmentUITests/testRotatingDuringOnboardingKeepsTheStep()"]
     },
+    {
+      "key": "FLD-03", "suite": "Foldable (iPhone Duo)", "title": "Unfolding into the Artwork Carousel offers no Back: closing the phone goes back",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive", "tags": ["foldable"],
+      "preconditions": "iPhone Duo, Classic player (then Liquid), closed, on any screen.",
+      "steps": [
+        ["Open the Duo partway, then fully, in portrait and in landscape.", "The Artwork Carousel opens. Top left reads \"Close iPhone to go back\"; there is no Back button."],
+        ["Open an album's gatefold.", "Its own back button (\"‹ Albums\") shows and closes the album back to the covers."],
+        ["Close the Duo.", "Back on the wheel, at Now Playing."],
+        ["On an iPhone that doesn't fold, turn it sideways.", "The carousel shows \"‹ Back\", which turns it upright again."]
+      ],
+      "automated_by": ["LyreUITests/ArtworkCarouselDuoUITests"]
+    },
 
     {
       "key": "A11Y-01", "suite": "Accessibility & Localization", "title": "VoiceOver can use every player",

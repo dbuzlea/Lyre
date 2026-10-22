@@ -347,21 +347,24 @@ struct LyreView: View {
                     content: .albums(musicService.albums),
                     musicService: musicService,
                     selectedIndex: $artworkCarouselIndex,
-                    onDismiss: { dismissArtworkCarousel() }
+                    onDismiss: { dismissArtworkCarousel() },
+                    showsBackButton: carouselShowsBack
                 )
             case .playlists:
                 ArtworkCarouselView(
                     content: .playlists(Array(musicService.playlists)),
                     musicService: musicService,
                     selectedIndex: $playlistArtworkCarouselIndex,
-                    onDismiss: { dismissArtworkCarousel() }
+                    onDismiss: { dismissArtworkCarousel() },
+                    showsBackButton: carouselShowsBack
                 )
             case .podcasts:
                 ArtworkCarouselView(
                     content: .podcasts(musicService.mergedPodcastShows()),
                     musicService: musicService,
                     selectedIndex: $podcastArtworkCarouselIndex,
-                    onDismiss: { dismissArtworkCarousel() }
+                    onDismiss: { dismissArtworkCarousel() },
+                    showsBackButton: carouselShowsBack
                 )
             }
         }
@@ -701,6 +704,11 @@ struct LyreView: View {
             navigateTo(.nowPlaying)
         }
     }
+
+    /// Back leaves the carousel on a phone turned sideways, by turning the interface
+    /// upright. An unfolded iPhone Duo's display stays wide, so there it would only put
+    /// the wheel in a wide window: closing the phone is the way back (LYRE-12).
+    private var carouselShowsBack: Bool { foldMonitor.posture == .closed }
 
     /// The players that turn sideways into the Artwork Carousel.
     private static func hasArtworkCarousel(_ style: PlayerStyle) -> Bool {
