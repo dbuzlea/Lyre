@@ -352,7 +352,7 @@ nonisolated struct GramophoneCameraPose: Equatable {
                 let e = extent(mid, target)
                 // Fitted where it is, or (`fitsBand`) by its height alone and then moved
                 // into the band: a band that doesn't reach the middle of the screen, as
-                // on an iPhone Duo with the bin below, could never be fitted where it is.
+                // on an iPhone Duo with the covers below, could never be fitted where it is.
                 let fits = fitsBand ? e.high - e.low <= maxHigh - minLow
                                     : e.high <= maxHigh && e.low >= minLow
                 if e.x <= 1 - margin && fits { far = mid } else { near = mid }

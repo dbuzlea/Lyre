@@ -705,12 +705,13 @@
       "preconditions": "iPhone Duo.",
       "steps": [
         ["Open the Duo with the Spool.", "Deck beside the rack; a swiped tape waits in the deck and plays when the phone closes."],
-        ["Open it with the Gramophone.", "A bin of records to flip through (a phone that doesn't fold has no bin)."],
+        ["Open it with the Gramophone, partway and flat, in portrait.", "The machine above; below, a search field, the dividers and the covers in a row to swipe through. Tapping the middle cover opens its sleeve (LYRE-13). A phone that doesn't fold has none."],
+        ["Turn the open Duo on its side.", "Just the Gramophone, bigger: no covers below."],
         ["Open it with the Disc.", "It's a Discman."],
         ["Open it with Liquid, flat and held as a book.", "The pool under the waves; as a book, the library beside them."],
         ["Open it with Classic.", "The Artwork Carousel."]
       ],
-      "automated_by": ["LyreUITests/SpoolUITests/testOnAnOpenDuoASwipedTapeWaitsInTheDeckUntilThePhoneCloses()", "LyreUITests/SpoolUITests/testOnAnOpenDuoACaseOpensOverTheRackAndItsSongGoesIntoTheDoor()", "LyreUITests/GramophoneUITests/testAnOpenDuoHasABinOfRecordsToFlipThrough()", "LyreUITests/GramophoneUITests/testAPhoneThatDoesntFoldHasNoBin()", "LyreUITests/DiscUITests/testAnOpenDuoIsADiscman()", "LyreUITests/LiquidUITests/testAnOpenDuoHasThePoolUnderTheWaves()", "LyreUITests/LiquidUITests/testAnOpenDuoHeldAsABookHasTheLibraryBesideTheWaves()", "LyreTests/FoldPostureMonitorTests"]
+      "automated_by": ["LyreUITests/SpoolUITests/testOnAnOpenDuoASwipedTapeWaitsInTheDeckUntilThePhoneCloses()", "LyreUITests/SpoolUITests/testOnAnOpenDuoACaseOpensOverTheRackAndItsSongGoesIntoTheDoor()", "LyreUITests/GramophoneUITests/testAnOpenDuoHasACarouselOfCoversUnderTheMachine()", "LyreUITests/GramophoneUITests/testAPhoneThatDoesntFoldHasNoCarousel()", "LyreUITests/DiscUITests/testAnOpenDuoIsADiscman()", "LyreUITests/LiquidUITests/testAnOpenDuoHasThePoolUnderTheWaves()", "LyreUITests/LiquidUITests/testAnOpenDuoHeldAsABookHasTheLibraryBesideTheWaves()", "LyreTests/FoldPostureMonitorTests"]
     },
     {
       "key": "FLD-02", "suite": "Foldable (iPhone Duo)", "title": "Folding and unfolding mid-task loses nothing",
