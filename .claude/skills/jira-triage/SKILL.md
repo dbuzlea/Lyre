@@ -1,15 +1,17 @@
 ---
 name: jira-triage
-description: Pick up the next Lyre Jira issue labeled "claude" (project LYRE on lyre-app.atlassian.net), fix or build it on a local branch, test it, and hand it back In Review. Use when the user says "check Jira", "/jira-triage", or the 15-minute loop fires. Also covers what to do when the user approves an issue.
+description: Pick up the next Lyre Jira issue labeled "claude" (project LYRE on lyre-app.atlassian.net), fix or build it on a local branch, test it, and merge it into local main once it passes. Use when the user says "check Jira", "/jira-triage", or the 15-minute loop fires. Also covers pushing to GitHub and TestFlight when the user asks.
 ---
 
 # Jira triage for Lyre
 
 Daniel files bugs and feature requests in Jira (site `lyre-app.atlassian.net`, cloudId
 `0e15c93f-24fb-41a9-99bc-9cc27b5a944f`, project **LYRE**). Issues he labels `claude` are
-handed to you. You fix or build them **locally**, test them, and hand them back for review.
-You never push, merge to `main`, or upload to TestFlight until he approves the issue here,
-in Claude Code, in so many words.
+handed to you. You fix or build them on a branch, test them, and once they pass, merge
+them into the **local** `main` yourself and leave `main` checked out, so Daniel can run
+the latest from Xcode without approving each one (his standing instruction, 2026-10-22).
+You never push to GitHub or upload to TestFlight until he asks for it here, in Claude Code,
+in so many words.
 
 Workflow statuses (transition ids): To Do (11) · In Progress (21) · In Review (31) · Done (41).
 Look them up with `getTransitionsForJiraIssue` if an id is refused.
@@ -36,8 +38,8 @@ In the repo (`/Users/danielbuzlea/Desktop/code/Programs/Swift/Projects/Lyre`):
 - `git status --porcelain`: if there are uncommitted changes, **stop**. Don't pick the
   issue up. Report which files are dirty and ask Daniel what to do. Never stash, reset or
   commit work you didn't make for this issue.
-- If the current branch is a `LYRE-*` branch, an earlier issue is still waiting for review.
-  That's fine: branch the new issue from `main`, not from it.
+- If the current branch is a `LYRE-*` branch, an earlier issue was left unfinished (its
+  tests failed). That's fine: branch the new issue from `main`, not from it.
 
 ## 3. Read the issue
 
@@ -91,33 +93,37 @@ xcodebuild test-without-building -scheme Lyre -testPlan Regression -destination 
 - If it doesn't build or your tests fail and you can't fix it, say so plainly in the
   comment and leave the issue In Progress.
 
-## 6. Hand it back
+## 6. Merge it
 
-1. Commit on the branch, local only:
+Only when it builds and your tests pass (known failures aside). Otherwise leave it on its
+branch, In Progress, and tell Daniel.
+
+1. Commit on the branch:
    `git commit -m "LYRE-N: <what changed>"` plus a body (cause, fix, tests) and the
    attribution lines the session asks for. Don't commit unrelated files.
-2. Switch back to `main` (`git switch main`) so the next issue starts clean.
-3. Comment on the issue:
+2. Merge into the local `main` and stay there:
+   `git switch main && git merge --no-ff LYRE-N-slug -m "Merge LYRE-N: <summary>"`.
+   If it conflicts, resolve it if the resolution is obvious; if not, `git merge --abort`,
+   leave the issue In Progress and ask Daniel.
+3. Build `main` once more (`xcodebuild build-for-testing …`) so what Xcode runs compiles.
+4. Comment on the issue:
    ```
-   🤖 Claude: Ready for review on local branch LYRE-N-slug (not pushed).
+   🤖 Claude: Merged into local main (not pushed, not on TestFlight).
    Cause: …
    Change: …
    Tests: … (passed / known failures)
-   To verify on your phone: …
+   To verify on your phone: run from Xcode, then …
    ```
-4. Transition to **In Review**.
-5. Tell Daniel here in two or three lines: the key, what changed, the branch, and how to check it.
+5. Transition to **Done**.
+6. Tell Daniel here in two or three lines: the key, what changed, and how to check it.
 
-## When Daniel approves an issue
+## When Daniel asks to push or ship
 
-Only when he says so here ("approve LYRE-N", "push LYRE-N", "ship it"), and only for the
-issues he names:
+Only when he says so here, and only for what he names:
 
-1. Merge the branch into `main` (`git switch main && git merge --no-ff LYRE-N-slug`).
-2. Push to GitHub (`git push origin main`) only if he asked for GitHub.
-3. TestFlight only if he asked for TestFlight: confirm the version and build number with him
+1. Push to GitHub (`git push origin main`) only if he asked for GitHub.
+2. TestFlight only if he asked for TestFlight: confirm the version and build number with him
    first, then archive and upload.
-4. Transition the issue to **Done** and comment what was shipped where.
+3. Comment on the issues it carried what was shipped where.
 
-Approval for one issue never covers another, and "approve" alone doesn't mean TestFlight.
-Ask if it's unclear which he meant.
+"Push" doesn't mean TestFlight. Ask if it's unclear which he meant.
