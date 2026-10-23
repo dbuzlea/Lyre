@@ -542,7 +542,7 @@ struct DiscPlayerView: View {
                     .background(theme.buttonLight.opacity(0.8), in: Circle())
             }
             Button { showSettings = true } label: {
-                Image(systemName: "ellipsis")
+                Image(systemName: "gearshape.fill")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(theme.buttonSymbol)
                     .frame(width: 36, height: 36)

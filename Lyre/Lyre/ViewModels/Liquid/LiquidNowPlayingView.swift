@@ -432,7 +432,7 @@ struct LiquidNowPlayingView: View {
                         .frame(width: 44, height: 44)
                         .background(.black.opacity(0.28), in: Circle())
                 }
-                roundButton("ellipsis", label: "settings.title", id: "liquid.settings", action: onOpenSettings)
+                roundButton("gearshape.fill", label: "settings.title", id: "liquid.settings", action: onOpenSettings)
             }
             .padding(.horizontal, 16)
             .padding(.top, safeArea.top + 6)
