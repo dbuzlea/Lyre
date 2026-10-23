@@ -130,10 +130,10 @@ failing case. Severity follows the case's severity unless the failure is worse.
 
 | Jira | Defect | Severity | Found by |
 |---|---|---|---|
-| [LYRE-2](https://lyre-app.atlassian.net/browse/LYRE-2) | The library error alert ("Something Went Wrong"), shown when the library can't load, closes any open sheet (podcast search, settings). On a device with no library it can appear more than once after launch. | Major | EnvironmentUITests, while writing the podcast tests |
+| [LYRE-2](https://lyre-app.atlassian.net/browse/LYRE-2) | The library error alert ("Something Went Wrong"), shown when the library can't load, closes any open sheet (podcast search, settings). On a device with no library it can appear more than once after launch. | Major | EnvironmentUITests, while writing the podcast tests. **Fixed** in 2.5.2 (8) |
 | [LYRE-3](https://lyre-app.atlassian.net/browse/LYRE-3) | 7 Liquid UI tests fail on the current working tree (Settings sheet doesn't open, swipe actions, carousel on rotation, player hand-over). They fail the same way with this session's changes reverted, so they predate it. | Major | Regression run |
 | [LYRE-4](https://lyre-app.atlassian.net/browse/LYRE-4) | `SpoolSoundTests/theGramophonesSoundsAreShortEnoughToKeepUp()` fails: a Gramophone sound is outside 0.03–0.8 s. | Minor | Unit plan |
-| [LYRE-5](https://lyre-app.atlassian.net/browse/LYRE-5) | After access is restored on a device whose library can't load, "Access Restored — Reloading…" stays up through every retry (well over 25 s on the simulator). | Minor | testARevokedLibraryAccessIsExplainedAndCanBeRestored |
+| [LYRE-5](https://lyre-app.atlassian.net/browse/LYRE-5) | After access is restored on a device whose library can't load, "Access Restored — Reloading…" stays up through every retry (well over 25 s on the simulator). | Minor | testARevokedLibraryAccessIsExplainedAndCanBeRestored. **Fixed** in 2.5.2 (8) |
 
 Fixed during the same work: cellular-data-off and roaming-off read as "Service
 Unavailable" instead of "No Internet Connection"; a red low-battery warning on devices
