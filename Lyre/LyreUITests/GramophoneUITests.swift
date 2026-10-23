@@ -107,15 +107,15 @@ final class GramophoneUITests: XCTestCase {
         XCTAssertTrue(first.waitForExistence(timeout: 8), "The drawer didn't open onto the stack")
         sleep(1)
 
-        // Right goes up the stack, to the next record.
-        first.swipeRight()
+        // LYRE-19: left goes on down the list, to the next record.
+        first.swipeLeft()
         let second = element(app, "gramophone.stack.sample-2")
-        XCTAssertTrue(second.waitForExistence(timeout: 3), "Swiping right didn't go up the stack")
-        attachScreenshot(app, named: "gramophone-stack-up")
+        XCTAssertTrue(second.waitForExistence(timeout: 3), "Swiping left didn't go on to the next record")
+        attachScreenshot(app, named: "gramophone-stack-next")
 
-        // Left comes back down it.
-        second.swipeLeft()
-        XCTAssertTrue(first.waitForExistence(timeout: 3), "Swiping left didn't go back down the stack")
+        // Right comes back up it.
+        second.swipeRight()
+        XCTAssertTrue(first.waitForExistence(timeout: 3), "Swiping right didn't go back to the record before")
 
         // Holding the top record offers to queue it, next or at the end.
         first.press(forDuration: 1.0)
@@ -134,10 +134,10 @@ final class GramophoneUITests: XCTestCase {
         let first = element(app, "gramophone.stack.sample-1")
         XCTAssertTrue(first.waitForExistence(timeout: 8))
         sleep(1)
-        first.swipeRight()
+        first.swipeLeft()
         let second = element(app, "gramophone.stack.sample-2")
         XCTAssertTrue(second.waitForExistence(timeout: 3))
-        second.swipeRight()
+        second.swipeLeft()
 
         // Sample Tape 3 has one song: its sleeve opens on it, to play or queue.
         let single = element(app, "gramophone.stack.sample-3")
@@ -354,10 +354,10 @@ final class GramophoneUITests: XCTestCase {
         let first = element(app, "gramophone.stack.sample-1")
         XCTAssertTrue(first.waitForExistence(timeout: 8))
         sleep(1)
-        first.swipeRight()
+        first.swipeLeft()
         let second = element(app, "gramophone.stack.sample-2")
         XCTAssertTrue(second.waitForExistence(timeout: 3))
-        second.swipeRight()
+        second.swipeLeft()
         let single = element(app, "gramophone.stack.sample-3")
         XCTAssertTrue(single.waitForExistence(timeout: 3))
         single.tap()

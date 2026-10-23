@@ -11,10 +11,10 @@ import SwiftUI
 // camera is looking down on (`frame` is where the top one is on screen), so the stack
 // takes over from them without a seam.
 //
-//   swipe right   the top record goes off to the right, and the next one is on top:
-//                 up the stack
-//   swipe left    it goes off to the left, and the one before is back on top: down
-//                 the stack
+//   swipe left    the top record goes off to the left, and the next one in the list
+//                 is on top: on down the list
+//   swipe right   it goes off to the right, and the one before is back on top: back
+//                 up the list (LYRE-19 turned these round)
 //   tap           opens its sleeve to choose a song
 //   hold          Play Next or Add to Queue, as holding an album does on every player
 //
@@ -40,6 +40,11 @@ struct RecordStackView: View {
     /// How far a release must be, or be heading, to count as a swipe.
     private static let commitDistance: CGFloat = 90
     private static let commitVelocityDistance: CGFloat = 220
+
+    /// Which way through the list a pull goes (LYRE-19): pulled left, on to the next
+    /// record; pulled right, back to the one before. The record still goes off the way
+    /// it's pulled.
+    static func listStep(forPull x: CGFloat) -> Int { x < 0 ? 1 : -1 }
 
     private var index: Int {
         guard let frontID, let index = albums.firstIndex(where: { $0.id == frontID }) else { return 0 }
@@ -79,10 +84,10 @@ struct RecordStackView: View {
     // MARK: - The Records
 
     /// The record `depth` down: the top one, then whichever comes next the way the
-    /// top one's being pulled (up the stack unless it's pulled left).
+    /// top one's being pulled (on down the list unless it's pulled right).
     private func album(atDepth depth: Int) -> AppAlbum? {
         guard depth > 0 else { return albums.indices.contains(index) ? albums[index] : nil }
-        let step = dragX < 0 ? -depth : depth
+        let step = dragX > 0 ? -depth : depth
         let other = index + step
         return albums.indices.contains(other) ? albums[other] : nil
     }
@@ -145,26 +150,27 @@ struct RecordStackView: View {
             .onChanged { value in
                 let x = value.translation.width
                 // Nothing further that way: it gives a little, and no more.
-                dragX = albums.indices.contains(index + (x < 0 ? -1 : 1)) ? x : x * 0.25
+                dragX = albums.indices.contains(index + Self.listStep(forPull: x)) ? x : x * 0.25
             }
             .onEnded { value in
                 let direction: CGFloat = value.translation.width < 0 ? -1 : 1
+                let step = Self.listStep(forPull: value.translation.width)
                 let travelled = abs(value.translation.width)
                 let heading = abs(value.predictedEndTranslation.width)
                 let committed = (travelled > Self.commitDistance || heading > Self.commitVelocityDistance)
                     && (value.predictedEndTranslation.width < 0) == (direction < 0)
-                guard committed, albums.indices.contains(index + Int(direction)) else {
+                guard committed, albums.indices.contains(index + step) else {
                     if committed { UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.5) }
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { dragX = 0 }
                     return
                 }
-                fling(direction, from: dragX)
+                fling(direction, step: step, from: dragX)
             }
     }
 
-    /// The top record goes off `direction` (1 right, -1 left), and the next one that
-    /// way is on top.
-    private func fling(_ direction: CGFloat, from x: CGFloat) {
+    /// The top record goes off `direction` (1 right, -1 left), and the one `step` along
+    /// the list is on top.
+    private func fling(_ direction: CGFloat, step: Int, from x: CGFloat) {
         let album = albums[index]
         GramophoneSound.flip.play()
         UISelectionFeedbackGenerator().selectionChanged()
@@ -174,7 +180,7 @@ struct RecordStackView: View {
             leaving = (album, direction)
             leavingX = x
             dragX = 0
-            frontID = albums[index + Int(direction)].id
+            frontID = albums[index + step].id
         }
         withAnimation(.easeIn(duration: 0.28)) { leavingX = direction * (frame.width * 1.6 + 80) }
         Task {
@@ -183,9 +189,10 @@ struct RecordStackView: View {
         }
     }
 
-    /// For VoiceOver: up or down the stack by one.
+    /// For VoiceOver: along the list by one, the record going off the way a finger
+    /// would have pulled it.
     private func move(by step: Int) {
         guard albums.indices.contains(index + step) else { return }
-        fling(CGFloat(step), from: 0)
+        fling(step > 0 ? -1 : 1, step: step, from: 0)
     }
 }

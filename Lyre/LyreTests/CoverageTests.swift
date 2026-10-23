@@ -482,6 +482,15 @@ struct AppHelperEdgeTests {
 
 // MARK: - Liquid Index
 
+@Suite("Gramophone drawer")
+struct RecordStackSwipeTests {
+    /// LYRE-19: swiped left, the drawer goes on down the list; right, back up it.
+    @Test func leftIsNextAndRightIsBack() {
+        #expect(RecordStackView.listStep(forPull: -120) == 1)
+        #expect(RecordStackView.listStep(forPull: 120) == -1)
+    }
+}
+
 @Suite("Artwork carousel")
 @MainActor
 struct ArtworkCarouselEmptyTests {
