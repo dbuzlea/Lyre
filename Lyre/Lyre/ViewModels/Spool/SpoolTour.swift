@@ -571,7 +571,7 @@ private struct TourDeckView: View {
             Circle()
                 .fill(theme.isLight ? theme.logo : theme.accent)
                 .frame(width: 22, height: 22)
-                .overlay(Image(systemName: "ellipsis").font(.system(size: 9, weight: .bold)).foregroundStyle(.white))
+                .overlay(Image(systemName: "gearshape.fill").font(.system(size: 9, weight: .bold)).foregroundStyle(.white))
                 .position(x: 258, y: 26)
 
             Text(deck.counterText)

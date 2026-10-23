@@ -913,7 +913,7 @@ struct SpoolPlayerView: View {
             airPlayKey
             playerSwitchKey
             Button { showSettings = true } label: {
-                Image(systemName: "ellipsis")
+                Image(systemName: "gearshape.fill")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(theme.keySymbol)
                     .frame(width: 36, height: 36)
@@ -950,7 +950,7 @@ struct SpoolPlayerView: View {
     /// The original's orange hotline button on top of the rail, which opens Settings.
     private var hotlineMenu: some View {
         Button { showSettings = true } label: {
-            Image(systemName: "ellipsis")
+            Image(systemName: "gearshape.fill")
                 .font(.system(size: 14, weight: .heavy))
                 .foregroundStyle(.white)
                 .frame(width: 48, height: 30)

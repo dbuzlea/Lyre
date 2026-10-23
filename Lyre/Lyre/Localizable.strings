@@ -437,7 +437,7 @@
 "onboarding.spoolStyle.original.detail" = "Stands upright, with the keys on a rail down the side.";
 "onboarding.spoolStyle.slim.detail" = "Lies flat, with the keys along the top and a pill-shaped window.";
 "onboarding.done.spool.message" = "Here's your Spool. You can change any of this later in its owner's manual.";
-"onboarding.done.spool.replay" = "To watch the lessons again, open the owner's manual with the orange button (the … button on the slim) and go to Tutorial.";
+"onboarding.done.spool.replay" = "To watch the lessons again, open the owner's manual with the orange button (the gear on the slim) and go to Tutorial.";
 "onboarding.done.player" = "Player";
 "onboarding.done.design" = "Design";
 "onboarding.done.finish" = "Finish";
@@ -606,7 +606,7 @@
 "spool.tour.podcasts.title" = "Podcasts";
 "spool.tour.podcasts.detail" = "While a podcast plays, the wind keys jump forward 30 and back 15 seconds, the counter shows the time left, and the knob below it sets the speed.";
 "spool.tour.manual.title" = "This Manual";
-"spool.tour.manual.detail" = "The orange button (the … button on the slim) opens the owner's manual: design, finish, sound, playback, and this tutorial.";
+"spool.tour.manual.detail" = "The orange button (the gear on the slim) opens the owner's manual: design, finish, sound, playback, and this tutorial.";
 "spool.settings.tutorial" = "Tutorial";
 "spool.settings.manual" = "OWNER'S MANUAL";
 "spool.settings.done" = "Done";

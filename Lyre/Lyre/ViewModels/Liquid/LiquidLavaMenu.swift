@@ -206,7 +206,7 @@ struct LiquidLavaMenu: View {
                         .background(.white.opacity(0.1), in: Circle())
                 }
                 Button(action: onOpenSettings) {
-                    Image(systemName: "ellipsis")
+                    Image(systemName: "gearshape.fill")
                         .font(.system(size: 16, weight: .semibold))
                         .frame(width: 44, height: 44)
                         .background(.white.opacity(0.1), in: Circle())
