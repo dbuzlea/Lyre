@@ -146,6 +146,8 @@
 "gramophone.stepBack" = "Step Back";
 "gramophone.booklet" = "Instruction Booklet";
 "gramophone.crate" = "Records";
+"gramophone.back" = "Back";
+"gramophone.next" = "Next";
 "gramophone.crate.open" = "Open the record crate";
 "gramophone.crate.close" = "Close the drawer";
 "gramophone.stack.position" = "%1$d of %2$d";
