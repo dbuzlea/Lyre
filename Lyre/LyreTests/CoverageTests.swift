@@ -482,6 +482,27 @@ struct AppHelperEdgeTests {
 
 // MARK: - Liquid Index
 
+@Suite("Liquid cover grid columns")
+@MainActor
+struct LiquidGridColumnTests {
+    /// A phone (an iPhone Duo closed among them) keeps two columns.
+    @Test func aPhoneHasTwoColumns() {
+        #expect(LiquidCoverTile.columnCount(for: 322) == 2)
+        #expect(LiquidCoverTile.columnCount(for: 0) == 2)
+    }
+
+    /// The wider inner display gets more columns, as an iPad does, and always an even
+    /// number, so the fold of a Duo held as a book falls between two columns.
+    @Test func wideScreensGetAnEvenNumberOfColumns() {
+        for width in stride(from: 300.0, through: 1400, by: 25) {
+            let count = LiquidCoverTile.columnCount(for: width)
+            #expect(count >= 2 && count % 2 == 0, "\(count) columns at \(width)")
+        }
+        #expect(LiquidCoverTile.columnCount(for: 700) == 4)
+        #expect(LiquidCoverTile.columnCount(for: 1100) == 6)
+    }
+}
+
 @Suite("Liquid letter index")
 @MainActor
 struct LiquidLetterIndexTests {

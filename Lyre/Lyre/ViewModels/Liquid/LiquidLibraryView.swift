@@ -296,6 +296,8 @@ struct LiquidGridPage: View {
     /// below them, so on a short screen (an iPhone Duo closed) it isn't run up past the
     /// search and the back button into the corner.
     @State private var headerHeight: CGFloat = 0
+    /// How wide the covers have to lay out in, for how many go across.
+    @State private var gridWidth: CGFloat = 0
 
     private var shown: [AppAlbum] {
         let terms = query.lowercased().split(separator: " ").map(String.init)
@@ -413,7 +415,7 @@ struct LiquidGridPage: View {
                             }
                             .padding(.top, 20)
                         } else {
-                            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)],
+                            LazyVGrid(columns: LiquidCoverTile.columns(for: gridWidth),
                                       spacing: 18) {
                                 ForEach(shown) { album in
                                     Button { navigator.push(.album(album)) } label: {
@@ -427,6 +429,7 @@ struct LiquidGridPage: View {
                             }
                         }
                     }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
                     .padding(.leading, 20)
                     .padding(.trailing, showsIndex && shown.count >= 12 ? 40 : 20)
                     .padding(.bottom, bottomInset + 20)
@@ -452,6 +455,22 @@ struct LiquidGridPage: View {
 /// A cover in a grid, with its name and artist under it.
 struct LiquidCoverTile: View {
     let album: AppAlbum
+
+    /// The columns for a grid of covers `width` wide: two on a phone, more where there's
+    /// room (an iPhone Duo open, an iPad), and always an even number, so on a Duo held
+    /// as a book the fold falls between two columns rather than across one.
+    static func columns(for width: CGFloat) -> [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: spacing), count: columnCount(for: width))
+    }
+
+    static func columnCount(for width: CGFloat) -> Int {
+        let fit = Int((width + spacing) / (minimumWidth + spacing))
+        return max(2, fit - fit % 2)
+    }
+
+    private static let spacing: CGFloat = 14
+    /// The narrowest a cover gets before a column is dropped.
+    private static let minimumWidth: CGFloat = 150
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -721,6 +740,7 @@ struct LiquidSearchPage: View {
 
     @State private var query = ""
     @State private var matches: ShelfSearchMatches?
+    @State private var gridWidth: CGFloat = 0
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -743,7 +763,7 @@ struct LiquidSearchPage: View {
                         Text(section.0.lowercased())
                             .font(.system(size: 24, weight: .medium))
                             .foregroundStyle(.white)
-                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 18) {
+                        LazyVGrid(columns: LiquidCoverTile.columns(for: gridWidth), spacing: 18) {
                             ForEach(section.1) { album in
                                 Button { navigator.push(.album(album)) } label: { LiquidCoverTile(album: album) }
                                     .modifier(LiquidAlbumHoldMenu(album: album))
@@ -753,6 +773,7 @@ struct LiquidSearchPage: View {
                     }
                 }
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
             .padding(.horizontal, 20)
             .padding(.bottom, bottomInset + 20)
         }
