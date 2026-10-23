@@ -589,11 +589,17 @@ struct LiquidPlayerView: View {
         }
     }
 
+    /// Long enough to read. Under a UI test it stays up longer: XCUITest waits for the
+    /// app to go idle before the tap that queued something returns, and on the lava
+    /// screen that can take most of 2.5 seconds, so the test sometimes looked after
+    /// the notice had already gone.
+    private static let noticeDuration: Duration = AppEnvironment.isUITesting ? .seconds(10) : .seconds(2.5)
+
     private func showNotice(_ text: String) {
         noticeTask?.cancel()
         notice = text
         noticeTask = Task {
-            try? await Task.sleep(for: .seconds(2.5))
+            try? await Task.sleep(for: Self.noticeDuration)
             guard !Task.isCancelled else { return }
             notice = nil
         }
