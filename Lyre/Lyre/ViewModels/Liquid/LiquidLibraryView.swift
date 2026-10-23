@@ -47,6 +47,7 @@ struct LiquidLibraryView: View {
     let onQueue: ([AppTrack], QueuePlacement, String) -> Void
     let onFindShows: () -> Void
     let onOpenSettings: () -> Void
+    let themeSettings: ThemeSettings
     /// Room kept clear at the bottom for the droplet.
     let bottomInset: CGFloat
     /// The hinge's pull on the lava (iPhone Duo, partly open).
@@ -141,6 +142,7 @@ struct LiquidLibraryView: View {
     private var menu: some View {
         LiquidLavaMenu(
             musicService: musicService,
+            themeSettings: themeSettings,
             items: Self.menuItems,
             onChoose: { route, centre, color in
                 // The chosen blob's colour floods out from its middle, and the page is there.

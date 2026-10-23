@@ -407,6 +407,14 @@ struct GramophonePlayerView: View {
                     .background(theme.metalGradient, in: Circle())
                     .frame(width: 44, height: 44)
             }
+            PlayerSwitchMenu(themeSettings: themeSettings, identifier: "gramophone.playerSwitch") { symbol in
+                Image(systemName: symbol)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(theme.plateInk)
+                    .frame(width: 36, height: 36)
+                    .background(theme.metalGradient, in: Circle())
+                    .frame(width: 44, height: 44)
+            }
             Button { showSettings = true } label: {
                 Image(systemName: "book.closed.fill")
                     .font(.system(size: 15, weight: .semibold))

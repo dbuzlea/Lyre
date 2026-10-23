@@ -1283,6 +1283,26 @@ struct ScrollWheelView: View {
         }
     }
 
+    /// Where each row of the main menu leads, by its place in `MainMenuView.items`; the
+    /// two change together.
+    static func mainMenuDestination(at index: Int) -> LyreScreen? {
+        switch index {
+        case 0: return .nowPlaying
+        case 1: return .queue
+        case 2: return .songs
+        case 3: return .recentlyAdded
+        case 4: return .recentlyPlayed
+        case 5: return .albums
+        case 6: return .artists
+        case 7: return .playlists
+        case 8: return .podcasts
+        case 9: return .search
+        case 10: return .playerStyleSelection
+        case 11: return .settings
+        default: return nil
+        }
+    }
+
     private func handleSelect() {
         if isHoldEnabled { return }
         onInteraction()
@@ -1293,25 +1313,9 @@ struct ScrollWheelView: View {
         
         switch currentScreen {
         case .menu:
+            guard let menuTarget = Self.mainMenuDestination(at: menuSelection) else { return }
             saveSelectionState()
             navigationStack.append(currentScreen)
-            let menuTarget: LyreScreen
-            switch menuSelection {
-            case 0: menuTarget = .nowPlaying
-            case 1: menuTarget = .queue
-            case 2: menuTarget = .songs
-            case 3: menuTarget = .recentlyAdded
-            case 4: menuTarget = .recentlyPlayed
-            case 5: menuTarget = .albums
-            case 6: menuTarget = .artists
-            case 7: menuTarget = .playlists
-            case 8: menuTarget = .podcasts
-            case 9: menuTarget = .search
-            case 10: menuTarget = .settings
-            default:
-                _ = navigationStack.popLast()
-                return
-            }
             restoreSelectionState(for: menuTarget)
             withAnimation(.easeInOut(duration: 0.15)) { currentScreen = menuTarget }
 

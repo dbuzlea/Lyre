@@ -799,6 +799,7 @@ struct SpoolPlayerView: View {
         return layout {
             if axis == .vertical {
                 hotlineMenu
+                playerSwitchKey
                 airPlayKey
                 counter
                 Spacer(minLength: 8)
@@ -894,10 +895,11 @@ struct SpoolPlayerView: View {
         }
     }
 
-    /// AirPlay, then Settings.
+    /// AirPlay, Change Player, then Settings.
     private var optionsMenu: some View {
         HStack(spacing: 8) {
             airPlayKey
+            playerSwitchKey
             Button { showSettings = true } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 16, weight: .bold))
@@ -907,6 +909,17 @@ struct SpoolPlayerView: View {
             }
             .accessibilityLabel(String(localized: "settings.title"))
             .accessibilityIdentifier("spool.settings")
+        }
+    }
+
+    /// Changes the player without going into Settings (see `PlayerSwitchMenu`).
+    private var playerSwitchKey: some View {
+        PlayerSwitchMenu(themeSettings: themeSettings, identifier: "spool.playerSwitch") { symbol in
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(theme.keySymbol)
+                .frame(width: 36, height: 36)
+                .background(theme.keyLight.opacity(0.7), in: Circle())
         }
     }
 
