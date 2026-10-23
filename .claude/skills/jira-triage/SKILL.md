@@ -78,14 +78,17 @@ Use the booted **Lyre iPhone Duo** simulator (`xcrun simctl list devices booted`
 
 ```sh
 cd Lyre
-xcodebuild build-for-testing -scheme Lyre -destination 'id=<sim>'
+# Build with the Regression plan: the scheme's default plan (Unit) doesn't rebuild the
+# UI test bundle, so a new UI test would silently not run.
+xcodebuild build-for-testing -scheme Lyre -testPlan Regression -destination 'id=<sim>'
 xcodebuild test-without-building -scheme Lyre -testPlan Unit -destination 'id=<sim>'
 # UI tests must name a plan that includes them:
 xcodebuild test-without-building -scheme Lyre -testPlan Regression -destination 'id=<sim>' \
   -parallel-testing-enabled NO -only-testing:LyreUITests/<Suite>/<test>
 ```
 
-- Run the Unit plan, your new test, and the UI tests for the area you touched.
+- Run the Unit plan, your new test, and the UI tests for the area you touched. Check that
+  your new test appears in the results: if it isn't listed, the bundle is stale.
 - For anything visual, look at the test's screenshots (`xcrun xcresulttool export
   attachments`) and check them yourself before reporting.
 - Known failures that aren't yours: `SpoolSoundTests/theGramophonesSoundsAreShortEnoughToKeepUp`
