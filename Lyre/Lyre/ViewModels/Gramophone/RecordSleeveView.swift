@@ -38,6 +38,7 @@ struct RecordSleeveView: View {
 
     @Environment(\.gramophoneTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.windowSafeArea) private var safeArea
     @State private var tracks: [AppTrack]?
     @State private var shown = false
 
@@ -60,6 +61,10 @@ struct RecordSleeveView: View {
             .frame(maxWidth: 420)
             .padding(.horizontal, 20)
             .padding(.vertical, lowerHalfHeight == nil ? 24 : 12)
+            // Centred between the side insets, so nothing's under the status bar and
+            // camera down one edge (an iPhone Duo closed).
+            .padding(.leading, safeArea.leading)
+            .padding(.trailing, safeArea.trailing)
             .frame(height: lowerHalfHeight)
             .padding(.bottom, lowerHalfHeight == nil ? 0 : bottomInset)
             .scaleEffect(shown ? 1 : 0.85)

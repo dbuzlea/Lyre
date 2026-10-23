@@ -37,6 +37,9 @@ struct ContentView: View {
     /// `EnvironmentValues.windowSafeArea`.
     @State private var fullFrame: CGRect = .zero
     @State private var safeFrame: CGRect = .zero
+    /// A view in this window, for presenting the library error alert there rather than
+    /// in whichever scene happens to be key.
+    @State private var windowAnchor = WindowAnchor()
 
     /// GeometryProxy.safeAreaInsets reads zero once the safe area is ignored anywhere
     /// above, so the insets come from comparing the two frames instead.
@@ -86,6 +89,7 @@ struct ContentView: View {
                 // player that needs room for the keyboard asks KeyboardMonitor.
                 frameReader { safeFrame = $0 }
                     .ignoresSafeArea(.keyboard)
+                WindowAnchorView(anchor: windowAnchor)
             }
         }
         .onAppear {
@@ -117,7 +121,7 @@ struct ContentView: View {
             LibraryErrorAlert.dismiss()
             return
         }
-        LibraryErrorAlert.present(error, retry: {
+        LibraryErrorAlert.present(error, in: windowAnchor.window, retry: {
             Task { await musicService.loadLibrary() }
         }, dismiss: {
             musicService.lastError = nil
@@ -166,8 +170,9 @@ extension EnvironmentValues {
 private enum LibraryErrorAlert {
     private static weak var shown: UIAlertController?
 
-    static func present(_ error: MusicLoadError, retry: @escaping () -> Void, dismiss: @escaping () -> Void) {
-        guard shown == nil, let top = topViewController() else { return }
+    static func present(_ error: MusicLoadError, in window: UIWindow?,
+                        retry: @escaping () -> Void, dismiss: @escaping () -> Void) {
+        guard shown == nil, let top = topViewController(in: window) else { return }
         let alert = UIAlertController(title: error.alertTitle, message: error.localizedDescription,
                                       preferredStyle: .alert)
         if error.isRetryable {
@@ -186,16 +191,35 @@ private enum LibraryErrorAlert {
         shown = nil
     }
 
-    /// What's on top: the key window's root, then whatever it's presenting, all the way up.
-    private static func topViewController() -> UIViewController? {
-        let window = UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows)
-            .first { $0.isKeyWindow }
+    /// What's on top in `window`: its root, then whatever it's presenting, all the way up.
+    private static func topViewController(in window: UIWindow?) -> UIViewController? {
         var top = window?.rootViewController
         while let next = top?.presentedViewController, !next.isBeingDismissed {
             top = next
         }
         return top
     }
+}
+
+// MARK: - Window Anchor
+
+/// Holds on to a view in ContentView's window, so UIKit work (the library error alert)
+/// goes to that window. Walking every connected scene for the key one picks the wrong
+/// window once there's more than one, as on an iPhone Duo or iPad.
+final class WindowAnchor {
+    fileprivate weak var view: UIView?
+    var window: UIWindow? { view?.window }
+}
+
+private struct WindowAnchorView: UIViewRepresentable {
+    let anchor: WindowAnchor
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        anchor.view = view
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {}
 }

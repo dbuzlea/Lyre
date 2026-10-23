@@ -180,7 +180,10 @@ struct GramophonePlayerView: View {
 
             topBar
                 .padding(.top, safeArea.top)
-                .padding(.horizontal, max(safeArea.leading, safeArea.trailing))
+                // Each side by its own inset: they differ (an iPhone Duo closed has its
+                // status bar down the right edge only).
+                .padding(.leading, safeArea.leading)
+                .padding(.trailing, safeArea.trailing)
                 .frame(maxWidth: 560, maxHeight: .infinity, alignment: .top)
                 .opacity(vantage == .rack ? 0 : 1)
                 .allowsHitTesting(vantage != .rack)
@@ -887,6 +890,8 @@ struct GramophonePlayerView: View {
                     }
                 }
                 .padding(.horizontal, 14)
+                .padding(.leading, safeArea.leading)
+                .padding(.trailing, safeArea.trailing)
                 .padding(.top, safeArea.top + 8)
                 .padding(.bottom, safeArea.bottom + 8)
             }
@@ -1122,6 +1127,8 @@ struct GramophonePlayerView: View {
                     }
                 }
                 .padding(.horizontal, 14)
+                .padding(.leading, safeArea.leading)
+                .padding(.trailing, safeArea.trailing)
                 .padding(.top, safeArea.top + 8)
                 .padding(.bottom, safeArea.bottom + 8)
             }

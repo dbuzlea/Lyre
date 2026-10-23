@@ -740,6 +740,19 @@
     },
 
     {
+      "key": "FLD-04", "suite": "Foldable (iPhone Duo)", "title": "Nothing sits under the status bar, camera or vertical bars, closed, open or in Split View",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive", "tags": ["foldable"],
+      "preconditions": "iPhone Duo (or its simulator in Xcode 27.1), a song playing.",
+      "steps": [
+        ["Closed, in portrait, open each player: Classic, Spool (both designs), Gramophone, Disc, Liquid.", "No button, label or blob is under the status bar and camera down the right edge; every control can be tapped."],
+        ["In each, open the Up Next tray, a case or sleeve, and Settings.", "Their close buttons and lists keep clear of the right edge; the coloured bands in Liquid's Up Next still run to the edge."],
+        ["Open the Duo flat, then partway, in portrait and landscape.", "The same holds on the inner display; Liquid's grids show more covers across, an even number."],
+        ["On the inner display, drag Lyre by its home indicator into Split View, on the left and then the right.", "Controls stay inside the app's half; nothing is cut off on either side."]
+      ],
+      "automated_by": ["LyreUITests/DuoSafeAreaUITests", "LyreTests/LiquidGridColumnTests"]
+    },
+
+    {
       "key": "A11Y-01", "suite": "Accessibility & Localization", "title": "VoiceOver can use every player",
       "priority": "high", "severity": "critical", "type": "usability", "behavior": "positive", "tags": ["accessibility"],
       "preconditions": "VoiceOver on.",

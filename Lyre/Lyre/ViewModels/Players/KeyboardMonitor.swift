@@ -65,8 +65,9 @@ final class KeyboardMonitor {
     }
 
     private static func screenBounds(for note: Notification) -> CGRect {
-        (note.object as? UIScreen)?.bounds
-            ?? UIApplication.shared.connectedScenes.lazy.compactMap { ($0 as? UIWindowScene)?.screen.bounds }.first
-            ?? .zero
+        // The keyboard's own screen, which the notification names (on every iOS this
+        // app runs on): not one picked from the app's scenes, which on an iPhone Duo
+        // could be the other display.
+        (note.object as? UIScreen)?.bounds ?? .zero
     }
 }

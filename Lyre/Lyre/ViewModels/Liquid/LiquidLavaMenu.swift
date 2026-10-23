@@ -49,10 +49,27 @@ struct LiquidLavaMenu: View {
     private var lava: LavaColors { LavaColors(source: source) }
 
     var body: some View {
+        ZStack {
+            glass
+            wax
+                // Clear of the side the status bar and camera are on (an iPhone Duo
+                // closed has them down the right edge), so no blob or button is under them.
+                .padding(.leading, safeArea.leading)
+                .padding(.trailing, safeArea.trailing)
+        }
+        .ignoresSafeArea()
+        .task(id: musicService.nowPlayingTrack?.id) {
+            guard let track = musicService.nowPlayingTrack else { return }
+            let found = await LiquidColors.shared.color(for: track)
+            withAnimation(.easeInOut(duration: 1)) { source = found }
+        }
+    }
+
+    /// The blobs, their names and the header, over the glass.
+    private var wax: some View {
         GeometryReader { geometry in
             let frame = geometry.frame(in: .global)
             ZStack {
-                glass
                 blobs
                 labels(in: frame)
                 header
@@ -74,12 +91,6 @@ struct LiquidLavaMenu: View {
                 lamp.configure(items: items, size: size,
                                top: safeArea.top + 76, bottom: size.height - bottomInset - 8)
             }
-        }
-        .ignoresSafeArea()
-        .task(id: musicService.nowPlayingTrack?.id) {
-            guard let track = musicService.nowPlayingTrack else { return }
-            let found = await LiquidColors.shared.color(for: track)
-            withAnimation(.easeInOut(duration: 1)) { source = found }
         }
     }
 
