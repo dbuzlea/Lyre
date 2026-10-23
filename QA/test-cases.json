@@ -377,11 +377,12 @@
       "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
       "preconditions": "Gramophone player with albums.",
       "steps": [
+        ["Open the crate, swipe the top record left, then right.", "Left goes on to the next album in the list, right back to the one before; the record flies off the way it's swiped (LYRE-19)."],
         ["Open the crate, pick an album, choose a song from its sleeve.", "The record goes on the turntable and that song plays."],
         ["Drag the tonearm to another band.", "Playback jumps to the song under the needle."],
         ["Lift the arm off the record.", "It returns to its rest and playback stops."]
       ],
-      "automated_by": ["LyreUITests/GramophoneUITests/testChoosingASongFromASleevePutsTheRecordOnTheTurntable()", "LyreUITests/GramophoneUITests/testLiftingTheTonearmOffTheRecordPutsItOnItsRest()", "LyreTests/GramophoneTests"]
+      "automated_by": ["LyreUITests/GramophoneUITests/testChoosingASongFromASleevePutsTheRecordOnTheTurntable()", "LyreUITests/GramophoneUITests/testLiftingTheTonearmOffTheRecordPutsItOnItsRest()", "LyreUITests/GramophoneUITests/testSwipingTheStackGoesUpAndDownItAndHoldingQueues()", "LyreTests/GramophoneTests", "LyreTests/RecordStackSwipeTests"]
     },
     {
       "key": "GRM-02", "suite": "Gramophone Player", "title": "The crank, the play switch and the Up Next bin",
