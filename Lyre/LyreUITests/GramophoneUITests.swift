@@ -38,6 +38,9 @@ final class GramophoneUITests: XCTestCase {
         XCTAssertEqual(arm.value as? String, "No record")
         // VoiceOver finds the arm at its soundbox, not across the whole turntable.
         XCTAssertLessThan(arm.frame.width, 120, "The tonearm's element is \(arm.frame)")
+        // LYRE-17: a phone that isn't a split Duo keeps the records and Up Next on the deck.
+        XCTAssertTrue(element(app, "gramophone.crate").exists, "The deck lost its records handle")
+        XCTAssertFalse(element(app, "gramophone.next").exists, "Next shows on a phone that isn't a split Duo")
         sleep(1)
         attachScreenshot(app, named: "gramophone-horn-overhead")
 
@@ -462,6 +465,34 @@ final class GramophoneUITests: XCTestCase {
         let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: close)
         XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 3), .completed,
                        "Tapping above the fold didn't put the sleeve back")
+    }
+
+    /// LYRE-17: on an open Duo in portrait the covers below the fold are the records, so
+    /// the deck under the turntable has Back and Next instead of the records and Up Next.
+    @MainActor
+    func testAnOpenDuosDeckHasBackAndNextInsteadOfRecordsAndUpNext() throws {
+        let app = launchGramophone(extraArguments: ["-SpoolFoldPosture", "open", "--spool-sample-queue"])
+        XCTAssertTrue(element(app, "gramophone.carousel.front").waitForExistence(timeout: 10), "No carousel under the machine")
+        let lookInside = element(app, "gramophone.lookInside")
+        XCTAssertTrue(lookInside.waitForExistence(timeout: 6))
+        sleep(1)
+        lookInside.tap()
+        XCTAssertTrue(element(app, "gramophone.tonearm").waitForExistence(timeout: 5), "Looking in didn't reach the turntable")
+        sleep(1)
+        attachScreenshot(app, named: "duo-deck-back-next")
+
+        let back = element(app, "gramophone.back")
+        let next = element(app, "gramophone.next")
+        XCTAssertTrue(back.exists && back.isHittable, "No Back on the deck")
+        XCTAssertTrue(next.exists && next.isHittable, "No Next on the deck")
+        XCTAssertFalse(element(app, "gramophone.crate").exists, "The records handle is still on the deck")
+        XCTAssertFalse(element(app, "gramophone.upNext").exists, "Up Next is still on the deck")
+
+        // Both are above the fold, on the deck, not in among the covers.
+        let fold = app.windows.firstMatch.frame.midY
+        XCTAssertLessThan(next.frame.maxY, fold, "Next is below the fold")
+        next.tap()
+        XCTAssertTrue(element(app, "gramophone.tonearm").exists, "Next took the turntable away")
     }
 
     private func waitFor(_ element: XCUIElement, value: String) -> Bool {

@@ -572,30 +572,15 @@ struct GramophonePlayerView: View {
                                    onSet: setSpeed)
                 }
                 HStack(spacing: 14) {
-                    UpNextPile(count: musicService.upcoming.count, action: openRack)
-                    Button(action: openCrate) {
-                        VStack(spacing: 6) {
-                            Capsule()
-                                .fill(theme.metalGradient)
-                                .frame(width: 60, height: 8)
-                                .shadow(color: .black.opacity(0.4), radius: 1, y: 1)
-                            Text(String(localized: "gramophone.crate").uppercased())
-                                .font(.system(size: 12, weight: .heavy, design: .serif))
-                                .tracking(3)
-                                .foregroundStyle(theme.ink)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 56)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(theme.woodGradient)
-                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(theme.woodDark, lineWidth: 2))
-                                .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
-                        )
-                        .contentShape(Rectangle())
+                    if isDuoSplit {
+                        // The covers below the fold are the records here, so the deck
+                        // changes songs instead (LYRE-17).
+                        skipKey(forward: false)
+                        skipKey(forward: true)
+                    } else {
+                        UpNextPile(count: musicService.upcoming.count, action: openRack)
+                        crateHandle
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(String(localized: "gramophone.crate.open"))
-                    .accessibilityIdentifier("gramophone.crate")
                 }
             }
             .padding(14)
@@ -609,6 +594,66 @@ struct GramophonePlayerView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
         }
+    }
+
+    /// The drawer's handle on the deck's front edge: the records.
+    private var crateHandle: some View {
+        Button(action: openCrate) {
+            VStack(spacing: 6) {
+                Capsule()
+                    .fill(theme.metalGradient)
+                    .frame(width: 60, height: 8)
+                    .shadow(color: .black.opacity(0.4), radius: 1, y: 1)
+                Text(String(localized: "gramophone.crate").uppercased())
+                    .font(.system(size: 12, weight: .heavy, design: .serif))
+                    .tracking(3)
+                    .foregroundStyle(theme.ink)
+            }
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(theme.woodGradient)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(theme.woodDark, lineWidth: 2))
+                    .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "gramophone.crate.open"))
+        .accessibilityIdentifier("gramophone.crate")
+    }
+
+    /// Back or Next on the deck's front edge, in wood like the drawer's handle. A show
+    /// skips back 15 seconds or on 30, as everywhere else.
+    private func skipKey(forward: Bool) -> some View {
+        let isPodcast = musicService.isPlayingPodcast
+        let symbol = isPodcast ? (forward ? "goforward.30" : "gobackward.15")
+                               : (forward ? "forward.end.alt.fill" : "backward.end.alt.fill")
+        return Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Task { await musicService.skip(forward: forward) }
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: symbol)
+                    .font(.system(size: 18, weight: .bold))
+                Text(String(localized: forward ? "gramophone.next" : "gramophone.back").uppercased())
+                    .font(.system(size: 12, weight: .heavy, design: .serif))
+                    .tracking(3)
+            }
+            .foregroundStyle(theme.ink)
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(theme.woodGradient)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(theme.woodDark, lineWidth: 2))
+                    .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: isPodcast ? (forward ? "spool.skipForward" : "spool.skipBack")
+                                                        : (forward ? "disc.next" : "disc.previous")))
+        .accessibilityIdentifier(forward ? "gramophone.next" : "gramophone.back")
     }
 
     // MARK: - Moving Round the Machine
