@@ -15,6 +15,10 @@ import SwiftUI
 // puts the sleeve back.
 //
 // Holding the record on the turntable opens its sleeve the same way.
+//
+// On an iPhone Duo open in portrait the sleeve keeps to the half below the fold, where
+// the covers are, with a smaller record, so the gramophone stays in view above it
+// (LYRE-16). Tapping that upper half puts the sleeve back, as tapping outside does.
 
 struct RecordSleeveView: View {
     let album: AppAlbum
@@ -27,6 +31,10 @@ struct RecordSleeveView: View {
     let onClose: () -> Void
     /// The song playing, marked in the list.
     var playingID: String?
+    /// iPhone Duo open in portrait: the height of the half below the fold, and the safe
+    /// area under it. The sleeve keeps to that half. Nil elsewhere: the whole screen.
+    var lowerHalfHeight: CGFloat?
+    var bottomInset: CGFloat = 0
 
     @Environment(\.gramophoneTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -35,13 +43,14 @@ struct RecordSleeveView: View {
 
     private var kind: RecordKind { RecordKind(album) }
 
+    /// The sleeve's widest, and the room the front takes, record and all. In the lower
+    /// half the record stands no higher than its room, so it never crosses the fold.
+    private var frontSide: CGFloat { lowerHalfHeight == nil ? 300 : 112 }
+    private var frontHeight: CGFloat { lowerHalfHeight == nil ? 230 : 150 }
+
     var body: some View {
-        ZStack {
-            Color.black.opacity(shown ? 0.6 : 0)
-                .ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture(perform: close)
-                .accessibilityHidden(true)
+        ZStack(alignment: lowerHalfHeight == nil ? .center : .bottom) {
+            backdrop
 
             VStack(spacing: 0) {
                 sleeveFront
@@ -50,7 +59,9 @@ struct RecordSleeveView: View {
             }
             .frame(maxWidth: 420)
             .padding(.horizontal, 20)
-            .padding(.vertical, 24)
+            .padding(.vertical, lowerHalfHeight == nil ? 24 : 12)
+            .frame(height: lowerHalfHeight)
+            .padding(.bottom, lowerHalfHeight == nil ? 0 : bottomInset)
             .scaleEffect(shown ? 1 : 0.85)
             .opacity(shown ? 1 : 0)
         }
@@ -67,6 +78,29 @@ struct RecordSleeveView: View {
         .accessibilityAction(.escape, close)
     }
 
+    /// The room dimmed behind the sleeve; tapping it puts the sleeve back. In the lower half,
+    /// only that half is dimmed and the gramophone above stays as it is.
+    @ViewBuilder
+    private var backdrop: some View {
+        if let lowerHalfHeight {
+            VStack(spacing: 0) {
+                Color.clear
+                Color.black.opacity(shown ? 0.6 : 0)
+                    .frame(height: lowerHalfHeight + bottomInset)
+            }
+            .ignoresSafeArea()
+            .contentShape(Rectangle())
+            .onTapGesture(perform: close)
+            .accessibilityHidden(true)
+        } else {
+            Color.black.opacity(shown ? 0.6 : 0)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture(perform: close)
+                .accessibilityHidden(true)
+        }
+    }
+
     private func close() {
         withAnimation(.easeIn(duration: 0.2)) { shown = false } completion: { onClose() }
     }
@@ -76,7 +110,7 @@ struct RecordSleeveView: View {
     /// The sleeve, with the record standing out of its top.
     private var sleeveFront: some View {
         GeometryReader { geometry in
-            let side = min(geometry.size.width, 300)
+            let side = min(geometry.size.width, frontSide)
             ZStack(alignment: .bottom) {
                 RecordDisc(kind: kind, title: album.tapeTitle, label: .album(album),
                            grooves: tracks.map { GrooveMap(durations: $0.map(\.duration)) },
@@ -89,7 +123,7 @@ struct RecordSleeveView: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .bottom)
         }
-        .frame(height: 230)
+        .frame(height: frontHeight)
         .accessibilityHidden(true)
     }
 
