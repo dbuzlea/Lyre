@@ -1033,7 +1033,8 @@ struct LiquidAlbumPage: View {
         }
     }
 
-    /// The cover across the top, melting into the page's colour, with the way back.
+    /// The cover across the top, melting into the page's colour, with the way back and,
+    /// opposite it, the album's queue menu.
     private func header(ground: Color) -> some View {
         ZStack(alignment: .topLeading) {
             LiquidCover(source: .album(album))
@@ -1056,6 +1057,30 @@ struct LiquidAlbumPage: View {
             .padding(.top, 56)
             .accessibilityLabel(String(localized: "liquid.back"))
             .accessibilityIdentifier("liquid.back")
+        }
+        .overlay(alignment: .topTrailing) {
+            // LYRE-14: the whole album to Up Next, without holding its cover. A show's
+            // episodes can't be queued, so a show has none.
+            if !album.isPodcast {
+                Menu {
+                    Button { navigator.queueAlbum(album, .next) } label: {
+                        Label(String(localized: "queue.action.playNext"), systemImage: "text.insert")
+                    }
+                    Button { navigator.queueAlbum(album, .last) } label: {
+                        Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
+                    }
+                } label: {
+                    Image(systemName: "text.badge.plus")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .background(.black.opacity(0.3), in: Circle())
+                }
+                .foregroundStyle(.white)
+                .padding(.trailing, 16)
+                .padding(.top, 56)
+                .accessibilityLabel(String(localized: "liquid.album.queueMenu"))
+                .accessibilityIdentifier("liquid.album.queueMenu")
+            }
         }
     }
 
