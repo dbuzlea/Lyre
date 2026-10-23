@@ -389,6 +389,25 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(waitForDisappearance(element(app, "liquid.stack.top")), "The grid didn't come back")
     }
 
+    /// On a closed iPhone Duo's short screen, the grid's letter index keeps below the name
+    /// and search, level with the covers, instead of running up into the corner.
+    func testTheGridsLetterIndexStartsBelowTheSearchOnAClosedDuo() throws {
+        let app = launchLiquid(["-LiquidShot", "albums", "-SpoolFoldPosture", "closed"])
+        let layout = element(app, "liquid.layout")
+        XCTAssertTrue(layout.waitForExistence(timeout: 10), "No layout switch")
+        if element(app, "liquid.stack.top").waitForExistence(timeout: 2) { layout.tap() }
+        let index = element(app, "liquid.index")
+        XCTAssertTrue(index.waitForExistence(timeout: 10), "No letter index on the grid")
+        sleep(1)
+        attachScreenshot(app, named: "duo-closed-grid-index")
+
+        let search = element(app, "liquid.search.field")
+        XCTAssertTrue(search.exists)
+        XCTAssertGreaterThan(index.frame.minY, search.frame.maxY, "The index runs up past the search")
+        XCTAssertGreaterThan(index.frame.minY, layout.frame.maxY, "The index runs up past the layout switch")
+        XCTAssertLessThan(index.frame.maxY, app.windows.firstMatch.frame.maxY, "The index runs off the bottom")
+    }
+
     func testASongInTheStackOpensOntoItsAlbum() throws {
         let app = launchLiquid(["-LiquidShot", "songs"])
         let layout = element(app, "liquid.layout")
