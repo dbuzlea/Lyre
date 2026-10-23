@@ -230,7 +230,10 @@ struct GramophonePlayerView: View {
                         queue(tracks, placement: placement, name: tracks.count == 1 ? tracks[0].title : album.tapeTitle)
                     },
                     onClose: { openSleeve = nil },
-                    playingID: musicService.currentEpisode?.id ?? musicService.currentTrack?.id
+                    playingID: musicService.currentEpisode?.id ?? musicService.currentTrack?.id,
+                    // Below the fold with the covers, the gramophone left in view above.
+                    lowerHalfHeight: isDuoSplit ? binHeight : nil,
+                    bottomInset: safeArea.bottom
                 )
                 .zIndex(3)
             }

@@ -436,6 +436,34 @@ final class GramophoneUITests: XCTestCase {
                       "Search didn't narrow the covers")
     }
 
+    /// LYRE-16: on an open Duo in portrait, a cover's sleeve keeps to the half below the
+    /// fold, so the gramophone stays in view above it; tapping that upper half puts the
+    /// sleeve back.
+    @MainActor
+    func testAnOpenDuosSleeveKeepsToTheLowerHalf() throws {
+        let app = launchGramophone(extraArguments: ["-SpoolFoldPosture", "open"])
+        let front = element(app, "gramophone.carousel.front")
+        XCTAssertTrue(front.waitForExistence(timeout: 10), "No carousel under the machine")
+        front.tap()
+        let close = element(app, "gramophone.sleeve.close")
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "Tapping didn't open the sleeve")
+        let song = element(app, "gramophone.sleeve.track.0")
+        XCTAssertTrue(song.waitForExistence(timeout: 5), "The sleeve lists no songs")
+        sleep(1) // the sleeve springs into place
+        attachScreenshot(app, named: "duo-sleeve-lower-half")
+
+        let fold = app.windows.firstMatch.frame.midY
+        for (name, part) in [("close button", close), ("Play", element(app, "gramophone.sleeve.play")), ("first song", song)] {
+            XCTAssertGreaterThanOrEqual(part.frame.minY, fold, "The sleeve's \(name) is above the fold")
+        }
+
+        // The upper half is the gramophone's; a tap there puts the sleeve back.
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: close)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 3), .completed,
+                       "Tapping above the fold didn't put the sleeve back")
+    }
+
     private func waitFor(_ element: XCUIElement, value: String) -> Bool {
         let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", value), object: element)
         return XCTWaiter().wait(for: [expectation], timeout: 3) == .completed
