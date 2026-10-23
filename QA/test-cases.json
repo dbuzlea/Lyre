@@ -734,9 +734,10 @@
         ["Open the Duo partway, then fully, in portrait and in landscape.", "The Artwork Carousel opens. Top left reads \"Close iPhone to go back\"; there is no Back button."],
         ["Open an album's gatefold.", "Its own back button (\"‹ Albums\") shows and closes the album back to the covers."],
         ["Close the Duo.", "Back on the wheel, at Now Playing."],
-        ["On an iPhone that doesn't fold, turn it sideways.", "The carousel shows \"‹ Back\", which turns it upright again."]
+        ["On an iPhone that doesn't fold, turn it sideways.", "The carousel shows \"‹ Back\", which turns it upright again."],
+        ["With no albums (or playlists, or podcasts) in the library, open the carousel.", "It says \"No albums in library\" (or the like) in the middle, with how to turn on library access if it's off; Back still works (LYRE-18)."]
       ],
-      "automated_by": ["LyreUITests/ArtworkCarouselDuoUITests"]
+      "automated_by": ["LyreUITests/ArtworkCarouselDuoUITests", "LyreTests/ArtworkCarouselEmptyTests"]
     },
 
     {
