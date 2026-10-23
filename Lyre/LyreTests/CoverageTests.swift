@@ -482,6 +482,18 @@ struct AppHelperEdgeTests {
 
 // MARK: - Liquid Index
 
+@Suite("Artwork carousel")
+@MainActor
+struct ArtworkCarouselEmptyTests {
+    /// LYRE-18: an empty carousel names what's missing.
+    @Test func eachListSaysWhatItHasNoneOf() {
+        #expect(ArtworkCarouselContent.albums([]).emptyMessage == String(localized: "empty.albums"))
+        #expect(ArtworkCarouselContent.playlists([]).emptyMessage == String(localized: "empty.playlists"))
+        #expect(ArtworkCarouselContent.podcasts([]).emptyMessage == String(localized: "empty.podcasts"))
+        #expect(ArtworkCarouselContent.albums([]).itemCount == 0)
+    }
+}
+
 @Suite("Liquid cover grid columns")
 @MainActor
 struct LiquidGridColumnTests {

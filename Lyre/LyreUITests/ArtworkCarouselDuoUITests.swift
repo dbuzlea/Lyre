@@ -33,6 +33,29 @@ final class ArtworkCarouselDuoUITests: XCTestCase {
         return app
     }
 
+    /// LYRE-18: with nothing to show, the carousel says so instead of showing a black
+    /// screen. (The simulator has no music library, so its albums are empty.)
+    @MainActor
+    func testAnEmptyCarouselSaysThereIsNothingToShow() throws {
+        let app = launchIntoCarousel(foldedOpen: false)
+        let back = app.buttons["carousel.back"]
+        guard back.waitForExistence(timeout: 10) else {
+            throw XCTSkip("Turning this simulator sideways doesn't widen the window, so the carousel can't open")
+        }
+        guard !app.buttons["gatefold.cover"].exists else {
+            throw XCTSkip("This device has albums")
+        }
+        let empty = app.descendants(matching: .any)["carousel.empty"].firstMatch
+        XCTAssertTrue(empty.waitForExistence(timeout: 5), "An empty carousel should say there's nothing to show")
+        XCTAssertTrue(empty.label.contains("No albums"), "It says \(empty.label)")
+        // In the middle of the screen, all of it in view.
+        let window = app.windows.firstMatch.frame
+        XCTAssertTrue(window.contains(empty.frame), "The message runs off the screen: \(empty.frame) in \(window)")
+        XCTAssertEqual(empty.frame.midX, window.midX, accuracy: window.width * 0.15,
+                       "The message isn't centred: \(empty.frame) in \(window)")
+        attachScreenshot(app, named: "carousel-empty")
+    }
+
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name

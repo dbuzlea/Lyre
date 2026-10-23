@@ -60,6 +60,15 @@ enum ArtworkCarouselContent {
         }
     }
 
+    /// What the carousel says when there's nothing in it (LYRE-18).
+    var emptyMessage: String {
+        switch self {
+        case .albums: return String(localized: "empty.albums")
+        case .playlists: return String(localized: "empty.playlists")
+        case .podcasts: return String(localized: "empty.podcasts")
+        }
+    }
+
     var backLabel: String {
         switch self {
         case .albums: return "Albums"
@@ -284,11 +293,16 @@ struct ArtworkCarouselView: View {
 
             VStack(spacing: 0) {
                 topBar
-                carouselSection(panel: panelSize)
-                Spacer(minLength: 0)
-                    .frame(height: isOpen ? 4 : infoGap)
-                infoSection
-                    .frame(height: infoBlockHeight)
+                if content.itemCount == 0 {
+                    emptyState
+                        .frame(maxHeight: .infinity)
+                } else {
+                    carouselSection(panel: panelSize)
+                    Spacer(minLength: 0)
+                        .frame(height: isOpen ? 4 : infoGap)
+                    infoSection
+                        .frame(height: infoBlockHeight)
+                }
                 Spacer(minLength: bottomInset)
             }
 
@@ -400,6 +414,32 @@ struct ArtworkCarouselView: View {
         .padding(.leading, 20)
         .padding(.top, verticalSizeClass == .compact ? 8 : 14)
         .frame(height: topBarHeight)
+    }
+
+    // MARK: - Empty
+
+    /// Said in place of the covers when there are none, rather than leaving a black
+    /// screen that reads as something gone wrong (LYRE-18). Without access to the music
+    /// library that's the likelier reason, so it says how to give it.
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "square.stack")
+                .font(.system(size: 34, weight: .light))
+                .foregroundColor(Color(white: 0.45))
+                .accessibilityHidden(true)
+            Text(content.emptyMessage)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white)
+            if content.isQueueable, !musicService.isAuthorized {
+                Text(String(localized: "empty.enableAccess"))
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(white: 0.62))
+            }
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 32)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("carousel.empty")
     }
 
     // MARK: - Info Section
