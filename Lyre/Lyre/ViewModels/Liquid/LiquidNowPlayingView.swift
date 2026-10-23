@@ -448,6 +448,10 @@ struct LiquidNowPlayingView: View {
                 .padding(.top, 18)
                 .padding(.bottom, safeArea.bottom)
         }
+        // Clear of the side the status bar and camera are on (down the right edge of an
+        // iPhone Duo closed); the cover behind still runs edge to edge.
+        .padding(.leading, safeArea.leading)
+        .padding(.trailing, safeArea.trailing)
         .frame(width: size.width, height: size.height)
         .ignoresSafeArea()
     }

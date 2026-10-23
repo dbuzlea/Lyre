@@ -58,6 +58,11 @@ struct LiquidTideView: View {
                         }
                     VStack(spacing: 0) {
                         header
+                            // Clear of the column the status bar and the system's own
+                            // vertical bars use (the right edge of an iPhone Duo closed).
+                            // The bands below run edge to edge and inset their own contents.
+                            .padding(.leading, safeArea.leading)
+                            .padding(.trailing, safeArea.trailing)
                         content
                     }
                     .background(Color(red: 0.09, green: 0.09, blue: 0.1))
@@ -131,6 +136,8 @@ struct LiquidTideView: View {
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 32)
+            .padding(.leading, safeArea.leading)
+            .padding(.trailing, safeArea.trailing)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List {
@@ -198,6 +205,7 @@ private struct LiquidBand: View {
     let onRemove: () -> Void
 
     @State private var color: Color?
+    @Environment(\.windowSafeArea) private var safeArea
 
     var body: some View {
         let ground = color ?? LiquidColors.fallback(for: track.albumTitle)
@@ -245,8 +253,9 @@ private struct LiquidBand: View {
             }
         }
         .foregroundStyle(ink)
-        .padding(.leading, 18)
-        .padding(.trailing, 14)
+        // The colour runs edge to edge; what's on it keeps clear of the side insets.
+        .padding(.leading, 18 + safeArea.leading)
+        .padding(.trailing, 14 + safeArea.trailing)
         .frame(height: 60 + CGFloat(minutes) * 7)
         .background(ground)
         .task(id: track.albumTitle + track.artistName) {

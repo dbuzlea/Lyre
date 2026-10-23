@@ -534,8 +534,8 @@ struct CassetteCaseView: View {
 
         init(size: CGSize, safeArea: EdgeInsets, bounds: CGRect? = nil) {
             let frame = bounds.map { $0.insetBy(dx: 4, dy: 4) }
-                ?? CGRect(x: Self.margin, y: safeArea.top + 12,
-                          width: size.width - 2 * Self.margin,
+                ?? CGRect(x: safeArea.leading + Self.margin, y: safeArea.top + 12,
+                          width: size.width - safeArea.leading - safeArea.trailing - 2 * Self.margin,
                           height: size.height - safeArea.top - safeArea.bottom - 24)
             // The tray fits the cassette; the lid takes the rest, for the song list.
             let trayHeight = (frame.width - 2 * Self.trayInset.width) / CassetteView.aspectRatio

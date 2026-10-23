@@ -43,6 +43,7 @@ struct JewelCaseView: View {
     var playingID: String?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.windowSafeArea) private var safeArea
     @State private var tracks: [AppTrack]?
     @State private var shown = false
     /// How far the lid has swung open: 0 shut over the tray, 1 lying open on the left.
@@ -75,6 +76,10 @@ struct JewelCaseView: View {
             .frame(maxWidth: 420)
             .padding(.horizontal, 20)
             .padding(.vertical, 24)
+            // Centred between the side insets, so nothing's under the status bar and
+            // camera down one edge (an iPhone Duo closed).
+            .padding(.leading, safeArea.leading)
+            .padding(.trailing, safeArea.trailing)
             .scaleEffect(shown ? 1 : 0.85)
             .opacity(shown ? 1 : 0)
         }

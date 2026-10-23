@@ -23,6 +23,7 @@ import SwiftUI
 // play. They can be tapped to play but not moved or taken out: the show sets the order.
 
 struct SpoolQueueTray: View {
+    @Environment(\.windowSafeArea) private var safeArea
     @ObservedObject var musicService: MusicService
     /// 0 put away, 1 all the way up.
     let progress: CGFloat
@@ -70,6 +71,10 @@ struct SpoolQueueTray: View {
             window
                 .padding(.horizontal, 12)
         }
+        // Clear of the side the status bar and camera are on (the right edge of an
+        // iPhone Duo closed); the panel itself still reaches the edges.
+        .padding(.leading, safeArea.leading)
+        .padding(.trailing, safeArea.trailing)
         .padding(.bottom, bottomInset + 8)
         .background(
             UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28)

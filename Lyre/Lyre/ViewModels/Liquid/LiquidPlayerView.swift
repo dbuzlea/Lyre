@@ -317,6 +317,8 @@ struct LiquidPlayerView: View {
                 }
             }
             .padding(.horizontal, 14)
+            .padding(.leading, safeArea.leading)
+            .padding(.trailing, safeArea.trailing)
             .padding(.bottom, safeArea.bottom + 10)
             // Out of the way of a cover swung open.
             .opacity(LiquidFoldState.shared.isOpen ? 0 : 1)

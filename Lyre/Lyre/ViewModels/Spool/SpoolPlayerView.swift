@@ -399,10 +399,22 @@ struct SpoolPlayerView: View {
     /// pill-shaped window.
     private var slimDeck: some View {
         VStack(spacing: 18) {
-            HStack(spacing: 8) {
-                keyBank(axis: .horizontal, compact: true)
-                Spacer(minLength: 4)
-                optionsMenu
+            // The keys and the options share the top edge where there's room. Where
+            // there isn't (an iPhone Duo closed, its status bar taking the right edge),
+            // the options go up on their own row rather than run under it.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    keyBank(axis: .horizontal, compact: true)
+                    Spacer(minLength: 4)
+                    optionsMenu
+                }
+                VStack(alignment: .trailing, spacing: 12) {
+                    optionsMenu
+                    HStack {
+                        keyBank(axis: .horizontal, compact: true)
+                        Spacer(minLength: 0)
+                    }
+                }
             }
             .opacity(isBrowsing ? 0 : 1)
 
