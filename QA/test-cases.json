@@ -824,6 +824,22 @@
         ["Download a long episode.", "Fails cleanly (back to not downloaded); no half file is listed as downloaded."],
         ["Relaunch.", "Lyre opens; settings and subscriptions intact."]
       ]
+    },
+    {
+      "key": "SET-04", "suite": "Settings & Persistence",
+      "title": "Change the player from its main screen (Change Player button and menu item)",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Some music playing.",
+      "steps": [
+        ["On the Classic player, look at the main menu.", "'Change Player' is listed just above 'Settings'."],
+        ["Select Change Player.", "The list of the five players opens with Classic highlighted; Menu goes back to the main menu."],
+        ["Select Spool.", "The switch animation plays and the Spool deck appears; the music keeps playing."],
+        ["On the Spool, tap the two-cards button beside '…'.", "A menu lists Classic, Spool, Gramophone, Disc and Liquid with Spool ticked."],
+        ["Choose Gramophone, then from its button Disc, then Liquid, then Classic.", "Each switch plays its animation and lands on the chosen player; the music never stops."],
+        ["Repeat on the Spool's other designs, in landscape, and on an iPhone Duo open and as a book.", "The button sits beside '…' (or the booklet / hotline button) in every layout and never overlaps the keys."],
+        ["Relaunch Lyre.", "The last player chosen is the one that opens."]
+      ],
+      "automated_by": ["LyreTests/PlayerSwitchTests/classicMainMenuChangePlayerOpensThePlayerList()", "LyreUITests/PlayerSwitchUITests/testClassicMainMenuListsChangePlayerAboveSettings()", "LyreUITests/PlayerSwitchUITests/testSpoolChangePlayerButtonSwitchesToLiquid()", "LyreUITests/PlayerSwitchUITests/testGramophoneChangePlayerButtonSwitchesToDisc()", "LyreUITests/PlayerSwitchUITests/testDiscChangePlayerButtonSwitchesToSpool()", "LyreUITests/PlayerSwitchUITests/testLiquidChangePlayerButtonSwitchesToGramophone()", "LyreUITests/PlayerSwitchUITests/testDiscChangePlayerButtonSwitchesToClassic()"]
     }
   ]
 }

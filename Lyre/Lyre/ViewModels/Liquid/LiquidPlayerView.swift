@@ -91,6 +91,7 @@ struct LiquidPlayerView: View {
                     }
                     LiquidNowPlayingView(
                         musicService: musicService,
+                        themeSettings: themeSettings,
                         onOpenLibrary: { flood(.liquidGround, in: geometry) { screen = .library } },
                         onOpenQueue: openTide,
                         onOpenSettings: { showSettings = true },
@@ -301,6 +302,7 @@ struct LiquidPlayerView: View {
             onQueue: queue,
             onFindShows: { showPodcastSearch = true },
             onOpenSettings: { showSettings = true },
+            themeSettings: themeSettings,
             bottomInset: musicService.nowPlayingTrack != nil || dock != nil ? 104 + safeArea.bottom : safeArea.bottom,
             lavaPull: lavaPull
         )
@@ -352,6 +354,7 @@ struct LiquidPlayerView: View {
                                 queueDrag: Bool) -> some View {
         LiquidNowPlayingView(
             musicService: musicService,
+            themeSettings: themeSettings,
             onOpenLibrary: onOpenLibrary,
             onOpenQueue: openTide,
             onOpenSettings: { showSettings = true },

@@ -492,7 +492,7 @@ extension LyreUITests {
         _ = app.descendants(matching: .any)["Scroll wheel"].firstMatch.waitForExistence(timeout: 5)
 
         let expectedItems = ["Now Playing", "Songs", "Albums", "Artists",
-                             "Playlists", "Podcasts", "Search", "Settings"]
+                             "Playlists", "Podcasts", "Search", "Change Player", "Settings"]
         for item in expectedItems {
             XCTAssertTrue(app.staticTexts[item].waitForExistence(timeout: 3),
                           "Main menu should contain '\(item)'")

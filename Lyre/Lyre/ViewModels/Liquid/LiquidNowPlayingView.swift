@@ -38,6 +38,7 @@ import MediaPlayer
 
 struct LiquidNowPlayingView: View {
     @ObservedObject var musicService: MusicService
+    let themeSettings: ThemeSettings
     let onOpenLibrary: () -> Void
     let onOpenQueue: () -> Void
     let onOpenSettings: () -> Void
@@ -421,6 +422,13 @@ struct LiquidNowPlayingView: View {
                     Image(systemName: "airplayaudio")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(isActive ? Color.accentColor : .white)
+                        .frame(width: 44, height: 44)
+                        .background(.black.opacity(0.28), in: Circle())
+                }
+                PlayerSwitchMenu(themeSettings: themeSettings, identifier: "liquid.playerSwitch") { symbol in
+                    Image(systemName: symbol)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
                         .frame(width: 44, height: 44)
                         .background(.black.opacity(0.28), in: Circle())
                 }

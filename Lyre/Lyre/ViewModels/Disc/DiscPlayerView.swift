@@ -534,6 +534,13 @@ struct DiscPlayerView: View {
                     .frame(width: 36, height: 36)
                     .background(theme.buttonLight.opacity(0.8), in: Circle())
             }
+            PlayerSwitchMenu(themeSettings: themeSettings, identifier: "disc.playerSwitch") { symbol in
+                Image(systemName: symbol)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(theme.buttonSymbol)
+                    .frame(width: 36, height: 36)
+                    .background(theme.buttonLight.opacity(0.8), in: Circle())
+            }
             Button { showSettings = true } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 16, weight: .bold))

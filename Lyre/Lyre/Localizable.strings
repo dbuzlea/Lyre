@@ -12,6 +12,7 @@
 "menu.playlists" = "Playlists";
 "menu.podcasts" = "Podcasts";
 "menu.search" = "Search";
+"menu.changePlayer" = "Change Player";
 "menu.settings" = "Settings";
 
 /* MARK: - Search */
@@ -113,6 +114,7 @@
 "settings.playerStyle.gramophone" = "Gramophone";
 "settings.playerStyle.disc" = "Disc";
 "settings.playerStyle.liquid" = "Liquid";
+"playerSwitch.title" = "Change Player";
 "gramophone.brand" = "Gramophone";
 "gramophone.design.horn" = "Horn";
 "gramophone.design.cabinet" = "Cabinet";

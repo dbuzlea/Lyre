@@ -9,8 +9,9 @@ import SwiftUI
 
 // MARK: - Main Menu
 //
-// The root Lyre menu showing eleven items: Now Playing → Queue → Songs → Recently Added →
-// Recently Played → Albums → Artists → Playlists → Podcasts → Search → Settings.
+// The root Lyre menu showing twelve items: Now Playing → Queue → Songs → Recently Added →
+// Recently Played → Albums → Artists → Playlists → Podcasts → Search → Change Player →
+// Settings. Change Player opens the list of players Settings has, one press closer.
 // ScrollWheelView maps each position to its screen, so the two must change together.
 //
 // Selection is driven entirely by the parent (ScrollWheelView) via a binding; this
@@ -40,6 +41,7 @@ struct MainMenuView: View {
         String(localized: "menu.playlists"),
         String(localized: "menu.podcasts"),
         String(localized: "menu.search"),
+        String(localized: "menu.changePlayer"),
         String(localized: "menu.settings")
     ]
 

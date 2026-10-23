@@ -30,6 +30,7 @@ import CoreMotion
 
 struct LiquidLavaMenu: View {
     @ObservedObject var musicService: MusicService
+    let themeSettings: ThemeSettings
     let items: [(id: String, title: String, route: LiquidRoute)]
     /// A blob chosen: where it is on screen, and the lava's colour, to flood from.
     let onChoose: (LiquidRoute, CGPoint, Color) -> Void
@@ -186,6 +187,13 @@ struct LiquidLavaMenu: View {
                     .foregroundStyle(.white.opacity(0.55))
                     .accessibilityHidden(true)
                 Spacer()
+                PlayerSwitchMenu(themeSettings: themeSettings, identifier: "liquid.playerSwitch") { symbol in
+                    Image(systemName: symbol)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(.white.opacity(0.1), in: Circle())
+                }
                 Button(action: onOpenSettings) {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 16, weight: .semibold))
