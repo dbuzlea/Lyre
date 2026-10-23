@@ -292,6 +292,10 @@ struct LiquidGridPage: View {
     var searchAction: (title: String, symbol: String, id: String, action: () -> Void)?
 
     @State private var query = ""
+    /// How tall the name and search are at the top of the grid: the letter index starts
+    /// below them, so on a short screen (an iPhone Duo closed) it isn't run up past the
+    /// search and the back button into the corner.
+    @State private var headerHeight: CGFloat = 0
 
     private var shown: [AppAlbum] {
         let terms = query.lowercased().split(separator: " ").map(String.init)
@@ -375,21 +379,24 @@ struct LiquidGridPage: View {
             ZStack(alignment: .trailing) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        LiquidPageTitle(title: title, layout: $layout)
-                        HStack(spacing: 10) {
-                            LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
-                            if let searchAction {
-                                Button(action: searchAction.action) {
-                                    Image(systemName: searchAction.symbol)
-                                        .font(.system(size: 17, weight: .semibold))
-                                        .foregroundStyle(.white)
-                                        .frame(width: 46, height: 46)
-                                        .background(.white.opacity(0.1), in: Circle())
+                        VStack(alignment: .leading, spacing: 16) {
+                            LiquidPageTitle(title: title, layout: $layout)
+                            HStack(spacing: 10) {
+                                LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
+                                if let searchAction {
+                                    Button(action: searchAction.action) {
+                                        Image(systemName: searchAction.symbol)
+                                            .font(.system(size: 17, weight: .semibold))
+                                            .foregroundStyle(.white)
+                                            .frame(width: 46, height: 46)
+                                            .background(.white.opacity(0.1), in: Circle())
+                                    }
+                                    .accessibilityLabel(searchAction.title)
+                                    .accessibilityIdentifier(searchAction.id)
                                 }
-                                .accessibilityLabel(searchAction.title)
-                                .accessibilityIdentifier(searchAction.id)
                             }
                         }
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
                         if shown.isEmpty {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
@@ -431,7 +438,10 @@ struct LiquidGridPage: View {
                         proxy.scrollTo(shown[index].id, anchor: .top)
                     }
                     .padding(.trailing, 6)
-                    .padding(.bottom, bottomInset)
+                    // Level with the first row of covers, below the name and search.
+                    .padding(.top, headerHeight + 16)
+                    .padding(.bottom, bottomInset + 12)
+                    .frame(maxHeight: .infinity, alignment: .top)
                 }
             }
         }
