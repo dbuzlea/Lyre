@@ -545,16 +545,127 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(pool.waitForExistence(timeout: 5), "The pool didn't come back")
     }
 
-    /// Held as a book: the library on the left page, the waves on the right.
+    // MARK: - iPhone Duo held as a book: Now Playing and the bubbles
+
+    /// Only the Duo's inner screen turns Liquid sideways, which the simulator can't do:
+    /// the book layout is asked for in an upright window instead.
+    private func launchBook(_ extra: [String] = []) -> XCUIApplication {
+        launchLiquid(["-SpoolFoldPosture", "open", "-LiquidDuoLayout", "book"] + extra)
+    }
+
+    /// Now Playing on the left page, the bubbles on the right, with their tabs.
     @MainActor
-    func testAnOpenDuoHeldAsABookHasTheLibraryBesideTheWaves() throws {
-        // Only the Duo's inner screen turns Liquid sideways, which the simulator can't
-        // do: the book layout is asked for in an upright window instead.
-        let app = launchLiquid(["-SpoolFoldPosture", "open", "-LiquidDuoLayout", "book"])
-        XCTAssertTrue(element(app, "liquid.menu.albums").waitForExistence(timeout: 10), "No library on the left page")
-        XCTAssertTrue(element(app, "liquid.nowPlaying").exists, "No Now Playing on the right page")
+    func testAnOpenDuoHeldAsABookHasNowPlayingBesideTheBubbles() throws {
+        let app = launchBook()
+        let bubble = element(app, "liquid.bubble.sample-1")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10), "No bubbles on the right page")
+        let nowPlaying = element(app, "liquid.nowPlaying")
+        XCTAssertTrue(nowPlaying.exists, "No Now Playing on the left page")
+        XCTAssertLessThan(nowPlaying.frame.midX, bubble.frame.midX, "Now Playing isn't left of the bubbles")
+        for tab in ["albums", "playlists", "podcasts"] {
+            XCTAssertTrue(element(app, "liquid.bubbles.tab.\(tab)").exists, "No \(tab) tab")
+        }
+        XCTAssertFalse(element(app, "liquid.bubbles.tab.artists").exists, "There's an artists tab")
         sleep(1)
-        attachScreenshot(app, named: "duo-book")
+        attachScreenshot(app, named: "duo-book-bubbles")
+
+        element(app, "liquid.bubbles.tab.playlists").tap()
+        XCTAssertTrue(element(app, "liquid.bubble.mixtape:sample-mix-0").waitForExistence(timeout: 3), "No playlist bubbles")
+        element(app, "liquid.bubbles.tab.podcasts").tap()
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.bubble.podcast:'"))
+            .firstMatch.waitForExistence(timeout: 3), "No show bubbles")
+        sleep(1)
+        attachScreenshot(app, named: "duo-book-podcasts")
+    }
+
+    /// Tapped, an album's bubble is taken into Now Playing and plays (the samples have
+    /// nothing behind them, so playing says so).
+    @MainActor
+    func testTappingABubblePlaysIt() throws {
+        let app = launchBook()
+        let bubble = element(app, "liquid.bubble.sample-2")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10))
+        bubble.tap()
+        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 6), "Tapping the bubble didn't play it")
+    }
+
+    /// Dragged across the fold, a bubble is taken in and plays.
+    @MainActor
+    func testDraggingABubbleIntoNowPlayingPlaysIt() throws {
+        let app = launchBook()
+        let bubble = element(app, "liquid.bubble.sample-2")
+        let nowPlaying = element(app, "liquid.nowPlaying")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10))
+        let start = bubble.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: nowPlaying.frame.midX * 0.6, dy: bubble.frame.midY))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 6), "Dragging the bubble in didn't play it")
+    }
+
+    /// A short drag that doesn't reach the fold floats back and plays nothing.
+    @MainActor
+    func testABubbleLetGoShortOfTheFoldFloatsBack() throws {
+        let app = launchBook()
+        let bubble = element(app, "liquid.bubble.sample-2")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10))
+        let before = bubble.frame
+        let start = bubble.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: -24, dy: 0)),
+                    withVelocity: .slow, thenHoldForDuration: 0.3)
+        sleep(1)
+        XCTAssertFalse(element(app, "liquid.notice").exists, "A short drag played it")
+        XCTAssertEqual(bubble.frame.midX, before.midX, accuracy: 8, "The bubble didn't float back")
+    }
+
+    /// Held, a bubble opens its page to choose a song; back from it, the bubbles again.
+    @MainActor
+    func testHoldingABubbleOpensItsPage() throws {
+        let app = launchBook()
+        let bubble = element(app, "liquid.bubble.sample-1")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10))
+        bubble.press(forDuration: 0.8)
+        XCTAssertTrue(element(app, "liquid.album.play").waitForExistence(timeout: 5), "Holding didn't open the album")
+        XCTAssertFalse(element(app, "liquid.notice").exists, "Holding played it")
+        sleep(1)
+        attachScreenshot(app, named: "duo-book-album")
+        element(app, "liquid.back").tap()
+        XCTAssertTrue(bubble.waitForExistence(timeout: 5), "Back didn't bring the bubbles back")
+    }
+
+    /// A show's bubble opens its episodes when tapped; it plays nothing by itself.
+    @MainActor
+    func testAShowsBubbleOpensItsEpisodes() throws {
+        let app = launchBook()
+        XCTAssertTrue(element(app, "liquid.bubbles.tab.podcasts").waitForExistence(timeout: 10))
+        element(app, "liquid.bubbles.tab.podcasts").tap()
+        let show = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.bubble.podcast:'"))
+            .firstMatch
+        XCTAssertTrue(show.waitForExistence(timeout: 5))
+        show.tap()
+        XCTAssertTrue(element(app, "liquid.album.play").waitForExistence(timeout: 5), "Tapping a show didn't open it")
+        XCTAssertFalse(element(app, "liquid.notice").exists, "Tapping a show played it")
+    }
+
+    /// Now Playing's library button swaps the bubbles for the whole library, and back.
+    @MainActor
+    func testTheLibraryButtonSwapsTheBubblesForTheLibrary() throws {
+        let app = launchBook()
+        XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 10))
+        element(app, "liquid.library").tap()
+        XCTAssertTrue(element(app, "liquid.menu.albums").waitForExistence(timeout: 5), "No library")
+        XCTAssertFalse(element(app, "liquid.bubbles").exists)
+        element(app, "liquid.bubbles.back").tap()
+        XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 5), "The bubbles didn't come back")
+    }
+
+    /// A bubble held near the fold: Now Playing's edge reaching out for it.
+    @MainActor
+    func testNowPlayingReachesForABubbleNearTheFold() throws {
+        let app = launchBook(["-LiquidBubbleShot", "30"])
+        XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 10))
+        sleep(3)
+        attachScreenshot(app, named: "duo-book-reaching")
     }
 
     /// Stood half open and left alone: the visualizer, until it's touched.

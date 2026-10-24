@@ -740,6 +740,13 @@
 "liquid.visualizer.hint" = "Touch to bring the player back.";
 "liquid.tide.remove" = "Remove %@";
 "liquid.settings.sound.detail" = "Clicks and taps as you use the player. Silent when the ringer is off.";
+"liquid.bubbles.empty.albums" = "No albums in your library yet.";
+"liquid.bubbles.empty.playlists" = "No playlists yet. Playlists in your library show up here.";
+"liquid.bubbles.empty.podcasts" = "No podcasts yet. Find a show to follow from the library.";
+"liquid.bubbles.hint" = "Plays it. Drag it into Now Playing, or hold it to choose a song.";
+"liquid.bubbles.hint.show" = "Opens its episodes.";
+"liquid.bubbles.open" = "Open";
+"liquid.bubbles.back" = "Bubbles";
 "liquid.settings.ripple" = "Ripple to the Beat";
 "liquid.settings.ripple.detail" = "The cover ripples like water on a speaker, in time with the song's tempo. It stays still with Reduce Motion or Low Power Mode on.";
 "onboarding.player.liquid.detail" = "Modern and minimal. The cover fills the screen; pull the wave at the edge to change songs.";

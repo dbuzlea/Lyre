@@ -28,8 +28,9 @@ import SwiftUI
 //
 // iPhone Duo, open, the inner screen holds two places at once:
 //
-//   held as a book  the library on the left page, Now Playing on the right; choosing
-//                   something floods its colour across the fold
+//   held as a book  Now Playing on the left page; on the right, the library as bubbles
+//                   (LiquidBubbles), one dragged across the fold taken into Now
+//                   Playing; Now Playing's library button swaps them for the library
 //   turned, fold    Now Playing above the fold; below it, Up Next as a pool of drops
 //   across          (LiquidPool), or the library in its place
 //
@@ -67,6 +68,15 @@ struct LiquidPlayerView: View {
     @State private var isLibraryBelow = false
     /// The visualizer, while the Duo stands half open, left alone.
     @State private var isVisualizing = false
+    /// iPhone Duo held as a book: the whole library on the right page, not the bubbles.
+    @State private var isBookLibrary = false
+    /// The library came up from a bubble held: going back from its page goes back to them.
+    @State private var isBookLibraryFromBubbles = false
+    @State private var bubbleTab: LiquidBubbleTab = .albums
+    /// A bubble on its way into Now Playing: dragged, flying after a tap, or taken in.
+    @State private var carried: CarriedBubble?
+    /// Now Playing's page, on screen, for a bubble to be taken into.
+    @State private var nowPlayingPage: CGRect = .zero
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -198,6 +208,17 @@ struct LiquidPlayerView: View {
                musicService.upNext.isEmpty, let album = library.albums.first {
                 let middle = ProcessInfo.processInfo.arguments.contains("--liquid-sample-middle")
                 musicService.seedQueueForUITests(album.preloadedTracks, startingAt: middle ? 1 : 0)
+            }
+            // `-LiquidBubbleShot 40` holds the first album's bubble that far (points) from
+            // the fold, as if dragged there, for screenshots of Now Playing reaching for it.
+            if UserDefaults.standard.object(forKey: "LiquidBubbleShot") != nil, let album = library.albums.first {
+                let gap = CGFloat(UserDefaults.standard.double(forKey: "LiquidBubbleShot"))
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    let diameter: CGFloat = 120
+                    let center = CGPoint(x: nowPlayingPage.maxX + gap + diameter / 2, y: nowPlayingPage.midY)
+                    carried = CarriedBubble(album: album, diameter: diameter, center: center, origin: center)
+                }
             }
             // `--liquid-visualizer` shows the Duo's visualizer at once, for screenshots.
             if ProcessInfo.processInfo.arguments.contains("--liquid-visualizer") { isVisualizing = true }
@@ -369,23 +390,57 @@ struct LiquidPlayerView: View {
         )
     }
 
-    /// Held as a book: the library on the left page, Now Playing on the right.
+    /// Held as a book: Now Playing on the left page, and on the right the bubbles, or
+    /// the whole library.
     private func bookLayout(_ geometry: GeometryProxy) -> some View {
         let half = geometry.size.width / 2
         let pull = hingePull
         return HStack(spacing: 0) {
-            libraryLayer(geometry, lavaPull: CGVector(dx: pull, dy: 0), dock: AnyView(EmptyView()))
+            nowPlayingPane(lean: CGVector(dx: pull, dy: 0), onOpenLibrary: toggleBookLibrary, queueDrag: true)
                 .frame(width: half)
                 .clipped()
-            // Its library button takes the left page back to the lava lamp.
-            nowPlayingPane(lean: CGVector(dx: -pull, dy: 0), onOpenLibrary: {
-                guard !path.isEmpty else { return }
-                floodAction(.liquidGround, nil) { path = [] }
-            }, queueDrag: true)
-                .frame(width: half)
-                .clipped()
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingPage = $0 }
+            ZStack {
+                if isBookLibrary {
+                    libraryLayer(geometry, lavaPull: CGVector(dx: -pull, dy: 0), dock: AnyView(
+                        Button(action: toggleBookLibrary) {
+                            Label(String(localized: "liquid.bubbles.back"), systemImage: "circle.grid.3x3.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 18)
+                                .frame(height: 46)
+                                .background(.white.opacity(0.16), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("liquid.bubbles.back")
+                    ))
+                    .transition(.opacity)
+                } else {
+                    LiquidBubbleField(
+                        musicService: musicService,
+                        tab: $bubbleTab,
+                        draggedID: carried?.album.id,
+                        onPlay: { album, center, diameter in fly(album, from: center, diameter: diameter) },
+                        onOpen: openFromBubbles,
+                        onDrag: drag,
+                        onDrop: drop
+                    )
+                    .transition(.opacity)
+                }
+            }
+            .frame(width: half)
+            .clipped()
         }
+        .overlay { GeometryReader { carriedLayer(in: $0) } }
         .ignoresSafeArea()
+        .onChange(of: path) { _, path in
+            // Back from the page a bubble opened: the bubbles again.
+            guard path.isEmpty, isBookLibraryFromBubbles else { return }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                isBookLibrary = false
+                isBookLibraryFromBubbles = false
+            }
+        }
     }
 
     /// Turned with the fold across: Now Playing above, Up Next's pool (or the library)
@@ -423,6 +478,179 @@ struct LiquidPlayerView: View {
             .clipped()
         }
         .ignoresSafeArea()
+    }
+
+    // MARK: Bubbles
+
+    /// A bubble on its way into Now Playing, in screen points.
+    private struct CarriedBubble {
+        let album: AppAlbum
+        let diameter: CGFloat
+        var center: CGPoint
+        /// Where it was in the field, to float back to.
+        let origin: CGPoint
+        var isTakenIn = false
+        /// How far it's been taken in: 0 at the fold, 1 filling Now Playing.
+        var takenIn: CGFloat = 0
+        var opacity: Double = 1
+    }
+
+    /// How far past the fold a bubble's centre goes before Now Playing takes it.
+    private static let takeInDepth: CGFloat = 36
+
+    /// Now Playing's library button, held as a book: the right page swaps between the
+    /// bubbles and the library.
+    private func toggleBookLibrary() {
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        withAnimation(.easeInOut(duration: 0.3)) {
+            isBookLibrary.toggle()
+            isBookLibraryFromBubbles = false
+            path = []
+        }
+    }
+
+    /// A bubble held, or a show tapped: its page, on the right.
+    private func openFromBubbles(_ album: AppAlbum) {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            path = [.album(album)]
+            isBookLibrary = true
+            isBookLibraryFromBubbles = true
+        }
+    }
+
+    private func drag(_ album: AppAlbum, to center: CGPoint, diameter: CGFloat, from origin: CGPoint) {
+        if let carried, carried.isTakenIn || carried.album.id != album.id { return }
+        var moved = carried ?? CarriedBubble(album: album, diameter: diameter, center: center, origin: origin)
+        moved.center = center
+        withTransaction(Transaction(animation: nil)) { carried = moved }
+        if center.x < nowPlayingPage.maxX - Self.takeInDepth { takeIn() }
+    }
+
+    /// Let go: heading past the fold, it's taken in; short of it, it floats back.
+    private func drop(_ album: AppAlbum, heading: CGPoint) {
+        guard let carried, !carried.isTakenIn, carried.album.id == album.id else { return }
+        if heading.x < nowPlayingPage.maxX - Self.takeInDepth {
+            takeIn()
+        } else {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) {
+                self.carried?.center = carried.origin
+            } completion: {
+                if self.carried?.isTakenIn == false { self.carried = nil }
+            }
+        }
+    }
+
+    /// A bubble tapped: it flies to the fold, and is taken in.
+    private func fly(_ album: AppAlbum, from center: CGPoint, diameter: CGFloat) {
+        guard carried == nil else { return }
+        carried = CarriedBubble(album: album, diameter: diameter, center: center, origin: center)
+        let fold = CGPoint(x: nowPlayingPage.maxX - Self.takeInDepth - 1,
+                           y: min(max(center.y, nowPlayingPage.minY + diameter), nowPlayingPage.maxY - diameter))
+        if reduceMotion {
+            carried?.center = fold
+            takeIn()
+            return
+        }
+        withAnimation(.easeInOut(duration: 0.3)) {
+            carried?.center = fold
+        } completion: {
+            takeIn()
+        }
+    }
+
+    /// Now Playing takes the bubble in: it slips through the fold, swells to fill the
+    /// page and clears, and its album plays.
+    private func takeIn() {
+        guard var taken = carried, !taken.isTakenIn else { return }
+        taken.isTakenIn = true
+        withTransaction(Transaction(animation: nil)) { carried = taken }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let album = taken.album
+        Task {
+            let loaded = await library.tracks(for: album)
+            let tracks = loaded.isEmpty ? album.tapeSongs(album.preloadedTracks) : loaded
+            play(album, tracks, 0, whole: true, in: bounds.size, floods: false)
+        }
+        let page = nowPlayingPage
+        withAnimation(.easeIn(duration: reduceMotion ? 0.01 : 0.45)) {
+            carried?.center = CGPoint(x: page.midX, y: page.midY)
+            carried?.takenIn = 1
+        } completion: {
+            withAnimation(.easeOut(duration: 0.3)) {
+                carried?.opacity = 0
+            } completion: {
+                carried = nil
+            }
+        }
+    }
+
+    /// The bubble being carried, over both pages; reaching for the fold, Now Playing's
+    /// edge swells out to meet it, joining it as two drops of water do.
+    @ViewBuilder
+    private func carriedLayer(in proxy: GeometryProxy) -> some View {
+        if let carried {
+            let origin = proxy.frame(in: .global).origin
+            let center = CGPoint(x: carried.center.x - origin.x, y: carried.center.y - origin.y)
+            let fold = nowPlayingPage.maxX - origin.x
+            let r = carried.diameter / 2
+            // Big enough, from Now Playing's middle, to cover it.
+            let cover = hypot(nowPlayingPage.width, nowPlayingPage.height) / carried.diameter
+            ZStack(alignment: .topLeading) {
+                if !carried.isTakenIn {
+                    membrane(fold: fold, bubble: center, radius: r)
+                }
+                LiquidBubble(album: carried.album, diameter: carried.diameter)
+                    .scaleEffect(1.06 + (cover - 1) * carried.takenIn)
+                    .position(center)
+                    .opacity(carried.opacity)
+                    // Taken in, all that's past the fold is inside Now Playing.
+                    .mask(alignment: .topLeading) {
+                        Rectangle().frame(width: carried.isTakenIn
+                                          ? fold + (1 - carried.takenIn) * carried.diameter
+                                          : proxy.size.width)
+                    }
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
+    /// Now Playing's edge at the fold, as a line of water down it, swelling out toward
+    /// the bubble the nearer it comes and running into it: clear, with a bright rim.
+    private func membrane(fold: CGFloat, bubble: CGPoint, radius: CGFloat) -> some View {
+        let gap = max(0, bubble.x - radius - fold)
+        let near = max(0, min(1, 1 - gap / 150))
+        /// The water's shapes, drawn `inset` points thinner all round.
+        func water(inset: CGFloat) -> some View {
+            Canvas { context, size in
+                context.addFilter(.alphaThreshold(min: 0.5, color: .white))
+                context.addFilter(.blur(radius: 14))
+                context.drawLayer { layer in
+                    // Past both ends of the screen, so the line has no ends to round.
+                    layer.fill(Path(CGRect(x: fold - 13 + inset, y: -60, width: 26 - inset * 2, height: size.height + 120)),
+                               with: .color(.white))
+                    let swell = (14 + 26 * near) - inset
+                    let reach = fold + gap * 0.6 * near
+                    layer.fill(Path(ellipseIn: CGRect(x: reach - swell, y: bubble.y - swell * 2.1,
+                                                      width: swell * 2, height: swell * 4.2)),
+                               with: .color(.white))
+                    let r = radius - inset
+                    layer.fill(Path(ellipseIn: CGRect(x: bubble.x - r, y: bubble.y - r, width: r * 2, height: r * 2)),
+                               with: .color(.white))
+                }
+            }
+        }
+        return ZStack {
+            // The body of the water, barely tinted, and its rim.
+            water(inset: 0).opacity(0.14)
+            ZStack {
+                water(inset: 0)
+                water(inset: 2.5).blendMode(.destinationOut)
+            }
+            .compositingGroup()
+            .opacity(0.75)
+        }
+        .shadow(color: .white.opacity(0.35), radius: 6)
+        .accessibilityHidden(true)
     }
 
     /// Below the fold: the library, or Up Next's pool, flooding from one to the other.
@@ -543,16 +771,20 @@ struct LiquidPlayerView: View {
     // MARK: Playing
 
     /// Plays from the library, asking first if it would clear songs queued by hand, and
-    /// floods into Now Playing in the album's colour.
-    private func play(_ album: AppAlbum, _ tracks: [AppTrack], _ index: Int, whole: Bool, in size: CGSize) {
+    /// floods into Now Playing in the album's colour (unless a bubble's being taken in,
+    /// which is its own way in).
+    private func play(_ album: AppAlbum, _ tracks: [AppTrack], _ index: Int, whole: Bool, in size: CGSize,
+                      floods: Bool = true) {
         guard tracks.indices.contains(index) else { return }
         let queued = whole ? tracks : [tracks[index]]
         musicService.play(asking: { pendingPlay = $0 }, addToQueue: album.isPodcast ? nil : {
             queue(queued, .last, whole ? album.tapeTitle : tracks[index].title)
         }) {
             Task {
-                let color = await LiquidColors.shared.color(for: album)
-                floodAction(color.liquidDeep, nil) { screen = .nowPlaying }
+                if floods {
+                    let color = await LiquidColors.shared.color(for: album)
+                    floodAction(color.liquidDeep, nil) { screen = .nowPlaying }
+                }
                 if await library.play(album, tracks: tracks, startingAt: index) != .started {
                     showNotice(String(localized: "playback.nothingPlayable"))
                 }

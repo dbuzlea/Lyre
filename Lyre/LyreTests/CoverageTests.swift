@@ -673,3 +673,61 @@ struct LiquidRippleTests {
         #expect(LiquidRipple.shaderValues(many, epoch: anchor).count == LiquidRipple.maxDrops * 4)
     }
 }
+
+@Suite("Liquid bubbles")
+@MainActor
+struct LiquidBubbleLayoutTests {
+    /// One song is the smallest bubble, thirty or more the largest, and more songs never
+    /// make a smaller one.
+    @Test func moreSongsMakeABiggerBubble() {
+        let width: CGFloat = 500
+        #expect(LiquidBubbleLayout.diameter(forSongs: 1, width: width) == LiquidBubbleLayout.smallest)
+        #expect(LiquidBubbleLayout.diameter(forSongs: 30, width: width) == LiquidBubbleLayout.largest)
+        #expect(LiquidBubbleLayout.diameter(forSongs: 200, width: width) == LiquidBubbleLayout.largest)
+        let sizes = (1...40).map { LiquidBubbleLayout.diameter(forSongs: $0, width: width) }
+        #expect(sizes == sizes.sorted())
+        #expect(LiquidBubbleLayout.diameter(forSongs: 12, width: width) > LiquidBubbleLayout.diameter(forSongs: 4, width: width))
+    }
+
+    /// On a narrow page, the largest bubble still leaves room for another beside it.
+    @Test func aBubbleIsNeverMoreThanHalfThePage() {
+        #expect(LiquidBubbleLayout.diameter(forSongs: 30, width: 180) <= 90)
+        #expect(LiquidBubbleLayout.diameter(forSongs: 1, width: 100) == LiquidBubbleLayout.smallest)
+    }
+
+    /// Packed, no two bubbles touch, every one is inside the page, and the same list
+    /// packs the same way every time.
+    @Test func bubblesPackWithoutTouching() {
+        let width: CGFloat = 420
+        let diameters = (0..<120).map { LiquidBubbleLayout.diameter(forSongs: [1, 4, 9, 12, 20, 35][$0 % 6], width: width) }
+        let packed = LiquidBubbleLayout.pack(diameters, width: width)
+        #expect(packed.centers.count == diameters.count)
+        for i in diameters.indices {
+            let r = diameters[i] / 2
+            #expect(packed.centers[i].x - r >= 0 && packed.centers[i].x + r <= width, "bubble \(i) is off the page")
+            #expect(packed.centers[i].y + r <= packed.height)
+            for j in diameters.indices where j > i {
+                let apart = hypot(packed.centers[i].x - packed.centers[j].x, packed.centers[i].y - packed.centers[j].y)
+                #expect(apart >= r + diameters[j] / 2 + LiquidBubbleLayout.gap - 0.5, "bubbles \(i) and \(j) touch")
+            }
+        }
+        #expect(LiquidBubbleLayout.pack(diameters, width: width).centers == packed.centers)
+    }
+
+    /// They fill the page instead of standing in a column: a page of bubbles is no
+    /// taller than a third more than their area needs.
+    @Test func bubblesFillThePage() {
+        let width: CGFloat = 420
+        let diameters = (0..<80).map { LiquidBubbleLayout.diameter(forSongs: [1, 8, 15, 30][$0 % 4], width: width) }
+        let area = diameters.reduce(0) { $0 + ($1 + LiquidBubbleLayout.gap) * ($1 + LiquidBubbleLayout.gap) }
+        #expect(LiquidBubbleLayout.pack(diameters, width: width).height <= area / width * 1.35)
+    }
+
+    /// A show is as big as its episodes; an album as its songs.
+    @Test func aShowCountsItsEpisodes() {
+        let tracks = (1...7).map { AppTrack(id: "t\($0)", title: "Song \($0)", artistName: "A", albumTitle: "B", duration: 120) }
+        let album = AppAlbum(id: "a", title: "B", artistName: "A", preloadedTracks: tracks)
+        #expect(LiquidBubbleLayout.songCount(of: album) == 7)
+        #expect(LiquidBubbleLayout.songCount(of: AppAlbum(id: "x", title: "X", artistName: "A")) == nil)
+    }
+}
