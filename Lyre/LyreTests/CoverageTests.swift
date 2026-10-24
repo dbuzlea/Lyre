@@ -601,3 +601,65 @@ struct GramophoneBinTests {
         }
     }
 }
+
+@Suite("Liquid cover ripples")
+@MainActor
+struct LiquidRippleTests {
+    private let anchor = Date(timeIntervalSinceReferenceDate: 1_000)
+    private let size = CGSize(width: 400, height: 900)
+
+    /// At 120 beats a minute a ring starts every half second, and each runs for
+    /// `LiquidRipple.life` seconds, so the beats of the last 2.6 s are out.
+    @Test func everyBeatInTheLastFewSecondsIsRippling() {
+        let drops = LiquidRipple.beatDrops(anchor: anchor, beatsPerMinute: 120,
+                                           now: anchor.addingTimeInterval(10.2), end: nil, size: size)
+        #expect(drops.map { $0.start.timeIntervalSince(anchor) } == [8, 8.5, 9, 9.5, 10])
+    }
+
+    /// The first beat of every bar rings harder than the rest.
+    @Test func eachBarStartsWithAStrongerRing() {
+        let drops = LiquidRipple.beatDrops(anchor: anchor, beatsPerMinute: 60,
+                                           now: anchor.addingTimeInterval(4.1), end: nil, size: size)
+        #expect(drops.map(\.strength) == [LiquidRipple.beatStrength, LiquidRipple.beatStrength,
+                                          LiquidRipple.barStrength])
+    }
+
+    /// Stopped, no new ring starts, and the last ones run out.
+    @Test func noBeatRipplesAfterTheMusicStops() {
+        let end = anchor.addingTimeInterval(5.25)
+        let soon = LiquidRipple.beatDrops(anchor: anchor, beatsPerMinute: 120,
+                                          now: anchor.addingTimeInterval(6), end: end, size: size)
+        #expect(soon.last?.start == anchor.addingTimeInterval(5))
+        let later = LiquidRipple.beatDrops(anchor: anchor, beatsPerMinute: 120,
+                                           now: anchor.addingTimeInterval(9), end: end, size: size)
+        #expect(later.isEmpty)
+    }
+
+    /// A song with no tempo ripples at 90; none before the song starts.
+    @Test func anUntaggedSongRipplesAtNinety() {
+        let drops = LiquidRipple.beatDrops(anchor: anchor, beatsPerMinute: nil,
+                                           now: anchor.addingTimeInterval(1.5), end: nil, size: size)
+        // To the millisecond: a Date's seconds don't come out exact.
+        #expect(drops.map { ($0.start.timeIntervalSince(anchor) * 1000).rounded() } == [0, 667, 1333])
+        #expect(LiquidRipple.beatDrops(anchor: anchor, beatsPerMinute: 120,
+                                       now: anchor.addingTimeInterval(-1), end: nil, size: size).isEmpty)
+    }
+
+    /// A beat lands near the middle, and in the same place every frame.
+    @Test func aBeatLandsNearTheMiddleTheSameWayEachTime() {
+        for beat in 0..<200 {
+            let point = LiquidRipple.landing(of: beat, in: size)
+            #expect(abs(point.x - 200) <= 40 && abs(point.y - 378) <= 54, "beat \(beat) at \(point)")
+            #expect(point == LiquidRipple.landing(of: beat, in: size))
+        }
+    }
+
+    /// The shader gets at most `maxDrops` rings, four numbers each, timed from the epoch.
+    @Test func theShaderGetsFourNumbersARing() {
+        let drop = LiquidRipple.Drop(center: CGPoint(x: 10, y: 20), start: anchor.addingTimeInterval(1.5),
+                                     strength: 0.5)
+        #expect(LiquidRipple.shaderValues([drop], epoch: anchor) == [10, 20, 1.5, 0.5])
+        let many = Array(repeating: drop, count: 30)
+        #expect(LiquidRipple.shaderValues(many, epoch: anchor).count == LiquidRipple.maxDrops * 4)
+    }
+}

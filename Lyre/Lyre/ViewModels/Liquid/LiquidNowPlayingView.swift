@@ -35,6 +35,9 @@ import MediaPlayer
 // lets no app hear it, so the beat is the song's tempo from its beats-per-minute tag,
 // counted from the start of the song. A song with no tempo tagged breathes slowly
 // instead.
+//
+// The cover keeps the same beat as if it lay under water on a speaker: a ring runs out
+// across it on each beat, and from the finger on a tap (see LiquidRipple).
 
 struct LiquidNowPlayingView: View {
     @ObservedObject var musicService: MusicService
@@ -70,6 +73,14 @@ struct LiquidNowPlayingView: View {
     /// When the song playing started, as the beat counts from it.
     @State private var beatAnchor = Date()
     @State private var restTask: Task<Void, Never>?
+    /// The ripples' clock starts here, so the shader's times stay small.
+    @State private var rippleEpoch = Date()
+    @State private var rippleTaps: [LiquidRipple.Drop] = []
+    /// When the music stopped: no beat after it ripples.
+    @State private var beatsEnd: Date?
+    /// Stopped or tapped a moment ago, with rings still running out.
+    @State private var isSettling = false
+    @State private var settleTask: Task<Void, Never>?
     @State private var bottomLift: CGFloat = 0
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -82,10 +93,17 @@ struct LiquidNowPlayingView: View {
             ZStack {
                 cover(for: current)
                     .ignoresSafeArea()
-                    // A tap on the cover puts the waves away, or brings them back; a drag
-                    // down takes Now Playing away, back to where you were.
+                    // Under water on a speaker, rippling to the beat (see LiquidRipple).
+                    .modifier(LiquidRippleEffect(isRunning: isRippling, epoch: rippleEpoch,
+                                                 still: rippleShot, drops: rippleDrops))
+                    // A tap on the cover sends a ripple out from the finger, and puts the
+                    // waves away, or brings them back; a drag down takes Now Playing away,
+                    // back to where you were.
                     .contentShape(Rectangle())
-                    .onTapGesture { isResting ? wake() : rest() }
+                    .onTapGesture { location in
+                        ripple(at: location)
+                        isResting ? wake() : rest()
+                    }
                     // Held, the cover opens its album, as holding what's playing does on
                     // every player.
                     .onLongPressGesture(minimumDuration: 0.5) {
@@ -145,9 +163,78 @@ struct LiquidNowPlayingView: View {
             settleArrival()
         }
         .onChange(of: musicService.nowPlayingTrack?.id, initial: true) { syncBeat() }
-        .onChange(of: musicService.isPlaying) { syncBeat() }
-        .onDisappear { restTask?.cancel() }
+        .onChange(of: musicService.isPlaying) { _, isPlaying in
+            syncBeat()
+            // Stopped, the rings already out run their course; no more start.
+            beatsEnd = isPlaying ? nil : Date()
+            if !isPlaying { settleRipples() }
+        }
+        .onDisappear {
+            restTask?.cancel()
+            settleTask?.cancel()
+        }
     }
+
+    // MARK: Ripples
+
+    /// The cover ripples while a song plays, and after it stops or a tap until the
+    /// rings already out have run their course.
+    private var isRippling: Bool {
+        LiquidRipple.isAllowed(reduceMotion: reduceMotion) && current != nil
+            && (musicService.isPlaying || isSettling)
+    }
+
+    /// The rings out at a moment: the beats', and the taps'.
+    private func rippleDrops(at date: Date, size: CGSize) -> [LiquidRipple.Drop] {
+        #if DEBUG
+        if rippleShot != nil { return Self.shotDrops(epoch: rippleEpoch, size: size) }
+        #endif
+        let beats = musicService.isPlaying || beatsEnd != nil
+            ? LiquidRipple.beatDrops(anchor: beatAnchor, beatsPerMinute: beatsPerMinute,
+                                     now: date, end: beatsEnd, size: size)
+            : []
+        return beats + rippleTaps.filter { date.timeIntervalSince($0.start) < LiquidRipple.life }
+    }
+
+    /// A ring from where the cover was tapped, as a finger dipped in the water.
+    private func ripple(at location: CGPoint) {
+        guard LiquidRipple.isAllowed(reduceMotion: reduceMotion) else { return }
+        let now = Date()
+        rippleTaps.removeAll { now.timeIntervalSince($0.start) >= LiquidRipple.life }
+        rippleTaps.append(.init(center: location, start: now, strength: LiquidRipple.tapStrength))
+        settleRipples()
+    }
+
+    /// Keeps the surface moving until the rings out now have gone.
+    private func settleRipples() {
+        isSettling = true
+        settleTask?.cancel()
+        settleTask = Task {
+            try? await Task.sleep(for: .seconds(LiquidRipple.life))
+            guard !Task.isCancelled else { return }
+            isSettling = false
+            rippleTaps.removeAll()
+        }
+    }
+
+    #if DEBUG
+    /// `-LiquidRippleShot` draws one still moment of the ripples, for screenshots: the
+    /// rings of a bar's first beat and the beat before it, and of a tap low on the left.
+    private var rippleShot: Date? {
+        UserDefaults.standard.bool(forKey: "LiquidRippleShot") ? rippleEpoch : nil
+    }
+
+    private static func shotDrops(epoch: Date, size: CGSize) -> [LiquidRipple.Drop] {
+        [.init(center: LiquidRipple.landing(of: 3, in: size), start: epoch.addingTimeInterval(-1.5),
+               strength: LiquidRipple.beatStrength),
+         .init(center: LiquidRipple.landing(of: 4, in: size), start: epoch.addingTimeInterval(-0.8),
+               strength: LiquidRipple.barStrength),
+         .init(center: CGPoint(x: size.width * 0.28, y: size.height * 0.68),
+               start: epoch.addingTimeInterval(-0.45), strength: LiquidRipple.tapStrength)]
+    }
+    #else
+    private var rippleShot: Date? { nil }
+    #endif
 
     // MARK: Beat
 

@@ -566,6 +566,34 @@ final class LiquidUITests: XCTestCase {
 
     // MARK: - Helpers
 
+    /// The cover ripples like water on a speaker (see LiquidRipple). Live, it never holds
+    /// still and UI tests turn it off, so `-LiquidRippleShot` draws one moment of it: the
+    /// middle of the cover has to come out different from the same cover without it.
+    @MainActor
+    func testTheNowPlayingCoverRipples() throws {
+        var middles: [Data] = []
+        for shot in [false, true] {
+            let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"]
+                                   + (shot ? ["-LiquidRippleShot", "YES"] : []))
+            XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
+            sleep(1)
+            let screenshot = app.screenshot()
+            attachScreenshot(app, named: shot ? "liquid-cover-rippling" : "liquid-cover-still")
+            middles.append(try XCTUnwrap(middle(of: screenshot.image)))
+            app.terminate()
+        }
+        XCTAssertNotEqual(middles[0], middles[1], "The ripples didn't change the cover")
+    }
+
+    /// The pixels of the middle of a screenshot, clear of the clock and the side waves.
+    private func middle(of image: UIImage) -> Data? {
+        guard let cgImage = image.cgImage else { return nil }
+        let w = CGFloat(cgImage.width), h = CGFloat(cgImage.height)
+        guard let crop = cgImage.cropping(to: CGRect(x: w * 0.3, y: h * 0.3, width: w * 0.4, height: h * 0.3)),
+              let data = crop.dataProvider?.data else { return nil }
+        return data as Data
+    }
+
     private func launchLiquid(_ extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += [
