@@ -180,7 +180,7 @@ struct LiquidNowPlayingView: View {
     /// The cover ripples while a song plays, and after it stops or a tap until the
     /// rings already out have run their course.
     private var isRippling: Bool {
-        LiquidRipple.isAllowed(reduceMotion: reduceMotion) && current != nil
+        LiquidRipple.isAllowed(isOn: themeSettings.liquidRipple, reduceMotion: reduceMotion) && current != nil
             && (musicService.isPlaying || isSettling)
     }
 
@@ -198,7 +198,7 @@ struct LiquidNowPlayingView: View {
 
     /// A ring from where the cover was tapped, as a finger dipped in the water.
     private func ripple(at location: CGPoint) {
-        guard LiquidRipple.isAllowed(reduceMotion: reduceMotion) else { return }
+        guard LiquidRipple.isAllowed(isOn: themeSettings.liquidRipple, reduceMotion: reduceMotion) else { return }
         let now = Date()
         rippleTaps.removeAll { now.timeIntervalSince($0.start) >= LiquidRipple.life }
         rippleTaps.append(.init(center: location, start: now, strength: LiquidRipple.tapStrength))
@@ -220,8 +220,9 @@ struct LiquidNowPlayingView: View {
     #if DEBUG
     /// `-LiquidRippleShot` draws one still moment of the ripples, for screenshots: the
     /// rings of a bar's first beat and the beat before it, and of a tap low on the left.
+    /// Not when the ripples are turned off in settings.
     private var rippleShot: Date? {
-        UserDefaults.standard.bool(forKey: "LiquidRippleShot") ? rippleEpoch : nil
+        UserDefaults.standard.bool(forKey: "LiquidRippleShot") && themeSettings.liquidRipple ? rippleEpoch : nil
     }
 
     private static func shotDrops(epoch: Date, size: CGSize) -> [LiquidRipple.Drop] {

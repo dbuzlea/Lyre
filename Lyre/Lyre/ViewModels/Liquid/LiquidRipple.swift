@@ -17,8 +17,9 @@ import SwiftUI
 // the side waves count it (see LiquidNowPlayingView). A song with no tempo tagged ripples
 // at an easy 90.
 //
-// Still with Reduce Motion, in Low Power Mode and under a UI test, where a surface that
-// never settles keeps XCUITest waiting for the app to go idle.
+// Turned off in Liquid's settings, it's still; it's also still with Reduce Motion, in Low
+// Power Mode and under a UI test, where a surface that never settles keeps XCUITest
+// waiting for the app to go idle.
 
 enum LiquidRipple {
     /// Where a ring starts, when, and how hard (0 to 1).
@@ -39,9 +40,12 @@ enum LiquidRipple {
     static let barStrength = 0.75
     static let tapStrength = 1.0
 
-    /// Whether the cover ripples at all.
-    static func isAllowed(reduceMotion: Bool) -> Bool {
-        !reduceMotion && !ProcessInfo.processInfo.isLowPowerModeEnabled && !AppEnvironment.isUITesting
+    /// Whether the cover ripples at all: turned on in settings, and nothing asking for
+    /// less motion or less power.
+    static func isAllowed(isOn: Bool, reduceMotion: Bool,
+                          lowPower: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled,
+                          uiTesting: Bool = AppEnvironment.isUITesting) -> Bool {
+        isOn && !reduceMotion && !lowPower && !uiTesting
     }
 
     /// The beats still rippling at `now`: one ring for every beat in the last `life`

@@ -485,9 +485,10 @@
         ["Play a song from your own library that has a tempo (BPM) tag.", "The rings keep that tempo."],
         ["Tap the cover.", "A ring runs out from your finger, and the side waves go away or come back as before."],
         ["Pause.", "No new rings start; the ones out finish and the cover settles still."],
-        ["Turn on Reduce Motion (or Low Power Mode) and play.", "The cover stays still, and a tap doesn't ripple it."]
+        ["Turn on Reduce Motion (or Low Power Mode) and play.", "The cover stays still, and a tap doesn't ripple it."],
+        ["Turn Reduce Motion off. In Liquid's Settings, under Now Playing, turn off Ripple to the Beat and play.", "The cover stays still and a tap doesn't ripple it; turned back on, it ripples again. The choice is kept after quitting the app."]
       ],
-      "automated_by": ["LyreUITests/LiquidUITests/testTheNowPlayingCoverRipples()", "LyreTests/LiquidRippleTests"]
+      "automated_by": ["LyreUITests/LiquidUITests/testTheNowPlayingCoverRipples()", "LyreUITests/LiquidUITests/testTurningTheRippleOffKeepsTheCoverStill()", "LyreTests/LiquidRippleTests", "LyreTests/ThemeSettingsPersistenceTests"]
     },
 
     {

@@ -740,6 +740,8 @@
 "liquid.visualizer.hint" = "Touch to bring the player back.";
 "liquid.tide.remove" = "Remove %@";
 "liquid.settings.sound.detail" = "Clicks and taps as you use the player. Silent when the ringer is off.";
+"liquid.settings.ripple" = "Ripple to the Beat";
+"liquid.settings.ripple.detail" = "The cover ripples like water on a speaker, in time with the song's tempo. It stays still with Reduce Motion or Low Power Mode on.";
 "onboarding.player.liquid.detail" = "Modern and minimal. The cover fills the screen; pull the wave at the edge to change songs.";
 "onboarding.done.liquid.message" = "Here's Liquid. It takes its colours from your music.";
 "onboarding.done.liquid.hint" = "Pull the wave on either edge to change songs, pull up from the bottom for Up Next, and tap the droplet to go back to what's playing.";
