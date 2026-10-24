@@ -553,6 +553,28 @@ final class LiquidUITests: XCTestCase {
         launchLiquid(["-SpoolFoldPosture", "open", "-LiquidDuoLayout", "book"] + extra)
     }
 
+    /// Opened and held wide, as a real Duo is, without asking for the layout: Now Playing
+    /// beside the bubbles, not the Artwork Carousel, which a wide window used to open
+    /// over them. Only a simulator whose window turns wide can show it (an iPhone 18 Pro
+    /// turned sideways, with the hinge reported open); the Duo's can't, so it's skipped.
+    @MainActor
+    func testAnOpenDuoHeldWideShowsTheBubblesNotTheCarousel() throws {
+        defer { XCUIDevice.shared.orientation = .portrait }
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let app = launchLiquid(["-SpoolFoldPosture", "open"])
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 10))
+        sleep(2)
+        guard window.frame.width > window.frame.height else {
+            throw XCTSkip("This simulator's window doesn't turn wide")
+        }
+        XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 8),
+                      "Opened wide, Liquid didn't show the bubbles")
+        XCTAssertTrue(element(app, "liquid.nowPlaying").exists, "No Now Playing beside the bubbles")
+        XCTAssertFalse(element(app, "gatefold.trace").exists, "The Artwork Carousel opened over them")
+        attachScreenshot(app, named: "duo-open-wide")
+    }
+
     /// Now Playing on the left page, the bubbles on the right, with their tabs.
     @MainActor
     func testAnOpenDuoHeldAsABookHasNowPlayingBesideTheBubbles() throws {
