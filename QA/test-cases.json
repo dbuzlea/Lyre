@@ -767,6 +767,24 @@
       ],
       "automated_by": ["LyreUITests/DuoSafeAreaUITests", "LyreTests/LiquidGridColumnTests"]
     },
+    {
+      "key": "FLD-05", "suite": "Foldable (iPhone Duo)", "title": "Liquid, open as a book: Now Playing beside the bubbles",
+      "priority": "high", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "iPhone Duo, Liquid player, a library with albums, playlists and a followed show. Open the phone and hold it wide, the fold running top to bottom.",
+      "steps": [
+        ["Look at the inner screen.", "Now Playing on the left page; on the right, bubbles with covers in them, bigger for longer albums, drifting slightly in place. A bar of three tabs down the right edge: Albums, Playlists, Podcasts. No Artists."],
+        ["Scroll the bubbles.", "The whole library scrolls by; tilting the phone doesn't move them."],
+        ["Tap an album's bubble.", "It flies to the fold, slips through into Now Playing, swells and clears, and the album plays from the start."],
+        ["Drag another album's bubble slowly toward the fold.", "It follows the finger; near the fold a line of water down the fold swells out to meet it and runs into it."],
+        ["Carry it past the fold.", "It's taken in without letting go, and plays."],
+        ["Drag one a little way and let go short of the fold.", "It floats back to its place; nothing plays."],
+        ["Hold a bubble.", "Its page opens on the right, to play one song; Back returns to the bubbles."],
+        ["Choose Podcasts and tap a show.", "Its episodes open; a show's bubble doesn't drag."],
+        ["Tap Now Playing's library button (top left).", "The right page becomes the full library; its Bubbles button brings the bubbles back."],
+        ["With songs queued by hand, drag a bubble in.", "Lyre asks before replacing them."]
+      ],
+      "automated_by": ["LyreUITests/LiquidUITests/testAnOpenDuoHeldAsABookHasNowPlayingBesideTheBubbles()", "LyreUITests/LiquidUITests/testTappingABubblePlaysIt()", "LyreUITests/LiquidUITests/testDraggingABubbleIntoNowPlayingPlaysIt()", "LyreUITests/LiquidUITests/testABubbleLetGoShortOfTheFoldFloatsBack()", "LyreUITests/LiquidUITests/testHoldingABubbleOpensItsPage()", "LyreUITests/LiquidUITests/testAShowsBubbleOpensItsEpisodes()", "LyreUITests/LiquidUITests/testTheLibraryButtonSwapsTheBubblesForTheLibrary()", "LyreTests/LiquidBubbleLayoutTests"]
+    },
 
     {
       "key": "A11Y-01", "suite": "Accessibility & Localization", "title": "VoiceOver can use every player",
