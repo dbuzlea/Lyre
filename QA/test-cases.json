@@ -476,6 +476,19 @@
       ],
       "automated_by": ["LyreUITests/LiquidUITests/testSettingsOpenAndOfferTheOtherPlayers()", "LyreUITests/LiquidUITests/testSettingsHaveTheTutorial()", "LyreUITests/LiquidUITests/testSwipingTurnsTheTutorialsLessons()", "LyreUITests/LiquidUITests/testTheTutorialTeachesOneAtATime()", "LyreUITests/LiquidUITests/testTheVisualizerGivesWayToATouch()"]
     },
+    {
+      "key": "LQD-05", "suite": "Liquid Player", "title": "Now Playing's cover ripples to the beat and to a tap",
+      "priority": "medium", "severity": "minor", "type": "functional", "behavior": "positive",
+      "preconditions": "Liquid player, on a device (the simulator's covers aren't Apple Music's). Reduce Motion and Low Power Mode off.",
+      "steps": [
+        ["Play a song from Apple Music and open Now Playing.", "Rings run out across the cover from near the middle, one each beat, every fourth a little stronger. The cover bends through them like a picture under water; the name, buttons and progress line stay sharp."],
+        ["Play a song from your own library that has a tempo (BPM) tag.", "The rings keep that tempo."],
+        ["Tap the cover.", "A ring runs out from your finger, and the side waves go away or come back as before."],
+        ["Pause.", "No new rings start; the ones out finish and the cover settles still."],
+        ["Turn on Reduce Motion (or Low Power Mode) and play.", "The cover stays still, and a tap doesn't ripple it."]
+      ],
+      "automated_by": ["LyreUITests/LiquidUITests/testTheNowPlayingCoverRipples()", "LyreTests/LiquidRippleTests"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",
