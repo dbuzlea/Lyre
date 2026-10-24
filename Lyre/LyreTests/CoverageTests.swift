@@ -654,6 +654,16 @@ struct LiquidRippleTests {
         }
     }
 
+    /// Turned off in settings, it doesn't ripple, and nor does anything asking for less
+    /// motion or less power.
+    @Test func itRipplesOnlyWhenOnAndNothingAsksForLess() {
+        #expect(LiquidRipple.isAllowed(isOn: true, reduceMotion: false, lowPower: false, uiTesting: false))
+        #expect(!LiquidRipple.isAllowed(isOn: false, reduceMotion: false, lowPower: false, uiTesting: false))
+        #expect(!LiquidRipple.isAllowed(isOn: true, reduceMotion: true, lowPower: false, uiTesting: false))
+        #expect(!LiquidRipple.isAllowed(isOn: true, reduceMotion: false, lowPower: true, uiTesting: false))
+        #expect(!LiquidRipple.isAllowed(isOn: true, reduceMotion: false, lowPower: false, uiTesting: true))
+    }
+
     /// The shader gets at most `maxDrops` rings, four numbers each, timed from the epoch.
     @Test func theShaderGetsFourNumbersARing() {
         let drop = LiquidRipple.Drop(center: CGPoint(x: 10, y: 20), start: anchor.addingTimeInterval(1.5),

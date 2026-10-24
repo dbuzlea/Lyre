@@ -349,6 +349,11 @@ final class LiquidUITests: XCTestCase {
         let disc = element(app, "liquid.settings.disc")
         for _ in 0..<4 where !disc.exists { app.swipeUp() }
         XCTAssertTrue(disc.exists, "No way to switch to the Disc")
+        // Just above the players: the cover's ripple, on until turned off.
+        let ripple = element(app, "liquid.settings.ripple")
+        XCTAssertTrue(ripple.exists, "No way to turn the cover's ripple off")
+        XCTAssertEqual(ripple.value as? String, "1", "The ripple isn't on to begin with")
+        attachScreenshot(app, named: "liquid-settings-ripple")
         done.tap()
     }
 
@@ -583,6 +588,24 @@ final class LiquidUITests: XCTestCase {
             app.terminate()
         }
         XCTAssertNotEqual(middles[0], middles[1], "The ripples didn't change the cover")
+    }
+
+    /// Turned off in Settings (here by launch argument), even the still moment of ripples
+    /// isn't drawn: the cover comes out as it is.
+    @MainActor
+    func testTurningTheRippleOffKeepsTheCoverStill() throws {
+        var middles: [Data] = []
+        for off in [false, true] {
+            let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"]
+                                   + (off ? ["-LiquidRippleShot", "YES", "-LyreLiquidRipple", "NO"] : []))
+            XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
+            sleep(1)
+            let screenshot = app.screenshot()
+            attachScreenshot(app, named: off ? "liquid-cover-ripple-off" : "liquid-cover-plain")
+            middles.append(try XCTUnwrap(middle(of: screenshot.image)))
+            app.terminate()
+        }
+        XCTAssertEqual(middles[0], middles[1], "The ripples showed though they were turned off")
     }
 
     /// The pixels of the middle of a screenshot, clear of the clock and the side waves.

@@ -31,7 +31,7 @@ private let themeKeys = [
     "LyreThemeStyle", "LyreCustomHighlightColor", "LyreUseCustomHighlight", "LyreScreenSize",
     "LyreUseAutoScreenSize", "LyreScrollSensitivity", "LyreClickSoundEnabled", "LyreBacklightDuration",
     "LyrePlayerStyle", "LyreSpoolModel", "LyreSpoolFinish", "LyreGramophoneModel", "LyreGramophoneFinish",
-    "LyreDiscFinish", "LyreGramophoneSurfaceNoise",
+    "LyreDiscFinish", "LyreGramophoneSurfaceNoise", "LyreLiquidRipple",
 ]
 
 // MARK: - Settings
@@ -50,6 +50,7 @@ struct ThemeSettingsPersistenceTests {
             #expect(!settings.useCustomHighlight)
             #expect(!settings.useAutoScreenSize)
             #expect(settings.playerStyle == .classic)
+            #expect(settings.liquidRipple, "Liquid's cover ripples until turned off")
         }
     }
 
@@ -64,6 +65,7 @@ struct ThemeSettingsPersistenceTests {
             settings.useCustomHighlight = true
             settings.customHighlightColor = Color(red: 1, green: 0, blue: 0)
             settings.screenSize = .jumbo
+            settings.liquidRipple = false
 
             let relaunched = ThemeSettings()
             #expect(relaunched.themeStyle == .onyx)
@@ -73,6 +75,7 @@ struct ThemeSettingsPersistenceTests {
             #expect(relaunched.playerStyle == .gramophone)
             #expect(relaunched.useCustomHighlight)
             #expect(relaunched.screenSize == .jumbo)
+            #expect(!relaunched.liquidRipple)
             let red = relaunched.customHighlightColor.toStorableColor()
             #expect(abs(red.red - 1) < 0.01 && red.green < 0.01 && red.blue < 0.01)
         }

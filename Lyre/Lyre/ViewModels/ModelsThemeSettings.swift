@@ -151,6 +151,14 @@ class ThemeSettings {
         }
     }
 
+    /// Liquid's Now Playing cover rippling to the beat (see LiquidRipple). On unless
+    /// turned off.
+    var liquidRipple: Bool {
+        didSet {
+            UserDefaults.standard.set(liquidRipple, forKey: "LyreLiquidRipple")
+        }
+    }
+
     /// Maps theme names persisted before the 1.0 rename onto their current
     /// equivalents, so an existing install keeps its chosen finish instead of
     /// silently falling back to the default.
@@ -275,6 +283,9 @@ class ThemeSettings {
         self.discFinish = UserDefaults.standard.string(forKey: "LyreDiscFinish")
             .flatMap(DiscFinish.init(rawValue:)) ?? .silver
         self.gramophoneSurfaceNoise = UserDefaults.standard.object(forKey: "LyreGramophoneSurfaceNoise") as? Bool ?? true
+        // Read with bool(forKey:), which also takes a launch argument's "NO".
+        self.liquidRipple = UserDefaults.standard.object(forKey: "LyreLiquidRipple") == nil
+            || UserDefaults.standard.bool(forKey: "LyreLiquidRipple")
 
         // Finally, set the theme style
         self.themeStyle = loadedThemeStyle
