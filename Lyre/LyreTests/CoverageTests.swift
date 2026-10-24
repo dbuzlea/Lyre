@@ -731,3 +731,18 @@ struct LiquidBubbleLayoutTests {
         #expect(LiquidBubbleLayout.songCount(of: AppAlbum(id: "x", title: "X", artistName: "A")) == nil)
     }
 }
+
+@Suite("Artwork carousel on an open Duo")
+@MainActor
+struct CarouselPostureTests {
+    /// The classic player always turns wide into the carousel; Liquid only when the
+    /// phone is shut: an open Duo's wide screen is Now Playing beside the bubbles.
+    @Test func liquidKeepsAnOpenDuosWideScreen() {
+        #expect(LyreView.opensCarousel(.classic, posture: .closed))
+        #expect(LyreView.opensCarousel(.classic, posture: .open))
+        #expect(LyreView.opensCarousel(.liquid, posture: .closed))
+        #expect(!LyreView.opensCarousel(.liquid, posture: .open))
+        #expect(!LyreView.opensCarousel(.liquid, posture: .tent))
+        #expect(!LyreView.opensCarousel(.spool, posture: .closed))
+    }
+}

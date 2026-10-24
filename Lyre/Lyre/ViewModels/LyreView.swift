@@ -37,7 +37,9 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   the carousel closes onto Now Playing. On an ordinary iPhone that is the same as
 //   turning the phone. On iPhone Duo it is also what unfolding does — the inner display
 //   is wide, and it ignores orientation locks — so opening the phone opens the carousel.
-//   The Liquid player turns sideways into it too. Like the classic player's lists, the
+//   The Liquid player turns sideways into it too, but not on an open Duo, where it has
+//   layouts of its own for the wide screen (Now Playing beside the bubbles held as a book,
+//   above Up Next turned; see LiquidPlayerView). Like the classic player's lists, the
 //   page it's on decides the covers (see LiquidLocation): albums (and artists and songs),
 //   playlists or podcasts, turned to the album open; from Now Playing, the menu or
 //   search, it opens on what's playing. The Spool, the
@@ -262,6 +264,11 @@ struct LyreView: View {
         }
         .onChange(of: isWindowWide) { _, isWide in
             windowShapeChanged(isWide: isWide)
+        }
+        .onChange(of: foldMonitor.posture) { _, _ in
+            // Opening or closing a Duo with Liquid playing: wide means the carousel only
+            // when shut, so the window's shape alone doesn't decide.
+            windowShapeChanged(isWide: isWindowWide)
         }
         .onChange(of: themeSettings.playerStyle) { _, _ in
             // Switching to the classic player inside a wide window, as on an open Duo,
@@ -692,7 +699,7 @@ struct LyreView: View {
         // Only the classic and Liquid players have the Artwork Carousel.
         guard Self.hasArtworkCarousel(themeSettings.playerStyle) else { return }
 
-        if isWide {
+        if isWide, Self.opensCarousel(themeSettings.playerStyle, posture: foldMonitor.posture) {
             guard !showArtworkCarousel, !carouselDismissedWhileWide else { return }
             openArtworkCarousel()
         } else {
@@ -712,6 +719,12 @@ struct LyreView: View {
     /// The players that turn sideways into the Artwork Carousel.
     private static func hasArtworkCarousel(_ style: PlayerStyle) -> Bool {
         style == .classic || style == .liquid
+    }
+
+    /// Whether a wide window opens the carousel: always for the classic player; for
+    /// Liquid only on a phone that's shut, as an open Duo's wide screen is Liquid's own.
+    static func opensCarousel(_ style: PlayerStyle, posture: FoldPosture) -> Bool {
+        hasArtworkCarousel(style) && (style == .classic || posture == .closed)
     }
 
     private func openArtworkCarousel() {

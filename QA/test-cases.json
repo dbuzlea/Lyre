@@ -744,7 +744,7 @@
     {
       "key": "FLD-03", "suite": "Foldable (iPhone Duo)", "title": "Unfolding into the Artwork Carousel offers no Back: closing the phone goes back",
       "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive", "tags": ["foldable"],
-      "preconditions": "iPhone Duo, Classic player (then Liquid), closed, on any screen.",
+      "preconditions": "iPhone Duo, Classic player, closed, on any screen. (Liquid opens to its own layouts on an open Duo instead: see FLD-05.)",
       "steps": [
         ["Open the Duo partway, then fully, in portrait and in landscape.", "The Artwork Carousel opens. Top left reads \"Close iPhone to go back\"; there is no Back button."],
         ["Open an album's gatefold.", "Its own back button (\"‹ Albums\") shows and closes the album back to the covers."],
@@ -772,7 +772,7 @@
       "priority": "high", "severity": "normal", "type": "functional", "behavior": "positive",
       "preconditions": "iPhone Duo, Liquid player, a library with albums, playlists and a followed show. Open the phone and hold it wide, the fold running top to bottom.",
       "steps": [
-        ["Look at the inner screen.", "Now Playing on the left page; on the right, bubbles with covers in them, bigger for longer albums, drifting slightly in place. A bar of three tabs down the right edge: Albums, Playlists, Podcasts. No Artists."],
+        ["Look at the inner screen.", "No Artwork Carousel. Now Playing on the left page; on the right, bubbles with covers in them, bigger for longer albums, drifting slightly in place. A bar of three tabs down the right edge: Albums, Playlists, Podcasts. No Artists."],
         ["Scroll the bubbles.", "The whole library scrolls by; tilting the phone doesn't move them."],
         ["Tap an album's bubble.", "It flies to the fold, slips through into Now Playing, swells and clears, and the album plays from the start."],
         ["Drag another album's bubble slowly toward the fold.", "It follows the finger; near the fold a line of water down the fold swells out to meet it and runs into it."],
@@ -783,7 +783,7 @@
         ["Tap Now Playing's library button (top left).", "The right page becomes the full library; its Bubbles button brings the bubbles back."],
         ["With songs queued by hand, drag a bubble in.", "Lyre asks before replacing them."]
       ],
-      "automated_by": ["LyreUITests/LiquidUITests/testAnOpenDuoHeldAsABookHasNowPlayingBesideTheBubbles()", "LyreUITests/LiquidUITests/testTappingABubblePlaysIt()", "LyreUITests/LiquidUITests/testDraggingABubbleIntoNowPlayingPlaysIt()", "LyreUITests/LiquidUITests/testABubbleLetGoShortOfTheFoldFloatsBack()", "LyreUITests/LiquidUITests/testHoldingABubbleOpensItsPage()", "LyreUITests/LiquidUITests/testAShowsBubbleOpensItsEpisodes()", "LyreUITests/LiquidUITests/testTheLibraryButtonSwapsTheBubblesForTheLibrary()", "LyreTests/LiquidBubbleLayoutTests"]
+      "automated_by": ["LyreUITests/LiquidUITests/testAnOpenDuoHeldWideShowsTheBubblesNotTheCarousel()", "LyreTests/CarouselPostureTests", "LyreUITests/LiquidUITests/testAnOpenDuoHeldAsABookHasNowPlayingBesideTheBubbles()", "LyreUITests/LiquidUITests/testTappingABubblePlaysIt()", "LyreUITests/LiquidUITests/testDraggingABubbleIntoNowPlayingPlaysIt()", "LyreUITests/LiquidUITests/testABubbleLetGoShortOfTheFoldFloatsBack()", "LyreUITests/LiquidUITests/testHoldingABubbleOpensItsPage()", "LyreUITests/LiquidUITests/testAShowsBubbleOpensItsEpisodes()", "LyreUITests/LiquidUITests/testTheLibraryButtonSwapsTheBubblesForTheLibrary()", "LyreTests/LiquidBubbleLayoutTests"]
     },
 
     {
