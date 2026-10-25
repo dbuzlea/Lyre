@@ -29,15 +29,11 @@ import MediaPlayer
 // library page you came from. They
 // stay while VoiceOver is on, which finds them by their place on the screen.
 //
-// While a song plays, the waves move to its beat like a wave: each bulge swells out on
-// every beat and eases back in a smooth curve, and sways a little along the edge, up on
-// one beat and down on the next (`pulse(at:)`). The music plays through the system's player, which
-// lets no app hear it, so the beat is the song's tempo, from its beats-per-minute tag or
-// else as Deezer knows it (SongTempos), counted from the start of the song. A song with
-// no tempo known breathes slowly instead.
-//
-// The cover keeps the same beat as if it lay under water on a speaker: a ring runs out
-// across it on each beat, and from the finger on a tap (see LiquidRipple).
+// The side waves hold still; only the cover keeps the beat, as if it lay under water on
+// a speaker: a ring runs out across it on each beat, and from the finger on a tap (see
+// LiquidRipple). The music plays through the system's player, which lets no app hear it,
+// so the beat is the song's tempo, from its beats-per-minute tag or else as Deezer knows
+// it (SongTempos), counted from the start of the song.
 
 struct LiquidNowPlayingView: View {
     @ObservedObject var musicService: MusicService
@@ -119,19 +115,14 @@ struct LiquidNowPlayingView: View {
                 }
 
                 if arriving == nil, !areWavesAway {
-                    // 60 a second at most: the pulse is a slow swell, and on a 120Hz
-                    // screen redrawing the two covered waves twice as often buys nothing.
-                    TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !isBeating)) { context in
-                        let pulse = isBeating ? pulse(at: context.date) : .still
-                        ZStack {
-                            if let previous {
-                                wave(left, covering: previous, size: size, pulse: pulse)
-                                    .zIndex(topSide == .left ? 2 : 1)
-                            }
-                            if let next {
-                                wave(right, covering: next, size: size, pulse: pulse)
-                                    .zIndex(topSide == .right ? 2 : 1)
-                            }
+                    ZStack {
+                        if let previous {
+                            wave(left, covering: previous, size: size)
+                                .zIndex(topSide == .left ? 2 : 1)
+                        }
+                        if let next {
+                            wave(right, covering: next, size: size)
+                                .zIndex(topSide == .right ? 2 : 1)
                         }
                     }
                 }
@@ -239,12 +230,6 @@ struct LiquidNowPlayingView: View {
 
     // MARK: Beat
 
-    /// The waves move only while a song plays and nobody's touching them.
-    private var isBeating: Bool {
-        musicService.isPlaying && !isResting && !reduceMotion && arriving == nil
-            && left.progress == 0 && right.progress == 0
-    }
-
     /// The song's tempo: its own tag if it has a believable one, else what Deezer said
     /// (SongTempos), if that's known.
     private var beatsPerMinute: Double? {
@@ -257,42 +242,6 @@ struct LiquidNowPlayingView: View {
     private func syncBeat() {
         beatAnchor = Date().addingTimeInterval(-musicService.clock.time)
     }
-
-    /// The beat's hold on the bulges at a moment: how far they swell out on top of
-    /// resting, and how far they sway along the edge.
-    struct Pulse {
-        var swell: CGFloat
-        var sway: CGFloat
-        static let still = Pulse(swell: 0, sway: 0)
-    }
-
-    /// How far the bulges swell out on top of resting: a smooth wave that crests on each
-    /// beat and falls away before the next, with a sway along the edge that takes two
-    /// beats to go up and back. A song with no tempo swells slowly instead, as if
-    /// breathing.
-    private func pulse(at date: Date) -> Pulse {
-        let elapsed = date.timeIntervalSince(beatAnchor)
-        let beats: Double
-        let swellSize: Double
-        if let bpm = beatsPerMinute {
-            beats = elapsed * bpm / 60
-            swellSize = Self.beatSwell
-        } else {
-            beats = elapsed / 1.6
-            swellSize = Self.breathSwell
-        }
-        // Cresting on the beat: 1 on it, 0 halfway to the next, a little sharper going out
-        // than coming back.
-        let phase = beats.truncatingRemainder(dividingBy: 1)
-        let wave = pow((1 + cos(2 * .pi * phase)) / 2, 1.6)
-        let sway = sin(.pi * beats) * Self.sway
-        return Pulse(swell: CGFloat(wave * swellSize), sway: CGFloat(sway))
-    }
-
-    /// How far a beat swells the bulges, as wave progress, and how far they sway, in points.
-    private static let beatSwell = 0.055
-    private static let breathSwell = 0.03
-    private static let sway = 22.0
 
     // MARK: Resting
 
@@ -387,15 +336,15 @@ struct LiquidNowPlayingView: View {
 
     // MARK: Waves
 
-    private func wave(_ state: WaveState, covering track: AppTrack, size: CGSize, pulse: Pulse = .still) -> some View {
-        // At rest, the beat moves the bulge; once a finger has it, the finger does. The two
-        // sides sway opposite ways, so the screen rocks between them.
+    private func wave(_ state: WaveState, covering track: AppTrack, size: CGSize) -> some View {
+        // At rest, the bulge sits still (or leans toward a Duo's fold); once a finger has
+        // it, the finger moves it.
         let atRest = state.progress == 0
         // Leaning toward the fold: the bulges slide along their edges toward it, and the
         // one on the fold's side swells, as water runs downhill.
         let toward = max(0, lean.dx * (state.side == .right ? 1 : -1))
-        let progress = atRest ? pulse.swell + toward * 0.05 : state.progress
-        let centerY = state.centerY + (atRest ? pulse.sway * (state.side == .left ? 1 : -1) + lean.dy * size.height * 0.2 : 0)
+        let progress = atRest ? toward * 0.05 : state.progress
+        let centerY = state.centerY + (atRest ? lean.dy * size.height * 0.2 : 0)
         let shape = LiquidWaveShape(side: state.side, centerY: centerY, progress: progress)
         let geometry = LiquidWaveGeometry(side: state.side, centerY: centerY, progress: progress, size: size)
         let isNext = state.side == .right
