@@ -239,6 +239,9 @@ struct LiquidPlayerView: View {
             case "artists":
                 screen = .library
                 path = [.artists]
+            case "recentlyPlayed":
+                screen = .library
+                path = [.recentlyPlayed]
             case "artist":
                 screen = .library
                 if let name = library.albums.first?.artistName { path = [.artists, .artist(name)] }
@@ -335,7 +338,8 @@ struct LiquidPlayerView: View {
             onOpenSettings: { showSettings = true },
             themeSettings: themeSettings,
             bottomInset: musicService.nowPlayingTrack != nil || dock != nil ? 104 + safeArea.bottom : safeArea.bottom,
-            lavaPull: lavaPull
+            lavaPull: lavaPull,
+            onNotice: showNotice
         )
         .overlay(alignment: .bottom) {
             Group {

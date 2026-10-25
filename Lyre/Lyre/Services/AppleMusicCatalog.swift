@@ -1,0 +1,217 @@
+//
+//  AppleMusicCatalog.swift
+//  Lyre
+//
+
+import Foundation
+import MusicKit
+import MediaPlayer
+import OSLog
+
+private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "AppleMusicCatalog")
+
+// MARK: - Apple Music Catalogue
+//
+// What Apple Music's catalogue knows beyond the library, through MusicKit, the service
+// Lyre already plays from:
+//
+//   an artist   their biography, top songs, latest release and similar artists
+//   an album    its record label, copyright, Apple's write-up and the audio it comes in
+//               (Dolby Atmos, Lossless, Hi-Res Lossless)
+//   the charts  the most played songs and albums
+//
+// The library's own items seldom carry these, so the catalogue is searched for the same
+// artist (the very same name) or album (the same title by the same artist). Answers are
+// kept for as long as Lyre is open; nothing is stored.
+//
+// Lyre plays what's in the library, so a catalogue song is found in it (`librarySong`)
+// to be played; one that isn't can be added (`add(_:)`), with an Apple Music
+// subscription, and plays once Apple has put it there.
+
+@MainActor
+@Observable
+final class AppleMusicCatalog {
+    static let shared = AppleMusicCatalog()
+
+    struct ArtistDetails {
+        var biography: String?
+        var topSongs: [Song]
+        var latestRelease: Album?
+        var similarArtists: [Artist]
+    }
+
+    struct AlbumDetails {
+        var recordLabel: String?
+        var copyright: String?
+        var notes: String?
+        var variants: [AudioVariant]
+        var url: URL?
+    }
+
+    struct Charts {
+        var songs: [Song]
+        var albums: [Album]
+    }
+
+    private(set) var artists: [String: ArtistDetails] = [:]
+    private(set) var albums: [String: AlbumDetails] = [:]
+    private(set) var charts: Charts?
+    @ObservationIgnored private var asked: Set<String> = []
+
+    /// Whether the catalogue can be asked at all.
+    static var isAvailable: Bool {
+        !AppEnvironment.isUITesting && MusicAuthorization.currentStatus == .authorized
+    }
+
+    // MARK: Artists
+
+    func details(forArtist name: String) -> ArtistDetails? {
+        ArtistPhotos.key(for: name).flatMap { artists[$0] }
+    }
+
+    /// Looks up an artist, once per launch.
+    func loadArtist(_ name: String) async {
+        guard Self.isAvailable, let key = ArtistPhotos.key(for: name), asked.insert("artist:" + key).inserted else { return }
+        do {
+            var search = MusicCatalogSearchRequest(term: name, types: [Artist.self])
+            search.limit = 5
+            guard let found = try await search.response().artists.first(where: { ArtistPhotos.key(for: $0.name) == key }) else { return }
+            let artist = try await found.with([.topSongs, .latestRelease, .similarArtists])
+            artists[key] = ArtistDetails(biography: Self.plainText(artist.editorialNotes?.standard ?? artist.editorialNotes?.short),
+                                         topSongs: Array(artist.topSongs?.prefix(10) ?? []),
+                                         latestRelease: artist.latestRelease,
+                                         similarArtists: Array(artist.similarArtists?.prefix(12) ?? []))
+        } catch {
+            asked.remove("artist:" + key)
+            logger.debug("Artist details failed for \(name, privacy: .private): \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: Albums
+
+    static func albumKey(title: String, artist: String) -> String {
+        DeezerTempo.normalized(artist) + "|" + DeezerTempo.normalized(title)
+    }
+
+    func details(forAlbum album: AppAlbum) -> AlbumDetails? {
+        albums[Self.albumKey(title: album.tapeTitle, artist: album.artistName)]
+    }
+
+    /// Looks up an album (not a playlist or show), once per launch.
+    func loadAlbum(_ album: AppAlbum) async {
+        guard Self.isAvailable, !album.isMixtape, !album.isPodcast else { return }
+        let key = Self.albumKey(title: album.tapeTitle, artist: album.artistName)
+        guard asked.insert("album:" + key).inserted else { return }
+        do {
+            var search = MusicCatalogSearchRequest(term: "\(album.artistName) \(album.tapeTitle)", types: [Album.self])
+            search.limit = 10
+            let results = try await search.response().albums
+            guard let found = results.first(where: { Self.albumKey(title: $0.title, artist: $0.artistName) == key }) else { return }
+            albums[key] = AlbumDetails(recordLabel: found.recordLabelName,
+                                       copyright: found.copyright,
+                                       notes: Self.plainText(found.editorialNotes?.standard ?? found.editorialNotes?.short),
+                                       variants: Self.badges(found.audioVariants ?? []),
+                                       url: found.url)
+        } catch {
+            asked.remove("album:" + key)
+            logger.debug("Album details failed for \(album.title, privacy: .private): \(error.localizedDescription)")
+        }
+    }
+
+    /// The variants worth a badge, best first: Dolby Atmos, then Hi-Res Lossless, else
+    /// Lossless (Hi-Res is Lossless too).
+    static func badges(_ variants: [AudioVariant]) -> [AudioVariant] {
+        var shown: [AudioVariant] = []
+        if variants.contains(.dolbyAtmos) { shown.append(.dolbyAtmos) }
+        if variants.contains(.highResolutionLossless) { shown.append(.highResolutionLossless) }
+        else if variants.contains(.lossless) { shown.append(.lossless) }
+        return shown
+    }
+
+    // MARK: Charts
+
+    /// The most played songs and albums, once per launch.
+    func loadCharts() async {
+        guard Self.isAvailable, asked.insert("charts").inserted else { return }
+        do {
+            var request = MusicCatalogChartsRequest(kinds: [.mostPlayed], types: [Song.self, Album.self])
+            request.limit = 25
+            let response = try await request.response()
+            charts = Charts(songs: Array(response.songCharts.first?.items ?? []),
+                            albums: Array(response.albumCharts.first?.items ?? []))
+        } catch {
+            asked.remove("charts")
+            logger.debug("Charts failed: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: The library
+
+    /// The library's copy of a catalogue song: the same title by the same artist, of
+    /// much the same length.
+    static func librarySong(title: String, artist: String, duration: TimeInterval?, in songs: [AppTrack]) -> AppTrack? {
+        let wantedTitle = DeezerTempo.normalized(title), wantedArtist = DeezerTempo.normalized(artist)
+        return songs.first { track in
+            guard DeezerTempo.normalized(track.title) == wantedTitle else { return false }
+            let theirs = DeezerTempo.normalized(track.artistName)
+            guard theirs.contains(wantedArtist) || wantedArtist.contains(theirs) else { return false }
+            if let duration, duration > 0, track.duration > 0 {
+                return abs(track.duration - duration) <= DeezerTempo.lengthTolerance
+            }
+            return true
+        }
+    }
+
+    /// The library's copy of a catalogue album: the same title by the same artist.
+    static func libraryAlbum(title: String, artist: String, in albums: [AppAlbum]) -> AppAlbum? {
+        let key = albumKey(title: title, artist: artist)
+        return albums.first { albumKey(title: $0.tapeTitle, artist: $0.artistName) == key }
+    }
+
+    enum AddError: LocalizedError {
+        case needsSubscription
+        var errorDescription: String? { String(localized: "catalog.add.needsSubscription") }
+    }
+
+    /// Adds a song or album to the library. Needs an Apple Music subscription.
+    func add<Item: MusicLibraryAddable>(_ item: Item, subscribed: Bool) async throws {
+        guard subscribed else { throw AddError.needsSubscription }
+        try await MusicLibrary.shared.add(item)
+    }
+
+    // MARK: Text
+
+    /// Apple's write-ups carry a little markup (`<i>…</i>`, `<br />`): plain text, with
+    /// line breaks kept.
+    static func plainText(_ html: String?) -> String? {
+        guard var text = html, !text.isEmpty else { return nil }
+        text = text.replacingOccurrences(of: #"<br\s*/?>"#, with: "\n", options: [.regularExpression, .caseInsensitive])
+        text = text.replacingOccurrences(of: #"<[^>]+>"#, with: "", options: .regularExpression)
+        for (entity, character) in [("&amp;", "&"), ("&quot;", "\""), ("&#39;", "'"), ("&lt;", "<"), ("&gt;", ">"), ("&nbsp;", " ")] {
+            text = text.replacingOccurrences(of: entity, with: character)
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+extension AppTrack {
+    /// Marked explicit, by Apple Music or in the file.
+    var isExplicit: Bool {
+        musicKitSong?.contentRating == .explicit || mpItem?.isExplicitItem == true
+    }
+
+    /// How many times it's been played, as the library counts.
+    var playCount: Int {
+        max(musicKitSong?.playCount ?? 0, mpItem?.playCount ?? 0)
+    }
+
+    /// The most played songs, most first: the top `limit` played at least twice.
+    static func mostPlayed(_ songs: [AppTrack], limit: Int = 100,
+                           count: (AppTrack) -> Int = { $0.playCount }) -> [AppTrack] {
+        songs.map { ($0, count($0)) }
+            .filter { $0.1 >= 2 }
+            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : AppHelpers.sortsBefore($0.0.title, $1.0.title) }
+            .prefix(limit).map(\.0)
+    }
+}

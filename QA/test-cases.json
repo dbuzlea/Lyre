@@ -517,6 +517,23 @@
       ],
       "automated_by": ["LyreUITests/LiquidUITests/testArtistsHavePhotosAndTheirPageOpensOnOne()", "LyreTests/ArtistPhotoTests"]
     },
+    {
+      "key": "LQD-08", "suite": "Liquid Player", "title": "Apple Music details: artist, album, Most Played, Charts, Add to Library",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "A device with Apple Music access and, for adding, a subscription. A library with well-known artists and an explicit song. Online.",
+      "steps": [
+        ["Open a well-known artist in Liquid.", "Under their photo: a biography (tap More to read it all), Top Songs (5, Show All for 10, each with a tick if it's in your library or a plus if not), Latest Release, then their albums, and Similar Artists at the bottom."],
+        ["Tap a top song that has a tick.", "It plays."],
+        ["Tap a top song with a plus.", "“… isn't in your library” offers Add to Library and Open in Apple Music."],
+        ["Choose Add to Library.", "“Added …. It'll play in a moment.”, then within about half a minute it plays (or a message says it'll appear once Apple Music has synced it). It now has a tick."],
+        ["Tap a similar artist you have, then one you don't.", "Yours opens their page; the other opens Apple Music."],
+        ["Open an album that's in Dolby Atmos or Lossless on Apple Music.", "Badges under the title (Dolby Atmos, Hi-Res Lossless or Lossless), an E beside explicit songs, and after the songs Apple's write-up and the record label and copyright."],
+        ["Open Recently Played, then Most Played.", "Your most played songs, most first."],
+        ["Open Search without typing.", "Top Songs on Apple Music, numbered, and Top Albums; tapping one plays or opens it if you have it, else offers to add it."],
+        ["Without a subscription, try Add to Library.", "A message says adding needs an Apple Music subscription."]
+      ],
+      "automated_by": ["LyreTests/AppleMusicCatalogTests", "LyreUITests/LiquidUITests/testRecentlyPlayedLeadsToMostPlayed()"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",

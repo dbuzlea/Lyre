@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import MusicKit
 
 // MARK: - Liquid Library
 //
@@ -27,6 +28,7 @@ enum LiquidRoute: Hashable {
     case songs
     case recentlyPlayed
     case recentlyAdded
+    case mostPlayed
     case artists
     case artist(String)
     case playlists
@@ -53,8 +55,13 @@ struct LiquidLibraryView: View {
     /// The hinge's pull on the lava (iPhone Duo, partly open).
     var lavaPull: CGVector = .zero
 
+    /// Shows a short message over the player (queued, added, …).
+    var onNotice: (String) -> Void = { _ in }
+
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.liquidFlood) private var flood
+    @Environment(\.openURL) private var openURL
+    @State private var catalogOffer: CatalogOffer?
 
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
@@ -83,6 +90,17 @@ struct LiquidLibraryView: View {
             }
         }
         .environment(\.liquidNavigator, navigator)
+        .confirmationDialog(catalogOffer.map { String(format: String(localized: "catalog.offer.title"), $0.title) } ?? "",
+                            isPresented: Binding(get: { catalogOffer != nil }, set: { if !$0 { catalogOffer = nil } }),
+                            titleVisibility: .visible, presenting: catalogOffer) { offer in
+            Button(String(localized: "catalog.offer.add")) { add(offer) }
+            if let url = offer.url {
+                Button(String(localized: "catalog.offer.open")) { openURL(url) }
+            }
+            Button(String(localized: "catalog.offer.cancel"), role: .cancel) {}
+        } message: { _ in
+            Text(String(localized: "catalog.offer.message"))
+        }
     }
 
     private var fold: LiquidFoldState { .shared }
@@ -125,8 +143,92 @@ struct LiquidLibraryView: View {
                 let title = TapeFormat.displayTitle(track.albumTitle)
                 let albums = library.albums.filter { $0.tapeTitle == title }
                 return albums.first { $0.artistName == track.artistName } ?? albums.first
+            },
+            catalogSong: { song in
+                if let track = librarySong(song) {
+                    onPlaySongs([track], 0, false, track.title)
+                } else {
+                    catalogOffer = .song(song)
+                }
+            },
+            catalogAlbum: { album in
+                if let mine = AppleMusicCatalog.libraryAlbum(title: album.title, artist: album.artistName, in: library.albums) {
+                    navigator.push(.album(mine))
+                } else {
+                    catalogOffer = .album(album)
+                }
+            },
+            librarySong: librarySong,
+            hasArtist: { name in
+                let key = ArtistPhotos.key(for: name)
+                return library.albums.contains { ArtistPhotos.key(for: $0.artistName) == key }
             }
         )
+    }
+
+    private func librarySong(_ song: Song) -> AppTrack? {
+        AppleMusicCatalog.librarySong(title: song.title, artist: song.artistName, duration: song.duration, in: library.songs)
+    }
+
+    /// Something from the catalogue that isn't in the library, offered to be added.
+    enum CatalogOffer: Identifiable {
+        case song(Song)
+        case album(Album)
+
+        var id: String {
+            switch self {
+            case .song(let song): "song:" + song.id.rawValue
+            case .album(let album): "album:" + album.id.rawValue
+            }
+        }
+        var title: String {
+            switch self {
+            case .song(let song): song.title
+            case .album(let album): album.title
+            }
+        }
+        var url: URL? {
+            switch self {
+            case .song(let song): song.url
+            case .album(let album): album.url
+            }
+        }
+    }
+
+    /// Adds it to the library, then, once Apple has put it there, plays it (a song) or
+    /// opens its page (an album). Apple can take a little while; if it hasn't arrived
+    /// after half a minute, it's left to turn up on its own.
+    private func add(_ offer: CatalogOffer) {
+        Task {
+            do {
+                let subscribed = musicService.subscriptionState.isSubscribed
+                switch offer {
+                case .song(let song): try await AppleMusicCatalog.shared.add(song, subscribed: subscribed)
+                case .album(let album): try await AppleMusicCatalog.shared.add(album, subscribed: subscribed)
+                }
+                onNotice(String(format: String(localized: "catalog.added"), offer.title))
+            } catch {
+                onNotice(error.localizedDescription)
+                return
+            }
+            for _ in 0..<10 {
+                try? await Task.sleep(for: .seconds(3))
+                await musicService.refreshOnForeground()
+                switch offer {
+                case .song(let song):
+                    if let track = librarySong(song) {
+                        onPlaySongs([track], 0, false, track.title)
+                        return
+                    }
+                case .album(let album):
+                    if let mine = AppleMusicCatalog.libraryAlbum(title: album.title, artist: album.artistName, in: library.albums) {
+                        navigator.push(.album(mine))
+                        return
+                    }
+                }
+            }
+            onNotice(String(format: String(localized: "catalog.added.later"), offer.title))
+        }
     }
 
     private static func color(of route: LiquidRoute) async -> Color {
@@ -215,6 +317,14 @@ struct LiquidLibraryView: View {
             LiquidRememberedLayout("recentlyPlayed") { layout in
                 LiquidSongsPage(title: String(localized: "liquid.menu.recentlyPlayed"), tracks: musicService.recentlyPlayed,
                                 emptyText: String(localized: "liquid.recentlyPlayed.empty"), isAlphabetical: false,
+                                musicService: musicService, onPlay: onPlaySongs, onQueue: onQueue,
+                                bottomInset: bottomInset, layout: layout,
+                                link: (String(localized: "liquid.menu.mostPlayed"), .mostPlayed))
+            }
+        case .mostPlayed:
+            LiquidRememberedLayout("mostPlayed") { layout in
+                LiquidSongsPage(title: String(localized: "liquid.menu.mostPlayed"), tracks: AppTrack.mostPlayed(library.songs),
+                                emptyText: String(localized: "liquid.mostPlayed.empty"), isAlphabetical: false,
                                 musicService: musicService, onPlay: onPlaySongs, onQueue: onQueue,
                                 bottomInset: bottomInset, layout: layout)
             }
@@ -402,6 +512,11 @@ struct LiquidGridPage: View {
                             }
                         }
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
+                        // An artist's page: what Apple Music says of them, above their albums.
+                        if isArtist, query.isEmpty {
+                            LiquidArtistIntro(name: title)
+                                .padding(.trailing, 20)
+                        }
                         if shown.isEmpty {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
@@ -429,6 +544,10 @@ struct LiquidGridPage: View {
                                     .id(album.id)
                                     .accessibilityIdentifier("liquid.cover.\(album.id)")
                                 }
+                            }
+                            if isArtist, query.isEmpty {
+                                LiquidSimilarArtists(name: title)
+                                    .padding(.top, 10)
                             }
                         }
                     }
@@ -798,6 +917,11 @@ struct LiquidSearchPage: View {
                         }
                     }
                 }
+                // Nothing typed yet: what's most played on Apple Music.
+                if query.isEmpty {
+                    LiquidCharts()
+                        .padding(.top, 6)
+                }
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
             .padding(.horizontal, 20)
@@ -834,8 +958,27 @@ struct LiquidSongsPage: View {
     let bottomInset: CGFloat
     /// All at once or one at a time, as this list was last left.
     @Binding var layout: LiquidLayout
+    /// Another list, offered under the title (Most Played, from Recently Played).
+    var link: (title: String, route: LiquidRoute)? = nil
 
     @State private var query = ""
+    @Environment(\.liquidNavigator) private var linkNavigator
+
+    /// The other list, as a pill under the title.
+    @ViewBuilder private var linkButton: some View {
+        if let link {
+            Button { linkNavigator.push(link.route) } label: {
+                Label(link.title, systemImage: "chart.bar.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+                    .background(.white.opacity(0.14), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("liquid.link.\(link.title)")
+        }
+    }
 
     private var shown: [AppTrack] {
         let terms = query.lowercased().split(separator: " ").map(String.init)
@@ -865,6 +1008,7 @@ struct LiquidSongsPage: View {
         return VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 16) {
                 LiquidPageTitle(title: title, layout: $layout)
+                linkButton
                 if isAlphabetical {
                     LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
                 }
@@ -899,6 +1043,7 @@ struct LiquidSongsPage: View {
                 List {
                     VStack(alignment: .leading, spacing: 16) {
                         LiquidPageTitle(title: title, layout: $layout)
+                linkButton
                         if isAlphabetical {
                             LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
                         }
@@ -1001,9 +1146,12 @@ struct LiquidSongsPage: View {
                         }
                     }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(track.title)
-                        .font(.system(size: 16, weight: isPlaying ? .bold : .regular))
-                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        Text(track.title)
+                            .font(.system(size: 16, weight: isPlaying ? .bold : .regular))
+                            .lineLimit(1)
+                        if track.isExplicit { ExplicitBadge() }
+                    }
                     Text(track.albumTitle.isEmpty ? track.artistName : "\(track.artistName) · \(TapeFormat.displayTitle(track.albumTitle))")
                         .font(.system(size: 12))
                         .foregroundStyle(.white.opacity(0.6))
@@ -1070,6 +1218,12 @@ struct LiquidAlbumPage: View {
                 trackRows(tracks)
             }
 
+            // Apple's write-up and the record label, after the songs.
+            LiquidAlbumCredits(album: album)
+                .listRowInsets(EdgeInsets(top: 20, leading: 24, bottom: 8, trailing: 24))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+
             Color.clear
                 .frame(height: bottomInset + 24)
                 .listRowSeparator(.hidden)
@@ -1089,6 +1243,7 @@ struct LiquidAlbumPage: View {
             if !loaded.isEmpty || tracks == nil { tracks = loaded }
             let tint = await found
             withAnimation(.easeInOut(duration: 0.4)) { color = tint }
+            await AppleMusicCatalog.shared.loadAlbum(album)
         }
     }
 
@@ -1153,6 +1308,11 @@ struct LiquidAlbumPage: View {
                 Text(detailsText)
                     .font(.system(size: 14))
                     .foregroundStyle(.white.opacity(0.7))
+                // The audio it comes in, as Apple Music has it (see LiquidCatalog).
+                if let variants = AppleMusicCatalog.shared.details(forAlbum: album)?.variants, !variants.isEmpty {
+                    AudioVariantBadges(variants: variants)
+                        .padding(.top, 6)
+                }
             }
             if let tracks, !tracks.isEmpty {
                 HStack(spacing: 10) {
@@ -1218,9 +1378,12 @@ struct LiquidAlbumPage: View {
                     .frame(width: 26, alignment: .leading)
                     VStack(alignment: .leading, spacing: 2) {
                         // An episode's marked if played before, or part way through.
-                        EpisodeTitle(track.title, episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil })
-                            .font(.system(size: 16, weight: track.id == playingID ? .bold : .regular))
-                            .lineLimit(2)
+                        HStack(spacing: 6) {
+                            EpisodeTitle(track.title, episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil })
+                                .font(.system(size: 16, weight: track.id == playingID ? .bold : .regular))
+                                .lineLimit(2)
+                            if track.isExplicit { ExplicitBadge() }
+                        }
                         if album.isMixtape {
                             Text(track.artistName).font(.system(size: 12)).foregroundStyle(.white.opacity(0.6))
                         }
