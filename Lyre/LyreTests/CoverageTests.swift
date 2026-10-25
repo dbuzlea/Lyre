@@ -831,3 +831,33 @@ struct SongTempoTests {
         #expect(SongTempos(fileURL: file).bpm(for: track) == 103)
     }
 }
+
+@Suite("Artist photos")
+@MainActor
+struct ArtistPhotoTests {
+    /// An artist is filed under their name as it identifies them, so "The 1975" and
+    /// "the 1975" are one artist; a name with nothing to file under isn't asked for.
+    @Test func artistsAreFiledByName() {
+        #expect(ArtistPhotos.key(for: "The 1975") == ArtistPhotos.key(for: "the 1975"))
+        #expect(ArtistPhotos.key(for: "Beyoncé") == "beyonce")
+        #expect(ArtistPhotos.key(for: "*") == nil)
+    }
+
+    /// An artist Apple Music has no photo for isn't asked about again for a while, and
+    /// what's known survives a relaunch.
+    @Test func noPhotoIsRememberedThenAskedAgainLater() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("photos-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let photos = ArtistPhotos(fileURL: file)
+        let name = "21 Savage, Offset & Metro Boomin"
+        #expect(photos.needsAsking(name))
+        photos.record(nil, for: try #require(ArtistPhotos.key(for: name)))
+        #expect(!photos.needsAsking(name))
+        #expect(photos.artwork(for: name) == nil)
+        photos.save()
+        #expect(!ArtistPhotos(fileURL: file).needsAsking(name), "Forgotten after a relaunch")
+        photos.record(nil, for: try #require(ArtistPhotos.key(for: name)),
+                      at: .now.addingTimeInterval(-ArtistPhotos.retryAfter - 60))
+        #expect(photos.needsAsking(name), "Never asked again")
+    }
+}

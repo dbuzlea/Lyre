@@ -226,7 +226,7 @@ struct LiquidPlayerView: View {
             }
             // `--liquid-visualizer` shows the Duo's visualizer at once, for screenshots.
             if ProcessInfo.processInfo.arguments.contains("--liquid-visualizer") { isVisualizing = true }
-            // `-LiquidShot library|albums|album|songs|tide` opens there, for screenshots.
+            // `-LiquidShot library|albums|artists|artist|album|songs|tide` opens there, for screenshots.
             switch UserDefaults.standard.string(forKey: "LiquidShot") {
             case "nowPlaying": screen = .nowPlaying
             case "library": screen = .library
@@ -236,6 +236,12 @@ struct LiquidPlayerView: View {
             case "albums":
                 screen = .library
                 path = [.albums]
+            case "artists":
+                screen = .library
+                path = [.artists]
+            case "artist":
+                screen = .library
+                if let name = library.albums.first?.artistName { path = [.artists, .artist(name)] }
             case "album":
                 screen = .library
                 if let album = library.albums.first { path = [.albums, .album(album)] }

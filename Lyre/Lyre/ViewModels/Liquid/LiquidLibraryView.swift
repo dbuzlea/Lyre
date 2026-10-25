@@ -201,7 +201,8 @@ struct LiquidLibraryView: View {
             LiquidRememberedLayout("artist", place: "artist." + name) { layout in
                 LiquidGridPage(title: name, items: library.albums.filter { $0.artistName == name },
                                emptyText: String(localized: "spool.shelf.empty"), bottomInset: bottomInset,
-                               layout: layout, musicService: musicService, showsIndex: false)
+                               layout: layout, musicService: musicService, showsIndex: false,
+                               isArtist: true)
             }
         case .songs:
             LiquidRememberedLayout("songs") { layout in
@@ -288,6 +289,8 @@ struct LiquidGridPage: View {
     @ObservedObject var musicService: MusicService
     var emptyAction: (title: String, action: () -> Void)?
     var showsIndex = true
+    /// One artist's albums: the page opens on their photo.
+    var isArtist = false
     /// A button beside the search: Find Shows, on the podcasts page.
     var searchAction: (title: String, symbol: String, id: String, action: () -> Void)?
 
@@ -325,7 +328,7 @@ struct LiquidGridPage: View {
         let shown = self.shown
         return VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 16) {
-                LiquidPageTitle(title: title, layout: $layout)
+                LiquidPageTitle(title: title, layout: $layout, artist: isArtist ? (title, items.first) : nil)
                 searchRow
             }
             .padding(.horizontal, 20)
@@ -382,7 +385,7 @@ struct LiquidGridPage: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         VStack(alignment: .leading, spacing: 16) {
-                            LiquidPageTitle(title: title, layout: $layout)
+                            LiquidPageTitle(title: title, layout: $layout, artist: isArtist ? (title, items.first) : nil)
                             HStack(spacing: 10) {
                                 LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
                                 if let searchAction {
@@ -497,6 +500,9 @@ struct LiquidPageTitle: View {
     let title: String
     /// The page's layout, when it has a choice: a switch beside the name.
     var layout: Binding<LiquidLayout>? = nil
+    /// An artist's page: their name, and an album to stand in for their photo, which
+    /// goes large above the title.
+    var artist: (name: String, fallback: AppAlbum?)? = nil
     @Environment(\.liquidNavigator) private var navigator
 
     var body: some View {
@@ -512,6 +518,23 @@ struct LiquidPageTitle: View {
             .buttonStyle(.plain)
             .accessibilityLabel(String(localized: "liquid.back"))
             .accessibilityIdentifier("liquid.back")
+            if let artist {
+                // Their photo, large, lit from behind by its own colours.
+                ArtistPhoto(name: artist.name, fallback: artist.fallback, size: 220)
+                    .background {
+                        ArtistPhoto(name: artist.name, fallback: artist.fallback, size: 220)
+                            .blur(radius: 40)
+                            .opacity(0.55)
+                            .scaleEffect(1.1)
+                    }
+                    .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(String(format: String(localized: "artist.photo"), artist.name))
+                    .accessibilityAddTraits(.isImage)
+                    .accessibilityIdentifier("liquid.artist.photo")
+            }
             HStack(alignment: .center) {
                 Text(title.lowercased())
                     .font(.system(size: 44, weight: .medium))
@@ -687,9 +710,10 @@ struct LiquidArtistsPage: View {
     let albums: [AppAlbum]
     let bottomInset: CGFloat
 
-    private var artists: [(name: String, count: Int)] {
+    /// Each artist with how many albums, and one to stand in for their photo.
+    private var artists: [(name: String, count: Int, album: AppAlbum?)] {
         Dictionary(grouping: albums, by: \.artistName)
-            .map { ($0.key, $0.value.count) }
+            .map { ($0.key, $0.value.count, $0.value.first) }
             .filter { !$0.0.isEmpty }
             .sorted { AppHelpers.sortsBefore($0.0, $1.0) }
     }
@@ -705,7 +729,8 @@ struct LiquidArtistsPage: View {
                 }
                 ForEach(artists, id: \.name) { artist in
                     Button { navigator.push(.artist(artist.name)) } label: {
-                        HStack(alignment: .firstTextBaseline) {
+                        HStack(alignment: .center, spacing: 14) {
+                            ArtistPhoto(name: artist.name, fallback: artist.album, size: 52)
                             Text(artist.name)
                                 .font(.system(size: 30, weight: .medium))
                                 .tracking(-0.8)
@@ -717,10 +742,11 @@ struct LiquidArtistsPage: View {
                                 .foregroundStyle(.white.opacity(0.5))
                         }
                         .foregroundStyle(.white)
-                        .frame(minHeight: 52)
+                        .frame(minHeight: 64)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(LiquidWordStyle())
+                    .accessibilityIdentifier("liquid.artist.\(artist.name)")
                 }
             }
             .padding(.horizontal, 20)

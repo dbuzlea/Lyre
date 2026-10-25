@@ -549,6 +549,25 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(pool.waitForExistence(timeout: 5), "The pool didn't come back")
     }
 
+    /// Each artist has a rounded-square photo beside their name (here their album's
+    /// cover, as the simulator has no Apple Music), and their page opens on it, large.
+    @MainActor
+    func testArtistsHavePhotosAndTheirPageOpensOnOne() throws {
+        let app = launchLiquid(["-LiquidShot", "artists"])
+        let row = element(app, "liquid.artist.Lyre")
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "No artist in the list")
+        XCTAssertGreaterThan(row.frame.height, 60, "The row has no room for a photo")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-artists")
+        row.tap()
+        let photo = element(app, "liquid.artist.photo")
+        XCTAssertTrue(photo.waitForExistence(timeout: 5), "The artist's page has no photo")
+        XCTAssertGreaterThan(photo.frame.width, 200, "The photo isn't large")
+        XCTAssertTrue(element(app, "liquid.cover.sample-1").waitForExistence(timeout: 5), "The artist's albums are missing")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-artist-page")
+    }
+
     // MARK: - iPhone Duo held as a book: Now Playing and the bubbles
 
     /// Only the Duo's inner screen turns Liquid sideways, which the simulator can't do:
