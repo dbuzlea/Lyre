@@ -245,6 +245,30 @@ enum QueuePlacement {
     case last
 }
 
+// MARK: - Playback Entry
+
+/// What the player plays a queued track from: its library item, or, for a song streamed
+/// from Apple Music, its store ID. The player's queue holds both side by side.
+nonisolated enum PlaybackEntry {
+    case item(MPMediaItem)
+    case store(String)
+
+    /// The entry for something already in the player's queue.
+    init(queued item: MPMediaItem) {
+        self = item.persistentID != 0 ? .item(item) : .store(item.playbackStoreID)
+    }
+
+    var item: MPMediaItem? {
+        if case .item(let item) = self { return item }
+        return nil
+    }
+    var storeID: String? {
+        if case .store(let id) = self { return id }
+        return nil
+    }
+    var isStore: Bool { storeID != nil }
+}
+
 // MARK: - Playback Notice
 
 struct PlaybackNotice: Equatable {
@@ -1262,8 +1286,9 @@ class MusicService: ObservableObject {
         // start position is resolved against the tracks that survived the filter
         // rather than reused as-is — a dropped earlier track would otherwise shift
         // playback onto the wrong song.
-        let window = await Self.resolveForPlayback(Array(tracks[windowStart..<windowEnd]))
-        guard !window.items.isEmpty else {
+        let window = await Self.resolveForPlayback(Array(tracks[windowStart..<windowEnd]),
+                                                   streaming: canStream)
+        guard !window.entries.isEmpty else {
             logger.warning("No MPMediaItems resolved for playback queue")
             return .nothingPlayable
         }
@@ -1282,30 +1307,43 @@ class MusicService: ObservableObject {
             playbackQueue = PlaybackQueue(tracks: window.tracks, currentIndex: startIndex)
             // A new list: nothing in it was queued by hand.
             listenerQueued = [:]
-            setPlayerQueue(items: window.items, startItem: window.items[startIndex], thenPlay: true)
+            setPlayerQueue(window.entries, startingAt: startIndex)
             currentTrack = window.tracks[startIndex]
             isPlaying = true
             currentPlaylistID = playlistID
             currentPodcastShowTitle = nil
-            logger.info("Queued \(window.items.count) of \(tracks.count) track(s); now playing: \(window.tracks[startIndex].title)")
+            logger.info("Queued \(window.entries.count) of \(tracks.count) track(s); now playing: \(window.tracks[startIndex].title)")
         }
         return .started
     }
 
-    /// Attaches a media item to each track, dropping the ones that cannot be played.
-    /// Returns the survivors and their items in matching order. Runs off the main
-    /// thread, because the per-track lookup can hit MPMediaQuery.
+    /// Finds what the player can play each track from, dropping the ones it can't.
+    /// Returns the survivors and their entries in matching order. A song streamed
+    /// from Apple Music (`isStreamOnly`) goes by its store ID, and only with
+    /// `streaming` (a subscription); everything else needs its library item. Runs off
+    /// the main thread, because the per-track lookup can hit MPMediaQuery.
     @concurrent
-    private nonisolated static func resolveForPlayback(_ tracks: [AppTrack]) async -> (tracks: [AppTrack], items: [MPMediaItem]) {
+    private nonisolated static func resolveForPlayback(_ tracks: [AppTrack], streaming: Bool) async -> (tracks: [AppTrack], entries: [PlaybackEntry]) {
         var resolvedTracks: [AppTrack] = []
-        var items: [MPMediaItem] = []
+        var entries: [PlaybackEntry] = []
         for track in tracks {
+            if track.isStreamOnly {
+                // Not looked up by title: a library song that merely shares the name
+                // isn't the one chosen.
+                guard streaming, let storeID = track.storeID else { continue }
+                resolvedTracks.append(track)
+                entries.append(.store(storeID))
+                continue
+            }
             guard let item = mediaItem(for: track) else { continue }
             resolvedTracks.append(track.attaching(mpItem: item))
-            items.append(item)
+            entries.append(.item(item))
         }
-        return (resolvedTracks, items)
+        return (resolvedTracks, entries)
     }
+
+    /// Whether songs can be streamed from Apple Music: with a subscription.
+    var canStream: Bool { subscriptionState.isSubscribed }
 
     /// Tops the player's queue up from the list playback started with, so a windowed
     /// queue still plays through a whole library. Main thread only.
@@ -1321,26 +1359,25 @@ class MusicService: ObservableObject {
         queueSourceNextIndex = end
         let remaining = queueSourceTracks.count - end
 
+        let streaming = canStream
         Task { [weak self] in
             guard let self else { return }
-            let chunk = await Self.resolveForPlayback(slice)
-            guard !chunk.items.isEmpty else { return }
+            let chunk = await Self.resolveForPlayback(slice, streaming: streaming)
+            guard !chunk.entries.isEmpty else { return }
             await MainActor.run {
                 for track in chunk.tracks { self.playbackQueue.append(track) }
                 // Read on the main thread: a music player must not be touched from
                 // inside the transaction block.
-                let currentItem = self.player.nowPlayingItem
-                logger.info("Refilled queue with \(chunk.items.count) item(s), \(remaining) left to come")
-                self.performQueueTransaction("refill \(chunk.items.count) item(s)") { queue in
-                    queue.insert(Self.queueDescriptor(for: chunk.items), after: queue.items.last)
+                let currentKey = self.player.nowPlayingItem?.queueKey
+                logger.info("Refilled queue with \(chunk.entries.count) item(s), \(remaining) left to come")
+                self.performQueueTransaction("refill \(chunk.entries.count) item(s)") { queue in
+                    Self.insert(chunk.entries, after: queue.items.last, in: queue)
 
                     // Drop long-since-played tracks. Without this the queue only ever
                     // grows, and playing through a large library would end up back at
                     // the size that overwhelmed the player in the first place.
-                    guard let currentItem,
-                          let currentIndex = queue.items.firstIndex(where: {
-                              $0.persistentID == currentItem.persistentID
-                          }),
+                    guard let currentKey,
+                          let currentIndex = queue.items.firstIndex(where: { $0.queueKey == currentKey }),
                           currentIndex > Self.queueHistorySize else { return }
                     let stale = Array(queue.items.prefix(currentIndex - Self.queueHistorySize))
                     for item in stale { queue.remove(item) }
@@ -1370,28 +1407,6 @@ class MusicService: ObservableObject {
         }
         return outcome
     }
-
-#if DEBUG
-    // MARK: - Catalogue Spike Hooks
-    //
-    // The player is private, so these hand it to CatalogueQueueSpike. Compiled out of
-    // release builds; delete along with the spike. See Docs/CATALOGUE-QUEUE-SPIKE.md.
-
-    @MainActor
-    func spikeAppendAsCatalogue(_ track: AppTrack) {
-        CatalogueQueueSpike.appendToCurrentQueue(track, player: player)
-    }
-
-    @MainActor
-    func spikePlayAllAsCatalogue(_ tracks: [AppTrack], startingAt index: Int) {
-        CatalogueQueueSpike.playAllAsCatalogue(tracks, startingAt: index, player: player)
-    }
-
-    @MainActor
-    func spikeReportNowPlaying() {
-        CatalogueQueueSpike.reportNowPlaying(player: player)
-    }
-#endif
 
     /// Plays episodes of a show: on-device episodes through the music player, streamed
     /// ones through the stream engine.
@@ -1471,10 +1486,10 @@ class MusicService: ObservableObject {
         let overflow = tracks.count - accepted.count
         // Resolution can fall back to a per-track MPMediaQuery, so keep it off the
         // main thread — a 200-track album would be a visible stall otherwise.
-        let resolved = await Self.resolveForPlayback(accepted)
-        let skipped = (accepted.count - resolved.items.count) + overflow
+        let resolved = await Self.resolveForPlayback(accepted, streaming: await MainActor.run { canStream })
+        let skipped = (accepted.count - resolved.entries.count) + overflow
 
-        guard !resolved.items.isEmpty else {
+        guard !resolved.entries.isEmpty else {
             logger.warning("Cannot queue \(tracks.count) track(s) — nothing playable behind them")
             return .unavailable
         }
@@ -1497,33 +1512,33 @@ class MusicService: ObservableObject {
             switch placement {
             case .last:
                 for track in resolved.tracks { playbackQueue.append(track) }
-                performQueueTransaction("append \(resolved.items.count) track(s)") { queue in
-                    queue.insert(Self.queueDescriptor(for: resolved.items), after: queue.items.last)
+                performQueueTransaction("append \(resolved.entries.count) track(s)") { queue in
+                    Self.insert(resolved.entries, after: queue.items.last, in: queue)
                 }
 
             case .next:
                 // Read before the model changes and on the main thread: a music player
                 // must not be touched from inside the transaction block.
-                let currentItem = player.nowPlayingItem
+                let currentKey = player.nowPlayingItem?.queueKey
                 let modelIndex = playbackQueue.currentIndex
                 playbackQueue.insertUpNext(resolved.tracks)
-                performQueueTransaction("insert \(resolved.items.count) track(s) next") { queue in
+                performQueueTransaction("insert \(resolved.entries.count) track(s) next") { queue in
                     // The same song can sit in the queue more than once, so anchor to the
                     // copy nearest the model's current position rather than the first
                     // one, which may be long since played.
-                    let anchor = currentItem.flatMap { current in
+                    let anchor = currentKey.flatMap { key in
                         queue.items.indices
-                            .filter { queue.items[$0].persistentID == current.persistentID }
+                            .filter { queue.items[$0].queueKey == key }
                             .min { abs($0 - modelIndex) < abs($1 - modelIndex) }
                             .map { queue.items[$0] }
                     }
                     // Without an anchor the best available is the bottom: never in
                     // front of the song that is playing.
-                    queue.insert(Self.queueDescriptor(for: resolved.items), after: anchor ?? queue.items.last)
+                    Self.insert(resolved.entries, after: anchor ?? queue.items.last, in: queue)
                 }
             }
             for track in resolved.tracks { listenerQueued[track.id, default: 0] += 1 }
-            logger.info("Queued \(resolved.items.count) track(s) \(placement == .next ? "next" : "last"), skipped \(skipped); Up Next is now \(self.playbackQueue.upNextCount)")
+            logger.info("Queued \(resolved.entries.count) track(s) \(placement == .next ? "next" : "last"), skipped \(skipped); Up Next is now \(self.playbackQueue.upNextCount)")
             return .queued(count: resolved.tracks.count, skipped: skipped)
         }
     }
@@ -1543,19 +1558,18 @@ class MusicService: ObservableObject {
     func commitQueueMove(to offset: Int, then completion: (() -> Void)? = nil) {
         guard canEditUpcoming else { return }
         let upNext = playbackQueue.upNext
-        guard upNext.indices.contains(offset), let movedItem = upNext[offset].mpItem else { return }
+        guard upNext.indices.contains(offset) else { return }
+        let movedKey = upNext[offset].queueKey
         // Up Next offset 0 sits directly after the current track, so there is always a
         // preceding track to anchor the insert to.
-        let precedingItem = playbackQueue.tracks[playbackQueue.currentIndex + offset].mpItem
+        let precedingKey = playbackQueue.tracks[playbackQueue.currentIndex + offset].queueKey
 
         logger.info("Moving '\(upNext[offset].title)' to Up Next position \(offset + 1)")
         performQueueTransaction("move '\(upNext[offset].title)'", then: completion) { queue in
-            guard let existing = queue.items.first(where: { $0.persistentID == movedItem.persistentID }) else { return }
-            let anchor = precedingItem.flatMap { preceding in
-                queue.items.first { $0.persistentID == preceding.persistentID }
-            }
+            guard let existing = queue.items.first(where: { $0.queueKey == movedKey }) else { return }
+            let anchor = queue.items.first { $0.queueKey == precedingKey }
             queue.remove(existing)
-            queue.insert(Self.queueDescriptor(for: [existing]), after: anchor)
+            Self.insert([PlaybackEntry(queued: existing)], after: anchor, in: queue)
         }
     }
 
@@ -1568,11 +1582,10 @@ class MusicService: ObservableObject {
             listenerQueued[removed.id] = count > 1 ? count - 1 : nil
         }
         logger.info("Removed '\(removed.title)' from the queue")
-        if let item = removed.mpItem {
-            performQueueTransaction("remove '\(removed.title)'", refillAfter: true) { queue in
-                guard let existing = queue.items.first(where: { $0.persistentID == item.persistentID }) else { return }
-                queue.remove(existing)
-            }
+        let key = removed.queueKey
+        performQueueTransaction("remove '\(removed.title)'", refillAfter: true) { queue in
+            guard let existing = queue.items.first(where: { $0.queueKey == key }) else { return }
+            queue.remove(existing)
         }
         return removed
     }
@@ -1594,11 +1607,11 @@ class MusicService: ObservableObject {
 
         // Read on the main thread: a music player must not be touched from inside the
         // transaction block.
-        let currentItem = player.nowPlayingItem
+        let currentKey = player.nowPlayingItem?.queueKey
         performQueueTransaction("clear \(removed) item(s)") { queue in
             let upcoming: [MPMediaItem]
-            if let currentItem,
-               let currentIndex = queue.items.firstIndex(where: { $0.persistentID == currentItem.persistentID }) {
+            if let currentKey,
+               let currentIndex = queue.items.firstIndex(where: { $0.queueKey == currentKey }) {
                 upcoming = Array(queue.items.suffix(from: currentIndex + 1))
             } else {
                 // Nothing is playing, so there is no track to keep.
@@ -1628,13 +1641,26 @@ class MusicService: ObservableObject {
     /// behind it rather than being skipped over and dropped as played.
     func playUpNext(at offset: Int) {
         let upNext = playbackQueue.upNext
-        guard activeEngine == .library, upNext.indices.contains(offset),
-              let item = upNext[offset].mpItem else { return }
-        logger.info("Playing '\(upNext[offset].title)' from Up Next now")
+        guard activeEngine == .library, upNext.indices.contains(offset) else { return }
+        let track = upNext[offset]
+        logger.info("Playing '\(track.title)' from Up Next now")
         let playIt = { [weak self] in
             guard let self else { return }
-            self.player.nowPlayingItem = item
-            self.player.play()
+            if let item = track.mpItem {
+                self.player.nowPlayingItem = item
+                self.player.play()
+                return
+            }
+            // Streamed: the player's own entry for it is the only item it will jump to.
+            let key = track.queueKey
+            self.player.perform(queueTransaction: { _ in }) { queue, _ in
+                let entry = queue.items.first { $0.queueKey == key }
+                DispatchQueue.main.async {
+                    guard let entry else { return }
+                    self.player.nowPlayingItem = entry
+                    self.player.play()
+                }
+            }
         }
         guard offset > 0, canEditUpcoming else { return playIt() }
         reorderUpNext(from: offset, to: 0)
@@ -1703,18 +1729,84 @@ class MusicService: ObservableObject {
             return
         }
         let known = Dictionary(
-            playbackQueue.tracks.compactMap { track in track.mpItem.map { ($0.persistentID, track) } },
+            playbackQueue.tracks.map { ($0.queueKey, $0) },
             uniquingKeysWith: { first, _ in first }
         )
-        let tracks = items.map { known[$0.persistentID] ?? AppTrack(from: $0) }
+        let tracks = items.map { known[$0.queueKey] ?? AppTrack(from: $0) }
         let currentIndex = player.nowPlayingItem
-            .flatMap { nowPlaying in items.firstIndex { $0.persistentID == nowPlaying.persistentID } }
+            .flatMap { nowPlaying in items.firstIndex { $0.queueKey == nowPlaying.queueKey } }
             ?? playbackQueue.currentIndex
         playbackQueue = PlaybackQueue(tracks: tracks, currentIndex: currentIndex)
     }
 
     private static func queueDescriptor(for items: [MPMediaItem]) -> MPMusicPlayerMediaItemQueueDescriptor {
         MPMusicPlayerMediaItemQueueDescriptor(itemCollection: MPMediaItemCollection(items: items))
+    }
+
+    /// The entries as descriptors, one for each run of the same kind: the player takes
+    /// library items and store IDs in separate descriptors, but mixes them in a queue.
+    nonisolated static func runs(of entries: [PlaybackEntry]) -> [[PlaybackEntry]] {
+        var runs: [[PlaybackEntry]] = []
+        for entry in entries {
+            if let last = runs.last?.last, last.isStore == entry.isStore {
+                runs[runs.count - 1].append(entry)
+            } else {
+                runs.append([entry])
+            }
+        }
+        return runs
+    }
+
+    private nonisolated static func descriptor(for run: [PlaybackEntry]) -> MPMusicPlayerQueueDescriptor {
+        let items = run.compactMap(\.item)
+        if items.count == run.count { return queueDescriptor(for: items) }
+        return MPMusicPlayerStoreQueueDescriptor(storeIDs: run.compactMap(\.storeID))
+    }
+
+    /// Inserts `entries`, in order, after `anchor` (nil: at the front). Each run goes in
+    /// after the same anchor, last first, so they land in order without needing the
+    /// items the player makes of the earlier ones.
+    private nonisolated static func insert(_ entries: [PlaybackEntry], after anchor: MPMediaItem?,
+                                           in queue: MPMusicPlayerControllerMutableQueue) {
+        for run in runs(of: entries).reversed() {
+            queue.insert(descriptor(for: run), after: anchor)
+        }
+    }
+
+    /// Starts a new queue of `entries` at `startIndex`. One of library items alone is
+    /// handed over whole (`setPlayerQueue(items:startItem:)`); one with songs streamed
+    /// from Apple Music is set from the run holding the start, and the runs before
+    /// and after it are put round it in one edit.
+    private func setPlayerQueue(_ entries: [PlaybackEntry], startingAt startIndex: Int) {
+        let items = entries.compactMap(\.item)
+        if items.count == entries.count {
+            setPlayerQueue(items: items, startItem: items[startIndex], thenPlay: true)
+            return
+        }
+        activateLibraryEngine()
+        // Split the entries into runs, and find the start's run and place in it.
+        let runs = Self.runs(of: entries)
+        var runIndex = 0, offset = startIndex
+        while offset >= runs[runIndex].count {
+            offset -= runs[runIndex].count
+            runIndex += 1
+        }
+        let startRun = runs[runIndex]
+        let descriptor = Self.descriptor(for: startRun)
+        switch startRun[offset] {
+        case .item(let item): (descriptor as? MPMusicPlayerMediaItemQueueDescriptor)?.startItem = item
+        case .store(let id): (descriptor as? MPMusicPlayerStoreQueueDescriptor)?.startItemID = id
+        }
+        queueSettlingUntil = Date().addingTimeInterval(Self.queueSettlingWindow)
+        player.setQueue(with: descriptor)
+        player.play()
+
+        let before = Array(runs[..<runIndex].joined()), after = Array(runs[(runIndex + 1)...].joined())
+        guard !before.isEmpty || !after.isEmpty else { return }
+        performQueueTransaction("surround \(startRun.count) with \(before.count) + \(after.count)") { queue in
+            if !after.isEmpty { Self.insert(after, after: queue.items.last, in: queue) }
+            if !before.isEmpty { Self.insert(before, after: nil, in: queue) }
+        }
     }
 
     /// Replaces the player's queue wholesale. Only starting fresh playback does this —
@@ -2208,7 +2300,7 @@ class MusicService: ObservableObject {
         guard activeEngine == .library else { return }
         // An episode playing through the music player, left for another: how far it
         // was heard, for the lists' played marks.
-        if let previous = currentMediaItem, previous.persistentID != player.nowPlayingItem?.persistentID {
+        if let previous = currentMediaItem, previous.queueKey != player.nowPlayingItem?.queueKey {
             recordLibraryEpisode(previous, time: clock.time)
         }
         currentMediaItem = player.nowPlayingItem
@@ -2221,16 +2313,8 @@ class MusicService: ObservableObject {
             return
         }
         duration = nowPlaying.playbackDuration
-#if DEBUG
-        // Answers Q3 of the catalogue spike as tracks change, without needing a
-        // trigger at the right moment. Delete with the spike.
-        logger.notice("""
-            Q3 — nowPlayingItem persistentID=\(nowPlaying.persistentID) \
-            isCloud=\(nowPlaying.isCloudItem) title=\(nowPlaying.title ?? "nil")
-            """)
-#endif
         // Advance the queue cursor to whatever is playing now.
-        if playbackQueue.advanceCurrent(toPersistentID: nowPlaying.persistentID) {
+        if playbackQueue.advanceCurrent(toKey: nowPlaying.queueKey) {
             queueSettlingUntil = nil
             refillQueueIfNeeded()
         } else if !isQueueSettling {
@@ -2240,7 +2324,13 @@ class MusicService: ObservableObject {
             logger.notice("Playback left the app's queue — resetting the queue model")
             playbackQueue = PlaybackQueue(tracks: [AppTrack(from: nowPlaying)])
         }
-        currentTrack = libraryTrack(for: nowPlaying)
+        if nowPlaying.persistentID != 0 {
+            currentTrack = libraryTrack(for: nowPlaying)
+        } else {
+            // Streamed from Apple Music: not in the library, so the queue's own track.
+            let current = playbackQueue.current
+            currentTrack = current?.queueKey == nowPlaying.queueKey ? current : AppTrack(from: nowPlaying)
+        }
         updateNowPlayingInfoCenter()
     }
 

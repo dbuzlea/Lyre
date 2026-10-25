@@ -524,8 +524,8 @@
       "steps": [
         ["Open a well-known artist in Liquid.", "Under their photo: a biography (tap More to read it all), Top Songs (5, Show All for 10, each with a tick if it's in your library or a plus if not), Latest Release, then their albums, and Similar Artists at the bottom."],
         ["Tap a top song that has a tick.", "It plays."],
-        ["Tap a top song with a plus.", "“… isn't in your library” offers Add to Library and Open in Apple Music."],
-        ["Choose Add to Library.", "“Added …. It'll play in a moment.”, then within about half a minute it plays (or a message says it'll appear once Apple Music has synced it). It now has a tick."],
+        ["Tap a top song with a plus.", "It streams from Apple Music, with the rest of Top Songs after it in Up Next (see LQD-10)."],
+        ["Hold a top song with a plus and choose Add to Playlist…, or, from a song's offer without a subscription, Add to Library.", "Added; a song added to the library gets a tick once Apple Music has synced it."],
         ["Tap a similar artist you have, then one you don't.", "Yours opens their page; the other opens Apple Music."],
         ["Open an album that's in Dolby Atmos or Lossless on Apple Music.", "Badges under the title (Dolby Atmos, Hi-Res Lossless or Lossless), an E beside explicit songs, and after the songs Apple's write-up and the record label and copyright."],
         ["Open Recently Played, then Most Played.", "Your most played songs, most first."],
@@ -541,13 +541,28 @@
       "steps": [
         ["In Liquid, open Search and type an artist you don't have.", "After a moment, an “apple music” section below your library's matches: songs (each with a tick or a plus), then albums and artists in rows."],
         ["Type one or two letters only.", "One letter asks Apple Music nothing; two or more do."],
-        ["Tap a song with a tick, then one with a plus.", "Yours plays; the other offers Add to Library, Add to Playlist… and Open in Apple Music."],
+        ["Tap a song with a tick, then one with a plus.", "Yours plays from your library; the other streams from Apple Music (see LQD-10)."],
         ["Choose Add to Playlist….", "Your own playlists, by name (none of Apple's). Tap one: a tick, the sheet closes, and the song is in that playlist in the Music app."],
-        ["Tap an Apple Music album or artist.", "One you have opens its page; one you don't offers to add it (album) or opens Apple Music (artist)."],
+        ["Tap an Apple Music album or artist.", "One you have opens its page; an album you don't offers Play, Add to Library and Open in Apple Music; an artist you don't opens Apple Music."],
         ["Hold a song in your library (in Liquid, the Spool, the Disc or the Gramophone) and choose Add to Playlist….", "The same playlists come up; adding works the same."],
         ["Without a subscription, or offline, add a song to a playlist.", "The sheet stays open and says what went wrong under the list."]
       ],
       "automated_by": ["LyreTests/PlaylistAdderTests", "LyreUITests/LiquidUITests/testHoldingASongOffersAddToPlaylist()"]
+    },
+    {
+      "key": "LQD-10", "suite": "Liquid Player", "title": "Stream Apple Music songs that aren't in the library, mixed with library songs",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "A device with an Apple Music subscription. Online.",
+      "steps": [
+        ["In Liquid's Search, type something you don't have and tap a song with a plus.", "It streams: Now Playing shows it with its cover and time, and Up Next holds the rest of the list."],
+        ["Open Up Next.", "The streamed songs are listed like any other; reorder one, remove one, tap one to play it now."],
+        ["While a streamed song plays, hold a song in your library and choose Play Next, then skip.", "Your song plays next, then the streamed list carries on."],
+        ["While a library album plays, hold an Apple Music song (search, charts or Top Songs) and choose Play Next or Add to Queue.", "It goes into Up Next and streams when it comes up."],
+        ["Tap an Apple Music album you don't have and choose Play.", "It streams from the top."],
+        ["Play a song you own from Apple Music's results (a tick).", "It plays from your library: it works in Airplane Mode if it's downloaded."],
+        ["Without a subscription, tap a song with a plus.", "Nothing streams; it offers Add to Library and Open in Apple Music, and says a subscription is needed."]
+      ],
+      "automated_by": ["LyreTests/StreamingQueueTests", "LyreTests/PlaybackQueueTests/advanceCurrentFollowsASongStreamedFromAppleMusic()", "LyreUITests/StreamingDeviceUITests/testASongNotInTheLibraryStreamsFromSearch()"]
     },
 
     {

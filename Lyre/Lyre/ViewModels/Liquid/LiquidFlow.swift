@@ -45,13 +45,17 @@ struct LiquidNavigator {
     var loadTracks: (AppAlbum) async -> [AppTrack] = { _ in [] }
     /// The album a song is on, when the library has it.
     var album: (AppTrack) -> AppAlbum? = { _ in nil }
-    /// A song from Apple Music's catalogue chosen: played if the library has it, else
-    /// offered to be added (see AppleMusicCatalog).
-    var catalogSong: (Song) -> Void = { _ in }
+    /// A song from Apple Music's catalogue chosen, from a list of them (named): plays
+    /// from it through the list, each song from the library if it has it and streamed
+    /// otherwise. Without a subscription, one the library hasn't is offered to be added
+    /// instead (see AppleMusicCatalog, Docs/CATALOGUE-STREAMING.md).
+    var catalogSong: (Song, [Song], String) -> Void = { _, _, _ in }
     /// An album from the catalogue chosen: its page if the library has it, else offered.
     var catalogAlbum: (Album) -> Void = { _ in }
     /// The library's copy of a catalogue song, if it has one.
     var librarySong: (Song) -> AppTrack? = { _ in nil }
+    /// A catalogue song as a track to play or queue: the library's copy, else streamed.
+    var catalogTrack: (Song) -> AppTrack = { AppTrack(from: $0) }
     /// Whether the library has albums by an artist of this name.
     var hasArtist: (String) -> Bool = { _ in false }
 }

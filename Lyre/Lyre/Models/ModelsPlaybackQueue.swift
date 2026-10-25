@@ -91,16 +91,17 @@ struct PlaybackQueue: Equatable {
         return removed
     }
 
-    /// Points `currentIndex` at the track backed by `persistentID`.
+    /// Points `currentIndex` at the track the player knows by `key` (see
+    /// `MPMediaItem.queueKey`): a library item, or a song streamed from Apple Music.
     ///
     /// The search starts at the current position so a queue holding the same song
     /// twice advances to the later copy instead of jumping back to the first one.
     /// Returns false when the player has moved to something outside this queue, which
     /// means the model no longer describes what is playing.
     @discardableResult
-    mutating func advanceCurrent(toPersistentID persistentID: MPMediaEntityPersistentID) -> Bool {
+    mutating func advanceCurrent(toKey key: String) -> Bool {
         guard !tracks.isEmpty else { return false }
-        let matches = { (track: AppTrack) in track.mpPersistentID == persistentID }
+        let matches = { (track: AppTrack) in track.queueKey == key }
         if let index = tracks[currentIndex...].firstIndex(where: matches) {
             currentIndex = index
             return true

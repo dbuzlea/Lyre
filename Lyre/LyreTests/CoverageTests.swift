@@ -11,6 +11,7 @@ import Testing
 import Foundation
 import SwiftUI
 import MusicKit
+import MediaPlayer
 @testable import Lyre
 
 private func feedShow(_ url: String = "https://a.lyre.test/f.xml", title: String = "Show",
@@ -936,5 +937,30 @@ struct PlaylistAdderTests {
         #expect(AppleMusicCatalog.searchTerm("  a ") == nil)
         #expect(AppleMusicCatalog.searchTerm("  ab ") == "ab")
         #expect(AppleMusicCatalog.searchTerm("Radiohead\n") == "Radiohead")
+    }
+}
+
+/// Songs streamed from Apple Music sit in the player's queue beside library songs, but
+/// each descriptor holds one kind: a mixed list goes in as runs, in order.
+struct StreamingQueueTests {
+    @Test func aMixedListGoesInAsRunsOfOneKind() {
+        let item = MPMediaItem()
+        let entries: [PlaybackEntry] = [.item(item), .item(item), .store("1"), .store("2"), .item(item), .store("3")]
+        let runs = MusicService.runs(of: entries)
+        #expect(runs.map(\.count) == [2, 2, 1, 1])
+        #expect(runs.map { $0.first?.isStore } == [false, true, false, true])
+        #expect(runs[1].compactMap(\.storeID) == ["1", "2"])
+        #expect(MusicService.runs(of: []).isEmpty)
+    }
+
+    @Test func aCatalogueSongStreamsAndALibrarySongDoesNot() {
+        let streamed = AppTrack(id: "1440934248", title: "a", artistName: "", albumTitle: "", duration: 1, storeID: "1440934248")
+        let owned = AppTrack(id: "i.abc", title: "a", artistName: "", albumTitle: "", duration: 1,
+                             mpPersistentID: 6493, storeID: "1440934248")
+        #expect(streamed.isStreamOnly && streamed.queueKey == "s1440934248")
+        // The library's copy is played from the library, offline and without a subscription.
+        #expect(!owned.isStreamOnly && owned.queueKey == "p6493")
+        #expect(AppTrack.catalogID(MusicItemID("1440934248")) == "1440934248")
+        #expect(AppTrack.catalogID(MusicItemID("i.abc")) == nil)
     }
 }

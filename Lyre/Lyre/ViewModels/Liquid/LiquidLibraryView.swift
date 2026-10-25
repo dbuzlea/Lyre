@@ -94,6 +94,9 @@ struct LiquidLibraryView: View {
         .confirmationDialog(catalogOffer.map { String(format: String(localized: "catalog.offer.title"), $0.title) } ?? "",
                             isPresented: Binding(get: { catalogOffer != nil }, set: { if !$0 { catalogOffer = nil } }),
                             titleVisibility: .visible, presenting: catalogOffer) { offer in
+            if case .album(let album) = offer, musicService.canStream {
+                Button(String(localized: "catalog.offer.play")) { play(album) }
+            }
             Button(String(localized: "catalog.offer.add")) { add(offer) }
             if case .song(let song) = offer {
                 Button(String(localized: "playlist.add.action")) { PlaylistAdder.shared.offer(.song(song)) }
@@ -148,12 +151,14 @@ struct LiquidLibraryView: View {
                 let albums = library.albums.filter { $0.tapeTitle == title }
                 return albums.first { $0.artistName == track.artistName } ?? albums.first
             },
-            catalogSong: { song in
-                if let track = librarySong(song) {
-                    onPlaySongs([track], 0, false, track.title)
-                } else {
+            catalogSong: { song, list, name in
+                guard librarySong(song) != nil || musicService.canStream else {
                     catalogOffer = .song(song)
+                    return
                 }
+                let songs = list.contains(song) ? list : [song]
+                let tracks = songs.map(catalogTrack)
+                onPlaySongs(tracks, songs.firstIndex(of: song) ?? 0, false, name)
             },
             catalogAlbum: { album in
                 if let mine = AppleMusicCatalog.libraryAlbum(title: album.title, artist: album.artistName, in: library.albums) {
@@ -163,6 +168,7 @@ struct LiquidLibraryView: View {
                 }
             },
             librarySong: librarySong,
+            catalogTrack: catalogTrack,
             hasArtist: { name in
                 let key = ArtistPhotos.key(for: name)
                 return library.albums.contains { ArtistPhotos.key(for: $0.artistName) == key }
@@ -172,6 +178,19 @@ struct LiquidLibraryView: View {
 
     private func librarySong(_ song: Song) -> AppTrack? {
         AppleMusicCatalog.librarySong(title: song.title, artist: song.artistName, duration: song.duration, in: library.songs)
+    }
+
+    private func catalogTrack(_ song: Song) -> AppTrack {
+        librarySong(song) ?? AppTrack(from: song)
+    }
+
+    /// Streams a catalogue album the library hasn't, from the top.
+    private func play(_ album: Album) {
+        Task {
+            let tracks = (try? await album.with([.tracks]).tracks).map { $0.map { AppTrack(from: $0) } } ?? []
+            guard !tracks.isEmpty else { return onNotice(String(localized: "catalog.play.failed")) }
+            onPlaySongs(tracks, 0, true, album.title)
+        }
     }
 
     /// Something from the catalogue that isn't in the library, offered to be added.
