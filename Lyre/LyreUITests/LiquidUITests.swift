@@ -568,6 +568,19 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "liquid-artist-page")
     }
 
+    /// Recently Played offers Most Played, which says what will show there before any
+    /// song has been played enough.
+    @MainActor
+    func testRecentlyPlayedLeadsToMostPlayed() throws {
+        let app = launchLiquid(["-LiquidShot", "recentlyPlayed"])
+        let link = element(app, "liquid.link.most played")
+        XCTAssertTrue(link.waitForExistence(timeout: 10), "Recently Played doesn't offer Most Played")
+        link.tap()
+        XCTAssertTrue(app.staticTexts["Songs you play a few times show up here."].waitForExistence(timeout: 5),
+                      "Most Played didn't open")
+        attachScreenshot(app, named: "liquid-most-played")
+    }
+
     // MARK: - iPhone Duo held as a book: Now Playing and the bubbles
 
     /// Only the Duo's inner screen turns Liquid sideways, which the simulator can't do:

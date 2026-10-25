@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import MusicKit
 import UIKit
 
 // MARK: - Liquid Flow
@@ -44,6 +45,15 @@ struct LiquidNavigator {
     var loadTracks: (AppAlbum) async -> [AppTrack] = { _ in [] }
     /// The album a song is on, when the library has it.
     var album: (AppTrack) -> AppAlbum? = { _ in nil }
+    /// A song from Apple Music's catalogue chosen: played if the library has it, else
+    /// offered to be added (see AppleMusicCatalog).
+    var catalogSong: (Song) -> Void = { _ in }
+    /// An album from the catalogue chosen: its page if the library has it, else offered.
+    var catalogAlbum: (Album) -> Void = { _ in }
+    /// The library's copy of a catalogue song, if it has one.
+    var librarySong: (Song) -> AppTrack? = { _ in nil }
+    /// Whether the library has albums by an artist of this name.
+    var hasArtist: (String) -> Bool = { _ in false }
 }
 
 /// How Liquid's lists are laid out: everything at once (a grid of covers, or a list of
@@ -168,7 +178,7 @@ final class LiquidLocation {
             return
         }
         switch top {
-        case .albums, .artist, .songs, .recentlyAdded, .recentlyPlayed, .artists:
+        case .albums, .artist, .songs, .recentlyAdded, .recentlyPlayed, .mostPlayed, .artists:
             shelf = .albums
             album = nil
         case .playlists:

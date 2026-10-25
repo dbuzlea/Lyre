@@ -10,6 +10,7 @@
 import Testing
 import Foundation
 import SwiftUI
+import MusicKit
 @testable import Lyre
 
 private func feedShow(_ url: String = "https://a.lyre.test/f.xml", title: String = "Show",
@@ -859,5 +860,53 @@ struct ArtistPhotoTests {
         photos.record(nil, for: try #require(ArtistPhotos.key(for: name)),
                       at: .now.addingTimeInterval(-ArtistPhotos.retryAfter - 60))
         #expect(photos.needsAsking(name), "Never asked again")
+    }
+}
+
+@Suite("Apple Music catalogue")
+@MainActor
+struct AppleMusicCatalogTests {
+    private func song(_ title: String, by artist: String, length: TimeInterval = 200) -> AppTrack {
+        AppTrack(id: UUID().uuidString, title: title, artistName: artist, albumTitle: "Album", duration: length)
+    }
+
+    /// Apple's write-ups lose their markup but keep their line breaks.
+    @Test func writeUpsAreReadAsPlainText() {
+        #expect(AppleMusicCatalog.plainText("<i>After Hours</i> is a <b>dark</b> turn &amp; a triumph.<br/>Second line.")
+                == "After Hours is a dark turn & a triumph.\nSecond line.")
+        #expect(AppleMusicCatalog.plainText("  ") == nil)
+        #expect(AppleMusicCatalog.plainText(nil) == nil)
+    }
+
+    /// Badges go best first, and Hi-Res stands for Lossless rather than beside it.
+    @Test func onlyTheBestVariantsGetABadge() {
+        #expect(AppleMusicCatalog.badges([.lossyStereo, .lossless, .dolbyAtmos]) == [.dolbyAtmos, .lossless])
+        #expect(AppleMusicCatalog.badges([.lossless, .highResolutionLossless]) == [.highResolutionLossless])
+        #expect(AppleMusicCatalog.badges([.lossyStereo]).isEmpty)
+    }
+
+    /// A catalogue song is the library's when the title, artist and length match.
+    @Test func aCatalogueSongIsFoundInTheLibrary() {
+        let mine = [song("Blinding Lights", by: "The Weeknd", length: 200), song("Save Your Tears", by: "The Weeknd")]
+        #expect(AppleMusicCatalog.librarySong(title: "Blinding Lights", artist: "The Weeknd", duration: 201, in: mine)?.id == mine[0].id)
+        #expect(AppleMusicCatalog.librarySong(title: "Blinding Lights", artist: "Someone", duration: 200, in: mine) == nil)
+        #expect(AppleMusicCatalog.librarySong(title: "Blinding Lights", artist: "The Weeknd", duration: 260, in: mine) == nil,
+                "A different-length version counted")
+    }
+
+    /// A catalogue album is the library's by title and artist, whatever the edition
+    /// marks.
+    @Test func aCatalogueAlbumIsFoundInTheLibrary() {
+        let albums = [AppAlbum(id: "a", title: "After Hours", artistName: "The Weeknd")]
+        #expect(AppleMusicCatalog.libraryAlbum(title: "After Hours (Deluxe)", artist: "The Weeknd", in: albums)?.id == "a")
+        #expect(AppleMusicCatalog.libraryAlbum(title: "Starboy", artist: "The Weeknd", in: albums) == nil)
+    }
+
+    /// Most played: played at least twice, most first, then by name.
+    @Test func mostPlayedGoesMostFirst() {
+        let a = song("A", by: "X"), b = song("B", by: "X"), c = song("C", by: "X"), d = song("D", by: "X")
+        let counts = [a.id: 3, b.id: 9, c.id: 1, d.id: 3]
+        let order = AppTrack.mostPlayed([a, b, c, d], count: { counts[$0.id] ?? 0 }).map(\.title)
+        #expect(order == ["B", "A", "D"])
     }
 }
