@@ -139,6 +139,27 @@ extension LyreUITests {
         XCTAssertTrue(app.buttons["Get Started"].exists, "'Get Started' should be on the welcome page")
     }
 
+    /// The welcome page shows Lyre's five players in turn, not just the classic one, and
+    /// says so in words.
+    @MainActor
+    func testTheWelcomePageShowsAllFivePlayers() throws {
+        let app = launchFresh()
+        let players = app.descendants(matching: .any)["onboarding.welcome.players"].firstMatch
+        XCTAssertTrue(players.waitForExistence(timeout: 5), "The welcome page has no players")
+        XCTAssertTrue(app.staticTexts["Five players in one"].exists, "The welcome page doesn't say there are five players")
+        var seen: [String] = []
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline, seen.count < 5 {
+            if let value = players.value as? String, !seen.contains(value) { seen.append(value) }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        XCTAssertEqual(seen, ["Classic", "Spool", "Gramophone", "Disc", "Liquid"], "Players shown: \(seen)")
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "welcome-five-players"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     /// Regression: iOS used to ask for music access over the welcome page, before the
     /// app had explained anything.
     @MainActor

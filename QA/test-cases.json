@@ -31,9 +31,10 @@
       "preconditions": "Lyre freshly installed (delete and reinstall).",
       "steps": [
         ["Launch Lyre.", "'Welcome to Lyre' and 'Get Started' are shown. There is no Back button."],
+        ["Watch the picture for ten seconds, and read the page.", "The classic player assembles, then Spool, Gramophone, Disc and Liquid take its place in turn, each named underneath. The text describes five players, not one wheel."],
         ["Wait five seconds without touching anything.", "No system permission alert appears."]
       ],
-      "automated_by": ["LyreUITests/LyreUITests/testOnboardingWelcomePageIsShownOnFirstLaunch()", "LyreUITests/LyreUITests/testFirstLaunchShowsNoPermissionPrompt()", "LyreUITests/LyreUITests/testOnboardingWelcomePageHasNoBackButton()"]
+      "automated_by": ["LyreUITests/LyreUITests/testOnboardingWelcomePageIsShownOnFirstLaunch()", "LyreUITests/LyreUITests/testTheWelcomePageShowsAllFivePlayers()", "LyreUITests/LyreUITests/testFirstLaunchShowsNoPermissionPrompt()", "LyreUITests/LyreUITests/testOnboardingWelcomePageHasNoBackButton()"]
     },
     {
       "key": "ONB-02", "suite": "Onboarding", "title": "The permissions page explains before iOS asks",

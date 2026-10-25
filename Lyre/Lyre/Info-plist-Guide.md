@@ -11,7 +11,7 @@ settings at build time. These are set on the **Lyre** target, not in any file:
 | Build setting | Value |
 |---|---|
 | `INFOPLIST_KEY_CFBundleDisplayName` | `Lyre` |
-| `INFOPLIST_KEY_NSAppleMusicUsageDescription` | Lyre plays music from your Apple Music library to give you a classic scroll-wheel listening experience. |
+| `INFOPLIST_KEY_NSAppleMusicUsageDescription` | Lyre plays the music in your Apple Music library in the player you choose: a click wheel, a cassette deck, a gramophone, a CD player, or Liquid. |
 | `INFOPLIST_KEY_NSHumanReadableCopyright` | Copyright © 2026 Daniel Buzlea. All rights reserved. |
 | `INFOPLIST_KEY_LSApplicationCategoryType` | `public.app-category.music` |
 | `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` | `NO` |
