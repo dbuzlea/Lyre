@@ -346,6 +346,8 @@ struct LyreView: View {
             PodcastSearchView(musicService: musicService)
         }
         .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
+        // Add to Playlist…, held on a song in any player.
+        .modifier(PlaylistPickerPresenter(musicService: musicService))
         .fullScreenCover(isPresented: $showArtworkCarousel) {
             switch artworkCarouselMode {
             case .albums:

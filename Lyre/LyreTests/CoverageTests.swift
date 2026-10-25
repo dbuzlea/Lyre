@@ -910,3 +910,31 @@ struct AppleMusicCatalogTests {
         #expect(order == ["B", "A", "D"])
     }
 }
+
+@MainActor
+struct PlaylistAdderTests {
+    @Test func onlyTheListenersOwnPlaylistsCanBeAddedTo() {
+        #expect(PlaylistAdder.isEditable(id: "p.abc", kind: nil, curatorName: nil))
+        #expect(PlaylistAdder.isEditable(id: "p.abc", kind: .userShared, curatorName: "Daniel"))
+        #expect(!PlaylistAdder.isEditable(id: "pl.123", kind: .editorial, curatorName: "Apple Music Pop"))
+        #expect(!PlaylistAdder.isEditable(id: "p.abc", kind: nil, curatorName: "Apple Music"))
+        #expect(!PlaylistAdder.isEditable(id: "p.abc", kind: .personalMix, curatorName: nil))
+        // The device's own library, without MusicKit, can't be edited.
+        #expect(!PlaylistAdder.isEditable(id: "mp.playlist.42", kind: nil, curatorName: nil))
+    }
+
+    @Test func playlistsAreOfferedByName() {
+        let playlists = [AppPlaylist(id: "p.2", name: "Running"),
+                         AppPlaylist(id: "mp.playlist.1", name: "Device"),
+                         AppPlaylist(id: "p.1", name: "Afternoon"),
+                         AppPlaylist(id: "p.3", name: "Hits", curatorName: "Apple Music")]
+        #expect(PlaylistAdder.editable(playlists).map(\.name) == ["Afternoon", "Running"])
+    }
+
+    @Test func theCatalogueIsAskedOnlyForTwoLettersOrMore() {
+        #expect(AppleMusicCatalog.searchTerm("") == nil)
+        #expect(AppleMusicCatalog.searchTerm("  a ") == nil)
+        #expect(AppleMusicCatalog.searchTerm("  ab ") == "ab")
+        #expect(AppleMusicCatalog.searchTerm("Radiohead\n") == "Radiohead")
+    }
+}

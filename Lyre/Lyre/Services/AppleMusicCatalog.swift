@@ -19,6 +19,7 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   an album    its record label, copyright, Apple's write-up and the audio it comes in
 //               (Dolby Atmos, Lossless, Hi-Res Lossless)
 //   the charts  the most played songs and albums
+//   search      songs, albums and artists for what's typed
 //
 // The library's own items seldom carry these, so the catalogue is searched for the same
 // artist (the very same name) or album (the same title by the same artist). Answers are
@@ -142,6 +143,39 @@ final class AppleMusicCatalog {
         } catch {
             asked.remove("charts")
             logger.debug("Charts failed: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: Search
+
+    struct SearchResults {
+        var songs: [Song]
+        var albums: [Album]
+        var artists: [Artist]
+
+        var isEmpty: Bool { songs.isEmpty && albums.isEmpty && artists.isEmpty }
+    }
+
+    /// What's worth asking the catalogue for: the query trimmed, two letters or more.
+    static func searchTerm(_ query: String) -> String? {
+        let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return term.count >= 2 ? term : nil
+    }
+
+    /// Searches the catalogue for songs, albums and artists; nil when it can't be asked
+    /// or the search fails.
+    func search(_ query: String) async -> SearchResults? {
+        guard Self.isAvailable, let term = Self.searchTerm(query) else { return nil }
+        do {
+            var search = MusicCatalogSearchRequest(term: term, types: [Song.self, Album.self, Artist.self])
+            search.limit = 10
+            let response = try await search.response()
+            return SearchResults(songs: Array(response.songs.prefix(8)),
+                                 albums: Array(response.albums),
+                                 artists: Array(response.artists))
+        } catch {
+            logger.debug("Catalogue search failed: \(error.localizedDescription)")
+            return nil
         }
     }
 

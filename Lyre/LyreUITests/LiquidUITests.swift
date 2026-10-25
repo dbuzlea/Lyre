@@ -154,6 +154,29 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "liquid-album-queued")
     }
 
+    /// Holding a song offers to add it to a playlist, which brings up the playlists.
+    @MainActor
+    func testHoldingASongOffersAddToPlaylist() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let albums = element(app, "liquid.menu.albums")
+        XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
+        albums.tap()
+        let cover = element(app, "liquid.cover.sample-1")
+        XCTAssertTrue(cover.waitForExistence(timeout: 5), "Albums didn't open")
+        cover.tap()
+
+        let song = element(app, "liquid.album.track.0")
+        XCTAssertTrue(song.waitForExistence(timeout: 5), "The album has no songs")
+        song.press(forDuration: 1.2)
+        let addToPlaylist = app.buttons["Add to Playlist…"]
+        XCTAssertTrue(addToPlaylist.waitForExistence(timeout: 3), "Holding a song doesn't offer Add to Playlist")
+        addToPlaylist.tap()
+        XCTAssertTrue(app.navigationBars["Add to Playlist"].waitForExistence(timeout: 5), "The playlists didn't come up")
+        attachScreenshot(app, named: "liquid-add-to-playlist")
+        app.navigationBars["Add to Playlist"].buttons["Cancel"].tap()
+        XCTAssertTrue(waitForDisappearance(app.navigationBars["Add to Playlist"]), "Cancel didn't close the playlists")
+    }
+
     @MainActor
     func testTheLibraryLeadsToAnAlbumAndTheDropletBackToNowPlaying() throws {
         let app = launchLiquid(["-LiquidShot", "library"])

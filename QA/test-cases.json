@@ -534,6 +534,21 @@
       ],
       "automated_by": ["LyreTests/AppleMusicCatalogTests", "LyreUITests/LiquidUITests/testRecentlyPlayedLeadsToMostPlayed()"]
     },
+    {
+      "key": "LQD-09", "suite": "Liquid Player", "title": "Apple Music search and Add to Playlist",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "A device with Apple Music access and a subscription, and at least one playlist you made in Apple Music. Online.",
+      "steps": [
+        ["In Liquid, open Search and type an artist you don't have.", "After a moment, an “apple music” section below your library's matches: songs (each with a tick or a plus), then albums and artists in rows."],
+        ["Type one or two letters only.", "One letter asks Apple Music nothing; two or more do."],
+        ["Tap a song with a tick, then one with a plus.", "Yours plays; the other offers Add to Library, Add to Playlist… and Open in Apple Music."],
+        ["Choose Add to Playlist….", "Your own playlists, by name (none of Apple's). Tap one: a tick, the sheet closes, and the song is in that playlist in the Music app."],
+        ["Tap an Apple Music album or artist.", "One you have opens its page; one you don't offers to add it (album) or opens Apple Music (artist)."],
+        ["Hold a song in your library (in Liquid, the Spool, the Disc or the Gramophone) and choose Add to Playlist….", "The same playlists come up; adding works the same."],
+        ["Without a subscription, or offline, add a song to a playlist.", "The sheet stays open and says what went wrong under the list."]
+      ],
+      "automated_by": ["LyreTests/PlaylistAdderTests", "LyreUITests/LiquidUITests/testHoldingASongOffersAddToPlaylist()"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",
