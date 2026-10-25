@@ -75,6 +75,20 @@ accessed API category:
 Keep this in sync with the App Store Connect privacy questionnaire, which should
 answer "No, we do not collect data".
 
+Network requests that carry library data, for the questionnaire's sake:
+
+- **Deezer, song tempos** (`SongTempos`, on by default, Liquid's "Look Up Tempos"):
+  each request sends a song's ISRC, or its title and artist, to api.deezer.com, and
+  gets back its tempo. Nothing identifies the user or device, Lyre keeps the answer
+  only on the device, and the developer receives nothing. Apple counts data as
+  "collected" when it's kept off the device longer than it takes to answer the
+  request, by the developer or a partner; Deezer is asked as a public API, in real
+  time. Whether that changes the answer above is a judgement for the developer:
+  answering "Data Not Collected" rests on it being so; the cautious alternative is
+  declaring "Other Data" (not linked to the user, not used for tracking, App
+  Functionality).
+- **Apple, podcast search**: the words searched for go to the iTunes Search API.
+
 ## MusicKit
 
 MusicKit needs no entitlements file. It requires the App ID

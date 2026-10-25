@@ -353,6 +353,10 @@ final class LiquidUITests: XCTestCase {
         let ripple = element(app, "liquid.settings.ripple")
         XCTAssertTrue(ripple.exists, "No way to turn the cover's ripple off")
         XCTAssertEqual(ripple.value as? String, "1", "The ripple isn't on to begin with")
+        // And looking up tempos from Deezer, on until turned off.
+        let tempos = element(app, "liquid.settings.tempos")
+        XCTAssertTrue(tempos.exists, "No way to turn tempo lookups off")
+        XCTAssertEqual(tempos.value as? String, "1", "Tempo lookups aren't on to begin with")
         attachScreenshot(app, named: "liquid-settings-ripple")
         done.tap()
     }

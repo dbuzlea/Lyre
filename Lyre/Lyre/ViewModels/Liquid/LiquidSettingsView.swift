@@ -8,8 +8,8 @@ import SwiftUI
 // MARK: - Liquid Settings
 //
 // The Liquid player's settings, as plain as the player: its tutorial (LiquidTour),
-// playback, sound, whether Now Playing's cover ripples to the beat, which player to use,
-// and the version. No finishes to choose: the music colours it.
+// playback, sound, whether Now Playing's cover ripples to the beat and whether songs'
+// tempos are looked up for it (SongTempos), which player to use, and the version. No finishes to choose: the music colours it.
 
 struct LiquidSettingsView: View {
     @ObservedObject var musicService: MusicService
@@ -60,10 +60,12 @@ struct LiquidSettingsView: View {
                 Section {
                     Toggle(String(localized: "liquid.settings.ripple"), isOn: $themeSettings.liquidRipple)
                         .accessibilityIdentifier("liquid.settings.ripple")
+                    Toggle(String(localized: "liquid.settings.tempos"), isOn: $themeSettings.liquidTempoLookup)
+                        .accessibilityIdentifier("liquid.settings.tempos")
                 } header: {
                     Text(String(localized: "liquid.pool.nowPlaying"))
                 } footer: {
-                    Text(String(localized: "liquid.settings.ripple.detail"))
+                    Text(String(localized: "liquid.settings.ripple.detail") + " " + String(localized: "liquid.settings.tempos.detail"))
                 }
 
                 Section(String(localized: "spool.settings.player")) {

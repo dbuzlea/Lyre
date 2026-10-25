@@ -313,7 +313,7 @@
 "onboarding.permissions.why.title" = "Why Lyre asks";
 "onboarding.permissions.why.detail" = "To show and play the songs, albums, playlists and podcasts on this iPhone, and your Apple Music library if you subscribe.";
 "onboarding.permissions.private.title" = "Your library stays private";
-"onboarding.permissions.private.detail" = "Lyre reads your library only on this iPhone. It never uploads, collects or shares it, and has no servers of its own.";
+"onboarding.permissions.private.detail" = "Lyre reads your library on this iPhone and has no servers of its own. Nothing about you leaves it; only Liquid asks Deezer for songs' tempos, by title or code, which you can turn off in its settings.";
 "onboarding.permissions.optional.title" = "It's your choice";
 "onboarding.permissions.optional.detail" = "Without it you can still stream podcasts and explore Lyre. You can turn access on or off anytime in the Settings app.";
 "onboarding.permissions.nextPrompt" = "When you tap Allow Access, your iPhone will ask once. That's the only permission Lyre needs.";
@@ -748,6 +748,8 @@
 "liquid.bubbles.hint.show" = "Opens its episodes.";
 "liquid.bubbles.open" = "Open";
 "liquid.bubbles.back" = "Bubbles";
+"liquid.settings.tempos" = "Look Up Tempos";
+"liquid.settings.tempos.detail" = "To keep each song's beat, Lyre asks Deezer for its tempo, sending only the song's code, or its title and artist. Nothing about you is sent.";
 "liquid.settings.ripple" = "Ripple to the Beat";
 "liquid.settings.ripple.detail" = "The cover ripples like water on a speaker, in time with the song's tempo. It stays still with Reduce Motion or Low Power Mode on.";
 "onboarding.player.liquid.detail" = "Modern and minimal. The cover fills the screen; pull the wave at the edge to change songs.";
