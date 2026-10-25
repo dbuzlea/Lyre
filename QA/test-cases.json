@@ -491,6 +491,19 @@
       ],
       "automated_by": ["LyreUITests/LiquidUITests/testTheNowPlayingCoverRipples()", "LyreUITests/LiquidUITests/testTurningTheRippleOffKeepsTheCoverStill()", "LyreTests/LiquidRippleTests", "LyreTests/ThemeSettingsPersistenceTests"]
     },
+    {
+      "key": "LQD-06", "suite": "Liquid Player", "title": "Songs' tempos are looked up from Deezer, and can be turned off",
+      "priority": "medium", "severity": "minor", "type": "functional", "behavior": "positive",
+      "preconditions": "Liquid player, on a device, online, with Apple Music songs and songs from your own files. Settings > Now Playing > Look Up Tempos on (it is by default).",
+      "steps": [
+        ["Play a well-known song (e.g. Billie Jean) and watch Now Playing for a few seconds.", "The ripples and side waves settle to the song's tempo (about 117 for Billie Jean), not the default 90."],
+        ["Play a song Deezer has no tempo for (e.g. Espresso).", "It ripples at an easy 90, as before."],
+        ["Play the first song again, offline.", "It still keeps its tempo: what was found is kept on the phone."],
+        ["Leave Lyre open on Liquid for a few minutes, then play other songs from your library.", "More and more songs already have their tempo when they start."],
+        ["In Liquid's settings, turn off Look Up Tempos, and play a song not played before.", "It ripples at 90; songs already found keep theirs. With a network monitor, no requests go to api.deezer.com."]
+      ],
+      "automated_by": ["LyreTests/SongTempoTests", "LyreTests/ThemeSettingsPersistenceTests", "LyreUITests/LiquidUITests/testSettingsOpenAndOfferTheOtherPlayers()"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",

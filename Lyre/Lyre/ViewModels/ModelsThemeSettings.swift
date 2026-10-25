@@ -159,6 +159,13 @@ class ThemeSettings {
         }
     }
 
+    /// Whether Liquid asks Deezer for songs' tempos (see SongTempos). On unless turned off.
+    var liquidTempoLookup: Bool {
+        didSet {
+            UserDefaults.standard.set(liquidTempoLookup, forKey: "LyreLiquidTempoLookup")
+        }
+    }
+
     /// Maps theme names persisted before the 1.0 rename onto their current
     /// equivalents, so an existing install keeps its chosen finish instead of
     /// silently falling back to the default.
@@ -286,6 +293,8 @@ class ThemeSettings {
         // Read with bool(forKey:), which also takes a launch argument's "NO".
         self.liquidRipple = UserDefaults.standard.object(forKey: "LyreLiquidRipple") == nil
             || UserDefaults.standard.bool(forKey: "LyreLiquidRipple")
+        self.liquidTempoLookup = UserDefaults.standard.object(forKey: "LyreLiquidTempoLookup") == nil
+            || UserDefaults.standard.bool(forKey: "LyreLiquidTempoLookup")
 
         // Finally, set the theme style
         self.themeStyle = loadedThemeStyle

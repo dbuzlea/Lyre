@@ -26,9 +26,11 @@ struct LiquidVisualizer: View {
 
     private var track: AppTrack? { musicService.nowPlayingTrack }
 
+    /// Its own tag, else what Deezer said (SongTempos).
     private var beatsPerMinute: Double? {
-        guard let bpm = track?.mpItem?.beatsPerMinute, (40...220).contains(bpm) else { return nil }
-        return Double(bpm)
+        guard let track else { return nil }
+        if let bpm = track.mpItem?.beatsPerMinute, (40...220).contains(bpm) { return Double(bpm) }
+        return SongTempos.shared.bpm(for: track)
     }
 
     var body: some View {

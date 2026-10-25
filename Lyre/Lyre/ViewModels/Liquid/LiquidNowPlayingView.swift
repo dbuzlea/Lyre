@@ -32,9 +32,9 @@ import MediaPlayer
 // While a song plays, the waves move to its beat like a wave: each bulge swells out on
 // every beat and eases back in a smooth curve, and sways a little along the edge, up on
 // one beat and down on the next (`pulse(at:)`). The music plays through the system's player, which
-// lets no app hear it, so the beat is the song's tempo from its beats-per-minute tag,
-// counted from the start of the song. A song with no tempo tagged breathes slowly
-// instead.
+// lets no app hear it, so the beat is the song's tempo, from its beats-per-minute tag or
+// else as Deezer knows it (SongTempos), counted from the start of the song. A song with
+// no tempo known breathes slowly instead.
 //
 // The cover keeps the same beat as if it lay under water on a speaker: a ring runs out
 // across it on each beat, and from the finger on a tap (see LiquidRipple).
@@ -245,10 +245,12 @@ struct LiquidNowPlayingView: View {
             && left.progress == 0 && right.progress == 0
     }
 
-    /// The song's tempo, if it's tagged with one that's believable.
+    /// The song's tempo: its own tag if it has a believable one, else what Deezer said
+    /// (SongTempos), if that's known.
     private var beatsPerMinute: Double? {
-        guard let bpm = current?.mpItem?.beatsPerMinute, (40...220).contains(bpm) else { return nil }
-        return Double(bpm)
+        guard let current else { return nil }
+        if let bpm = current.mpItem?.beatsPerMinute, (40...220).contains(bpm) { return Double(bpm) }
+        return SongTempos.shared.bpm(for: current)
     }
 
     /// Counts the beat from the start of the song, wherever it is now.

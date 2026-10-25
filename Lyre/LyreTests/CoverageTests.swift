@@ -746,3 +746,88 @@ struct CarouselPostureTests {
         #expect(!LyreView.opensCarousel(.spool, posture: .closed))
     }
 }
+
+@Suite("Song tempos from Deezer")
+@MainActor
+struct SongTempoTests {
+    private func song(_ title: String, by artist: String, length: TimeInterval = 200) -> AppTrack {
+        AppTrack(id: UUID().uuidString, title: title, artistName: artist, albumTitle: "Album", duration: length)
+    }
+
+    /// Titles and names compare by what identifies them, not how a store happens to
+    /// spell them.
+    @Test func titlesCompareWithoutTheTrimmings() {
+        #expect(DeezerTempo.normalized("Bad Guy") == "badguy")
+        #expect(DeezerTempo.normalized("Here Comes the Sun (Remastered 2009)") == DeezerTempo.normalized("Here Comes The Sun"))
+        #expect(DeezerTempo.normalized("Café del Mar") == "cafedelmar")
+        #expect(DeezerTempo.normalized("Levitating feat. DaBaby") == "levitating")
+        #expect(DeezerTempo.normalized("Sample Song - Single") == "samplesong")
+        #expect(DeezerTempo.normalized("Song [Live]") == "song")
+    }
+
+    /// A track Deezer knows gives its tempo; 0 (unknown), nonsense, or "no data" gives none.
+    @Test func aTracksTempoIsReadOnlyWhenItsReal() {
+        let known = Data(#"{"id":655095912,"title":"bad guy","duration":194,"bpm":135.11,"artist":{"name":"Billie Eilish"}}"#.utf8)
+        #expect(DeezerTempo.track(from: known)?.tempo == 135.11)
+        let unknown = Data(#"{"id":2801558042,"title":"CHIHIRO","duration":303,"bpm":0,"artist":{"name":"Billie Eilish"}}"#.utf8)
+        #expect(DeezerTempo.track(from: unknown)?.tempo == nil)
+        let wild = Data(#"{"id":1,"title":"x","bpm":999}"#.utf8)
+        #expect(DeezerTempo.track(from: wild)?.tempo == nil)
+        let missing = Data(#"{"error":{"type":"DataException","message":"no data","code":800}}"#.utf8)
+        #expect(DeezerTempo.track(from: missing) == nil)
+    }
+
+    /// Searching, only the song itself counts: not a cover by someone else, not a
+    /// different-length version, not a song that merely has the name in its title.
+    @Test func searchMatchesOnlyTheSameRecording() {
+        let results = Data(#"""
+        {"data":[
+          {"id":3514926211,"title":"Billie Eilish - Chihiro (Lofi Version)","duration":220,"artist":{"name":"Late Arc"}},
+          {"id":2858772942,"title":"Chihiro","duration":129,"artist":{"name":"Gravagerz"}},
+          {"id":9,"title":"CHIHIRO","duration":250,"artist":{"name":"Billie Eilish"}},
+          {"id":2801558042,"title":"CHIHIRO","duration":303,"artist":{"name":"Billie Eilish"}}
+        ]}
+        """#.utf8)
+        #expect(DeezerTempo.bestMatch(in: results, title: "CHIHIRO", artist: "Billie Eilish", duration: 302) == 2801558042)
+        #expect(DeezerTempo.bestMatch(in: results, title: "Chihiro", artist: "Someone Else", duration: 129) == nil)
+        // A song with no length known takes the first with the same title and artist.
+        #expect(DeezerTempo.bestMatch(in: results, title: "CHIHIRO", artist: "Billie Eilish", duration: 0) == 9)
+        // "Artist & Guest" matches Deezer's "Artist".
+        #expect(DeezerTempo.bestMatch(in: results, title: "Chihiro", artist: "Gravagerz & Friend", duration: 130) == 2858772942)
+    }
+
+    /// A song without an ISRC is filed under its artist and title.
+    @Test func aSongIsFiledUnderItsArtistAndTitle() {
+        #expect(SongTempos.key(for: song("Bad Guy (Remastered)", by: "Billie Eilish")) == "song:billieeilish|badguy")
+        #expect(SongTempos.key(for: song("", by: "Nobody")) == nil)
+    }
+
+    /// A tempo found is used and not asked for again; "Deezer doesn't know" is asked
+    /// again only after a while.
+    @Test func answersAreKeptAndUnknownsAskedAgainLater() {
+        let tempos = SongTempos(fileURL: nil)
+        let track = song("Bad Guy", by: "Billie Eilish")
+        let key = SongTempos.key(for: track)!
+        #expect(tempos.needsAsking(track))
+        tempos.record(135.11, for: key)
+        #expect(tempos.bpm(for: track) == 135.11)
+        #expect(!tempos.needsAsking(track))
+
+        tempos.record(nil, for: key, at: .now.addingTimeInterval(-86_400))
+        #expect(tempos.bpm(for: track) == nil)
+        #expect(!tempos.needsAsking(track), "Asked again too soon")
+        tempos.record(nil, for: key, at: .now.addingTimeInterval(-SongTempos.retryAfter - 60))
+        #expect(tempos.needsAsking(track), "Never asked again")
+    }
+
+    /// What's found survives a relaunch.
+    @Test func temposSurviveARelaunch() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("tempos-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let track = song("Levitating", by: "Dua Lipa")
+        let first = SongTempos(fileURL: file)
+        first.record(103, for: try #require(SongTempos.key(for: track)))
+        first.save()
+        #expect(SongTempos(fileURL: file).bpm(for: track) == 103)
+    }
+}

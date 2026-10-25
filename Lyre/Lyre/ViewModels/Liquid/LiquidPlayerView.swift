@@ -194,6 +194,10 @@ struct LiquidPlayerView: View {
         .onChange(of: path, initial: true) { reportLocation() }
         // Left alone on a Duo stood half open, as the music plays: the visualizer.
         .task(id: foldMonitor.isPartlyOpen && musicService.isPlaying) { await watchForRest() }
+        // Songs' tempos, for the waves and ripples to keep the beat: the one playing
+        // first, then the library behind it (see SongTempos).
+        .onChange(of: TempoLookupKey(playing: musicService.nowPlayingTrack?.id, songs: musicService.songs.count,
+                                     isOn: themeSettings.liquidTempoLookup), initial: true) { lookUpTempos() }
         .onChange(of: foldMonitor.isPartlyOpen) { _, partly in
             if !partly { withAnimation(.easeInOut(duration: 0.4)) { isVisualizing = false } }
         }
@@ -677,6 +681,22 @@ struct LiquidPlayerView: View {
             }
             try? await Task.sleep(for: .seconds(max(1, min(5, restAfter - idle))))
         }
+    }
+
+    /// What, changing, means tempos are to be asked for again.
+    private struct TempoLookupKey: Equatable {
+        let playing: String?
+        let songs: Int
+        let isOn: Bool
+    }
+
+    private func lookUpTempos() {
+        // UI tests run without the network's say-so: no lookups there.
+        guard themeSettings.liquidTempoLookup, !AppEnvironment.isUITesting else {
+            SongTempos.shared.stop()
+            return
+        }
+        SongTempos.shared.lookUp(musicService.nowPlayingTrack, then: musicService.songs)
     }
 
     private func wakeFromVisualizer() {
