@@ -763,7 +763,7 @@
 "catalog.inLibrary" = "In your library";
 "catalog.notInLibrary" = "Not in your library";
 "catalog.offer.title" = "“%@” isn't in your library";
-"catalog.offer.message" = "Add it to play it here. Adding needs an Apple Music subscription.";
+"catalog.offer.message" = "Playing it from Apple Music or adding it to your library needs an Apple Music subscription.";
 "catalog.offer.add" = "Add to Library";
 "catalog.offer.open" = "Open in Apple Music";
 "catalog.offer.cancel" = "Cancel";
@@ -771,6 +771,8 @@
 "catalog.added.later" = "Added “%@”. It'll appear once Apple Music has synced it.";
 "catalog.add.needsSubscription" = "Adding to your library needs an Apple Music subscription.";
 "catalog.search.title" = "Apple Music";
+"catalog.offer.play" = "Play";
+"catalog.play.failed" = "This album couldn't be loaded from Apple Music.";
 
 /* Add to Playlist (PlaylistAdder, PlaylistPicker) */
 "playlist.add.action" = "Add to Playlist…";

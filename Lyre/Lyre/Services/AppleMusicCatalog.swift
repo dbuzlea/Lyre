@@ -25,9 +25,9 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 // artist (the very same name) or album (the same title by the same artist). Answers are
 // kept for as long as Lyre is open; nothing is stored.
 //
-// Lyre plays what's in the library, so a catalogue song is found in it (`librarySong`)
-// to be played; one that isn't can be added (`add(_:)`), with an Apple Music
-// subscription, and plays once Apple has put it there.
+// A catalogue song the library has is played from the library (`librarySong`); one it
+// hasn't streams, with an Apple Music subscription (Docs/CATALOGUE-STREAMING.md), and
+// can be added (`add(_:)`). Every request needs MusicKit enabled for the App ID.
 
 @MainActor
 @Observable
@@ -142,7 +142,7 @@ final class AppleMusicCatalog {
                             albums: Array(response.albumCharts.first?.items ?? []))
         } catch {
             asked.remove("charts")
-            logger.debug("Charts failed: \(error.localizedDescription)")
+            logger.error("Charts failed: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -165,16 +165,21 @@ final class AppleMusicCatalog {
     /// Searches the catalogue for songs, albums and artists; nil when it can't be asked
     /// or the search fails.
     func search(_ query: String) async -> SearchResults? {
-        guard Self.isAvailable, let term = Self.searchTerm(query) else { return nil }
+        guard let term = Self.searchTerm(query) else { return nil }
+        guard Self.isAvailable else {
+            logger.debug("Catalogue search skipped: Apple Music access is \(String(describing: MusicAuthorization.currentStatus), privacy: .public)")
+            return nil
+        }
         do {
             var search = MusicCatalogSearchRequest(term: term, types: [Song.self, Album.self, Artist.self])
             search.limit = 10
             let response = try await search.response()
+            logger.debug("Catalogue search: \(response.songs.count) songs, \(response.albums.count) albums, \(response.artists.count) artists")
             return SearchResults(songs: Array(response.songs.prefix(8)),
                                  albums: Array(response.albums),
                                  artists: Array(response.artists))
         } catch {
-            logger.debug("Catalogue search failed: \(error.localizedDescription)")
+            logger.error("Catalogue search failed: \(String(describing: error), privacy: .public)")
             return nil
         }
     }

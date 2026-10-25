@@ -18,9 +18,11 @@ import MusicKit
 //   search             the charts, while nothing's typed (LiquidCharts), and what
 //                      Apple Music has for what is (LiquidCatalogSearch)
 //
-// A catalogue song or album is played or opened if the library has it, and otherwise
-// offered to be added (`LiquidNavigator.catalogSong`, `catalogAlbum`). Each part shows
-// only once there's something in it, so without Apple Music access nothing appears.
+// A catalogue song plays from the library if it's there and streams if not, with a
+// subscription; without one it's offered to be added (`LiquidNavigator.catalogSong`).
+// A catalogue album opens its page if the library has it, and otherwise is offered to
+// be played or added (`catalogAlbum`). Each part shows only once there's something in
+// it, so without Apple Music access nothing appears.
 
 /// The "E" Apple Music marks explicit songs with.
 struct ExplicitBadge: View {
@@ -106,14 +108,17 @@ private struct SectionTitle: View {
 
 /// A catalogue song as a row: its cover, name and artist, a tick when the library has
 /// it (else a plus: it can be added), and an "E" when explicit. `rank` numbers a chart.
-/// Held, it offers to be added to a playlist.
+/// Tapped, it plays from there through `list` (named `listName`); held, it offers Play
+/// Next, Add to Queue and Add to Playlist.
 struct LiquidCatalogSongRow: View {
     @Environment(\.liquidNavigator) private var navigator
     let song: Song
     var rank: Int?
+    var list: [Song] = []
+    var listName = ""
 
     var body: some View {
-        Button { navigator.catalogSong(song) } label: {
+        Button { navigator.catalogSong(song, list, listName.isEmpty ? song.title : listName) } label: {
             HStack(spacing: 12) {
                 if let rank {
                     Text("\(rank)")
@@ -140,7 +145,14 @@ struct LiquidCatalogSongRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("liquid.catalog.song")
         .contextMenu {
+            Button { navigator.queue([navigator.catalogTrack(song)], .next, song.title) } label: {
+                Label(String(localized: "queue.action.playNext"), systemImage: "text.insert")
+            }
+            Button { navigator.queue([navigator.catalogTrack(song)], .last, song.title) } label: {
+                Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
+            }
             Button { PlaylistAdder.shared.offer(.song(song)) } label: {
                 Label(String(localized: "playlist.add.action"), systemImage: "music.note.list")
             }
@@ -204,7 +216,8 @@ struct LiquidArtistIntro: View {
                 VStack(alignment: .leading, spacing: 4) {
                     SectionTitle(text: String(localized: "catalog.topSongs"))
                     ForEach(Array(songs.prefix(showsAll ? 10 : 5).enumerated()), id: \.element.id) { index, song in
-                        LiquidCatalogSongRow(song: song, rank: index + 1)
+                        LiquidCatalogSongRow(song: song, rank: index + 1, list: songs,
+                                             listName: String(localized: "catalog.topSongs"))
                     }
                     if songs.count > 5 {
                         Button(String(localized: showsAll ? "catalog.showFewer" : "catalog.showAll")) {
@@ -327,7 +340,8 @@ struct LiquidCharts: View {
                 VStack(alignment: .leading, spacing: 4) {
                     SectionTitle(text: String(localized: "catalog.charts.songs"))
                     ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                        LiquidCatalogSongRow(song: song, rank: index + 1)
+                        LiquidCatalogSongRow(song: song, rank: index + 1, list: songs,
+                                             listName: String(localized: "catalog.charts.songs"))
                     }
                 }
                 .accessibilityIdentifier("liquid.charts.songs")
@@ -357,9 +371,10 @@ struct LiquidCatalogSearch: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             SectionTitle(text: String(localized: "catalog.search.title"))
+                .accessibilityIdentifier("liquid.search.catalog")
             if !results.songs.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(results.songs) { LiquidCatalogSongRow(song: $0) }
+                    ForEach(results.songs) { LiquidCatalogSongRow(song: $0, list: results.songs) }
                 }
             }
             if !results.albums.isEmpty {
@@ -383,6 +398,5 @@ struct LiquidCatalogSearch: View {
                 }
             }
         }
-        .accessibilityIdentifier("liquid.search.catalog")
     }
 }

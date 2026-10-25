@@ -304,8 +304,21 @@ struct PlaybackQueueTests {
         // Tracks built by hand have no MPMediaItem, so nothing can match a persistent
         // ID — the model treats that as "the player left our queue".
         var queue = self.queue(["a", "b"], currentIndex: 0)
-        #expect(queue.advanceCurrent(toPersistentID: 12345) == false)
+        let found = queue.advanceCurrent(toKey: "p12345")
+        #expect(found == false)
         #expect(queue.currentIndex == 0)
+    }
+
+    @Test func advanceCurrentFollowsASongStreamedFromAppleMusic() {
+        // Streamed, a song has no library item; the player knows it by its store ID.
+        let library = AppTrack(id: "a", title: "a", artistName: "", albumTitle: "", duration: 1, mpPersistentID: 7)
+        let streamed = AppTrack(id: "123", title: "b", artistName: "", albumTitle: "", duration: 1, storeID: "123")
+        var queue = PlaybackQueue(tracks: [library, streamed], currentIndex: 0)
+        #expect(streamed.isStreamOnly && !library.isStreamOnly)
+        let foundStreamed = queue.advanceCurrent(toKey: "s123")
+        #expect(foundStreamed && queue.currentIndex == 1)
+        let foundLibrary = queue.advanceCurrent(toKey: "p7")
+        #expect(foundLibrary && queue.currentIndex == 0)
     }
 }
 

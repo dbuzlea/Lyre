@@ -45,19 +45,24 @@ nonisolated struct AppTrack: Identifiable, Hashable {
     /// only part that survives the launch cache: a track restored from disk has no live
     /// item, and this is what lets playback look the exact item up again.
     let mpPersistentID: MPMediaEntityPersistentID?
+    /// Apple Music's ID for a song from the catalogue rather than the library: what the
+    /// player streams it by, with a subscription, when there's no library item for it.
+    let storeID: String?
 
     init(
         id: String, title: String, artistName: String, albumTitle: String,
         duration: TimeInterval,
         musicKitSong: Song? = nil, musicKitTrack: Track? = nil,
         mpItem: MPMediaItem? = nil,
-        mpPersistentID: MPMediaEntityPersistentID? = nil
+        mpPersistentID: MPMediaEntityPersistentID? = nil,
+        storeID: String? = nil
     ) {
         self.id = id; self.title = title; self.artistName = artistName
         self.albumTitle = albumTitle; self.duration = duration
         self.musicKitSong = musicKitSong; self.musicKitTrack = musicKitTrack
         self.mpItem = mpItem
         self.mpPersistentID = mpPersistentID ?? mpItem?.persistentID
+        self.storeID = storeID
     }
 
     /// Returns a copy with `mpItem` attached, preserving all other metadata.
@@ -66,8 +71,19 @@ nonisolated struct AppTrack: Identifiable, Hashable {
         return AppTrack(
             id: id, title: title, artistName: artistName, albumTitle: albumTitle,
             duration: duration, musicKitSong: musicKitSong, musicKitTrack: musicKitTrack,
-            mpItem: item
+            mpItem: item, storeID: storeID
         )
+    }
+
+    /// Only streamed: from the catalogue, with no library item behind it.
+    var isStreamOnly: Bool { storeID != nil && mpItem == nil && mpPersistentID == nil }
+
+    /// What the player's queue knows this track by (see `MPMediaItem.queueKey`): its
+    /// library item, or, streamed, its Apple Music ID.
+    var queueKey: String {
+        if let mpPersistentID, mpPersistentID != 0 { return "p\(mpPersistentID)" }
+        if let storeID { return "s\(storeID)" }
+        return "id:\(id)"
     }
 
     static func == (lhs: AppTrack, rhs: AppTrack) -> Bool { lhs.id == rhs.id }
@@ -209,8 +225,15 @@ nonisolated extension AppTrack {
             id: song.id.rawValue, title: song.title,
             artistName: song.artistName, albumTitle: song.albumTitle ?? "",
             duration: song.duration ?? 0,
-            musicKitSong: song
+            musicKitSong: song,
+            storeID: Self.catalogID(song.id)
         )
+    }
+
+    /// A catalogue ID (all digits), as against a library one ("i.…").
+    static func catalogID(_ id: MusicItemID) -> String? {
+        let raw = id.rawValue
+        return !raw.isEmpty && raw.allSatisfy(\.isNumber) ? raw : nil
     }
 
     init(from track: Track) {
@@ -220,7 +243,8 @@ nonisolated extension AppTrack {
                 id: song.id.rawValue, title: song.title,
                 artistName: song.artistName, albumTitle: song.albumTitle ?? "",
                 duration: song.duration ?? 0,
-                musicKitSong: song, musicKitTrack: track
+                musicKitSong: song, musicKitTrack: track,
+                storeID: Self.catalogID(song.id)
             )
         case .musicVideo(let mv):
             self.init(
@@ -276,6 +300,18 @@ nonisolated extension AppPlaylist {
 
 nonisolated extension AppTrack {
     init(from item: MPMediaItem) {
+        // Streamed from Apple Music: no library item, only its store ID.
+        if item.persistentID == 0, !item.playbackStoreID.isEmpty, item.playbackStoreID != "0" {
+            self.init(
+                id: "store.\(item.playbackStoreID)",
+                title: item.title ?? "Unknown Track",
+                artistName: item.artist ?? item.albumArtist ?? "Unknown Artist",
+                albumTitle: item.albumTitle ?? "",
+                duration: item.playbackDuration,
+                storeID: item.playbackStoreID
+            )
+            return
+        }
         self.init(
             id: "mp.\(item.persistentID)",
             title: item.title ?? "Unknown Track",
@@ -323,5 +359,16 @@ nonisolated extension AppPlaylist {
             mpArtwork: playlist.representativeItem?.artwork,
             preloadedTracks: tracks
         )
+    }
+}
+
+// MARK: - Queue Identity
+
+nonisolated extension MPMediaItem {
+    /// What an entry in the player's queue is known by. A library item has its
+    /// persistent ID; one streamed from Apple Music reports a persistent ID of 0 and is
+    /// told apart by its store ID instead (both measured on a device, iOS 27).
+    var queueKey: String {
+        persistentID != 0 ? "p\(persistentID)" : "s\(playbackStoreID)"
     }
 }
