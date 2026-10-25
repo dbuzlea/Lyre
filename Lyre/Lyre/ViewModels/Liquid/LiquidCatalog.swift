@@ -15,7 +15,8 @@ import MusicKit
 //   an album's page    the audio it comes in (Dolby Atmos, Lossless) and an "E" on explicit
 //                      songs, then Apple's write-up and the record label (AudioVariantBadges,
 //                      ExplicitBadge, LiquidAlbumCredits)
-//   search             the charts, while nothing's typed (LiquidCharts)
+//   search             the charts, while nothing's typed (LiquidCharts), and what
+//                      Apple Music has for what is (LiquidCatalogSearch)
 //
 // A catalogue song or album is played or opened if the library has it, and otherwise
 // offered to be added (`LiquidNavigator.catalogSong`, `catalogAlbum`). Each part shows
@@ -105,6 +106,7 @@ private struct SectionTitle: View {
 
 /// A catalogue song as a row: its cover, name and artist, a tick when the library has
 /// it (else a plus: it can be added), and an "E" when explicit. `rank` numbers a chart.
+/// Held, it offers to be added to a playlist.
 struct LiquidCatalogSongRow: View {
     @Environment(\.liquidNavigator) private var navigator
     let song: Song
@@ -138,6 +140,11 @@ struct LiquidCatalogSongRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button { PlaylistAdder.shared.offer(.song(song)) } label: {
+                Label(String(localized: "playlist.add.action"), systemImage: "music.note.list")
+            }
+        }
     }
 
     @ViewBuilder private var artwork: some View {
@@ -224,51 +231,60 @@ struct LiquidArtistIntro: View {
     }
 }
 
-/// Below an artist's albums: artists like them, as rounded-square photos. One the library
-/// has opens their page; one it hasn't, Apple Music.
+/// Below an artist's albums: artists like them, as rounded-square photos.
 struct LiquidSimilarArtists: View {
-    @Environment(\.liquidNavigator) private var navigator
-    @Environment(\.openURL) private var openURL
     let name: String
 
     var body: some View {
         if let artists = AppleMusicCatalog.shared.details(forArtist: name)?.similarArtists, !artists.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 SectionTitle(text: String(localized: "catalog.similarArtists"))
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 14) {
-                        ForEach(artists) { artist in
-                            Button {
-                                if navigator.hasArtist(artist.name) {
-                                    navigator.push(.artist(artist.name))
-                                } else if let url = artist.url {
-                                    openURL(url)
-                                }
-                            } label: {
-                                VStack(spacing: 6) {
-                                    Group {
-                                        if let art = artist.artwork {
-                                            ArtworkImage(art, width: 96, height: 96)
-                                        } else {
-                                            Color.white.opacity(0.1)
-                                        }
-                                    }
-                                    .frame(width: 96, height: 96)
-                                    .clipShape(RoundedRectangle(cornerRadius: ArtistPhoto.cornerRadius(for: 96), style: .continuous))
-                                    Text(artist.name)
-                                        .font(.system(size: 13, weight: .medium))
-                                        .lineLimit(2)
-                                        .multilineTextAlignment(.center)
-                                        .frame(width: 100)
-                                }
-                                .foregroundStyle(.white)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
+                LiquidCatalogArtistStrip(artists: artists)
             }
             .accessibilityIdentifier("liquid.artist.similar")
+        }
+    }
+}
+
+/// Catalogue artists in a row, as rounded-square photos with their names. One the
+/// library has opens their page; one it hasn't, Apple Music.
+struct LiquidCatalogArtistStrip: View {
+    @Environment(\.liquidNavigator) private var navigator
+    @Environment(\.openURL) private var openURL
+    let artists: [Artist]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 14) {
+                ForEach(artists) { artist in
+                    Button {
+                        if navigator.hasArtist(artist.name) {
+                            navigator.push(.artist(artist.name))
+                        } else if let url = artist.url {
+                            openURL(url)
+                        }
+                    } label: {
+                        VStack(spacing: 6) {
+                            Group {
+                                if let art = artist.artwork {
+                                    ArtworkImage(art, width: 96, height: 96)
+                                } else {
+                                    Color.white.opacity(0.1)
+                                }
+                            }
+                            .frame(width: 96, height: 96)
+                            .clipShape(RoundedRectangle(cornerRadius: ArtistPhoto.cornerRadius(for: 96), style: .continuous))
+                            Text(artist.name)
+                                .font(.system(size: 13, weight: .medium))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.center)
+                                .frame(width: 100)
+                        }
+                        .foregroundStyle(.white)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 }
@@ -328,5 +344,45 @@ struct LiquidCharts: View {
             }
         }
         .task { await AppleMusicCatalog.shared.loadCharts() }
+    }
+}
+
+// MARK: Search
+
+/// Under the library's matches: what Apple Music has for the same words. Songs, then
+/// albums and artists in rows.
+struct LiquidCatalogSearch: View {
+    let results: AppleMusicCatalog.SearchResults
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            SectionTitle(text: String(localized: "catalog.search.title"))
+            if !results.songs.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(results.songs) { LiquidCatalogSongRow(song: $0) }
+                }
+            }
+            if !results.albums.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(String(localized: "liquid.menu.albums").lowercased())
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.8))
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .top, spacing: 14) {
+                            ForEach(results.albums) { LiquidCatalogAlbumTile(album: $0) }
+                        }
+                    }
+                }
+            }
+            if !results.artists.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(String(localized: "liquid.menu.artists").lowercased())
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.8))
+                    LiquidCatalogArtistStrip(artists: results.artists)
+                }
+            }
+        }
+        .accessibilityIdentifier("liquid.search.catalog")
     }
 }

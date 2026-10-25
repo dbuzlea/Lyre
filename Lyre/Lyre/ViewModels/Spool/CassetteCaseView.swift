@@ -554,10 +554,10 @@ struct CassetteCaseView: View {
     }
 }
 
-/// Holding a song offers to queue it: next, or at the end. Holding a podcast episode,
-/// which isn't queued, offers its download instead (Download, Cancel Download or Remove
-/// Download), as the click wheel and the gatefold do. Shared by the Spool's cassette case
-/// and the Gramophone's sleeve.
+/// Holding a song offers to queue it, next or at the end, or to add it to a playlist
+/// (PlaylistAdder). Holding a podcast episode, which isn't queued, offers its download
+/// instead (Download, Cancel Download or Remove Download), as the click wheel and the
+/// gatefold do. Shared by the Spool's cassette case and the Gramophone's sleeve.
 struct QueueMenu: ViewModifier {
     let isEnabled: Bool
     let track: AppTrack
@@ -574,6 +574,9 @@ struct QueueMenu: ViewModifier {
                 }
                 Button { onQueue([track], .last) } label: {
                     Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
+                }
+                Button { PlaylistAdder.shared.offer(.track(track)) } label: {
+                    Label(String(localized: "playlist.add.action"), systemImage: "music.note.list")
                 }
             }
         } else if let episode, episode.streamURL != nil {

@@ -14,7 +14,8 @@ import MusicKit
 //
 //   albums, playlists, podcasts   a grid of covers, with search and an A–Z strip
 //   artists                       the names in big type; one opens that artist's albums
-//   search                        albums, playlists and shows that match, as covers
+//   search                        albums, playlists and shows that match, as covers,
+//                                 then Apple Music's songs, albums and artists
 //   songs, recently played,       the songs, each with its cover, to play from or swipe
 //   recently added                right to queue; every song has search and an A–Z strip
 //
@@ -94,6 +95,9 @@ struct LiquidLibraryView: View {
                             isPresented: Binding(get: { catalogOffer != nil }, set: { if !$0 { catalogOffer = nil } }),
                             titleVisibility: .visible, presenting: catalogOffer) { offer in
             Button(String(localized: "catalog.offer.add")) { add(offer) }
+            if case .song(let song) = offer {
+                Button(String(localized: "playlist.add.action")) { PlaylistAdder.shared.offer(.song(song)) }
+            }
             if let url = offer.url {
                 Button(String(localized: "catalog.offer.open")) { openURL(url) }
             }
@@ -885,6 +889,8 @@ struct LiquidSearchPage: View {
 
     @State private var query = ""
     @State private var matches: ShelfSearchMatches?
+    /// What Apple Music has for the query, below the library's.
+    @State private var catalog: AppleMusicCatalog.SearchResults?
     @State private var gridWidth: CGFloat = 0
     @FocusState private var isFocused: Bool
 
@@ -900,7 +906,7 @@ struct LiquidSearchPage: View {
                         (String(localized: "liquid.menu.playlists"), matches.mixtapes),
                         (String(localized: "liquid.menu.podcasts"), matches.podcasts)
                     ].filter { !$0.1.isEmpty }
-                    if sections.isEmpty {
+                    if sections.isEmpty, catalog?.isEmpty != false {
                         Text(String(localized: "search.noResults"))
                             .foregroundStyle(.white.opacity(0.7))
                     }
@@ -916,6 +922,10 @@ struct LiquidSearchPage: View {
                             }
                         }
                     }
+                }
+                if let catalog, !catalog.isEmpty, !query.isEmpty {
+                    LiquidCatalogSearch(results: catalog)
+                        .padding(.top, 6)
                 }
                 // Nothing typed yet: what's most played on Apple Music.
                 if query.isEmpty {
@@ -936,6 +946,15 @@ struct LiquidSearchPage: View {
                 guard !Task.isCancelled else { return }
             }
             matches = LibrarySearch.shelfMatches(for: query, in: library)
+        }
+        .task(id: query) {
+            // The catalogue is asked once typing has paused a little longer.
+            guard AppleMusicCatalog.searchTerm(query) != nil else { catalog = nil; return }
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else { return }
+            let found = await AppleMusicCatalog.shared.search(query)
+            guard !Task.isCancelled else { return }
+            catalog = found
         }
         .onAppear { isFocused = true }
     }
