@@ -496,7 +496,7 @@
       "priority": "medium", "severity": "minor", "type": "functional", "behavior": "positive",
       "preconditions": "Liquid player, on a device, online, with Apple Music songs and songs from your own files. Settings > Now Playing > Look Up Tempos on (it is by default).",
       "steps": [
-        ["Play a well-known song (e.g. Billie Jean) and watch Now Playing for a few seconds.", "The ripples and side waves settle to the song's tempo (about 117 for Billie Jean), not the default 90."],
+        ["Play a well-known song (e.g. Billie Jean) and watch Now Playing for a few seconds.", "The cover's ripples settle to the song's tempo (about 117 for Billie Jean), not the default 90. The side waves hold still."],
         ["Play a song Deezer has no tempo for (e.g. Espresso).", "It ripples at an easy 90, as before."],
         ["Play the first song again, offline.", "It still keeps its tempo: what was found is kept on the phone."],
         ["Leave Lyre open on Liquid for a few minutes, then play other songs from your library.", "More and more songs already have their tempo when they start."],

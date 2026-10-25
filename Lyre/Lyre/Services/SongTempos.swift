@@ -11,8 +11,8 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 
 // MARK: - Song Tempos
 //
-// Each song's tempo, for Liquid to move to (its waves, the cover's ripples and the
-// visualizer). The music plays through the system's player, which no app can listen to,
+// Each song's tempo, for Liquid to move to (the cover's ripples and the visualizer). The
+// music plays through the system's player, which no app can listen to,
 // and Apple Music doesn't say a song's tempo, so it's asked of Deezer's public API
 // (`DeezerTempo`), which needs no key or account:
 //
