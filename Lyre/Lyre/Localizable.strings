@@ -748,6 +748,7 @@
 "liquid.bubbles.hint.show" = "Opens its episodes.";
 "liquid.bubbles.open" = "Open";
 "liquid.bubbles.back" = "Bubbles";
+"artist.photo" = "Photo of %@";
 "liquid.settings.tempos" = "Look Up Tempos";
 "liquid.settings.tempos.detail" = "To keep each song's beat, Lyre asks Deezer for its tempo, sending only the song's code, or its title and artist. Nothing about you is sent.";
 "liquid.settings.ripple" = "Ripple to the Beat";

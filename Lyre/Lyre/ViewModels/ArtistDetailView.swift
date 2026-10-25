@@ -5,8 +5,8 @@
 
 import SwiftUI
 
-// Album browser for a single artist. Loads that artist's albums asynchronously on
-// appear. Selecting an album navigates deeper to AlbumDetailView (via handleSelect
+// Album browser for a single artist, under their photo (ArtistPhoto). Loads that
+// artist's albums asynchronously on appear. Selecting an album navigates deeper to AlbumDetailView (via handleSelect
 // in ScrollWheelView). Release year is shown as a subtitle for each album row when
 // the MusicKit metadata includes it.
 struct ArtistDetailView: View {
@@ -28,6 +28,21 @@ struct ArtistDetailView: View {
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     .lineLimit(1)
                 Spacer()
+            }
+
+            // Their photo beside their name, as a small player's screen has room for.
+            HStack(spacing: 10) {
+                ArtistPhoto(name: artist.name, fallback: albums.first, size: 46)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(String(format: String(localized: "artist.photo"), artist.name))
+                    .accessibilityAddTraits(.isImage)
+                    .accessibilityIdentifier("artist.photo")
+                Text(artist.name)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(themeSettings.currentTheme.screenTextColor)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+                Spacer(minLength: 0)
             }
 
             Divider().background(themeSettings.currentTheme.dividerColor)

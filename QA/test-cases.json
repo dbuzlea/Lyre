@@ -504,6 +504,19 @@
       ],
       "automated_by": ["LyreTests/SongTempoTests", "LyreTests/ThemeSettingsPersistenceTests", "LyreUITests/LiquidUITests/testSettingsOpenAndOfferTheOtherPlayers()"]
     },
+    {
+      "key": "LQD-07", "suite": "Liquid Player", "title": "Artists have photos, and an artist's page opens on one",
+      "priority": "medium", "severity": "minor", "type": "functional", "behavior": "positive",
+      "preconditions": "A device with Apple Music access and a library with well-known artists, a shared credit (\"A, B & C\") and, if possible, an artist only in your own files. Online.",
+      "steps": [
+        ["In Liquid, open artists.", "Each artist has a rounded-square photo before the name: their Apple Music photo for well-known artists, their album's cover for a shared credit or a local-only artist."],
+        ["Open a well-known artist.", "The page opens on their photo, large, softly lit by its colours, above their name and albums. The grid and one-at-a-time layouts both show it."],
+        ["In Classic, open Artists, then an artist.", "Under the title, the artist's photo (or album cover) sits beside their name, above their albums."],
+        ["Go offline, quit Lyre and open the same artists again.", "Photos already seen still show (the pictures may take a moment to draw)."],
+        ["Without Apple Music access, open Liquid's artists.", "Album covers stand in for every photo; nothing breaks."]
+      ],
+      "automated_by": ["LyreUITests/LiquidUITests/testArtistsHavePhotosAndTheirPageOpensOnOne()", "LyreTests/ArtistPhotoTests"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",
