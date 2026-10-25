@@ -17,13 +17,16 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //
 // A first-time user is taken through three parts, one idea per screen:
 //
-//   Get to know Lyre   welcome → why Lyre asks for access → music access → which
-//                      player: the classic wheel or the Spool cassette deck
-//   Learn it           classic: meet the wheel → hands-on practice → shortcuts
-//                      Spool: an acted-out tour of the deck (see SpoolTour)
-//   Make it yours      classic: body style → finish → highlight → screen size → wheel
+//   Get to know Lyre   welcome (the five players, each in turn) → why Lyre asks for
+//                      access → music access → which player: Classic (a click
+//                      wheel), Spool (a cassette deck), Gramophone, Disc (a CD
+//                      player) or Liquid (modern and minimal)
+//   Learn it           Classic: meet the wheel → hands-on practice → shortcuts
+//                      Spool, Disc, Liquid: an acted-out tour (see SpoolTour,
+//                      DiscTour, LiquidTour)
+//   Make it yours      Classic: body style → finish → highlight → screen size → wheel
 //                      feel → screen timeout, each with a live preview of the device
-//                      Spool: design and finish, with a drawing of the deck
+//                      Spool, Gramophone, Disc: design and finish, with a drawing
 //
 // then a summary of what they chose. Which steps come, and the "Step n of m" count,
 // follow the player chosen (`OnboardingStep.path(for:)`). The customization part can be skipped as a whole
@@ -567,31 +570,58 @@ private struct WelcomeStep: View {
     let themeSettings: ThemeSettings
     let onNext: () -> Void
 
-    // The device assembles itself: body, then screen, then the wheel spinning into
-    // place with a click, then the backlight flickering on.
+    // The classic device assembles itself: body, then screen, then the wheel spinning
+    // into place with a click, then the backlight flickering on. Then the other players
+    // take its place one at a time, each named underneath, and round again.
     @State private var screenShown = false
     @State private var wheelShown = false
     @State private var screenLevel: Double = 0.03
+    @State private var shown: PlayerStyle = .classic
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The players, in the order they're shown, as Choose Your Player lists them.
+    static let players: [PlayerStyle] = [.classic, .spool, .gramophone, .disc, .liquid]
 
     var body: some View {
         OnboardingPage(title: String(localized: "onboarding.welcome.title"),
                        message: String(localized: "onboarding.welcome.message")) {
             VStack(spacing: 28) {
-                OnboardingDevicePreview(themeSettings: themeSettings, height: 200,
-                                        screenShown: screenShown, wheelShown: wheelShown,
-                                        screenLevel: screenLevel)
+                VStack(spacing: 10) {
+                    ZStack {
+                        preview(of: shown)
+                            .id(shown)
+                            .transition(reduceMotion ? .opacity
+                                        : .opacity.combined(with: .scale(scale: 0.92)))
+                    }
+                    .frame(height: 210)
+                    // The name slides up as the next comes in, clipped to its line, so
+                    // two names never sit on top of each other.
+                    ZStack {
+                        Text(shown.displayName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .id(shown)
+                            .transition(reduceMotion ? .opacity : .push(from: .bottom))
+                    }
                     .frame(maxWidth: .infinity)
-                    .task { await assemble() }
+                    .clipped()
+                }
+                .frame(maxWidth: .infinity)
+                // One description for the whole turn, instead of a new one each change.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(String(localized: "onboarding.welcome.players.accessibility"))
+                .accessibilityValue(shown.displayName)
+                .accessibilityIdentifier("onboarding.welcome.players")
+                .task { await present() }
 
                 VStack(alignment: .leading, spacing: 22) {
                     OnboardingInfoRow(symbol: "music.note.list",
                                       title: String(localized: "onboarding.welcome.music.title"),
                                       detail: String(localized: "onboarding.welcome.music.detail"))
                         .onboardingEntrance(5)
-                    OnboardingInfoRow(symbol: "circle.circle",
-                                      title: String(localized: "onboarding.welcome.wheel.title"),
-                                      detail: String(localized: "onboarding.welcome.wheel.detail"))
+                    OnboardingInfoRow(symbol: "rectangle.2.swap",
+                                      title: String(localized: "onboarding.welcome.players.title"),
+                                      detail: String(localized: "onboarding.welcome.players.detail"))
                         .onboardingEntrance(7)
                     OnboardingInfoRow(symbol: "paintpalette",
                                       title: String(localized: "onboarding.welcome.style.title"),
@@ -604,6 +634,33 @@ private struct WelcomeStep: View {
             Text(String(localized: "onboarding.welcome.duration"))
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.75))
+        }
+    }
+
+    @ViewBuilder
+    private func preview(of style: PlayerStyle) -> some View {
+        switch style {
+        case .classic:
+            OnboardingDevicePreview(themeSettings: themeSettings, height: 200,
+                                    screenShown: screenShown, wheelShown: wheelShown,
+                                    screenLevel: screenLevel)
+        case .spool:      SpoolOnboardingPreview(themeSettings: themeSettings, height: 170)
+        case .gramophone: GramophoneOnboardingPreview(themeSettings: themeSettings, height: 190)
+        case .disc:       DiscOnboardingPreview(themeSettings: themeSettings, height: 190)
+        case .liquid:     LiquidOnboardingPreview(height: 200)
+        }
+    }
+
+    /// Builds the classic device, then turns through the players.
+    private func present() async {
+        await assemble()
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(2.6))
+            guard !Task.isCancelled else { return }
+            let next = Self.players[(Self.players.firstIndex(of: shown).map { $0 + 1 } ?? 0) % Self.players.count]
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.4) : .spring(response: 0.55, dampingFraction: 0.85)) {
+                shown = next
+            }
         }
     }
 
