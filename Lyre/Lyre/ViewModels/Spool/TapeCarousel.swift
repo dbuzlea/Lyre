@@ -381,6 +381,11 @@ struct TapeCarousel: View {
         Button { showSongs(index, rack) } label: {
             Label(String(localized: "spool.carousel.showSongs"), systemImage: "music.note.list")
         }
+        if album.hasAlbumInfo {
+            Button { AlbumInfoCenter.shared.show(album) } label: {
+                    Label(String(localized: "albumInfo.action"), systemImage: "info.circle")
+                }
+        }
     }
 
     /// Puts the tape at `index` at the front at once, from the index down the side.

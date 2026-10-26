@@ -651,6 +651,31 @@ final class SpoolUITests: XCTestCase {
         XCTAssertTrue(song.exists, "Queueing a song closed the case")
     }
 
+    /// An album's J-card says when it came out; holding its tape offers Album Info.
+    @MainActor
+    func testACaseShowsItsReleaseDateAndHoldingATapeOffersAlbumInfo() throws {
+        let app = launchSpool()
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let tape = element(app, ID.firstTape)
+        XCTAssertTrue(tape.waitForExistence(timeout: 3))
+        sleep(1)
+        tape.press(forDuration: 1.2)
+        let info = app.buttons["Album Info"]
+        XCTAssertTrue(info.waitForExistence(timeout: 3), "Holding a tape doesn't offer Album Info")
+        info.tap()
+        XCTAssertTrue(element(app, "albumInfo.released").waitForExistence(timeout: 5), "Album Info has no release date")
+        attachScreenshot(app, named: "spool-album-info")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(waitForDisappearance(of: element(app, "albumInfo.released"), timeout: 5))
+
+        tape.tap()
+        XCTAssertTrue(element(app, "spool.jcard.released").waitForExistence(timeout: 3), "The J-card doesn't say when it came out")
+        sleep(1)
+        attachScreenshot(app, named: "spool-jcard-released")
+    }
+
     @MainActor
     func testHoldingTheDoorBringsUpThePlayingAlbumsCase() throws {
         let app = launchSpool()

@@ -776,6 +776,23 @@
 
 /* Add to Playlist (PlaylistAdder, PlaylistPicker) */
 "playlist.add.action" = "Add to Playlist…";
+
+/* Album Info (AlbumInfo, AlbumInfoSheet) */
+"albumInfo.action" = "Album Info";
+"albumInfo.title" = "Album Info";
+"albumInfo.done" = "Done";
+"albumInfo.released" = "Released";
+"albumInfo.genre" = "Genre";
+"albumInfo.length" = "Length";
+"albumInfo.label" = "Label";
+"albumInfo.audio" = "Audio";
+"albumInfo.copyright" = "Copyright";
+"albumInfo.about" = "About";
+"albumInfo.songs" = "Songs";
+"albumInfo.otherVersions" = "Other Versions";
+"albumInfo.related" = "You Might Also Like";
+"albumInfo.kind.single" = "Single";
+"albumInfo.kind.compilation" = "Compilation";
 "playlist.add.title" = "Add to Playlist";
 "playlist.add.none" = "You haven't made any playlists in Apple Music yet.";
 "playlist.add.notInAppleMusic" = "This song isn't in Apple Music, so it can't be added to a playlist.";

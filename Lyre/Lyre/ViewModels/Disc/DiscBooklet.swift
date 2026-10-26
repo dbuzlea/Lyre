@@ -36,6 +36,12 @@ struct DiscBooklet: View {
                             .opacity(0.6)
                             .lineLimit(1)
                     }
+                    if let released = album.releaseLine {
+                        Text(released)
+                            .font(.system(size: 11))
+                            .opacity(0.5)
+                            .accessibilityIdentifier("disc.booklet.released")
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 14)

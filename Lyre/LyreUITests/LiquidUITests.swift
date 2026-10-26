@@ -154,6 +154,33 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "liquid-album-queued")
     }
 
+    /// An album's page says when it came out; holding its cover offers Album Info, a
+    /// sheet with its facts and songs.
+    @MainActor
+    func testAnAlbumShowsItsReleaseDateAndAlbumInfo() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let albums = element(app, "liquid.menu.albums")
+        XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
+        albums.tap()
+        let cover = element(app, "liquid.cover.sample-1")
+        XCTAssertTrue(cover.waitForExistence(timeout: 5), "Albums didn't open")
+        cover.press(forDuration: 1.2)
+        let info = app.buttons["Album Info"]
+        XCTAssertTrue(info.waitForExistence(timeout: 3), "Holding an album doesn't offer Album Info")
+        info.tap()
+        XCTAssertTrue(element(app, "albumInfo.released").waitForExistence(timeout: 5), "Album Info has no release date")
+        XCTAssertTrue(element(app, "albumInfo.length").waitForExistence(timeout: 5), "Album Info has no length")
+        XCTAssertTrue(element(app, "albumInfo.song.0").exists, "Album Info lists no songs")
+        attachScreenshot(app, named: "liquid-album-info")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(waitForDisappearance(element(app, "albumInfo.released")), "Done didn't close Album Info")
+
+        cover.tap()
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS '2020'")).firstMatch.waitForExistence(timeout: 5),
+                      "The album's page doesn't say when it came out")
+        attachScreenshot(app, named: "liquid-album-released")
+    }
+
     /// Holding a song offers to add it to a playlist, which brings up the playlists.
     @MainActor
     func testHoldingASongOffersAddToPlaylist() throws {

@@ -116,6 +116,11 @@ struct RecordStackView: View {
                         Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
                     }
                 }
+                if album.hasAlbumInfo {
+                    Button { AlbumInfoCenter.shared.show(album) } label: {
+                    Label(String(localized: "albumInfo.action"), systemImage: "info.circle")
+                }
+                }
             }
             .rotationEffect(.degrees(Double(dragX / max(frame.width, 1)) * 14))
             .offset(x: dragX)

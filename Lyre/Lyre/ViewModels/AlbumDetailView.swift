@@ -67,6 +67,13 @@ struct AlbumDetailView: View {
                         Text("\(tracks.count) song\(tracks.count == 1 ? "" : "s")")
                             .font(.system(size: 9))
                             .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
+                        if let released = album.releaseLine {
+                            Text([released, album.genre].compactMap { $0 }.joined(separator: " · "))
+                                .font(.system(size: 9))
+                                .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
+                                .lineLimit(1)
+                                .accessibilityIdentifier("album.released")
+                        }
                     }
                     Spacer()
                 }

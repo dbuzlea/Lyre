@@ -1446,6 +1446,11 @@ struct ArtworkCarouselView: View {
         } label: {
             Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
         }
+        if case .albums(let albums) = content, albums.indices.contains(index) {
+            Button { AlbumInfoCenter.shared.show(albums[index]) } label: {
+                Label(String(localized: "albumInfo.action"), systemImage: "info.circle")
+            }
+        }
     }
 
     /// Queues a whole album, playlist or podcast show from its cover, without opening
