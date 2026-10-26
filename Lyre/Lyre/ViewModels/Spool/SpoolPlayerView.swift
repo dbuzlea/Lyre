@@ -123,8 +123,6 @@ struct SpoolPlayerView: View {
     /// The same for the mixtape shelf.
     @AppStorage("SpoolMixtapeFrontID") private var mixtapeFrontID: String?
     @AppStorage("SpoolPodcastFrontID") private var podcastFrontID: String?
-    /// Apple Music's shelf's front, for this search only (it isn't kept).
-    @State private var appleMusicFrontID: String?
     /// The shelf the rack shows: albums or mixtapes. Kept, so the rack reopens on it.
     @AppStorage("SpoolShelf") private var shelf: SpoolShelf = .albums
     /// What's typed over the rack, and the tapes it leaves on each shelf; nil when
@@ -576,7 +574,6 @@ struct SpoolPlayerView: View {
                              isFocused: $isShelfSearchFocused)
             ShelfDividers(
                 shelf: $shelf,
-                shelves: shelfMatches?.shelves ?? SpoolShelf.allCases,
                 title: { ShelfSearchMatches.dividerTitle($0.title, on: $0, matches: shelfMatches) },
                 onFindShows: { showPodcastSearch = true }
             )
@@ -1139,10 +1136,9 @@ struct SpoolPlayerView: View {
     /// Where each shelf was left: each keeps its own front tape.
     private var shelfFrontID: Binding<String?> {
         switch shelf {
-        case .albums:     return $rackFrontID
-        case .mixtapes:   return $mixtapeFrontID
-        case .podcasts:   return $podcastFrontID
-        case .appleMusic: return $appleMusicFrontID
+        case .albums:   return $rackFrontID
+        case .mixtapes: return $mixtapeFrontID
+        case .podcasts: return $podcastFrontID
         }
     }
 

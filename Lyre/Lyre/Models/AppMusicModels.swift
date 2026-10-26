@@ -104,8 +104,6 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
     let mixtape: AppPlaylist?
     /// Set when the Spool shows a podcast as a spoken-word tape: the show it was made from.
     let podcast: PodcastShow?
-    /// From Apple Music's catalogue, not the library: its songs stream when played.
-    let isCatalog: Bool
 
     init(
         id: String, title: String, artistName: String,
@@ -113,8 +111,7 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
         mpArtwork: MPMediaItemArtwork? = nil,
         preloadedTracks: [AppTrack] = [],
         mixtape: AppPlaylist? = nil,
-        podcast: PodcastShow? = nil,
-        isCatalog: Bool = false
+        podcast: PodcastShow? = nil
     ) {
         self.id = id; self.title = title; self.artistName = artistName
         self.releaseDate = releaseDate; self.musicKitAlbum = musicKitAlbum
@@ -122,7 +119,6 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
         self.preloadedTracks = preloadedTracks
         self.mixtape = mixtape
         self.podcast = podcast
-        self.isCatalog = isCatalog
     }
 
     static func == (lhs: AppAlbum, rhs: AppAlbum) -> Bool { lhs.id == rhs.id }
@@ -224,21 +220,23 @@ nonisolated struct AppPlaylist: Identifiable, Hashable {
 // MARK: - MusicKit Convenience Initializers
 
 nonisolated extension AppTrack {
-    /// A song from the library, or with `catalog`, from Apple Music's catalogue, which
-    /// streams by its ID. Which it is has to be said where the song was asked for: on a
-    /// device the library's IDs are all digits too, like the catalogue's.
-    init(from song: Song, catalog: Bool = false) {
+    init(from song: Song) {
         self.init(
             id: song.id.rawValue, title: song.title,
             artistName: song.artistName, albumTitle: song.albumTitle ?? "",
             duration: song.duration ?? 0,
             musicKitSong: song,
-            storeID: catalog ? song.id.rawValue : nil
+            storeID: Self.catalogID(song.id)
         )
     }
 
-    /// An album's or playlist's track; with `catalog`, one of a catalogue album's.
-    init(from track: Track, catalog: Bool = false) {
+    /// A catalogue ID (all digits), as against a library one ("i.…").
+    static func catalogID(_ id: MusicItemID) -> String? {
+        let raw = id.rawValue
+        return !raw.isEmpty && raw.allSatisfy(\.isNumber) ? raw : nil
+    }
+
+    init(from track: Track) {
         switch track {
         case .song(let song):
             self.init(
@@ -246,7 +244,7 @@ nonisolated extension AppTrack {
                 artistName: song.artistName, albumTitle: song.albumTitle ?? "",
                 duration: song.duration ?? 0,
                 musicKitSong: song, musicKitTrack: track,
-                storeID: catalog ? song.id.rawValue : nil
+                storeID: Self.catalogID(song.id)
             )
         case .musicVideo(let mv):
             self.init(
@@ -267,11 +265,10 @@ nonisolated extension AppTrack {
 }
 
 nonisolated extension AppAlbum {
-    /// An album from the library, or with `catalog`, from Apple Music's catalogue.
-    init(from album: Album, catalog: Bool = false) {
+    init(from album: Album) {
         self.init(
             id: album.id.rawValue, title: album.title, artistName: album.artistName,
-            releaseDate: album.releaseDate, musicKitAlbum: album, isCatalog: catalog
+            releaseDate: album.releaseDate, musicKitAlbum: album
         )
     }
 }

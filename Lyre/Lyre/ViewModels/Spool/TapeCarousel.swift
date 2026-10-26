@@ -663,26 +663,19 @@ private struct TapeCard: View, Equatable {
 
 // MARK: - Shelves
 
-/// What the rack is showing: one of the library's shelves, or while searching, Apple
-/// Music's albums for what's typed (with a subscription, streamed; see
-/// Docs/CATALOGUE-STREAMING.md).
+/// What the rack is showing.
 enum SpoolShelf: String, CaseIterable, Identifiable {
     case albums
     case mixtapes
     case podcasts
-    case appleMusic
-
-    /// The library's shelves, always there; Apple Music's appears only with results.
-    static var allCases: [SpoolShelf] { [.albums, .mixtapes, .podcasts] }
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .albums:     return String(localized: "spool.shelf.albums")
-        case .mixtapes:   return String(localized: "spool.shelf.mixtapes")
-        case .podcasts:   return String(localized: "spool.shelf.podcasts")
-        case .appleMusic: return String(localized: "catalog.search.title")
+        case .albums:   return String(localized: "spool.shelf.albums")
+        case .mixtapes: return String(localized: "spool.shelf.mixtapes")
+        case .podcasts: return String(localized: "spool.shelf.podcasts")
         }
     }
 }
@@ -691,8 +684,6 @@ enum SpoolShelf: String, CaseIterable, Identifiable {
 /// up in front, lit; the others sit back behind it.
 struct ShelfDividers: View {
     @Binding var shelf: SpoolShelf
-    /// The dividers shown: the library's shelves, and Apple Music's while it has results.
-    var shelves: [SpoolShelf] = SpoolShelf.allCases
     /// What each divider says; the Spool's names by default.
     var title: (SpoolShelf) -> String = { $0.title }
     /// Opens podcast search; offered beside the dividers on the podcast shelf.
@@ -701,7 +692,7 @@ struct ShelfDividers: View {
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 4) {
-            ForEach(shelves) { option in
+            ForEach(SpoolShelf.allCases) { option in
                 let isSelected = option == shelf
                 Button {
                     guard !isSelected else { return }

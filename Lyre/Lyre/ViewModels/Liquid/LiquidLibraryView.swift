@@ -181,13 +181,13 @@ struct LiquidLibraryView: View {
     }
 
     private func catalogTrack(_ song: Song) -> AppTrack {
-        librarySong(song) ?? AppTrack(from: song, catalog: true)
+        librarySong(song) ?? AppTrack(from: song)
     }
 
     /// Streams a catalogue album the library hasn't, from the top.
     private func play(_ album: Album) {
         Task {
-            let tracks = (try? await album.with([.tracks]).tracks).map { $0.map { AppTrack(from: $0, catalog: true) } } ?? []
+            let tracks = (try? await album.with([.tracks]).tracks).map { $0.map { AppTrack(from: $0) } } ?? []
             guard !tracks.isEmpty else { return onNotice(String(localized: "catalog.play.failed")) }
             onPlaySongs(tracks, 0, true, album.title)
         }

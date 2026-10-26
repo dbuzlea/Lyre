@@ -4,7 +4,6 @@
 //
 
 import Foundation
-import MusicKit
 import os
 
 // MARK: - Library Search
@@ -55,14 +54,8 @@ nonisolated enum LibrarySearchResult: Identifiable, Hashable {
             guard let name, !name.isEmpty else { return kind }
             return "\(kind) · \(name)"
         }
-        // Apple Music's, streamed rather than the library's.
-        let appleMusic = String(localized: "catalog.search.title")
         switch self {
         case .artist:                 return String(localized: "search.kind.artist")
-        case .album(let album) where album.isCatalog:
-            return byline(String(localized: "search.kind.album") + " · " + appleMusic, album.artistName)
-        case .song(let track) where track.isStreamOnly:
-            return byline(String(localized: "search.kind.song") + " · " + appleMusic, track.artistName)
         case .album(let album):       return byline(String(localized: "search.kind.album"), album.artistName)
         case .song(let track):        return byline(String(localized: "search.kind.song"), track.artistName)
         case .playlist(let playlist): return byline(String(localized: "search.kind.playlist"), playlist.curatorName)
@@ -94,29 +87,20 @@ struct ShelfSearchMatches: Equatable {
     var albums: [AppAlbum] = []
     var mixtapes: [AppAlbum] = []
     var podcasts: [AppAlbum] = []
-    /// Apple Music's albums for the query that the library hasn't, streamed when played.
-    var appleMusic: [AppAlbum] = []
 
     func items(on shelf: SpoolShelf) -> [AppAlbum] {
         switch shelf {
-        case .albums:     return albums
-        case .mixtapes:   return mixtapes
-        case .podcasts:   return podcasts
-        case .appleMusic: return appleMusic
+        case .albums:   return albums
+        case .mixtapes: return mixtapes
+        case .podcasts: return podcasts
         }
-    }
-
-    /// The dividers to show: the library's shelves, and Apple Music's when it has any.
-    var shelves: [SpoolShelf] {
-        appleMusic.isEmpty ? SpoolShelf.allCases : SpoolShelf.allCases + [.appleMusic]
     }
 
     /// The first shelf with anything on it, when `shelf` has nothing: where the rack
     /// should turn to so a search never lands on an empty shelf while another has hits.
-    /// The library's shelves come first.
     func shelfWithMatches(preferring shelf: SpoolShelf) -> SpoolShelf? {
         guard items(on: shelf).isEmpty else { return nil }
-        return shelves.first { !items(on: $0).isEmpty }
+        return SpoolShelf.allCases.first { !items(on: $0).isEmpty }
     }
 }
 
@@ -187,21 +171,6 @@ nonisolated enum LibrarySearch {
             + ranked(songs, terms, limit: songLimit, title: \.title).map(LibrarySearchResult.song)
             + ranked(playlists, terms, limit: collectionLimit, title: \.name).map(LibrarySearchResult.playlist)
             + ranked(podcasts, terms, limit: collectionLimit, title: \.title).map(LibrarySearchResult.podcast)
-    }
-
-    /// Apple Music's songs and albums for the query, after the library's results: the
-    /// ones the library hasn't, streamed when chosen. None without a subscription.
-    @MainActor
-    static func appleMusicResults(for query: String, in musicService: MusicService) async -> [LibrarySearchResult] {
-        guard musicService.canStream, let found = await AppleMusicCatalog.shared.search(query) else { return [] }
-        let songs = found.songs
-            .filter { AppleMusicCatalog.librarySong(title: $0.title, artist: $0.artistName, duration: $0.duration, in: musicService) == nil }
-            .map { LibrarySearchResult.song(AppTrack(from: $0, catalog: true)) }
-        let albums = found.albums
-            .filter { AppleMusicCatalog.libraryAlbum(title: $0.title, artist: $0.artistName, in: musicService.albums) == nil }
-            .prefix(collectionLimit)
-            .map { LibrarySearchResult.album(AppAlbum(from: $0, catalog: true)) }
-        return songs + albums
     }
 
     // MARK: Shelves

@@ -4,7 +4,6 @@
 //
 
 import SwiftUI
-import MusicKit
 
 // MARK: - Shelf Search
 //
@@ -16,10 +15,6 @@ import MusicKit
 // `ShelfSearching` does the searching for either player: it waits for a pause in the
 // typing, searches once, and hands back the matches with the query they're for, which
 // the players use to rebuild the rack once per search rather than once per keystroke.
-// A little later, with an Apple Music subscription, Apple Music's albums for the same
-// words that the library hasn't arrive on a shelf of their own (`appleMusic`); opened,
-// their songs stream. Leaving that shelf empty when the search clears turns the rack
-// back to Albums.
 
 struct ShelfSearchField: View {
     @Binding var query: String
@@ -84,21 +79,7 @@ struct ShelfSearching: ViewModifier {
             let found = LibrarySearch.shelfMatches(for: query, in: library)
             withAnimation(.easeInOut(duration: 0.2)) {
                 matches = found
-                if found == nil, shelf == .appleMusic { shelf = .albums }
                 if let other = found?.shelfWithMatches(preferring: shelf) { shelf = other }
-            }
-            // Apple Music, once the typing has paused a little longer.
-            guard found != nil, library.musicService.canStream, AppleMusicCatalog.searchTerm(query) != nil else { return }
-            try? await Task.sleep(for: .milliseconds(300))
-            guard !Task.isCancelled, let results = await AppleMusicCatalog.shared.search(query),
-                  !Task.isCancelled, matches?.query == query else { return }
-            let mine = library.musicService.albums
-            let albums = results.albums
-                .filter { AppleMusicCatalog.libraryAlbum(title: $0.title, artist: $0.artistName, in: mine) == nil }
-                .map { AppAlbum(from: $0, catalog: true) }
-            withAnimation(.easeInOut(duration: 0.2)) {
-                matches?.appleMusic = albums
-                if let other = matches?.shelfWithMatches(preferring: shelf) { shelf = other }
             }
         }
     }

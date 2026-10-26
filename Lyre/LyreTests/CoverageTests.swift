@@ -961,40 +961,7 @@ struct StreamingQueueTests {
         #expect(streamed.isStreamOnly && streamed.queueKey == "s1440934248")
         // The library's copy is played from the library, offline and without a subscription.
         #expect(!owned.isStreamOnly && owned.queueKey == "p6493")
-        // On a device the library's IDs are all digits too: a library song with no item
-        // found is not taken for a catalogue one.
-        let libraryOnly = AppTrack(id: "1152921504606846976", title: "a", artistName: "", albumTitle: "", duration: 1)
-        #expect(!libraryOnly.isStreamOnly && libraryOnly.storeID == nil)
-        #expect(!AppAlbum(id: "1152921504606846977", title: "b", artistName: "").isCatalog)
-    }
-}
-
-/// Apple Music's albums get a shelf of their own in the Spool, Disc and Gramophone, only
-/// while a search has some; the classic Search marks Apple Music's rows.
-struct AppleMusicShelfTests {
-    private func album(_ id: String) -> AppAlbum { AppAlbum(id: id, title: id, artistName: "A") }
-
-    @Test func theAppleMusicShelfShowsOnlyWithResults() {
-        #expect(SpoolShelf.allCases == [.albums, .mixtapes, .podcasts])
-        var matches = ShelfSearchMatches(query: "x", albums: [album("a")])
-        #expect(matches.shelves == [.albums, .mixtapes, .podcasts])
-        matches.appleMusic = [album("1440934248")]
-        #expect(matches.shelves == [.albums, .mixtapes, .podcasts, .appleMusic])
-        #expect(matches.items(on: .appleMusic).count == 1)
-    }
-
-    @Test func theRackTurnsToAppleMusicOnlyWhenTheLibraryHasNothing() {
-        var matches = ShelfSearchMatches(query: "x", appleMusic: [album("1")])
-        #expect(matches.shelfWithMatches(preferring: .albums) == .appleMusic)
-        matches.mixtapes = [album("m")]
-        #expect(matches.shelfWithMatches(preferring: .albums) == .mixtapes)
-        #expect(matches.shelfWithMatches(preferring: .appleMusic) == nil)
-    }
-
-    @Test func classicSearchMarksAStreamedSong() {
-        let streamed = AppTrack(id: "1", title: "a", artistName: "Taylor Swift", albumTitle: "", duration: 1, storeID: "1")
-        let owned = AppTrack(id: "i.1", title: "a", artistName: "Taylor Swift", albumTitle: "", duration: 1, mpPersistentID: 3)
-        #expect(LibrarySearchResult.song(streamed).subtitle.contains("Apple Music"))
-        #expect(!LibrarySearchResult.song(owned).subtitle.contains("Apple Music"))
+        #expect(AppTrack.catalogID(MusicItemID("1440934248")) == "1440934248")
+        #expect(AppTrack.catalogID(MusicItemID("i.abc")) == nil)
     }
 }
