@@ -823,13 +823,14 @@ struct SongTempoTests {
     }
 
     /// What's found survives a relaunch.
-    @Test func temposSurviveARelaunch() throws {
+    @Test func temposSurviveARelaunch() async throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("tempos-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: file) }
         let track = song("Levitating", by: "Dua Lipa")
         let first = SongTempos(fileURL: file)
         first.record(103, for: try #require(SongTempos.key(for: track)))
         first.save()
+        await first.finishSaving()
         #expect(SongTempos(fileURL: file).bpm(for: track) == 103)
     }
 }

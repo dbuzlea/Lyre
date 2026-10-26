@@ -187,7 +187,13 @@ final class AppleMusicCatalog {
     // MARK: The library
 
     /// The library's copy of a catalogue song: the same title by the same artist, of
-    /// much the same length.
+    /// much the same length. Looked up in the service's title index.
+    static func librarySong(title: String, artist: String, duration: TimeInterval?, in musicService: MusicService) -> AppTrack? {
+        librarySong(title: title, artist: artist, duration: duration,
+                    in: musicService.librarySongs(normalizedTitle: DeezerTempo.normalized(title)))
+    }
+
+    /// The same, among `songs`.
     static func librarySong(title: String, artist: String, duration: TimeInterval?, in songs: [AppTrack]) -> AppTrack? {
         let wantedTitle = DeezerTempo.normalized(title), wantedArtist = DeezerTempo.normalized(artist)
         return songs.first { track in

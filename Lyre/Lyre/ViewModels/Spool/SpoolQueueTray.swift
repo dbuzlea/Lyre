@@ -308,20 +308,9 @@ struct SpoolQueueTray: View {
     // MARK: - Editing
 
     /// Up Next with an identity per row, since the same song can be queued twice.
-    private var entries: [Entry] {
-        var seen: [String: Int] = [:]
-        return upNext.enumerated().map { offset, track in
-            let copy = seen[track.id, default: 0]
-            seen[track.id] = copy + 1
-            return Entry(id: "\(track.id)#\(copy)", offset: offset, track: track)
-        }
-    }
+    private var entries: [Entry] { UpNextRows.rows(for: upNext) }
 
-    private struct Entry: Identifiable {
-        let id: String
-        let offset: Int
-        let track: AppTrack
-    }
+    private typealias Entry = UpNextRows.Row
 
     /// Pulls the song's label out of the stack, then hands it over to be loaded.
     private func pick(_ entry: Entry) {

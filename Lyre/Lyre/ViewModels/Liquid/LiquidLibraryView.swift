@@ -177,7 +177,7 @@ struct LiquidLibraryView: View {
     }
 
     private func librarySong(_ song: Song) -> AppTrack? {
-        AppleMusicCatalog.librarySong(title: song.title, artist: song.artistName, duration: song.duration, in: library.songs)
+        AppleMusicCatalog.librarySong(title: song.title, artist: song.artistName, duration: song.duration, in: musicService)
     }
 
     private func catalogTrack(_ song: Song) -> AppTrack {
@@ -253,6 +253,18 @@ struct LiquidLibraryView: View {
             onNotice(String(format: String(localized: "catalog.added.later"), offer.title))
         }
     }
+
+    /// The most played songs, worked out at most every half minute for the same
+    /// library: each song's count is a lookup in the media library, and the page is
+    /// redrawn far more often than counts change.
+    private static func mostPlayed(_ songs: [AppTrack]) -> [AppTrack] {
+        if let memo = mostPlayedMemo, memo.songs == songs, Date().timeIntervalSince(memo.at) < 30 { return memo.result }
+        let result = AppTrack.mostPlayed(songs)
+        mostPlayedMemo = (songs, result, Date())
+        return result
+    }
+
+    private static var mostPlayedMemo: (songs: [AppTrack], result: [AppTrack], at: Date)?
 
     private static func color(of route: LiquidRoute) async -> Color {
         if case .album(let album) = route {
@@ -346,7 +358,7 @@ struct LiquidLibraryView: View {
             }
         case .mostPlayed:
             LiquidRememberedLayout("mostPlayed") { layout in
-                LiquidSongsPage(title: String(localized: "liquid.menu.mostPlayed"), tracks: AppTrack.mostPlayed(library.songs),
+                LiquidSongsPage(title: String(localized: "liquid.menu.mostPlayed"), tracks: Self.mostPlayed(library.songs),
                                 emptyText: String(localized: "liquid.mostPlayed.empty"), isAlphabetical: false,
                                 musicService: musicService, onPlay: onPlaySongs, onQueue: onQueue,
                                 bottomInset: bottomInset, layout: layout)
@@ -852,16 +864,26 @@ struct LiquidArtistsPage: View {
     let albums: [AppAlbum]
     let bottomInset: CGFloat
 
-    /// Each artist with how many albums, and one to stand in for their photo.
-    private var artists: [(name: String, count: Int, album: AppAlbum?)] {
-        Dictionary(grouping: albums, by: \.artistName)
+    typealias Artist = (name: String, count: Int, album: AppAlbum?)
+
+    /// Each artist with how many albums, and one to stand in for their photo. Grouped
+    /// and sorted once for a set of albums, not on every redraw (that took a fifth of
+    /// a second with a big library).
+    private var artists: [Artist] {
+        if let memo = Self.memo, memo.albums == albums { return memo.artists }
+        let artists: [Artist] = Dictionary(grouping: albums, by: \.artistName)
             .map { ($0.key, $0.value.count, $0.value.first) }
             .filter { !$0.0.isEmpty }
             .sorted { AppHelpers.sortsBefore($0.0, $1.0) }
+        Self.memo = (albums, artists)
+        return artists
     }
 
+    private static var memo: (albums: [AppAlbum], artists: [Artist])?
+
     var body: some View {
-        ScrollView {
+        let artists = self.artists
+        return ScrollView {
             LazyVStack(alignment: .leading, spacing: 4) {
                 LiquidPageTitle(title: String(localized: "liquid.menu.artists"))
                     .padding(.bottom, 12)
@@ -1131,7 +1153,7 @@ struct LiquidSongsPage: View {
                 .environment(\.defaultMinListRowHeight, 1)
 
                 if hasIndex {
-                    LiquidLetterStrip(titles: shown.map(\.title)) { index in
+                    LiquidLetterStrip(titles: Self.titles(of: shown)) { index in
                         proxy.scrollTo(index, anchor: .top)
                     }
                     .padding(.trailing, 6)
@@ -1143,6 +1165,17 @@ struct LiquidSongsPage: View {
         }
         .transition(.opacity)
     }
+
+    /// The songs' titles for the A–Z strip, kept for the same list: a big library's
+    /// titles were mapped again, and compared again by the strip, on every redraw.
+    private static func titles(of tracks: [AppTrack]) -> [String] {
+        if let memo = titlesMemo, memo.tracks == tracks { return memo.titles }
+        let titles = tracks.map(\.title)
+        titlesMemo = (tracks, titles)
+        return titles
+    }
+
+    private static var titlesMemo: (tracks: [AppTrack], titles: [String])?
 
     /// Play and Shuffle for the whole list, in either layout.
     private func playAndShuffle(_ shown: [AppTrack], height: CGFloat) -> some View {

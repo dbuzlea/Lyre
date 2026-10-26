@@ -1029,11 +1029,14 @@ final class GramophoneStage {
         plateCard.diffuse.contents = GramophoneTextures.plate(title: title, subtitle: subtitle, theme: theme)
     }
 
-    /// Hides the record and the arm while the 2D turntable lies over them.
+    /// Hides the record and the arm while the 2D turntable lies over them. The hidden
+    /// record stops turning too (paused where it is, so it carries on from there),
+    /// rather than keeping the 3D scene drawing under the 2D one.
     func setTurntableHidden(_ hidden: Bool) {
         isTurntableHidden = hidden
         armYaw.isHidden = hidden
         spinner.isHidden = hidden
+        spinner.isPaused = hidden
     }
 
     // MARK: - Putting a Record On

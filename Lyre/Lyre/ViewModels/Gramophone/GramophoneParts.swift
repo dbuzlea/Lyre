@@ -47,14 +47,22 @@ extension AppAlbum {
 }
 
 /// What's printed on a record's label.
-enum RecordLabel {
+enum RecordLabel: Equatable {
     case album(AppAlbum)
     case track(AppTrack)
     /// Paper only, with the title written or printed on it.
     case plain
 }
 
-struct RecordDisc: View {
+/// Equatable, so a spinning record (rotated 30 times a second) isn't drawn again each
+/// frame: its grooves are one ring per song, thousands with a long queue.
+struct RecordDisc: View, Equatable {
+    static func == (lhs: RecordDisc, rhs: RecordDisc) -> Bool {
+        lhs.kind == rhs.kind && lhs.title == rhs.title && lhs.label == rhs.label
+            && lhs.grooves == rhs.grooves && lhs.diameter == rhs.diameter
+            && lhs.still?.image === rhs.still?.image && (lhs.still == nil) == (rhs.still == nil)
+    }
+
     let kind: RecordKind
     let title: String
     let label: RecordLabel
@@ -304,6 +312,7 @@ struct TurntableView: View {
                 TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !isPlaying || reduceMotion)) { context in
                     RecordDisc(kind: record.kind, title: record.title, label: record.label,
                                grooves: record.grooves, diameter: radius * 2)
+                        .equatable()
                         .rotationEffect(.degrees(spin(at: context.date)))
                 }
                 .overlay(RecordSheen())

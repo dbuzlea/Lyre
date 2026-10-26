@@ -135,10 +135,11 @@ struct LiquidCatalogSongRow: View {
                     Text(song.artistName).font(.system(size: 12)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
                 }
                 Spacer(minLength: 6)
-                Image(systemName: navigator.librarySong(song) != nil ? "checkmark.circle.fill" : "plus.circle")
+                let isMine = navigator.librarySong(song) != nil
+                Image(systemName: isMine ? "checkmark.circle.fill" : "plus.circle")
                     .font(.system(size: 18))
-                    .foregroundStyle(.white.opacity(navigator.librarySong(song) != nil ? 0.5 : 0.8))
-                    .accessibilityLabel(String(localized: navigator.librarySong(song) != nil ? "catalog.inLibrary" : "catalog.notInLibrary"))
+                    .foregroundStyle(.white.opacity(isMine ? 0.5 : 0.8))
+                    .accessibilityLabel(String(localized: isMine ? "catalog.inLibrary" : "catalog.notInLibrary"))
             }
             .foregroundStyle(.white)
             .frame(minHeight: 60)

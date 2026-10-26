@@ -6,6 +6,7 @@
 import Foundation
 import MusicKit
 import OSLog
+import os
 
 private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "SongTempos")
 
@@ -56,6 +57,9 @@ final class SongTempos {
     @ObservationIgnored private var asking: Set<String> = []
     @ObservationIgnored private var worker: Task<Void, Never>?
     @ObservationIgnored private var unsaved = 0
+    /// When the library was last gone through, and how big it was.
+    @ObservationIgnored private var lastScan: (count: Int, at: Date) = (-1, .distantPast)
+    private static let rescanAfter: TimeInterval = 10 * 60
     @ObservationIgnored private let fileURL: URL?
 
     init(fileURL: URL? = SongTempos.defaultFileURL) {
@@ -81,7 +85,18 @@ final class SongTempos {
     }
 
     /// What a song is filed under: its ISRC when it has one, else its artist and title.
+    /// Remembered per song: the ripples ask for the playing song's tempo every frame.
     static func key(for track: AppTrack) -> String? {
+        if let known = keys[track.id] { return known }
+        let key = computeKey(for: track)
+        if keys.count > 20_000 { keys.removeAll(keepingCapacity: true) }
+        keys[track.id] = .some(key)
+        return key
+    }
+
+    private static var keys: [String: String?] = [:]
+
+    private static func computeKey(for track: AppTrack) -> String? {
         if let isrc = isrc(of: track) { return "isrc:" + isrc.uppercased() }
         let title = DeezerTempo.normalized(track.title), artist = DeezerTempo.normalized(track.artistName)
         guard !title.isEmpty, !artist.isEmpty else { return nil }
@@ -105,15 +120,22 @@ final class SongTempos {
 
     /// Asks for `first` (the song playing) ahead of everything, then `rest` (the library)
     /// behind whatever is already waiting. Songs already known are passed over.
+    ///
+    /// The library is gone through again only when it has changed or a while has
+    /// passed, not every time the song changes (it's asked with every new song).
     func lookUp(_ first: AppTrack?, then rest: [AppTrack] = []) {
-        if let first, needsAsking(first) {
-            waiting.removeAll { Self.key(for: $0) == Self.key(for: first) }
+        if let first, needsAsking(first), let firstKey = Self.key(for: first) {
+            waiting.removeAll { Self.key(for: $0) == firstKey }
             waiting.insert(first, at: 0)
         }
-        var queued = Set(waiting.compactMap(Self.key(for:)))
-        for track in rest where needsAsking(track) {
-            guard let key = Self.key(for: track), queued.insert(key).inserted else { continue }
-            waiting.append(track)
+        let now = Date()
+        if !rest.isEmpty, rest.count != lastScan.count || now.timeIntervalSince(lastScan.at) > Self.rescanAfter {
+            lastScan = (rest.count, now)
+            var queued = Set(waiting.compactMap(Self.key(for:)))
+            for track in rest where needsAsking(track, now: now) {
+                guard let key = Self.key(for: track), queued.insert(key).inserted else { continue }
+                waiting.append(track)
+            }
         }
         guard worker == nil, !waiting.isEmpty else { return }
         worker = Task { await work() }
@@ -124,6 +146,7 @@ final class SongTempos {
         worker?.cancel()
         worker = nil
         waiting.removeAll()
+        lastScan = (-1, .distantPast)
         save()
     }
 
@@ -140,7 +163,7 @@ final class SongTempos {
             } catch {
                 // Offline or the server: nothing kept, so it's asked again another time.
                 logger.debug("Tempo lookup failed for \(title, privacy: .private): \(error.localizedDescription)")
-                if (error as? URLError)?.code == .notConnectedToInternet { waiting.removeAll() }
+                if (error as? URLError)?.code == .notConnectedToInternet { waiting.removeAll(); lastScan = (-1, .distantPast) }
             }
             asking.remove(key)
             try? await Task.sleep(for: Self.spacing)
@@ -154,9 +177,22 @@ final class SongTempos {
         if unsaved >= 25 { save() }
     }
 
+    /// Writes what's known, encoded and written off the main thread (a library's worth
+    /// of entries is a sizeable file). Writes go in order, so the last one wins.
     func save() {
         guard unsaved > 0, let fileURL else { return }
         unsaved = 0
+        let entries = self.entries
+        let previous = lastSave
+        lastSave = Task.detached(priority: .utility) {
+            await previous?.value
+            Self.write(entries, to: fileURL)
+        }
+    }
+
+    @ObservationIgnored private var lastSave: Task<Void, Never>?
+
+    nonisolated private static func write(_ entries: [String: Entry], to fileURL: URL) {
         do {
             try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
                                                     withIntermediateDirectories: true)
@@ -169,6 +205,9 @@ final class SongTempos {
             logger.error("Could not save song tempos: \(error.localizedDescription)")
         }
     }
+
+    /// Waits for writes already started (for tests).
+    func finishSaving() async { await lastSave?.value }
 }
 
 // MARK: - Deezer
@@ -247,7 +286,35 @@ nonisolated enum DeezerTempo {
     /// A title or name reduced to what identifies it: lower case, no accents, without
     /// what's in brackets ("(Remastered 2011)", "[Live]"), " - Single" and the like, or
     /// a "feat." credit, and only letters and digits.
+    ///
+    /// Each text is worked out once and remembered: matching a song against the
+    /// library, filing its tempo and every frame of the ripples ask again and again,
+    /// and the regular expressions are slow (a library's worth took over a second).
     static func normalized(_ text: String) -> String {
+        if let known = normalizedCache.withLock({ $0[text] }) { return known }
+        let result = computeNormalized(text)
+        normalizedCache.withLock { cache in
+            // A library's titles and names fit many times over; this only stops a
+            // long-running search from growing it without end.
+            if cache.count > 60_000 { cache.removeAll(keepingCapacity: true) }
+            cache[text] = result
+        }
+        return result
+    }
+
+    private static let normalizedCache = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
+
+    /// Works out every title and artist ahead of time, off the main thread, so the
+    /// first look through the library doesn't.
+    @concurrent
+    static func prepare(_ tracks: [AppTrack]) async {
+        for track in tracks {
+            _ = normalized(track.title)
+            _ = normalized(track.artistName)
+        }
+    }
+
+    private static func computeNormalized(_ text: String) -> String {
         var s = text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
         s = s.replacingOccurrences(of: #"\s*[\(\[][^\)\]]*[\)\]]"#, with: "", options: .regularExpression)
         s = s.replacingOccurrences(of: #"\s+-\s+(single|ep|remaster(ed)?.*|radio edit.*)$"#, with: "", options: .regularExpression)
