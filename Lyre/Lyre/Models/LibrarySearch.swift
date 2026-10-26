@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import os
 
 // MARK: - Library Search
 //
@@ -128,9 +129,19 @@ nonisolated enum LibrarySearch {
         return fold(title).hasPrefix(first)
     }
 
+    /// Folded once per text and remembered: every keystroke searches the whole library
+    /// again, and folding is the slow part.
     private static func fold(_ text: String) -> String {
-        text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+        if let known = folded.withLock({ $0[text] }) { return known }
+        let result = text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+        folded.withLock { cache in
+            if cache.count > 80_000 { cache.removeAll(keepingCapacity: true) }
+            cache[text] = result
+        }
+        return result
     }
+
+    private static let folded = OSAllocatedUnfairLock<[String: String]>(initialState: [:])
 
     /// Matches first by whether their title starts with the query, otherwise in library order.
     private static func ranked<T>(_ items: [T], _ terms: [String], limit: Int, title: (T) -> String) -> [T] {

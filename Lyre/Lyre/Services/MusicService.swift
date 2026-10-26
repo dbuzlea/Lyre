@@ -290,7 +290,17 @@ class MusicService: ObservableObject {
 
     // Each list's alphabet-section letters are worked out once, whenever the list
     // changes, instead of twice per row on every redraw of the list.
-    @Published var songs:        [AppTrack]    = [] { didSet { songSectionLetters = Self.sectionLetters(songs.map(\.title)) } }
+    @Published var songs:        [AppTrack]    = [] {
+        didSet {
+            songSectionLetters = Self.sectionLetters(songs.map(\.title))
+            songsByTitle = nil
+            songsByPersistentID = nil
+            // Each title and artist worked out for matching ahead of time, off the
+            // main thread (see DeezerTempo.normalized).
+            let songs = songs
+            Task.detached(priority: .utility) { await DeezerTempo.prepare(songs) }
+        }
+    }
     @Published var albums:       [AppAlbum]    = [] { didSet { albumSectionLetters = Self.sectionLetters(albums.map(\.title)) } }
     @Published var artists:      [AppArtist]   = [] { didSet { artistSectionLetters = Self.sectionLetters(artists.map(\.name)) } }
     @Published var playlists:    [AppPlaylist] = [] {
@@ -308,6 +318,20 @@ class MusicService: ObservableObject {
     private(set) var shelfMixtapes: [AppAlbum] = []
     private(set) var shelfPodcasts: [AppAlbum] = []
     private var mergedShows: [PodcastShow] = []
+
+    /// The songs by normalised title (DeezerTempo.normalized), in library order, and by
+    /// persistent ID: built the first time they're needed after `songs` changes, so
+    /// finding a song is a lookup rather than a pass over the whole library.
+    private var songsByTitle: [String: [AppTrack]]?
+    private var songsByPersistentID: [MPMediaEntityPersistentID: AppTrack]?
+
+    /// The library's songs whose normalised title is `title`, in library order.
+    func librarySongs(normalizedTitle title: String) -> [AppTrack] {
+        if songsByTitle == nil {
+            songsByTitle = Dictionary(grouping: songs) { DeezerTempo.normalized($0.title) }
+        }
+        return songsByTitle?[title] ?? []
+    }
 
     // MARK: - Playback State
 
@@ -2170,9 +2194,9 @@ class MusicService: ObservableObject {
     /// Mirrors the stream player's state into the published properties.
     private func syncFromStreamPlayer() {
         guard activeEngine == .stream else { return }
-        currentEpisode = streamPlayer.current
-        duration = streamPlayer.duration
-        isPlaying = streamPlayer.isPlaying
+        setIfChanged(\.currentEpisode, streamPlayer.current)
+        setIfChanged(\.duration, streamPlayer.duration)
+        setIfChanged(\.isPlaying, streamPlayer.isPlaying)
         if !isScrubbing { currentTime = streamPlayer.currentTime }
         updateNowPlayingInfoCenter()
     }
@@ -2276,7 +2300,7 @@ class MusicService: ObservableObject {
     private func updatePlaybackState() {
         // While streaming, the music player's state is not what is playing.
         guard activeEngine == .library else { return }
-        isPlaying = (player.playbackState == .playing)
+        setIfChanged(\.isPlaying, player.playbackState == .playing)
         applyLibraryRate()
         syncPlaybackModesFromPlayer()
         updateNowPlayingInfoCenter()
@@ -2303,18 +2327,21 @@ class MusicService: ObservableObject {
         if let previous = currentMediaItem, previous.queueKey != player.nowPlayingItem?.queueKey {
             recordLibraryEpisode(previous, time: clock.time)
         }
-        currentMediaItem = player.nowPlayingItem
+        setIfChanged(\.currentMediaItem, player.nowPlayingItem)
         guard let nowPlaying = player.nowPlayingItem else {
-            currentTrack = nil; duration = 0
+            setIfChanged(\.currentTrack, nil); setIfChanged(\.duration, 0)
             // `playbackQueue` is deliberately left alone. The player reports no item
             // both while a new queue is being applied and once the last track ends,
             // and neither is a reason to throw away what the user queued up.
             updateNowPlayingInfoCenter()
             return
         }
-        duration = nowPlaying.playbackDuration
-        // Advance the queue cursor to whatever is playing now.
-        if playbackQueue.advanceCurrent(toKey: nowPlaying.queueKey) {
+        setIfChanged(\.duration, nowPlaying.playbackDuration)
+        // Advance the queue cursor to whatever is playing now: on a copy, so the queue
+        // is only republished when the cursor actually moves.
+        var queue = playbackQueue
+        if queue.advanceCurrent(toKey: nowPlaying.queueKey) {
+            setIfChanged(\.playbackQueue, queue)
             queueSettlingUntil = nil
             refillQueueIfNeeded()
         } else if !isQueueSettling {
@@ -2325,21 +2352,34 @@ class MusicService: ObservableObject {
             playbackQueue = PlaybackQueue(tracks: [AppTrack(from: nowPlaying)])
         }
         if nowPlaying.persistentID != 0 {
-            currentTrack = libraryTrack(for: nowPlaying)
+            setIfChanged(\.currentTrack, libraryTrack(for: nowPlaying))
         } else {
             // Streamed from Apple Music: not in the library, so the queue's own track.
             let current = playbackQueue.current
-            currentTrack = current?.queueKey == nowPlaying.queueKey ? current : AppTrack(from: nowPlaying)
+            setIfChanged(\.currentTrack, current?.queueKey == nowPlaying.queueKey ? current : AppTrack(from: nowPlaying))
         }
         updateNowPlayingInfoCenter()
+    }
+
+    /// Sets a published property only when the value is different. Publishing redraws
+    /// every screen watching the service, and the player's notifications often report
+    /// what's already known (a state change that only moved the time, say).
+    private func setIfChanged<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<MusicService, Value>, _ value: Value) {
+        if self[keyPath: keyPath] != value { self[keyPath: keyPath] = value }
     }
 
     /// The library's track for a media item: by persistent ID, then title and artist,
     /// then title alone.
     private func libraryTrack(for item: MPMediaItem) -> AppTrack? {
-        songs.first(where: { $0.mpPersistentID == item.persistentID })
-            ?? songs.first(where: { $0.title == item.title && $0.artistName == item.artist })
-            ?? songs.first(where: { $0.title == item.title })
+        if songsByPersistentID == nil {
+            songsByPersistentID = Dictionary(songs.compactMap { track in track.mpPersistentID.map { ($0, track) } },
+                                             uniquingKeysWith: { first, _ in first })
+        }
+        if let track = songsByPersistentID?[item.persistentID] { return track }
+        // Read once: each is a lookup in the media library.
+        let title = item.title, artist = item.artist
+        return songs.first(where: { $0.title == title && $0.artistName == artist })
+            ?? songs.first(where: { $0.title == title })
     }
 
     // MARK: - Playback Time Updates

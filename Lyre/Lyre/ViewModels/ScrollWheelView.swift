@@ -769,11 +769,11 @@ struct ScrollWheelView: View {
                 ? String(localized: "queue.clear")
                 : track(musicService.upcoming, songSelection)
         case .albums:
-            return pick(musicService.albums.map(\.title), menuSelection)
+            return musicService.albums.indices.contains(menuSelection) ? musicService.albums[menuSelection].title : ""
         case .artists:
-            return pick(musicService.artists.map(\.name), menuSelection)
+            return musicService.artists.indices.contains(menuSelection) ? musicService.artists[menuSelection].name : ""
         case .playlists:
-            return pick(musicService.playlists.map(\.name), menuSelection)
+            return musicService.playlists.indices.contains(menuSelection) ? musicService.playlists[menuSelection].name : ""
         case .podcasts:
             switch menuSelection {
             case PodcastListView.searchRow:     return String(localized: "podcasts.search")

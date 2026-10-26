@@ -61,4 +61,65 @@ final class StreamingDeviceUITests: XCTestCase {
         add(shot)
         app.descendants(matching: .any)["liquid.playPause"].firstMatch.tap()
     }
+
+    /// A typical few minutes in Liquid with the listener's own library, for profiling
+    /// (Instruments attaches to Lyre while it runs): the albums, an album, the artists,
+    /// an artist, search with Apple Music's results, and back to Now Playing.
+    @MainActor
+    func testATypicalLiquidSession() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-LyrePlayerStyle", "liquid"]
+        app.launch()
+        func any(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id].firstMatch }
+        func toMenu() {
+            for _ in 0..<4 where !any("liquid.menu.albums").exists {
+                if any("liquid.back").exists { any("liquid.back").tap() }
+                else if any("liquid.library").exists { any("liquid.library").tap() }
+                sleep(1)
+            }
+        }
+        sleep(3)
+        toMenu()
+        XCTAssertTrue(any("liquid.menu.albums").waitForExistence(timeout: 10))
+
+        any("liquid.menu.albums").tap()
+        let cover = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.cover.'")).firstMatch
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        for _ in 0..<6 { app.swipeUp(velocity: .fast) }
+        for _ in 0..<3 { app.swipeDown(velocity: .fast) }
+        cover.tap()
+        sleep(2)
+        app.swipeUp(); app.swipeDown()
+        // Playing changes the song, which is when Liquid looks tempos up.
+        if any("liquid.album.play").waitForExistence(timeout: 5) {
+            any("liquid.album.play").tap()
+            sleep(6)
+        }
+        toMenu()
+
+        any("liquid.menu.artists").tap()
+        let artist = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.artist.'")).firstMatch
+        XCTAssertTrue(artist.waitForExistence(timeout: 10))
+        for _ in 0..<5 { app.swipeUp(velocity: .fast) }
+        for _ in 0..<6 { app.swipeDown(velocity: .fast) }
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.artist.'")).element(boundBy: 2).tap()
+        sleep(3)
+        app.swipeUp(); app.swipeUp(); app.swipeDown()
+        toMenu()
+
+        any("liquid.menu.search").tap()
+        sleep(3)
+        app.swipeUp(); app.swipeDown()
+        let field = any("liquid.search.field")
+        if field.waitForExistence(timeout: 5) {
+            field.tap()
+            app.typeText("the beatles")
+            // Apple Music's results, each row checked against the library.
+            XCTAssertTrue(any("liquid.search.catalog").waitForExistence(timeout: 15), "No Apple Music results")
+            sleep(2)
+            app.swipeUp(); app.swipeUp(); app.swipeDown()
+        }
+        toMenu()
+        sleep(2)
+    }
 }

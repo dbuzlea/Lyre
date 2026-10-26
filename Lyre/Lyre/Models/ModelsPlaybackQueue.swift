@@ -113,3 +113,31 @@ struct PlaybackQueue: Equatable {
         return false
     }
 }
+
+// MARK: - Up Next Rows
+
+/// Up Next as rows for a list, each with an identity of its own, since the same song
+/// can be queued twice. Built once for a given Up Next and reused: the queue panels
+/// redraw on every frame they're dragged, and Up Next can hold a whole library.
+@MainActor
+enum UpNextRows {
+    struct Row: Identifiable {
+        let id: String
+        let offset: Int
+        let track: AppTrack
+    }
+
+    private static var memo: (upNext: [AppTrack], rows: [Row])?
+
+    static func rows(for upNext: [AppTrack]) -> [Row] {
+        if let memo, memo.upNext == upNext { return memo.rows }
+        var seen: [String: Int] = [:]
+        let rows = upNext.enumerated().map { offset, track in
+            let copy = seen[track.id, default: 0]
+            seen[track.id] = copy + 1
+            return Row(id: "\(track.id)#\(copy)", offset: offset, track: track)
+        }
+        memo = (upNext, rows)
+        return rows
+    }
+}
