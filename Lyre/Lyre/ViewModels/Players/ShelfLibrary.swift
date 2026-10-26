@@ -117,17 +117,20 @@ struct ShelfLibrary {
 
     func items(on shelf: SpoolShelf) -> [AppAlbum] {
         switch shelf {
-        case .albums:   return albums
-        case .mixtapes: return mixtapes
-        case .podcasts: return podcasts
+        case .albums:     return albums
+        case .mixtapes:   return mixtapes
+        case .podcasts:   return podcasts
+        // Only ever filled by a search.
+        case .appleMusic: return []
         }
     }
 
     static func emptyText(on shelf: SpoolShelf) -> String {
         switch shelf {
-        case .albums:   return String(localized: "spool.shelf.empty")
-        case .mixtapes: return String(localized: "spool.shelf.mixtapes.empty")
-        case .podcasts: return String(localized: "spool.shelf.podcasts.empty")
+        case .albums:     return String(localized: "spool.shelf.empty")
+        case .mixtapes:   return String(localized: "spool.shelf.mixtapes.empty")
+        case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
+        case .appleMusic: return String(localized: "search.noResults")
         }
     }
 

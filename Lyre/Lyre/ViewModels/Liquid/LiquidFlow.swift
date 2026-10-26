@@ -55,7 +55,7 @@ struct LiquidNavigator {
     /// The library's copy of a catalogue song, if it has one.
     var librarySong: (Song) -> AppTrack? = { _ in nil }
     /// A catalogue song as a track to play or queue: the library's copy, else streamed.
-    var catalogTrack: (Song) -> AppTrack = { AppTrack(from: $0) }
+    var catalogTrack: (Song) -> AppTrack = { AppTrack(from: $0, catalog: true) }
     /// Whether the library has albums by an artist of this name.
     var hasArtist: (String) -> Bool = { _ in false }
 }

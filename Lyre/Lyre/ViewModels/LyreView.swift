@@ -109,7 +109,7 @@ final class ShakeViewController: UIViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        becomeFirstResponder()
+        takeFirstResponderIfFree()
         // Typing in a search field takes first responder from this controller, and
         // nothing gives it back when the keyboard goes; without it, shakes stop arriving.
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardDidHide),
@@ -123,6 +123,15 @@ final class ShakeViewController: UIViewController {
 
     @objc private func keyboardDidHide() {
         guard !isShakeOff, view.window != nil else { return }
+        takeFirstResponderIfFree()
+    }
+
+    /// Takes first responder unless something else holds it. The keyboard can report
+    /// itself hidden while a field is still being typed in (as Search's field is
+    /// focused, or when a hardware keyboard takes over), and taking first responder
+    /// then took the field's focus too: every keystroke after went nowhere.
+    private func takeFirstResponderIfFree() {
+        if let holder = UIResponder.lyreCurrentFirstResponder, holder !== self { return }
         becomeFirstResponder()
     }
 
@@ -316,6 +325,13 @@ struct LyreView: View {
             }
             searchResults = LibrarySearch.results(for: searchQuery, in: musicService)
             if currentScreen == .search { menuSelection = 0 }
+            // Then Apple Music's, once the typing has paused a little longer.
+            guard AppleMusicCatalog.searchTerm(searchQuery) != nil else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            let appleMusic = await LibrarySearch.appleMusicResults(for: searchQuery, in: musicService)
+            guard !Task.isCancelled, !appleMusic.isEmpty else { return }
+            searchResults += appleMusic
         }
         .onChange(of: searchQuery) {
             // Typing is using the player, as much as turning the wheel is.
@@ -950,4 +966,22 @@ private enum ArtworkCarouselMode {
 #Preview {
     @Previewable @State var musicService = MusicService()
     LyreView(musicService: musicService)
+}
+
+// MARK: - First Responder
+
+extension UIResponder {
+    private static weak var foundFirstResponder: UIResponder?
+
+    /// Whatever holds first responder now, if anything: found by sending an action to
+    /// nil, which goes to the first responder.
+    static var lyreCurrentFirstResponder: UIResponder? {
+        foundFirstResponder = nil
+        UIApplication.shared.sendAction(#selector(lyreNoteFirstResponder), to: nil, from: nil, for: nil)
+        return foundFirstResponder
+    }
+
+    @objc private func lyreNoteFirstResponder() {
+        UIResponder.foundFirstResponder = self
+    }
 }
