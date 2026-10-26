@@ -100,6 +100,8 @@ struct DiscPlayerView: View {
     @AppStorage("DiscAlbumFrontID") private var albumFrontID: String?
     @AppStorage("DiscBurnedFrontID") private var burnedFrontID: String?
     @AppStorage("DiscPodcastFrontID") private var podcastFrontID: String?
+    /// Apple Music's shelf's front, for this search only (it isn't kept).
+    @State private var appleMusicFrontID: String?
     @AppStorage("DiscShelf") private var shelf: SpoolShelf = .albums
     @AppStorage("DiscShowsRemaining") private var showsRemaining = false
     @State private var shelfQuery = ""
@@ -1003,6 +1005,7 @@ struct DiscPlayerView: View {
                              isFocused: $isShelfSearchFocused)
             ShelfDividers(
                 shelf: $shelf,
+                shelves: shelfMatches?.shelves ?? SpoolShelf.allCases,
                 title: { ShelfSearchMatches.dividerTitle(Self.shelfTitle($0), on: $0, matches: shelfMatches) },
                 onFindShows: { showPodcastSearch = true }
             )
@@ -1045,25 +1048,28 @@ struct DiscPlayerView: View {
 
     private var shelfFrontID: Binding<String?> {
         switch shelf {
-        case .albums:   return $albumFrontID
-        case .mixtapes: return $burnedFrontID
-        case .podcasts: return $podcastFrontID
+        case .albums:     return $albumFrontID
+        case .mixtapes:   return $burnedFrontID
+        case .podcasts:   return $podcastFrontID
+        case .appleMusic: return $appleMusicFrontID
         }
     }
 
     nonisolated private static func shelfTitle(_ shelf: SpoolShelf) -> String {
         switch shelf {
-        case .albums:   return String(localized: "spool.shelf.albums")
-        case .mixtapes: return String(localized: "disc.shelf.burned")
-        case .podcasts: return String(localized: "spool.shelf.podcasts")
+        case .albums:     return String(localized: "spool.shelf.albums")
+        case .mixtapes:   return String(localized: "disc.shelf.burned")
+        case .podcasts:   return String(localized: "spool.shelf.podcasts")
+        case .appleMusic: return String(localized: "catalog.search.title")
         }
     }
 
     private static func emptyText(on shelf: SpoolShelf) -> String {
         switch shelf {
-        case .albums:   return String(localized: "spool.shelf.empty")
-        case .mixtapes: return String(localized: "disc.shelf.burned.empty")
-        case .podcasts: return String(localized: "spool.shelf.podcasts.empty")
+        case .albums:     return String(localized: "spool.shelf.empty")
+        case .mixtapes:   return String(localized: "disc.shelf.burned.empty")
+        case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
+        case .appleMusic: return String(localized: "search.noResults")
         }
     }
 

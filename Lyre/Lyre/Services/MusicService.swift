@@ -1259,7 +1259,8 @@ class MusicService: ObservableObject {
         guard let mkAlbum = album.musicKitAlbum else { return album.preloadedTracks }
         do {
             let detailed = try await mkAlbum.with([.tracks])
-            let tracks = (detailed.tracks ?? []).map { attachingLocalItem(to: AppTrack(from: $0)) }
+            // A catalogue album's songs stream, unless the library has its own copy.
+            let tracks = (detailed.tracks ?? []).map { attachingLocalItem(to: AppTrack(from: $0, catalog: album.isCatalog)) }
             return tracks.isEmpty ? album.preloadedTracks : tracks
         } catch {
             logger.error("Failed to load tracks for album '\(album.title)': \(error)")

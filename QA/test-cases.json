@@ -564,6 +564,23 @@
       ],
       "automated_by": ["LyreTests/StreamingQueueTests", "LyreTests/PlaybackQueueTests/advanceCurrentFollowsASongStreamedFromAppleMusic()", "LyreUITests/StreamingDeviceUITests/testASongNotInTheLibraryStreamsFromSearch()"]
     },
+    {
+      "key": "STR-01", "suite": "Liquid Player", "title": "Stream Apple Music in the Spool, Disc, Gramophone and classic player",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "A device with an Apple Music subscription. Online.",
+      "steps": [
+        ["In the Spool, open the rack and search for an artist you don't have.", "After a moment an APPLE MUSIC divider appears beside Albums, Mixtapes and Podcasts, with a count."],
+        ["Tap APPLE MUSIC, then a tape.", "Its case opens with the songs listed (from Apple Music)."],
+        ["Tap Play.", "It streams; Up Next holds the rest of the album. Library songs can be queued alongside."],
+        ["Clear the search.", "The APPLE MUSIC divider goes and the rack is back on Albums."],
+        ["Repeat in the Disc (jewel cases) and the Gramophone (record crate).", "The same Apple Music shelf; a disc or record opened streams."],
+        ["In the classic player, open Search and type something you don't have.", "Every letter reaches the field (the keyboard stays). After your results come songs and albums subtitled \"Apple Music\"."],
+        ["Click an Apple Music song, then open an Apple Music album.", "The song streams, then the found songs after it; the album lists its tracks and plays them."],
+        ["Search for an artist you own.", "Your own albums and songs are listed plainly, not marked Apple Music."],
+        ["Without a subscription, search.", "No Apple Music shelf or rows."]
+      ],
+      "automated_by": ["LyreTests/AppleMusicShelfTests", "LyreUITests/StreamingDeviceUITests/testTheSpoolStreamsAnAlbumFromItsAppleMusicShelf()", "LyreUITests/StreamingDeviceUITests/testClassicSearchListsAppleMusicAfterTheLibrary()"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",

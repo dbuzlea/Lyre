@@ -21,12 +21,27 @@ So a queue entry is known by `MPMediaItem.queueKey`: its persistent ID, or when 
 its store ID. `AppTrack.queueKey` gives the same for a track, and `PlaybackQueue`,
 `syncQueueModel` and every queue edit match on it.
 
+## Where it's offered
+
+- Liquid: Apple Music's songs, albums and artists on the Search page, charts, an
+  artist's Top Songs (`LiquidCatalog`).
+- Spool, Disc, Gramophone: an Apple Music shelf beside the library's while a search
+  has results (`ShelfSearching`, `SpoolShelf.appleMusic`). A catalogue album opens and
+  plays through the same path as a library one; its songs stream.
+- Classic: Search lists Apple Music's songs and albums after the library's results,
+  subtitled "Apple Music" (`LibrarySearch.appleMusicResults`).
+
 ## Rules
+
+- What's from the catalogue is said where it's asked for (`AppTrack(from:catalog:)`,
+  `AppAlbum(from:catalog:)`), never guessed from the ID: on a device the library's
+  MusicKit IDs are all digits, like the catalogue's.
 
 - A song the library has is always played from its library item (offline, no
   subscription needed). Only `AppTrack.isStreamOnly` tracks stream.
-- Streaming needs a subscription (`MusicService.canStream`); without one, stream-only
-  tracks are dropped like any unplayable track.
+- Streaming needs a subscription (`MusicService.canStream`, which also allows it while
+  the check hasn't landed); with a known "not subscribed", stream-only tracks are
+  dropped like any unplayable track and no Apple Music results are offered.
 - One descriptor holds one kind, so a mixed list goes in as runs (`MusicService.runs(of:)`).
 - Catalogue requests need MusicKit enabled for the App ID
   (developer.apple.com → Identifiers → com.pinkhatcreations.lyreapp → App Services).

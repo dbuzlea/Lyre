@@ -121,6 +121,8 @@ struct GramophonePlayerView: View {
     @AppStorage("GramophoneAlbumFrontID") private var albumFrontID: String?
     @AppStorage("GramophoneRecordingFrontID") private var recordingFrontID: String?
     @AppStorage("GramophoneBroadcastFrontID") private var broadcastFrontID: String?
+    /// Apple Music's shelf's front, for this search only (it isn't kept).
+    @State private var appleMusicFrontID: String?
 
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1112,6 +1114,7 @@ struct GramophonePlayerView: View {
                                      isFocused: $isCrateSearchFocused)
                     ShelfDividers(
                         shelf: $shelf,
+                        shelves: crateMatches?.shelves ?? SpoolShelf.allCases,
                         title: { ShelfSearchMatches.dividerTitle(Self.shelfTitle($0), on: $0, matches: crateMatches) },
                         onFindShows: { showPodcastSearch = true }
                     )
@@ -1252,25 +1255,28 @@ struct GramophonePlayerView: View {
 
     nonisolated private static func shelfTitle(_ shelf: SpoolShelf) -> String {
         switch shelf {
-        case .albums:   return String(localized: "spool.shelf.albums")
-        case .mixtapes: return String(localized: "gramophone.shelf.recordings")
-        case .podcasts: return String(localized: "gramophone.shelf.broadcasts")
+        case .albums:     return String(localized: "spool.shelf.albums")
+        case .mixtapes:   return String(localized: "gramophone.shelf.recordings")
+        case .podcasts:   return String(localized: "gramophone.shelf.broadcasts")
+        case .appleMusic: return String(localized: "catalog.search.title")
         }
     }
 
     private static func emptyText(on shelf: SpoolShelf) -> String {
         switch shelf {
-        case .albums:   return String(localized: "spool.shelf.empty")
-        case .mixtapes: return String(localized: "gramophone.shelf.recordings.empty")
-        case .podcasts: return String(localized: "spool.shelf.podcasts.empty")
+        case .albums:     return String(localized: "spool.shelf.empty")
+        case .mixtapes:   return String(localized: "gramophone.shelf.recordings.empty")
+        case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
+        case .appleMusic: return String(localized: "search.noResults")
         }
     }
 
     private var frontID: Binding<String?> {
         switch shelf {
-        case .albums:   return $albumFrontID
-        case .mixtapes: return $recordingFrontID
-        case .podcasts: return $broadcastFrontID
+        case .albums:     return $albumFrontID
+        case .mixtapes:   return $recordingFrontID
+        case .podcasts:   return $broadcastFrontID
+        case .appleMusic: return $appleMusicFrontID
         }
     }
 
