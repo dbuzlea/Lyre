@@ -1366,8 +1366,10 @@ class MusicService: ObservableObject {
         return (resolvedTracks, entries)
     }
 
-    /// Whether songs can be streamed from Apple Music: with a subscription.
-    var canStream: Bool { subscriptionState.isSubscribed }
+    /// Whether songs can be streamed from Apple Music: with a subscription, or while
+    /// that isn't known yet (the check can land after the first search or play; as
+    /// with the library's cloud items, only a known "not subscribed" rules it out).
+    var canStream: Bool { subscriptionState != .notSubscribed }
 
     /// Tops the player's queue up from the list playback started with, so a windowed
     /// queue still plays through a whole library. Main thread only.
@@ -2327,7 +2329,13 @@ class MusicService: ObservableObject {
         if let previous = currentMediaItem, previous.queueKey != player.nowPlayingItem?.queueKey {
             recordLibraryEpisode(previous, time: clock.time)
         }
-        setIfChanged(\.currentMediaItem, player.nowPlayingItem)
+        // Compared by what the queue knows it by, not with `==`: MediaPlayer's own
+        // isEqual can crash on a streamed item (EXC_BAD_ACCESS in
+        // -[MPModelObjectMediaItem isEqual:], seen on a device, iOS 27).
+        let nowPlayingItem = player.nowPlayingItem
+        if (currentMediaItem == nil) != (nowPlayingItem == nil) || currentMediaItem?.queueKey != nowPlayingItem?.queueKey {
+            currentMediaItem = nowPlayingItem
+        }
         guard let nowPlaying = player.nowPlayingItem else {
             setIfChanged(\.currentTrack, nil); setIfChanged(\.duration, 0)
             // `playbackQueue` is deliberately left alone. The player reports no item
