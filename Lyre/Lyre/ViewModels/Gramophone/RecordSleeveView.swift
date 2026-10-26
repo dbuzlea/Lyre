@@ -177,6 +177,10 @@ struct RecordSleeveView: View {
                     if let byline = album.caseByline {
                         Text(byline).font(.system(size: 13, design: .serif)).italic().opacity(0.7)
                     }
+                    if let released = album.releaseLine {
+                        Text(released).font(.system(size: 11, design: .serif)).opacity(0.55)
+                            .accessibilityIdentifier("gramophone.sleeve.released")
+                    }
                 }
                 Spacer(minLength: 8)
                 Button(action: close) {

@@ -998,3 +998,31 @@ struct AppleMusicShelfTests {
         #expect(!LibrarySearchResult.song(owned).subtitle.contains("Apple Music"))
     }
 }
+
+/// An album's release date and length, as every player and Album Info write them.
+struct AlbumInfoTests {
+    @Test func aReleaseDateIsTheDayItCameOutWhereverTheListenerIs() {
+        // Midnight UTC on July 24, 2020: still the 24th west of Greenwich.
+        let date = Date(timeIntervalSince1970: 1_595_548_800)
+        let text = AppAlbum.releaseText(date)
+        #expect(text.contains("24") && text.contains("2020"))
+        let album = AppAlbum(id: "a", title: "folklore", artistName: "Taylor Swift", releaseDate: date)
+        #expect(album.releaseLine == text)
+    }
+
+    @Test func playlistsAndShowsHaveNoAlbumInfo() {
+        let mixtape = AppAlbum(mixtape: AppPlaylist(id: "p", name: "Road Trip"))
+        #expect(!mixtape.hasAlbumInfo)
+        #expect(AppAlbum(id: "a", title: "A", artistName: "B").hasAlbumInfo)
+    }
+
+    @Test func lengthsReadAsHoursAndMinutes() {
+        #expect(AlbumInfoText.length(30) == nil)
+        #expect(AlbumInfoText.length(63 * 60 + 20)?.contains("1") == true)
+        #expect(AlbumInfoText.length(42 * 60)?.contains("42") == true)
+    }
+
+    @Test func appleFilesEverythingUnderMusicToo() {
+        #expect(AppleMusicCatalog.genres(["Alternative", "Music"]) == ["Alternative"])
+    }
+}

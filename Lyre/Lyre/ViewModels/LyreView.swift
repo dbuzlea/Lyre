@@ -362,9 +362,11 @@ struct LyreView: View {
             PodcastSearchView(musicService: musicService)
         }
         .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
-        // Add to Playlist…, held on a song in any player.
+        // Add to Playlist…, held on a song in any player; Album Info, held on an album.
         .modifier(PlaylistPickerPresenter(musicService: musicService))
+        .modifier(AlbumInfoPresenter(musicService: musicService, isActive: !showArtworkCarousel))
         .fullScreenCover(isPresented: $showArtworkCarousel) {
+            Group {
             switch artworkCarouselMode {
             case .albums:
                 ArtworkCarouselView(
@@ -391,6 +393,9 @@ struct LyreView: View {
                     showsBackButton: carouselShowsBack
                 )
             }
+            }
+            // Over the carousel, which the root's sheet can't show over.
+            .modifier(AlbumInfoPresenter(musicService: musicService))
         }
     }
 

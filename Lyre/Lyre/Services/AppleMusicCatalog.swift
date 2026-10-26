@@ -47,6 +47,18 @@ final class AppleMusicCatalog {
         var notes: String?
         var variants: [AudioVariant]
         var url: URL?
+        var genres: [String] = []
+        var releaseDate: Date?
+        var isCompilation = false
+        var isSingle = false
+        /// The catalogue's album, for what's asked of it later (`loadMore`).
+        var album: Album?
+    }
+
+    /// Other versions of an album (deluxe, remastered, live) and albums like it.
+    struct AlbumMore {
+        var otherVersions: [Album]
+        var related: [Album]
     }
 
     struct Charts {
@@ -56,6 +68,7 @@ final class AppleMusicCatalog {
 
     private(set) var artists: [String: ArtistDetails] = [:]
     private(set) var albums: [String: AlbumDetails] = [:]
+    private(set) var moreByAlbum: [String: AlbumMore] = [:]
     private(set) var charts: Charts?
     @ObservationIgnored private var asked: Set<String> = []
 
@@ -98,25 +111,61 @@ final class AppleMusicCatalog {
         albums[Self.albumKey(title: album.tapeTitle, artist: album.artistName)]
     }
 
-    /// Looks up an album (not a playlist or show), once per launch.
+    /// Looks up an album (not a playlist or show), once per launch. One from the
+    /// catalogue already is the catalogue's; one from the library is searched for.
     func loadAlbum(_ album: AppAlbum) async {
         guard Self.isAvailable, !album.isMixtape, !album.isPodcast else { return }
         let key = Self.albumKey(title: album.tapeTitle, artist: album.artistName)
         guard asked.insert("album:" + key).inserted else { return }
         do {
-            var search = MusicCatalogSearchRequest(term: "\(album.artistName) \(album.tapeTitle)", types: [Album.self])
-            search.limit = 10
-            let results = try await search.response().albums
-            guard let found = results.first(where: { Self.albumKey(title: $0.title, artist: $0.artistName) == key }) else { return }
+            let found: Album
+            if album.isCatalog, let catalogue = album.musicKitAlbum {
+                found = catalogue
+            } else {
+                var search = MusicCatalogSearchRequest(term: "\(album.artistName) \(album.tapeTitle)", types: [Album.self])
+                search.limit = 10
+                let results = try await search.response().albums
+                guard let match = results.first(where: { Self.albumKey(title: $0.title, artist: $0.artistName) == key }) else { return }
+                found = match
+            }
             albums[key] = AlbumDetails(recordLabel: found.recordLabelName,
                                        copyright: found.copyright,
                                        notes: Self.plainText(found.editorialNotes?.standard ?? found.editorialNotes?.short),
                                        variants: Self.badges(found.audioVariants ?? []),
-                                       url: found.url)
+                                       url: found.url,
+                                       genres: Self.genres(found.genreNames),
+                                       releaseDate: found.releaseDate,
+                                       isCompilation: found.isCompilation ?? false,
+                                       isSingle: found.isSingle ?? false,
+                                       album: found)
         } catch {
             asked.remove("album:" + key)
             logger.debug("Album details failed for \(album.title, privacy: .private): \(error.localizedDescription)")
         }
+    }
+
+    /// Other versions and albums like it, once per launch, after `loadAlbum` (only
+    /// asked for when Album Info opens: it's a request of its own).
+    func loadMore(forAlbum album: AppAlbum) async {
+        let key = Self.albumKey(title: album.tapeTitle, artist: album.artistName)
+        guard Self.isAvailable, let found = albums[key]?.album, asked.insert("more:" + key).inserted else { return }
+        do {
+            let detailed = try await found.with([.otherVersions, .relatedAlbums])
+            moreByAlbum[key] = AlbumMore(otherVersions: Array(detailed.otherVersions?.prefix(12) ?? []),
+                                         related: Array(detailed.relatedAlbums?.prefix(12) ?? []))
+        } catch {
+            asked.remove("more:" + key)
+            logger.debug("More for \(album.title, privacy: .private) failed: \(error.localizedDescription)")
+        }
+    }
+
+    func more(forAlbum album: AppAlbum) -> AlbumMore? {
+        moreByAlbum[Self.albumKey(title: album.tapeTitle, artist: album.artistName)]
+    }
+
+    /// The genres worth naming: Apple files everything under "Music" too.
+    nonisolated static func genres(_ names: [String]) -> [String] {
+        names.filter { $0 != "Music" }
     }
 
     /// The variants worth a badge, best first: Dolby Atmos, then Hi-Res Lossless, else

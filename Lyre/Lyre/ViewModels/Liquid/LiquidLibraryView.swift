@@ -1420,6 +1420,8 @@ struct LiquidAlbumPage: View {
     private var detailsText: String {
         var parts: [String] = []
         if let byline = album.caseByline { parts.append(byline) }
+        if let released = album.releaseLine { parts.append(released) }
+        if album.hasAlbumInfo, let genre = album.genre { parts.append(genre) }
         if let tracks, !tracks.isEmpty {
             parts.append(album.tapeFormat.count(tracks.count))
             let minutes = Int(tracks.reduce(0) { $0 + $1.duration } / 60)
@@ -1606,6 +1608,11 @@ struct LiquidAlbumHoldMenu: ViewModifier {
                 }
                 Button { navigator.queueAlbum(album, .last) } label: {
                     Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
+                }
+                if album.hasAlbumInfo {
+                    Button { AlbumInfoCenter.shared.show(album) } label: {
+                    Label(String(localized: "albumInfo.action"), systemImage: "info.circle")
+                }
                 }
             }
         }

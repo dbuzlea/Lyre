@@ -581,6 +581,22 @@
       ],
       "automated_by": ["LyreTests/AppleMusicShelfTests", "LyreUITests/StreamingDeviceUITests/testTheSpoolStreamsAnAlbumFromItsAppleMusicShelf()", "LyreUITests/StreamingDeviceUITests/testClassicSearchListsAppleMusicAfterTheLibrary()"]
     },
+    {
+      "key": "ALB-01", "suite": "Liquid Player", "title": "Release dates and Album Info in every player",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "A library with albums from Apple Music. Online, with Apple Music access, for the catalogue details.",
+      "steps": [
+        ["Open an album in Liquid.", "Under the name: the artist, the full release date (e.g. July 24, 2020), the genre, the song count and length."],
+        ["Open the same album in the classic player.", "The header shows the release date and genre under the song count."],
+        ["Open its case in the Spool, its booklet in the Disc, its sleeve in the Gramophone.", "Each shows the release date under the artist."],
+        ["Hold an album in each player (a cover, tape, jewel case, record, or the Artwork Carousel's cover) and choose Album Info.", "A sheet: cover, name, artist, Play; Released, Genre (at most three), Length, Label, Audio, Copyright; About (Apple's write-up, tap for more); the songs with composers and times; Other Versions and You Might Also Like."],
+        ["Tap a song in Album Info.", "It plays from there and the sheet closes."],
+        ["Tap an album under Other Versions.", "Its own Album Info opens; Play streams it if it isn't yours."],
+        ["Check a playlist or a podcast.", "No release date and no Album Info."],
+        ["Set the iPhone to a time zone west of London (e.g. Los Angeles) and check an album's date.", "The same day as Apple Music shows, not the day before."]
+      ],
+      "automated_by": ["LyreTests/AlbumInfoTests", "LyreUITests/LiquidUITests/testAnAlbumShowsItsReleaseDateAndAlbumInfo()", "LyreUITests/SpoolUITests/testACaseShowsItsReleaseDateAndHoldingATapeOffersAlbumInfo()", "LyreUITests/StreamingDeviceUITests/testAlbumInfoShowsWhatAppleMusicKnows()"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",

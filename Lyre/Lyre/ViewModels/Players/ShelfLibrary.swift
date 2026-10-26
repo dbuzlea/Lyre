@@ -50,7 +50,9 @@ struct ShelfLibrary {
                     AppTrack(id: "sample-\(index)-\(number)", title: "Sample Song \(number)",
                              artistName: "Lyre", albumTitle: title, duration: 150 + Double(number * 17))
                 }
+                // The first has a release date, to show where each player puts one.
                 return AppAlbum(id: "sample-\(index)", title: title, artistName: "Lyre",
+                                releaseDate: index == 1 ? Date(timeIntervalSince1970: 1_595_548_800) : nil,
                                 preloadedTracks: tracks)
             }
         }

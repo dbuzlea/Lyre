@@ -215,6 +215,15 @@ struct CassetteCaseView: View {
                             .lineLimit(1)
                             .padding(.top, 2)
                     }
+                    // When it came out, typed along the J-card under the name.
+                    if let released = album.releaseLine {
+                        Text(released.uppercased())
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .tracking(0.5)
+                            .opacity(0.55)
+                            .padding(.top, 3)
+                            .accessibilityIdentifier("spool.jcard.released")
+                    }
                     Rectangle()
                         .fill(SpoolPalette.labelInk.opacity(0.3))
                         .frame(height: 1)

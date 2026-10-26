@@ -185,4 +185,37 @@ final class StreamingDeviceUITests: XCTestCase {
         shot.lifetime = .keepAlways
         add(shot)
     }
+
+    /// Album Info on one of the listener's own albums fills in what Apple Music knows:
+    /// the label and copyright as well as the release date and songs.
+    @MainActor
+    func testAlbumInfoShowsWhatAppleMusicKnows() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-LyrePlayerStyle", "liquid"]
+        app.launch()
+        func any(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id].firstMatch }
+        for _ in 0..<4 where !any("liquid.menu.albums").waitForExistence(timeout: 3) {
+            if any("liquid.back").exists { any("liquid.back").tap() }
+            else if any("liquid.library").exists { any("liquid.library").tap() }
+        }
+        any("liquid.menu.albums").tap()
+        let cover = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.cover.'")).element(boundBy: 2)
+        XCTAssertTrue(cover.waitForExistence(timeout: 10))
+        cover.press(forDuration: 1.2)
+        app.buttons["Album Info"].tap()
+        XCTAssertTrue(any("albumInfo.released").waitForExistence(timeout: 10), "No release date")
+        XCTAssertTrue(any("albumInfo.label").waitForExistence(timeout: 20) || any("albumInfo.copyright").exists,
+                      "Apple Music's details didn't arrive")
+        sleep(3)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "album-info-device"
+        shot.lifetime = .keepAlways
+        add(shot)
+        app.swipeUp(); app.swipeUp()
+        sleep(2)
+        let lower = XCTAttachment(screenshot: app.screenshot())
+        lower.name = "album-info-device-more"
+        lower.lifetime = .keepAlways
+        add(lower)
+    }
 }

@@ -252,6 +252,11 @@ struct GramophoneCoverCarousel: View {
                         Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
                     }
                 }
+                if isMiddle, case .album(let album) = record, album.hasAlbumInfo {
+                    Button { AlbumInfoCenter.shared.show(album) } label: {
+                    Label(String(localized: "albumInfo.action"), systemImage: "info.circle")
+                }
+                }
             }
             .modifier(MiddleCoverAccessibility(isMiddle: isMiddle, record: record, index: index, count: count,
                                                onStep: { move(to: centered + $0, count: count) },
