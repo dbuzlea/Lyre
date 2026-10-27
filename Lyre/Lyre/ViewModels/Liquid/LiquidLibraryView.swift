@@ -177,7 +177,8 @@ struct LiquidLibraryView: View {
     }
 
     private func librarySong(_ song: Song) -> AppTrack? {
-        AppleMusicCatalog.librarySong(title: song.title, artist: song.artistName, duration: song.duration, in: musicService)
+        AppleMusicCatalog.librarySong(title: song.title, artist: song.artistName, duration: song.duration,
+                                      explicit: song.contentRating.map { $0 == .explicit }, in: musicService)
     }
 
     private func catalogTrack(_ song: Song) -> AppTrack {

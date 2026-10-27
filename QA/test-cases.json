@@ -597,6 +597,19 @@
       ],
       "automated_by": ["LyreTests/AlbumInfoTests", "LyreUITests/LiquidUITests/testAnAlbumShowsItsReleaseDateAndAlbumInfo()", "LyreUITests/SpoolUITests/testACaseShowsItsReleaseDateAndHoldingATapeOffersAlbumInfo()", "LyreUITests/StreamingDeviceUITests/testAlbumInfoShowsWhatAppleMusicKnows()"]
     },
+    {
+      "key": "EXP-01", "suite": "Liquid Player", "title": "Clean versions aren't marked or played as explicit",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "negative",
+      "preconditions": "A library with both the clean and the explicit version of an album (same title and artist).",
+      "steps": [
+        ["Open the clean album in Liquid.", "No E beside its songs (except any Apple Music rates explicit on the clean album)."],
+        ["Open the explicit album.", "An E beside its explicit songs."],
+        ["Play a song from the clean album.", "The clean recording plays (listen for the edits)."],
+        ["Play the same song from the explicit album.", "The explicit recording plays."],
+        ["Search Apple Music in Liquid for that song and look at its clean and explicit results.", "Each shows a tick only if that version is in the library; tapping the clean one plays the clean recording."]
+      ],
+      "automated_by": ["LyreTests/SongVersionMatchTests"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",
