@@ -237,16 +237,20 @@ final class AppleMusicCatalog {
 
     /// The library's copy of a catalogue song: the same title by the same artist, of
     /// much the same length. Looked up in the service's title index.
-    static func librarySong(title: String, artist: String, duration: TimeInterval?, in musicService: MusicService) -> AppTrack? {
-        librarySong(title: title, artist: artist, duration: duration,
+    static func librarySong(title: String, artist: String, duration: TimeInterval?, explicit: Bool? = nil,
+                            in musicService: MusicService) -> AppTrack? {
+        librarySong(title: title, artist: artist, duration: duration, explicit: explicit,
                     in: musicService.librarySongs(normalizedTitle: DeezerTempo.normalized(title)))
     }
 
-    /// The same, among `songs`.
-    static func librarySong(title: String, artist: String, duration: TimeInterval?, in songs: [AppTrack]) -> AppTrack? {
+    /// The same, among `songs`. With `explicit` (the catalogue song's rating), only the
+    /// same version counts: a clean song isn't the library's explicit one.
+    static func librarySong(title: String, artist: String, duration: TimeInterval?, explicit: Bool? = nil,
+                            in songs: [AppTrack]) -> AppTrack? {
         let wantedTitle = DeezerTempo.normalized(title), wantedArtist = DeezerTempo.normalized(artist)
         return songs.first { track in
             guard DeezerTempo.normalized(track.title) == wantedTitle else { return false }
+            if let explicit, track.isExplicit != explicit { return false }
             let theirs = DeezerTempo.normalized(track.artistName)
             guard theirs.contains(wantedArtist) || wantedArtist.contains(theirs) else { return false }
             if let duration, duration > 0, track.duration > 0 {
@@ -290,9 +294,11 @@ final class AppleMusicCatalog {
 }
 
 extension AppTrack {
-    /// Marked explicit, by Apple Music or in the file.
+    /// Marked explicit: as Apple Music rates it where it does (a clean version is rated
+    /// clean), else as the file says.
     var isExplicit: Bool {
-        musicKitSong?.contentRating == .explicit || mpItem?.isExplicitItem == true
+        if let rating = musicKitSong?.contentRating { return rating == .explicit }
+        return mpItem?.isExplicitItem == true
     }
 
     /// How many times it's been played, as the library counts.

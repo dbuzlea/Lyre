@@ -195,7 +195,8 @@ nonisolated enum LibrarySearch {
     static func appleMusicResults(for query: String, in musicService: MusicService) async -> [LibrarySearchResult] {
         guard musicService.canStream, let found = await AppleMusicCatalog.shared.search(query) else { return [] }
         let songs = found.songs
-            .filter { AppleMusicCatalog.librarySong(title: $0.title, artist: $0.artistName, duration: $0.duration, in: musicService) == nil }
+            .filter { AppleMusicCatalog.librarySong(title: $0.title, artist: $0.artistName, duration: $0.duration,
+                                                    explicit: $0.contentRating.map { $0 == .explicit }, in: musicService) == nil }
             .map { LibrarySearchResult.song(AppTrack(from: $0, catalog: true)) }
         let albums = found.albums
             .filter { AppleMusicCatalog.libraryAlbum(title: $0.title, artist: $0.artistName, in: musicService.albums) == nil }

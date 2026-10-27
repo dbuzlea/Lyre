@@ -570,7 +570,7 @@ class MusicService: ObservableObject {
     /// On-device items from the last load, keyed by normalised title + artist. Kept so
     /// tracks fetched later — album and playlist contents — can be matched to a local
     /// item too. Written during a load, read from any thread afterwards.
-    private var localItemIndex: [String: MPMediaItem] = [:]
+    private var localItemIndex: [String: [MPMediaItem]] = [:]
     private var subscriptionObserverTask: Task<Void, Never>?
     private var subscriptionRetryTask: Task<Void, Never>?
     /// Backoff for re-checking the subscription after `itunescloudd` was unreachable.
@@ -1243,7 +1243,8 @@ class MusicService: ObservableObject {
     /// the user owns whenever the catalogue and local titles differ even slightly —
     /// and a track with no item is dropped from playback entirely.
     private func attachingLocalItem(to track: AppTrack) -> AppTrack {
-        track.attaching(mpItem: localItemIndex[LibraryScanner.matchKey(title: track.title, artist: track.artistName)])
+        track.attaching(mpItem: LibraryScanner.bestItem(
+            for: track, among: localItemIndex[LibraryScanner.matchKey(title: track.title, artist: track.artistName)] ?? []))
     }
 
     /// An album's songs, each once: a library can hold a song on an album more than
@@ -2228,9 +2229,9 @@ class MusicService: ObservableObject {
                                      comparisonType: .equalTo)
         )
         if let items = query.items, !items.isEmpty {
-            return items.first(where: { $0.artist == track.artistName && $0.albumTitle == track.albumTitle })
-                ?? items.first(where: { $0.artist == track.artistName })
-                ?? items.first
+            // The same artist's, then the right version of those (see bestItem).
+            let byArtist = items.filter { $0.artist == track.artistName }
+            return LibraryScanner.bestItem(for: track, among: byArtist.isEmpty ? items : byArtist)
         }
         return nil
     }

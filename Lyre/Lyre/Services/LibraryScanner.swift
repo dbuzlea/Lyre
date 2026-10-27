@@ -35,8 +35,10 @@ nonisolated struct LibrarySnapshot {
     var recentlyAdded:  [AppTrack]    = []
     var recentlyPlayed: [AppTrack]    = []
     /// Local MPMediaItems keyed by normalised title + artist, used to attach a
-    /// playback handle to MusicKit-sourced tracks.
-    var mpItemIndex: [String: MPMediaItem] = [:]
+    /// playback handle to MusicKit-sourced tracks. Every item under a key is kept: a
+    /// library can hold a song's clean and explicit versions (or a single and the
+    /// album's copy) under the same title and artist; `bestItem` picks between them.
+    var mpItemIndex: [String: [MPMediaItem]] = [:]
 
     var isEmpty: Bool {
         songs.isEmpty && albums.isEmpty && artists.isEmpty && playlists.isEmpty
@@ -75,6 +77,41 @@ nonisolated enum LibraryScanner {
     /// Normalised key for matching a MusicKit song to its on-device counterpart.
     static func matchKey(title: String, artist: String) -> String {
         "\(title.lowercased())\u{1}\(artist.lowercased())"
+    }
+
+    /// Which of the on-device items with a song's title and artist is that song:
+    ///
+    ///   1. the item whose persistent ID is the song's own library ID, where it is one
+    ///   2. otherwise one rated as the song is (clean or explicit), when MusicKit says
+    ///   3. then one on the same album, then the nearest in length, then the first
+    ///
+    /// Taking the first item for a title used to give a clean song its explicit
+    /// version's item, which marked it explicit and played the explicit recording.
+    /// When no item is rated as the song is, the choice runs over all of them, so the
+    /// song still has something to play.
+    static func bestItem<Item: MatchCandidate>(for track: AppTrack, among items: [Item]) -> Item? {
+        bestItem(id: track.id, explicit: track.musicKitSong?.contentRating.map { $0 == .explicit },
+                 album: track.albumTitle, duration: track.duration, among: items)
+    }
+
+    /// The same, from the song's ID, rating (nil where unknown), album and length.
+    static func bestItem<Item: MatchCandidate>(id: String, explicit: Bool?, album: String, duration: TimeInterval,
+                                               among items: [Item]) -> Item? {
+        guard items.count > 1 || explicit != nil else { return items.first }
+        if let exact = items.first(where: { String($0.persistentID) == id }) { return exact }
+        var pool = items
+        if let explicit {
+            let same = items.filter { $0.isExplicitItem == explicit }
+            if !same.isEmpty { pool = same }
+        }
+        guard pool.count > 1 else { return pool.first }
+        let album = album.lowercased()
+        if !album.isEmpty {
+            let onAlbum = pool.filter { ($0.albumTitle ?? "").lowercased() == album }
+            if !onAlbum.isEmpty { pool = onAlbum }
+        }
+        guard pool.count > 1, duration > 0 else { return pool.first }
+        return pool.min { abs($0.playbackDuration - duration) < abs($1.playbackDuration - duration) }
     }
 
     // MARK: - Local Scan
@@ -147,10 +184,7 @@ nonisolated enum LibraryScanner {
         guard !records.isEmpty else { return scan }
 
         scan.records = records
-        scan.snapshot.mpItemIndex = Dictionary(
-            records.map { ($0.matchKey, $0.item) },
-            uniquingKeysWith: { first, _ in first }
-        )
+        scan.snapshot.mpItemIndex = Dictionary(grouping: records, by: \.matchKey).mapValues { $0.map(\.item) }
         scan.snapshot.songs = records
             .map(\.track)
             .sorted { AppHelpers.sortsBefore($0.title, $1.title) }
@@ -291,7 +325,8 @@ nonisolated enum LibraryScanner {
         let index = local.snapshot.mpItemIndex
 
         snapshot.songs = library.songs.map { song in
-            AppTrack(from: song).attaching(mpItem: index[matchKey(title: song.title, artist: song.artistName)])
+            let track = AppTrack(from: song)
+            return track.attaching(mpItem: bestItem(for: track, among: index[matchKey(title: song.title, artist: song.artistName)] ?? []))
         }
         snapshot.albums    = library.albums.map { AppAlbum(from: $0) }
         snapshot.artists   = library.artists.map { AppArtist(from: $0) }
@@ -317,3 +352,13 @@ nonisolated enum LibraryScanner {
         return snapshot
     }
 }
+
+/// What `LibraryScanner.bestItem` reads of an on-device item; an MPMediaItem has it all.
+nonisolated protocol MatchCandidate {
+    var persistentID: MPMediaEntityPersistentID { get }
+    var isExplicitItem: Bool { get }
+    var albumTitle: String? { get }
+    var playbackDuration: TimeInterval { get }
+}
+
+extension MPMediaItem: MatchCandidate {}

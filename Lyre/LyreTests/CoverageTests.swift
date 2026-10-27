@@ -1026,3 +1026,62 @@ struct AlbumInfoTests {
         #expect(AppleMusicCatalog.genres(["Alternative", "Music"]) == ["Alternative"])
     }
 }
+
+/// A library can hold a song's clean and explicit versions under one title and artist.
+/// Each library song must be paired with its own on-device item: the first item for a
+/// title used to go to both, marking a clean song explicit and playing the explicit one.
+@MainActor
+struct SongVersionMatchTests {
+    struct Item: MatchCandidate {
+        var persistentID: MPMediaEntityPersistentID
+        var isExplicitItem: Bool
+        var albumTitle: String?
+        var playbackDuration: TimeInterval
+    }
+
+    let explicitCopy = Item(persistentID: 1, isExplicitItem: true, albumTitle: "Album", playbackDuration: 200)
+    let cleanCopy = Item(persistentID: 2, isExplicitItem: false, albumTitle: "Album (Clean)", playbackDuration: 199)
+
+    @Test func aCleanSongGetsTheCleanItem() {
+        let chosen = LibraryScanner.bestItem(id: "i.x", explicit: false, album: "Album (Clean)", duration: 199,
+                                             among: [explicitCopy, cleanCopy])
+        #expect(chosen?.persistentID == 2)
+        // Even when its album title doesn't say so.
+        let byRating = LibraryScanner.bestItem(id: "i.x", explicit: false, album: "Album", duration: 200,
+                                               among: [explicitCopy, cleanCopy])
+        #expect(byRating?.persistentID == 2)
+    }
+
+    @Test func anExplicitSongGetsTheExplicitItem() {
+        let chosen = LibraryScanner.bestItem(id: "i.y", explicit: true, album: "Album (Clean)", duration: 199,
+                                             among: [cleanCopy, explicitCopy])
+        #expect(chosen?.persistentID == 1)
+    }
+
+    @Test func theSongsOwnItemComesFirst() {
+        // On a device a library song's ID can be its item's persistent ID.
+        let chosen = LibraryScanner.bestItem(id: "1", explicit: false, album: "", duration: 0,
+                                             among: [cleanCopy, explicitCopy])
+        #expect(chosen?.persistentID == 1)
+    }
+
+    @Test func withNoRatingTheAlbumThenTheLengthDecide() {
+        let single = Item(persistentID: 3, isExplicitItem: false, albumTitle: "Song - Single", playbackDuration: 180)
+        let albumCopy = Item(persistentID: 4, isExplicitItem: false, albumTitle: "LP", playbackDuration: 240)
+        #expect(LibraryScanner.bestItem(id: "i.z", explicit: nil, album: "LP", duration: 0, among: [single, albumCopy])?.persistentID == 4)
+        #expect(LibraryScanner.bestItem(id: "i.z", explicit: nil, album: "", duration: 178, among: [albumCopy, single])?.persistentID == 3)
+    }
+
+    @Test func aSongWithOnlyTheOtherVersionStillGetsSomethingToPlay() {
+        #expect(LibraryScanner.bestItem(id: "i.w", explicit: false, album: "", duration: 0, among: [explicitCopy])?.persistentID == 1)
+    }
+
+    @Test func aCatalogueSongOnlyMatchesTheSameVersionInTheLibrary() {
+        // Read as clean: no MusicKit rating and no explicit item.
+        let cleanTrack = AppTrack(id: "mp.2", title: "Song", artistName: "Artist", albumTitle: "Album", duration: 200)
+        #expect(AppleMusicCatalog.librarySong(title: "Song", artist: "Artist", duration: 200, explicit: false,
+                                              in: [cleanTrack]) != nil)
+        #expect(AppleMusicCatalog.librarySong(title: "Song", artist: "Artist", duration: 200, explicit: true,
+                                              in: [cleanTrack]) == nil, "An explicit catalogue song matched the clean copy")
+    }
+}
