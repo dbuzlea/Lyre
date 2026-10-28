@@ -954,6 +954,12 @@ struct StreamingQueueTests {
         #expect(MusicService.runs(of: []).isEmpty)
     }
 
+    @Test func aMixedListGoesInAsStoreIDsOnlyWhenEverySongHasOne() {
+        // A file of the listener's own has no store ID: no all-store-ID queue then.
+        #expect(MusicService.storeIDs(of: [.store("1"), .item(MPMediaItem())]) == nil)
+        #expect(MusicService.storeIDs(of: [.store("1"), .store("2")]) == ["1", "2"])
+    }
+
     @Test func aCatalogueSongStreamsAndALibrarySongDoesNot() {
         let streamed = AppTrack(id: "1440934248", title: "a", artistName: "", albumTitle: "", duration: 1, storeID: "1440934248")
         let owned = AppTrack(id: "i.abc", title: "a", artistName: "", albumTitle: "", duration: 1,
