@@ -1085,3 +1085,42 @@ struct SongVersionMatchTests {
                                               in: [cleanTrack]) == nil, "An explicit catalogue song matched the clean copy")
     }
 }
+
+/// A library song with no item matched to it (not downloaded, or in a playlist but not
+/// the library) is found by its play parameters' item, or streamed by its Apple Music
+/// ID, instead of being "can't be played". Shapes measured on a device.
+@MainActor
+struct PlayIDsTests {
+    @Test func aLibrarySongNamesItsItemAndItsAppleMusicID() {
+        let ids = AppTrack.playIDs(from: ["isLibrary": true, "musicKit_persistentID": "4617", "kind": "song",
+                                          "id": "i.DVEXk9GFWzWODm", "catalogId": "1686457789"])
+        #expect(ids.persistentID == 4617)
+        #expect(ids.catalogID == "1686457789")
+    }
+
+    @Test func aCatalogueSongIsItsOwnAppleMusicID() {
+        #expect(AppTrack.playIDs(from: ["id": "1440934248", "kind": "song"]).catalogID == "1440934248")
+        // A library ID is never taken for a catalogue one.
+        #expect(AppTrack.playIDs(from: ["isLibrary": true, "id": "7194", "kind": "song"]).catalogID == nil)
+    }
+
+    @Test func theQueueFollowsAStreamedSongReportedByItsLibraryID() {
+        // Streamed by its Apple Music ID, the player reports both that and the song's
+        // persistent ID in the iCloud library: either is it.
+        let streamed = AppTrack(id: "i.abc", title: "Perfectionist", artistName: "A", albumTitle: "", duration: 1)
+            .streaming(as: "1686457789")
+        let next = AppTrack(id: "i.def", title: "Misty", artistName: "B", albumTitle: "", duration: 1).streaming(as: "217273839")
+        var queue = PlaybackQueue(tracks: [streamed, next], currentIndex: 0)
+        let followed = queue.advanceCurrent(toKeys: ["p4618", "s217273839"])
+        #expect(followed && queue.currentIndex == 1)
+        let unknown = queue.advanceCurrent(toKeys: ["p9999"])
+        #expect(!unknown)
+    }
+
+    @Test func aSongStreamedInsteadKeepsWhatItIs() {
+        let track = AppTrack(id: "i.abc", title: "Perfectionist", artistName: "A", albumTitle: "B", duration: 200)
+        let streamed = track.streaming(as: "1686457789")
+        #expect(streamed.isStreamOnly && streamed.queueKey == "s1686457789")
+        #expect(streamed.id == track.id && streamed.title == track.title)
+    }
+}

@@ -78,12 +78,67 @@ nonisolated struct AppTrack: Identifiable, Hashable {
     /// Only streamed: from the catalogue, with no library item behind it.
     var isStreamOnly: Bool { storeID != nil && mpItem == nil && mpPersistentID == nil }
 
+    /// What MusicKit's play parameters say a library song is: its item in the device's
+    /// media library ("musicKit_persistentID") and its Apple Music ID ("catalogId"),
+    /// or for a catalogue song, its own ID. Measured on a device (iOS 27): a library
+    /// song carries both, even when no item was matched to it by title.
+    struct PlayIDs: Equatable {
+        var persistentID: MPMediaEntityPersistentID?
+        var catalogID: String?
+    }
+
+    var playIDs: PlayIDs {
+        guard let parameters = musicKitSong?.playParameters ?? musicKitTrack?.playParameters,
+              let data = try? JSONEncoder().encode(parameters),
+              let dictionary = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return PlayIDs() }
+        return Self.playIDs(from: dictionary)
+    }
+
+    static func playIDs(from parameters: [String: Any]) -> PlayIDs {
+        func string(_ key: String) -> String? {
+            if let value = parameters[key] as? String, !value.isEmpty { return value }
+            if let value = parameters[key] as? NSNumber { return value.stringValue }
+            return nil
+        }
+        let isLibrary = (parameters["isLibrary"] as? Bool) ?? false
+        let catalogID = string("catalogId") ?? (isLibrary ? nil : string("id").flatMap { id in
+            id.allSatisfy(\.isNumber) ? id : nil
+        })
+        return PlayIDs(persistentID: string("musicKit_persistentID").flatMap(MPMediaEntityPersistentID.init),
+                       catalogID: catalogID)
+    }
+
+    /// A copy that streams from Apple Music as `storeID`, for a song the device has no
+    /// item for.
+    func streaming(as storeID: String) -> AppTrack {
+        AppTrack(id: id, title: title, artistName: artistName, albumTitle: albumTitle, duration: duration,
+                 musicKitSong: musicKitSong, musicKitTrack: musicKitTrack, storeID: storeID)
+    }
+
     /// What the player's queue knows this track by (see `MPMediaItem.queueKey`): its
     /// library item, or, streamed, its Apple Music ID.
     var queueKey: String {
         if let mpPersistentID, mpPersistentID != 0 { return "p\(mpPersistentID)" }
         if let storeID { return "s\(storeID)" }
         return "id:\(id)"
+    }
+
+    /// Every key the player might report this track under: its library item and its
+    /// Apple Music ID. A song in the iCloud library but not on the device, streamed by
+    /// its Apple Music ID, comes back with its library persistent ID as well (measured
+    /// on a device): matching either keeps it recognised.
+    var queueKeys: [String] {
+        let keys = [mpPersistentID.flatMap { $0 != 0 ? "p\($0)" : nil }, storeID.map { "s\($0)" }].compactMap { $0 }
+        return keys.isEmpty ? [queueKey] : keys
+    }
+
+    /// Whether the player's `item` is this track.
+    func matches(_ item: MPMediaItem) -> Bool {
+        Self.matches(item, queueKeys)
+    }
+
+    static func matches(_ item: MPMediaItem, _ keys: [String]) -> Bool {
+        item.queueKeys.contains(where: keys.contains)
     }
 
     static func == (lhs: AppTrack, rhs: AppTrack) -> Bool { lhs.id == rhs.id }
@@ -373,5 +428,14 @@ nonisolated extension MPMediaItem {
     /// told apart by its store ID instead (both measured on a device, iOS 27).
     var queueKey: String {
         persistentID != 0 ? "p\(persistentID)" : "s\(playbackStoreID)"
+    }
+
+    /// Every key it's known by: its persistent ID and its store ID, where it has them
+    /// (see `AppTrack.queueKeys`).
+    var queueKeys: [String] {
+        let store = playbackStoreID
+        let keys = [persistentID != 0 ? "p\(persistentID)" : nil,
+                    !store.isEmpty && store != "0" ? "s\(store)" : nil].compactMap { $0 }
+        return keys.isEmpty ? [queueKey] : keys
     }
 }

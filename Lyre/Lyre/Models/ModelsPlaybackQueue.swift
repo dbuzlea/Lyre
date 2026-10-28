@@ -100,8 +100,15 @@ struct PlaybackQueue: Equatable {
     /// means the model no longer describes what is playing.
     @discardableResult
     mutating func advanceCurrent(toKey key: String) -> Bool {
+        advanceCurrent(toKeys: [key])
+    }
+
+    /// The same, for an item known by several keys (`MPMediaItem.queueKeys`): a track
+    /// matching any of them.
+    @discardableResult
+    mutating func advanceCurrent(toKeys keys: [String]) -> Bool {
         guard !tracks.isEmpty else { return false }
-        let matches = { (track: AppTrack) in track.queueKey == key }
+        let matches = { (track: AppTrack) in track.queueKeys.contains(where: keys.contains) }
         if let index = tracks[currentIndex...].firstIndex(where: matches) {
             currentIndex = index
             return true

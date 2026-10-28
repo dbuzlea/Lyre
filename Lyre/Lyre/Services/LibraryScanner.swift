@@ -90,8 +90,13 @@ nonisolated enum LibraryScanner {
     /// When no item is rated as the song is, the choice runs over all of them, so the
     /// song still has something to play.
     static func bestItem<Item: MatchCandidate>(for track: AppTrack, among items: [Item]) -> Item? {
-        bestItem(id: track.id, explicit: track.musicKitSong?.contentRating.map { $0 == .explicit },
-                 album: track.albumTitle, duration: track.duration, among: items)
+        // Between several versions, the item its play parameters name is the one.
+        if items.count > 1, let persistentID = track.playIDs.persistentID,
+           let exact = items.first(where: { $0.persistentID == persistentID }) {
+            return exact
+        }
+        return bestItem(id: track.id, explicit: track.musicKitSong?.contentRating.map { $0 == .explicit },
+                        album: track.albumTitle, duration: track.duration, among: items)
     }
 
     /// The same, from the song's ID, rating (nil where unknown), album and length.
