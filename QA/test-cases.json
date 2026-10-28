@@ -610,6 +610,20 @@
       ],
       "automated_by": ["LyreTests/SongVersionMatchTests"]
     },
+    {
+      "key": "STR-02", "suite": "Liquid Player", "title": "Songs the iPhone has no copy of stream instead of failing",
+      "priority": "high", "severity": "critical", "type": "functional", "behavior": "positive",
+      "preconditions": "An Apple Music subscription. A playlist with songs that aren't downloaded or aren't in the library (an Apple Music playlist added to the library, or Favorite Songs). Online.",
+      "steps": [
+        ["Play a song from that playlist that you haven't played in a while.", "It plays: no \"That song can't be played\"."],
+        ["Look at Now Playing.", "It shows that song (title, artist, cover), not \"Nothing playing\"."],
+        ["Skip forward and back.", "Now Playing follows; Up Next lists the rest of the playlist."],
+        ["Reorder and remove songs in Up Next.", "The changes stick."],
+        ["Play an Apple Music song that's in your iCloud library but not downloaded (a tick in search, not on the iPhone).", "It plays and Now Playing shows it."],
+        ["Turn on Airplane Mode and play a downloaded song from the playlist.", "It plays from the iPhone; only songs that aren't downloaded need the network."]
+      ],
+      "automated_by": ["LyreTests/PlayIDsTests"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",

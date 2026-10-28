@@ -1345,9 +1345,10 @@ class MusicService: ObservableObject {
 
     /// Finds what the player can play each track from, dropping the ones it can't.
     /// Returns the survivors and their entries in matching order. A song streamed
-    /// from Apple Music (`isStreamOnly`) goes by its store ID, and only with
-    /// `streaming` (a subscription); everything else needs its library item. Runs off
-    /// the main thread, because the per-track lookup can hit MPMediaQuery.
+    /// from Apple Music (`isStreamOnly`) goes by its store ID; a library song plays from
+    /// its item, or where the device has none, streams by its Apple Music ID
+    /// (`playIDs`). Streaming needs `streaming` (a subscription). Runs off the main
+    /// thread, because the per-track lookup can hit MPMediaQuery.
     @concurrent
     private nonisolated static func resolveForPlayback(_ tracks: [AppTrack], streaming: Bool) async -> (tracks: [AppTrack], entries: [PlaybackEntry]) {
         var resolvedTracks: [AppTrack] = []
@@ -1361,9 +1362,15 @@ class MusicService: ObservableObject {
                 entries.append(.store(storeID))
                 continue
             }
-            guard let item = mediaItem(for: track) else { continue }
-            resolvedTracks.append(track.attaching(mpItem: item))
-            entries.append(.item(item))
+            if let item = mediaItem(for: track) {
+                resolvedTracks.append(track.attaching(mpItem: item))
+                entries.append(.item(item))
+            } else if streaming, let catalogID = track.playIDs.catalogID {
+                // A library song the device has no item for (not downloaded, or in a
+                // playlist but not the library): streamed from Apple Music instead.
+                resolvedTracks.append(track.streaming(as: catalogID))
+                entries.append(.store(catalogID))
+            }
         }
         return (resolvedTracks, entries)
     }
@@ -1587,15 +1594,15 @@ class MusicService: ObservableObject {
         guard canEditUpcoming else { return }
         let upNext = playbackQueue.upNext
         guard upNext.indices.contains(offset) else { return }
-        let movedKey = upNext[offset].queueKey
+        let movedKeys = upNext[offset].queueKeys
         // Up Next offset 0 sits directly after the current track, so there is always a
         // preceding track to anchor the insert to.
-        let precedingKey = playbackQueue.tracks[playbackQueue.currentIndex + offset].queueKey
+        let precedingKeys = playbackQueue.tracks[playbackQueue.currentIndex + offset].queueKeys
 
         logger.info("Moving '\(upNext[offset].title)' to Up Next position \(offset + 1)")
         performQueueTransaction("move '\(upNext[offset].title)'", then: completion) { queue in
-            guard let existing = queue.items.first(where: { $0.queueKey == movedKey }) else { return }
-            let anchor = queue.items.first { $0.queueKey == precedingKey }
+            guard let existing = queue.items.first(where: { AppTrack.matches($0, movedKeys) }) else { return }
+            let anchor = queue.items.first { AppTrack.matches($0, precedingKeys) }
             queue.remove(existing)
             Self.insert([PlaybackEntry(queued: existing)], after: anchor, in: queue)
         }
@@ -1610,9 +1617,9 @@ class MusicService: ObservableObject {
             listenerQueued[removed.id] = count > 1 ? count - 1 : nil
         }
         logger.info("Removed '\(removed.title)' from the queue")
-        let key = removed.queueKey
+        let keys = removed.queueKeys
         performQueueTransaction("remove '\(removed.title)'", refillAfter: true) { queue in
-            guard let existing = queue.items.first(where: { $0.queueKey == key }) else { return }
+            guard let existing = queue.items.first(where: { AppTrack.matches($0, keys) }) else { return }
             queue.remove(existing)
         }
         return removed
@@ -1680,9 +1687,9 @@ class MusicService: ObservableObject {
                 return
             }
             // Streamed: the player's own entry for it is the only item it will jump to.
-            let key = track.queueKey
+            let keys = track.queueKeys
             self.player.perform(queueTransaction: { _ in }) { queue, _ in
-                let entry = queue.items.first { $0.queueKey == key }
+                let entry = queue.items.first { AppTrack.matches($0, keys) }
                 DispatchQueue.main.async {
                     guard let entry else { return }
                     self.player.nowPlayingItem = entry
@@ -1757,10 +1764,10 @@ class MusicService: ObservableObject {
             return
         }
         let known = Dictionary(
-            playbackQueue.tracks.map { ($0.queueKey, $0) },
+            playbackQueue.tracks.flatMap { track in track.queueKeys.map { ($0, track) } },
             uniquingKeysWith: { first, _ in first }
         )
-        let tracks = items.map { known[$0.queueKey] ?? AppTrack(from: $0) }
+        let tracks = items.map { item in item.queueKeys.lazy.compactMap { known[$0] }.first ?? AppTrack(from: item) }
         let currentIndex = player.nowPlayingItem
             .flatMap { nowPlaying in items.firstIndex { $0.queueKey == nowPlaying.queueKey } }
             ?? playbackQueue.currentIndex
@@ -2214,7 +2221,11 @@ class MusicService: ObservableObject {
 
         // Restored from the launch cache: the item is gone but its persistent ID is
         // not, and looking that up is exact where the title match below is not.
-        if let persistentID = track.mpPersistentID {
+        // Restored from the cache (its persistent ID kept), or from MusicKit (its play
+        // parameters name its item): the exact item, where the title match below
+        // might find another version or nothing.
+        for persistentID in [track.mpPersistentID, track.musicKitSong != nil || track.musicKitTrack != nil
+                                ? track.playIDs.persistentID : nil].compactMap({ $0 }) {
             let query = MPMediaQuery()
             query.addFilterPredicate(MPMediaPropertyPredicate(
                 value: NSNumber(value: persistentID),
@@ -2350,7 +2361,7 @@ class MusicService: ObservableObject {
         // Advance the queue cursor to whatever is playing now: on a copy, so the queue
         // is only republished when the cursor actually moves.
         var queue = playbackQueue
-        if queue.advanceCurrent(toKey: nowPlaying.queueKey) {
+        if queue.advanceCurrent(toKeys: nowPlaying.queueKeys) {
             setIfChanged(\.playbackQueue, queue)
             queueSettlingUntil = nil
             refillQueueIfNeeded()
@@ -2361,12 +2372,18 @@ class MusicService: ObservableObject {
             logger.notice("Playback left the app's queue — resetting the queue model")
             playbackQueue = PlaybackQueue(tracks: [AppTrack(from: nowPlaying)])
         }
-        if nowPlaying.persistentID != 0 {
-            setIfChanged(\.currentTrack, libraryTrack(for: nowPlaying))
+        // The library's own track where it has one; else the queue's (a song streamed
+        // from Apple Music, which can be in the iCloud library without being among the
+        // songs); else what the player says.
+        let queued = playbackQueue.current.flatMap { $0.matches(nowPlaying) ? $0 : nil }
+        if nowPlaying.persistentID != 0, let track = exactLibraryTrack(for: nowPlaying) {
+            setIfChanged(\.currentTrack, track)
+        } else if let queued {
+            setIfChanged(\.currentTrack, queued)
+        } else if nowPlaying.persistentID != 0, let track = libraryTrack(for: nowPlaying) {
+            setIfChanged(\.currentTrack, track)
         } else {
-            // Streamed from Apple Music: not in the library, so the queue's own track.
-            let current = playbackQueue.current
-            setIfChanged(\.currentTrack, current?.queueKey == nowPlaying.queueKey ? current : AppTrack(from: nowPlaying))
+            setIfChanged(\.currentTrack, AppTrack(from: nowPlaying))
         }
         updateNowPlayingInfoCenter()
     }
@@ -2378,14 +2395,19 @@ class MusicService: ObservableObject {
         if self[keyPath: keyPath] != value { self[keyPath: keyPath] = value }
     }
 
-    /// The library's track for a media item: by persistent ID, then title and artist,
-    /// then title alone.
-    private func libraryTrack(for item: MPMediaItem) -> AppTrack? {
+    /// The library's track for a media item by its persistent ID alone.
+    private func exactLibraryTrack(for item: MPMediaItem) -> AppTrack? {
         if songsByPersistentID == nil {
             songsByPersistentID = Dictionary(songs.compactMap { track in track.mpPersistentID.map { ($0, track) } },
                                              uniquingKeysWith: { first, _ in first })
         }
-        if let track = songsByPersistentID?[item.persistentID] { return track }
+        return songsByPersistentID?[item.persistentID]
+    }
+
+    /// The library's track for a media item: by persistent ID, then title and artist,
+    /// then title alone.
+    private func libraryTrack(for item: MPMediaItem) -> AppTrack? {
+        if let track = exactLibraryTrack(for: item) { return track }
         // Read once: each is a lookup in the media library.
         let title = item.title, artist = item.artist
         return songs.first(where: { $0.title == title && $0.artistName == artist })
