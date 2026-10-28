@@ -218,4 +218,48 @@ final class StreamingDeviceUITests: XCTestCase {
         lower.lifetime = .keepAlways
         add(lower)
     }
+
+    /// A search turning up songs the library has and songs it hasn't: tapping one it
+    /// hasn't starts a queue of both kinds, which once crashed as the rest was put
+    /// round the first.
+    @MainActor
+    func testASongNotInTheLibraryStreamsFromAMixedSearch() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-LyrePlayerStyle", "liquid"]
+        app.launch()
+        func any(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id].firstMatch }
+        let search = any("liquid.menu.search")
+        if !search.waitForExistence(timeout: 10) {
+            XCTAssertTrue(any("liquid.library").waitForExistence(timeout: 10))
+            any("liquid.library").tap()
+            XCTAssertTrue(search.waitForExistence(timeout: 10))
+        }
+        search.tap()
+        let field = any("liquid.search.field")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        app.typeText("the beatles")
+
+        let rows = app.buttons.matching(identifier: "liquid.catalog.song")
+        XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 20), "No Apple Music songs")
+        let mine = rows.matching(NSPredicate(format: "label CONTAINS %@", "In your library")).count
+        let notMine = rows.matching(NSPredicate(format: "label CONTAINS %@", "Not in your library")).firstMatch
+        XCTAssertTrue(notMine.exists, "Every song found is in the library")
+        print("MIXED rows in library: \(mine)")
+        let title = notMine.label.components(separatedBy: ",").first ?? ""
+        notMine.tap()
+
+        let nowPlaying = any("liquid.nowPlaying")
+        XCTAssertTrue(nowPlaying.waitForExistence(timeout: 15), "Now Playing didn't come back (crashed?)")
+        let showsIt = NSPredicate(format: "label CONTAINS %@", title)
+        XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: showsIt, object: nowPlaying)], timeout: 20),
+                       .completed, "Now Playing doesn't show '\(title)': \(nowPlaying.label)")
+        sleep(5)
+        XCTAssertEqual(app.state, .runningForeground, "Lyre stopped")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "mixed-search-streaming"
+        shot.lifetime = .keepAlways
+        add(shot)
+        any("liquid.playPause").tap()
+    }
 }

@@ -1406,15 +1406,15 @@ class MusicService: ObservableObject {
                 let currentKey = self.player.nowPlayingItem?.queueKey
                 logger.info("Refilled queue with \(chunk.entries.count) item(s), \(remaining) left to come")
                 self.performQueueTransaction("refill \(chunk.entries.count) item(s)") { queue in
-                    Self.insert(chunk.entries, after: queue.items.last, in: queue)
+                    Self.insert(chunk.entries, after: queue.safeItems.last, in: queue)
 
                     // Drop long-since-played tracks. Without this the queue only ever
                     // grows, and playing through a large library would end up back at
                     // the size that overwhelmed the player in the first place.
                     guard let currentKey,
-                          let currentIndex = queue.items.firstIndex(where: { $0.queueKey == currentKey }),
+                          let currentIndex = queue.safeItems.firstIndex(where: { $0.queueKey == currentKey }),
                           currentIndex > Self.queueHistorySize else { return }
-                    let stale = Array(queue.items.prefix(currentIndex - Self.queueHistorySize))
+                    let stale = Array(queue.safeItems.prefix(currentIndex - Self.queueHistorySize))
                     for item in stale { queue.remove(item) }
                 }
             }
@@ -1548,7 +1548,7 @@ class MusicService: ObservableObject {
             case .last:
                 for track in resolved.tracks { playbackQueue.append(track) }
                 performQueueTransaction("append \(resolved.entries.count) track(s)") { queue in
-                    Self.insert(resolved.entries, after: queue.items.last, in: queue)
+                    Self.insert(resolved.entries, after: queue.safeItems.last, in: queue)
                 }
 
             case .next:
@@ -1562,14 +1562,14 @@ class MusicService: ObservableObject {
                     // copy nearest the model's current position rather than the first
                     // one, which may be long since played.
                     let anchor = currentKey.flatMap { key in
-                        queue.items.indices
-                            .filter { queue.items[$0].queueKey == key }
+                        queue.safeItems.indices
+                            .filter { queue.safeItems[$0].queueKey == key }
                             .min { abs($0 - modelIndex) < abs($1 - modelIndex) }
-                            .map { queue.items[$0] }
+                            .map { queue.safeItems[$0] }
                     }
                     // Without an anchor the best available is the bottom: never in
                     // front of the song that is playing.
-                    Self.insert(resolved.entries, after: anchor ?? queue.items.last, in: queue)
+                    Self.insert(resolved.entries, after: anchor ?? queue.safeItems.last, in: queue)
                 }
             }
             for track in resolved.tracks { listenerQueued[track.id, default: 0] += 1 }
@@ -1601,8 +1601,8 @@ class MusicService: ObservableObject {
 
         logger.info("Moving '\(upNext[offset].title)' to Up Next position \(offset + 1)")
         performQueueTransaction("move '\(upNext[offset].title)'", then: completion) { queue in
-            guard let existing = queue.items.first(where: { AppTrack.matches($0, movedKeys) }) else { return }
-            let anchor = queue.items.first { AppTrack.matches($0, precedingKeys) }
+            guard let existing = queue.safeItems.first(where: { AppTrack.matches($0, movedKeys) }) else { return }
+            let anchor = queue.safeItems.first { AppTrack.matches($0, precedingKeys) }
             queue.remove(existing)
             Self.insert([PlaybackEntry(queued: existing)], after: anchor, in: queue)
         }
@@ -1619,7 +1619,7 @@ class MusicService: ObservableObject {
         logger.info("Removed '\(removed.title)' from the queue")
         let keys = removed.queueKeys
         performQueueTransaction("remove '\(removed.title)'", refillAfter: true) { queue in
-            guard let existing = queue.items.first(where: { AppTrack.matches($0, keys) }) else { return }
+            guard let existing = queue.safeItems.first(where: { AppTrack.matches($0, keys) }) else { return }
             queue.remove(existing)
         }
         return removed
@@ -1646,11 +1646,11 @@ class MusicService: ObservableObject {
         performQueueTransaction("clear \(removed) item(s)") { queue in
             let upcoming: [MPMediaItem]
             if let currentKey,
-               let currentIndex = queue.items.firstIndex(where: { $0.queueKey == currentKey }) {
-                upcoming = Array(queue.items.suffix(from: currentIndex + 1))
+               let currentIndex = queue.safeItems.firstIndex(where: { $0.queueKey == currentKey }) {
+                upcoming = Array(queue.safeItems.suffix(from: currentIndex + 1))
             } else {
                 // Nothing is playing, so there is no track to keep.
-                upcoming = queue.items
+                upcoming = queue.safeItems
             }
             for item in upcoming { queue.remove(item) }
         }
@@ -1689,7 +1689,7 @@ class MusicService: ObservableObject {
             // Streamed: the player's own entry for it is the only item it will jump to.
             let keys = track.queueKeys
             self.player.perform(queueTransaction: { _ in }) { queue, _ in
-                let entry = queue.items.first { AppTrack.matches($0, keys) }
+                let entry = queue.safeItems.first { AppTrack.matches($0, keys) }
                 DispatchQueue.main.async {
                     guard let entry else { return }
                     self.player.nowPlayingItem = entry
@@ -1731,7 +1731,7 @@ class MusicService: ObservableObject {
         player.perform(queueTransaction: edit) { [weak self] queue, error in
             // The queue object must not escape the handler, so read it here and hand
             // the plain items over to the main thread.
-            let items = queue.items
+            let items = queue.safeItems
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.pendingQueueTransactions -= 1
@@ -1819,7 +1819,20 @@ class MusicService: ObservableObject {
             return
         }
         activateLibraryEngine()
-        // Split the entries into runs, and find the start's run and place in it.
+        // Library songs from Apple Music have store IDs too: then the whole list goes in
+        // as one queue of store IDs, with nothing to edit after. Editing a queue just
+        // started from store IDs timed out on a device and left it empty.
+        if let storeIDs = Self.storeIDs(of: entries) {
+            let descriptor = MPMusicPlayerStoreQueueDescriptor(storeIDs: storeIDs)
+            descriptor.startItemID = storeIDs[startIndex]
+            queueSettlingUntil = Date().addingTimeInterval(Self.queueSettlingWindow)
+            mixedQueueGeneration += 1
+            player.setQueue(with: descriptor)
+            player.play()
+            return
+        }
+        // Otherwise (a song of the listener's own, with no store ID): the run holding
+        // the start, then the rest put round it once it's playing.
         let runs = Self.runs(of: entries)
         var runIndex = 0, offset = startIndex
         while offset >= runs[runIndex].count {
@@ -1833,16 +1846,54 @@ class MusicService: ObservableObject {
         case .store(let id): (descriptor as? MPMusicPlayerStoreQueueDescriptor)?.startItemID = id
         }
         queueSettlingUntil = Date().addingTimeInterval(Self.queueSettlingWindow)
+        mixedQueueGeneration += 1
+        let generation = mixedQueueGeneration
         player.setQueue(with: descriptor)
         player.play()
 
         let before = Array(runs[..<runIndex].joined()), after = Array(runs[(runIndex + 1)...].joined())
         guard !before.isEmpty || !after.isEmpty else { return }
-        performQueueTransaction("surround \(startRun.count) with \(before.count) + \(after.count)") { queue in
-            if !after.isEmpty { Self.insert(after, after: queue.items.last, in: queue) }
-            if !before.isEmpty { Self.insert(before, after: nil, in: queue) }
+        // The rest goes round it once it's playing: an edit straight after starting a
+        // queue of store IDs timed out (see above). Counted as an edit in flight
+        // meanwhile, so a refill can't slip in between and land out of order.
+        pendingQueueTransactions += 1
+        Task { [weak self] in
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let self, generation == self.mixedQueueGeneration else { break }
+                if self.player.playbackState == .playing, self.player.nowPlayingItem != nil { break }
+            }
+            try? await Task.sleep(for: .seconds(1))
+            guard let self else { return }
+            self.pendingQueueTransactions -= 1
+            // Something else was started meanwhile: this queue is gone.
+            guard generation == self.mixedQueueGeneration else { return }
+            self.performQueueTransaction("surround \(startRun.count) with \(before.count) + \(after.count)") { queue in
+                if !after.isEmpty { Self.insert(after, after: queue.safeItems.last, in: queue) }
+                if !before.isEmpty { Self.insert(before, after: nil, in: queue) }
+            }
         }
     }
+
+    /// Every entry as a store ID, when each has one: a library item from Apple Music
+    /// knows its own (`playbackStoreID`); a file of the listener's own doesn't.
+    nonisolated static func storeIDs(of entries: [PlaybackEntry]) -> [String]? {
+        var ids: [String] = []
+        ids.reserveCapacity(entries.count)
+        for entry in entries {
+            switch entry {
+            case .store(let id): ids.append(id)
+            case .item(let item):
+                let id = item.playbackStoreID
+                guard !id.isEmpty, id != "0" else { return nil }
+                ids.append(id)
+            }
+        }
+        return ids
+    }
+
+    /// Bumped by every new queue, so a mixed queue's late edit only lands on its own.
+    private var mixedQueueGeneration = 0
 
     /// Replaces the player's queue wholesale. Only starting fresh playback does this —
     /// changes to an existing queue are edits, made through `performQueueTransaction`.
@@ -1862,6 +1913,7 @@ class MusicService: ObservableObject {
     /// `startItem`, and that case is repaired rather than prevented.
     private func setPlayerQueue(items: [MPMediaItem], startItem: MPMediaItem, thenPlay: Bool = false) {
         activateLibraryEngine()
+        mixedQueueGeneration += 1
         let descriptor = MPMusicPlayerMediaItemQueueDescriptor(
             itemCollection: MPMediaItemCollection(items: items)
         )
@@ -2541,5 +2593,28 @@ class MusicService: ObservableObject {
         if let o = playbackStateObserver { NotificationCenter.default.removeObserver(o) }
         if let o = nowPlayingObserver    { NotificationCenter.default.removeObserver(o) }
         if let o = libraryChangeObserver { NotificationCenter.default.removeObserver(o) }
+    }
+}
+
+// MARK: - Reading the Player's Queue
+
+nonisolated extension MPMusicPlayerControllerQueue {
+    /// The queue's items, skipping any slot the player hasn't filled yet. A song queued
+    /// by store ID can sit in `items` as an empty slot until it loads, and Swift's
+    /// `items` crashes reading it (EXC_BAD_ACCESS casting a null element, seen on a
+    /// device, iOS 27), so the array is read through Core Foundation, which can see
+    /// an empty slot, and gaps are left out.
+    var safeItems: [MPMediaItem] {
+        guard let raw = value(forKey: "items") as? NSArray else { return [] }
+        let array = raw as CFArray
+        var items: [MPMediaItem] = []
+        items.reserveCapacity(CFArrayGetCount(array))
+        for index in 0..<CFArrayGetCount(array) {
+            guard let pointer = CFArrayGetValueAtIndex(array, index) else { continue }
+            if let item = Unmanaged<AnyObject>.fromOpaque(pointer).takeUnretainedValue() as? MPMediaItem {
+                items.append(item)
+            }
+        }
+        return items
     }
 }
