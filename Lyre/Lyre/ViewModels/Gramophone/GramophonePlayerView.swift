@@ -247,6 +247,14 @@ struct GramophonePlayerView: View {
                             openRecord(other)
                         }
                     } : nil,
+                    musicService: album.isArtist ? musicService : nil,
+                    // An artist's top songs: the sleeve goes and they play.
+                    onPlaySongs: album.isArtist ? { tracks, index in
+                        openSleeve = nil
+                        musicService.play(asking: { pendingPlay = $0 }, addToQueue: nil) {
+                            Task { await musicService.play(tracks: tracks, startingAt: index) }
+                        }
+                    } : nil,
                     // Below the fold with the covers, the gramophone left in view above.
                     lowerHalfHeight: isDuoSplit ? binHeight : nil,
                     bottomInset: safeArea.bottom

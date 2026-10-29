@@ -9,9 +9,10 @@ import SwiftUI
 
 // MARK: - Main Menu
 //
-// The root Lyre menu showing twelve items: Now Playing → Queue → Songs → Recently Added →
-// Recently Played → Albums → Artists → Playlists → Podcasts → Search → Change Player →
-// Settings. Change Player opens the list of players Settings has, one press closer.
+// The root Lyre menu showing fourteen items: Now Playing → Queue → Songs → Recently
+// Added → Recently Played → Most Played → Top Songs on Apple Music → Albums → Artists →
+// Playlists → Podcasts → Search → Change Player → Settings. Most Played and the top songs
+// are Lyre's own lists (SmartList), as the other players have them. Change Player opens the list of players Settings has, one press closer.
 // ScrollWheelView maps each position to its screen, so the two must change together.
 //
 // Selection is driven entirely by the parent (ScrollWheelView) via a binding; this
@@ -36,6 +37,8 @@ struct MainMenuView: View {
         String(localized: "menu.songs"),
         String(localized: "menu.recentlyAdded"),
         String(localized: "menu.recentlyPlayed"),
+        SmartList.mostPlayed.title,
+        SmartList.topCharts.title,
         String(localized: "menu.albums"),
         String(localized: "menu.artists"),
         String(localized: "menu.playlists"),

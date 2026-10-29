@@ -310,6 +310,7 @@ final class StreamingDeviceUITests: XCTestCase {
             opened.lifetime = .keepAlways
             add(opened)
             XCTAssertGreaterThan(covers, 1, "\(style): the artist's case shows one album")
+            XCTAssertTrue(any("artist.topSong.0").waitForExistence(timeout: 10), "\(style): no Top Songs in the artist's case")
             app.terminate()
         }
     }

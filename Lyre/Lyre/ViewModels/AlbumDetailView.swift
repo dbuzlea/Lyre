@@ -98,12 +98,15 @@ struct AlbumDetailView: View {
                                             : themeSettings.currentTheme.screenTextColor.opacity(0.5))
                                         .frame(width: 20, alignment: .trailing)
                                     VStack(alignment: .leading, spacing: 0) {
-                                        Text(track.title)
-                                            .font(.system(size: 11, weight: isSelected ? .medium : .regular))
-                                            .foregroundStyle(isSelected
-                                                ? themeSettings.currentTheme.highlightTextColor
-                                                : themeSettings.currentTheme.screenTextColor)
-                                            .lineLimit(1)
+                                        HStack(spacing: 4) {
+                                            Text(track.title)
+                                                .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                                                .lineLimit(1)
+                                            if track.isExplicit { ExplicitTag().scaleEffect(0.85) }
+                                        }
+                                        .foregroundStyle(isSelected
+                                            ? themeSettings.currentTheme.highlightTextColor
+                                            : themeSettings.currentTheme.screenTextColor)
                                         Text(formatDuration(track.duration))
                                             .font(.system(size: 9))
                                             .foregroundStyle(isSelected

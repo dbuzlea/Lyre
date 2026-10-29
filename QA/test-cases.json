@@ -638,6 +638,23 @@
       ],
       "automated_by": ["LyreTests/ArtistShelfTests", "LyreUITests/SpoolUITests/testTheArtistsShelfOpensAnArtistOnTheirSongs()"]
     },
+    {
+      "key": "PAR-01", "suite": "Spool", "title": "Every player has Liquid's artist details, smart lists and explicit marks",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "An Apple Music subscription and access. A library with a well-known artist and explicit songs. Online.",
+      "steps": [
+        ["In the Spool, open the Artists shelf and a well-known artist.", "Under Play and Shuffle and their albums: their biography (tap for more), TOP SONGS (5), LATEST RELEASE; at the end of their songs, SIMILAR ARTISTS."],
+        ["Tap a top song you don't own (a cloud mark).", "The case goes and it streams, with the other top songs after it."],
+        ["Tap Latest Release; tap a similar artist you have.", "Yours opens its case; one you haven't opens Album Info (Play streams it). The similar artist's case opens."],
+        ["Repeat in the Disc and the Gramophone.", "The same sections in the jewel case and the sleeve."],
+        ["In the classic player, open Artists, then an artist.", "Top Songs and Latest Release rows above their albums (and a line of their biography); each opens as a list and plays."],
+        ["In the classic main menu, open Most Played, then Top Songs on Apple Music.", "Each opens as a list; songs you don't own stream."],
+        ["In the Spool, Disc and Gramophone, open Mixtapes (Home Recordings, Burned CDs).", "Recently Played, Recently Added, Most Played and Top Songs on Apple Music first, made by Lyre, then your playlists."],
+        ["Search a shelf player's rack for an artist you don't own, and open APPLE MUSIC.", "A tape of Apple Music's songs first, then their albums."],
+        ["Look at explicit songs in every player's lists.", "An E beside them; none beside clean versions."]
+      ],
+      "automated_by": ["LyreTests/SmartListTests", "LyreTests/PlayerSwitchTests", "LyreUITests/StreamingDeviceUITests/testTheArtistsShelfInEachPlayer()"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",

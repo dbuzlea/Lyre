@@ -82,7 +82,8 @@ struct ShelfLibrary {
                 .sorted { AppHelpers.sortsBefore($0.title, $1.title) }
         }
         #endif
-        return musicService.shelfMixtapes
+        // Lyre's own lists first (SmartList), then the listener's playlists.
+        return musicService.smartMixtapes + musicService.shelfMixtapes
     }
 
     /// The podcasts, as spoken-word tapes or broadcast discs, filed by name.

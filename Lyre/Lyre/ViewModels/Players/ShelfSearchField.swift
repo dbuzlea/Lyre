@@ -93,9 +93,21 @@ struct ShelfSearching: ViewModifier {
             guard !Task.isCancelled, let results = await AppleMusicCatalog.shared.search(query),
                   !Task.isCancelled, matches?.query == query else { return }
             let mine = library.musicService.albums
-            let albums = results.albums
+            var albums = results.albums
                 .filter { AppleMusicCatalog.libraryAlbum(title: $0.title, artist: $0.artistName, in: mine) == nil }
                 .map { AppAlbum(from: $0, catalog: true) }
+            // Its songs too, as Liquid and the classic player list them: on one tape at
+            // the front, each the library's copy where it has one, else streamed.
+            let songs = results.songs.map { song in
+                AppleMusicCatalog.librarySong(title: song.title, artist: song.artistName, duration: song.duration,
+                                              explicit: song.contentRating.map { $0 == .explicit }, in: library.musicService)
+                    ?? AppTrack(from: song, catalog: true)
+            }
+            if !songs.isEmpty {
+                let playlist = AppPlaylist(id: "smart:search", name: String(localized: "catalog.search.songs"),
+                                           curatorName: String(localized: "catalog.search.title"), preloadedTracks: songs)
+                albums.insert(AppAlbum(mixtape: playlist), at: 0)
+            }
             withAnimation(.easeInOut(duration: 0.2)) {
                 matches?.appleMusic = albums
                 if let other = matches?.shelfWithMatches(preferring: shelf) { shelf = other }

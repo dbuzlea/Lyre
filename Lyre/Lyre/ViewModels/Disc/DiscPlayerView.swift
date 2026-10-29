@@ -1120,6 +1120,15 @@ struct DiscPlayerView: View {
                     try? await Task.sleep(for: .milliseconds(300))
                     openCaseOf(other)
                 }
+            } : nil,
+            musicService: album.isArtist ? musicService : nil,
+            // An artist's top songs: the case shuts and they play.
+            onPlaySongs: album.isArtist ? { tracks, index in
+                openCase = nil
+                isCaseFromDeck = false
+                musicService.play(asking: { pendingPlay = $0 }, addToQueue: nil) {
+                    Task { await musicService.play(tracks: tracks, startingAt: index) }
+                }
             } : nil
         )
         // On an open Duo the case opens over the shelf, leaving the deck in view.

@@ -70,6 +70,10 @@ struct CassetteCaseView: View {
     /// opens one of them.
     var albums: [AppAlbum] = []
     var onOpenAlbum: ((AppAlbum) -> Void)? = nil
+    /// An artist's case: what Apple Music knows of them (ArtistCatalogSections), and
+    /// what plays their top songs.
+    var musicService: MusicService? = nil
+    var onPlaySongs: (([AppTrack], Int) -> Void)? = nil
 
     @Environment(\.windowSafeArea) private var safeArea
 
@@ -317,7 +321,15 @@ struct CassetteCaseView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else if scrolls {
                 ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 0) { rows(tracks, of: tracks) }
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        if album.isArtist, let musicService, let onOpenAlbum, let onPlaySongs {
+                            ArtistCatalogHeader(name: album.title, musicService: musicService, onPlay: onPlaySongs, onOpen: onOpenAlbum)
+                        }
+                        rows(tracks, of: tracks)
+                        if album.isArtist, let musicService, let onOpenAlbum {
+                            ArtistCatalogFooter(name: album.title, musicService: musicService, onOpen: onOpenAlbum)
+                        }
+                    }
                 }
             } else {
                 VStack(alignment: .leading, spacing: 0) { rows(Array(tracks.prefix(14)), of: tracks) }
@@ -396,9 +408,12 @@ struct CassetteCaseView: View {
                                 .lineLimit(1)
                         }
                     } else {
-                        Text(track.title)
-                            .font(.system(size: 14))
-                            .lineLimit(2)
+                        HStack(spacing: 6) {
+                            Text(track.title)
+                                .font(.system(size: 14))
+                                .lineLimit(2)
+                            if track.isExplicit { ExplicitTag() }
+                        }
                     }
                     Spacer(minLength: 4)
                     if album.isPodcast {

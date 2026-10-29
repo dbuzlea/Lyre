@@ -109,12 +109,15 @@ struct SongListView: View {
                                     }
 
                                     VStack(alignment: .leading, spacing: 1) {
-                                        Text(song.title)
-                                            .font(.system(size: 12))
-                                            .foregroundStyle(selection == index
-                                                ? themeSettings.currentTheme.highlightTextColor
-                                                : themeSettings.currentTheme.screenTextColor)
-                                            .lineLimit(1)
+                                        HStack(spacing: 4) {
+                                            Text(song.title)
+                                                .font(.system(size: 12))
+                                                .lineLimit(1)
+                                            if song.isExplicit { ExplicitTag().scaleEffect(0.85) }
+                                        }
+                                        .foregroundStyle(selection == index
+                                            ? themeSettings.currentTheme.highlightTextColor
+                                            : themeSettings.currentTheme.screenTextColor)
                                         Text(song.artistName)
                                             .font(.system(size: 10))
                                             .foregroundStyle(selection == index

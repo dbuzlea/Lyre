@@ -1292,13 +1292,16 @@ struct ScrollWheelView: View {
         case 2: return .songs
         case 3: return .recentlyAdded
         case 4: return .recentlyPlayed
-        case 5: return .albums
-        case 6: return .artists
-        case 7: return .playlists
-        case 8: return .podcasts
-        case 9: return .search
-        case 10: return .playerStyleSelection
-        case 11: return .settings
+        // Lyre's own lists, opened as a playlist is; filled in as they open (`smartAlbum`).
+        case 5: return .albumDetail(SmartList.mostPlayed.album([]))
+        case 6: return .albumDetail(SmartList.topCharts.album([]))
+        case 7: return .albums
+        case 8: return .artists
+        case 9: return .playlists
+        case 10: return .podcasts
+        case 11: return .search
+        case 12: return .playerStyleSelection
+        case 13: return .settings
         default: return nil
         }
     }
@@ -1313,7 +1316,10 @@ struct ScrollWheelView: View {
         
         switch currentScreen {
         case .menu:
-            guard let menuTarget = Self.mainMenuDestination(at: menuSelection) else { return }
+            guard var menuTarget = Self.mainMenuDestination(at: menuSelection) else { return }
+            if case .albumDetail(let album) = menuTarget, let list = SmartList(id: album.mixtape?.id ?? "") {
+                menuTarget = .albumDetail(musicService.smartAlbum(list))
+            }
             saveSelectionState()
             navigationStack.append(currentScreen)
             restoreSelectionState(for: menuTarget)
@@ -1472,10 +1478,20 @@ struct ScrollWheelView: View {
         case .artistDetail(let artist):
             saveSelectionState()
             navigationStack.append(currentScreen)
+            // Apple Music's rows come first (ArtistDetailView.extraRows), then the albums.
+            let extras = ArtistDetailView.extraRows(for: artist.name)
+            if extras.indices.contains(detailSelection),
+               let album = ArtistDetailView.album(for: extras[detailSelection], artist: artist.name, in: musicService) {
+                let target = LyreScreen.albumDetail(album)
+                restoreSelectionState(for: target)
+                withAnimation(.easeInOut(duration: 0.15)) { currentScreen = target }
+                break
+            }
+            let albumRow = detailSelection - extras.count
             Task {
                 let albums = await musicService.loadAlbums(for: artist)
-                if detailSelection < albums.count {
-                    let target = LyreScreen.albumDetail(albums[detailSelection])
+                if albums.indices.contains(albumRow) {
+                    let target = LyreScreen.albumDetail(albums[albumRow])
                     await MainActor.run {
                         restoreSelectionState(for: target)
                         withAnimation(.easeInOut(duration: 0.15)) { currentScreen = target }
