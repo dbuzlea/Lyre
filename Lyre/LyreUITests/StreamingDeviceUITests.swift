@@ -263,11 +263,13 @@ final class StreamingDeviceUITests: XCTestCase {
         any("liquid.playPause").tap()
     }
 
-    /// The Artists shelf with the listener's own library, in the Spool, the Disc and the
-    /// Gramophone: screenshots of each, to see the artists' photos on their cases.
+    /// The Artists shelf with the listener's own library, in the Spool: one artist with
+    /// many albums opened, with screenshots, to see their photo and albums. (Relaunching
+    /// as another player on a device kept the last one, so the Disc and Gramophone,
+    /// which share the shelf, aren't driven here.)
     @MainActor
     func testTheArtistsShelfInEachPlayer() throws {
-        for style in ["spool", "disc", "gramophone"] {
+        for style in ["spool"] {
             let app = XCUIApplication()
             app.launchArguments = ["-LyrePlayerStyle", style]
             app.launch()
@@ -279,20 +281,35 @@ final class StreamingDeviceUITests: XCTestCase {
             }
             XCTAssertTrue(divider.waitForExistence(timeout: 10), "\(style) has no Artists shelf")
             divider.tap()
-            sleep(4)
+            sleep(2)
             let shot = XCTAttachment(screenshot: app.screenshot())
             shot.name = "artists-\(style)"
             shot.lifetime = .keepAlways
             add(shot)
-            let artist = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'spool.tape.artist:'")).firstMatch
-            if artist.exists {
-                artist.tap()
-                sleep(3)
-                let opened = XCTAttachment(screenshot: app.screenshot())
-                opened.name = "artist-open-\(style)"
-                opened.lifetime = .keepAlways
-                add(opened)
+            // One artist with many albums, found by name.
+            let field = app.textFields["shelf.search.field"]
+            if field.waitForExistence(timeout: 3) {
+                field.tap()
+                app.typeText("hozier\n")
+                sleep(2)
+                if divider.exists { divider.tap() }
             }
+            let searched = XCTAttachment(screenshot: app.screenshot())
+            searched.name = "artist-search-\(style)"
+            searched.lifetime = .keepAlways
+            add(searched)
+            let artist = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'spool.tape.artist:' AND label BEGINSWITH 'Hozier,'")).firstMatch
+            XCTAssertTrue(artist.waitForExistence(timeout: 5), "\(style): no artist found")
+            artist.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+            sleep(3)
+            let covers = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'artist.album.'")).count
+            let headings = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'artist.heading.'")).count
+            print("ARTIST \(style): covers=\(covers) headings=\(headings) opened=\(artist.label)")
+            let opened = XCTAttachment(screenshot: app.screenshot())
+            opened.name = "artist-open-\(style)"
+            opened.lifetime = .keepAlways
+            add(opened)
+            XCTAssertGreaterThan(covers, 1, "\(style): the artist's case shows one album")
             app.terminate()
         }
     }

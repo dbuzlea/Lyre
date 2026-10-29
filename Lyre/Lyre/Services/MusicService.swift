@@ -1280,6 +1280,9 @@ class MusicService: ObservableObject {
     }
 
     private func loadAllTracks(for album: AppAlbum) async -> [AppTrack] {
+        // An artist's case already holds all their songs. Its MusicKit album is only
+        // one of theirs, there for the cover; expanding it listed that album alone.
+        if album.isArtist { return album.preloadedTracks }
         // Picked from the cached library: it has no MusicKit album to expand.
         let album = await liveAlbum(for: album)
         guard let mkAlbum = album.musicKitAlbum else { return album.preloadedTracks }
