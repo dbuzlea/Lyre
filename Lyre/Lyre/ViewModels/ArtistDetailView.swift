@@ -23,6 +23,9 @@ struct ArtistDetailView: View {
     @State private var isLoading = true
 
     var body: some View {
+        // Read here, not in the lazy list below, so the rows appear when Apple Music's
+        // answer arrives (read only inside the list, it went unnoticed).
+        let extras = Self.extraRows(for: artist.name)
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "chevron.left")
@@ -92,7 +95,6 @@ struct ArtistDetailView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 2) {
-                            let extras = Self.extraRows(for: artist.name)
                             ForEach(Array(extras.enumerated()), id: \.offset) { index, extra in
                                 row(title: extra.title, subtitle: extra.subtitle, isSelected: selection == index)
                                     .frame(height: 32).id(index)

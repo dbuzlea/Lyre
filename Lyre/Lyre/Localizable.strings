@@ -234,6 +234,7 @@
 "artist.otherSongs" = "Other Songs";
 "count.songs" = "%d songs";
 "smart.maker" = "Lyre";
+"album.unknown" = "Unknown Album";
 "catalog.search.songs" = "Apple Music songs";
 "artist.openAlbum.hint" = "Opens this album";
 "spool.shelf.mixtapes" = "Mixtapes";
