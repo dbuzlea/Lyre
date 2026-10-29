@@ -66,6 +66,10 @@ struct CassetteCaseView: View {
     /// Where the case opens, in SpoolPlayerView's coordinate space; nil for the whole
     /// screen. An unfolded Duo's rack, so the deck beside it stays in view.
     var bounds: CGRect? = nil
+    /// An artist's case: the library's albums, to show theirs (ArtistAlbums), and what
+    /// opens one of them.
+    var albums: [AppAlbum] = []
+    var onOpenAlbum: ((AppAlbum) -> Void)? = nil
 
     @Environment(\.windowSafeArea) private var safeArea
 
@@ -232,6 +236,11 @@ struct CassetteCaseView: View {
                         playButtons(tracks)
                             .allowsHitTesting(isOpen)
                             .padding(.bottom, 6)
+                        if let onOpenAlbum, case let covers = ArtistAlbums.albums(in: artistSections(tracks)), !covers.isEmpty {
+                            ArtistAlbumStrip(albums: covers, onOpen: onOpenAlbum)
+                                .allowsHitTesting(isOpen)
+                                .padding(.bottom, 4)
+                        }
                     }
                     songList(tracks, scrolls: isOpen)
                 }
@@ -342,13 +351,22 @@ struct CassetteCaseView: View {
             .accessibilityAddTraits(.isHeader)
     }
 
+    /// An artist's songs by album (ArtistAlbums); none for anything else.
+    private func artistSections(_ tracks: [AppTrack]) -> [ArtistAlbums.Section] {
+        album.isArtist ? ArtistAlbums.sections(of: tracks, for: album, in: albums) : []
+    }
+
     private func rows(_ shown: [AppTrack], of tracks: [AppTrack]) -> some View {
         let sideB = album.isMixtape ? TapeFormat.sideBreak(in: tracks) : nil
         let episodes = album.podcast?.episodesNewestFirst
+        let headings = Dictionary(uniqueKeysWithValues: artistSections(tracks).map { ($0.start, $0) })
         // By place, not id: a mixtape can carry the same song twice.
         return ForEach(Array(shown.enumerated()), id: \.offset) { index, track in
             if sideB != nil, index == 0 { sideHeading("spool.mixtape.sideA") }
             if index == sideB { sideHeading("spool.mixtape.sideB") }
+            if let heading = headings[index] {
+                ArtistAlbumHeading(section: heading, onOpen: { onOpenAlbum?($0) })
+            }
             Button { onPick(tracks, index, cassetteFrame) } label: {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     if track.id == playingID {
@@ -357,7 +375,8 @@ struct CassetteCaseView: View {
                             .frame(width: 20, alignment: .trailing)
                             .accessibilityLabel(String(localized: "spool.case.playing"))
                     } else if !album.isPodcast {
-                        Text("\(index + 1)")
+                        // An artist's songs are numbered as on their albums.
+                        Text("\(album.isArtist ? track.trackNumber ?? index + 1 : index + 1)")
                             .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .opacity(0.5)
                             .frame(width: 20, alignment: .trailing)

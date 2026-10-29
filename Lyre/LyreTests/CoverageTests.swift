@@ -1168,3 +1168,24 @@ struct ArtistShelfTests {
         #expect(ArtistShelf.artists(albums: [], songs: [song("X", by: "", on: "")]).isEmpty)
     }
 }
+
+/// An artist's case reads album by album: a heading where each album's songs start.
+@MainActor
+struct ArtistAlbumsTests {
+    @Test func eachAlbumsSongsGetAHeadingAndItsAlbum() {
+        let thirty = AppAlbum(id: "30", title: "30", artistName: "Adele")
+        let twentyFive = AppAlbum(id: "25", title: "25", artistName: "Adele")
+        let songs = [AppTrack(id: "a", title: "Easy on Me", artistName: "Adele", albumTitle: "30", duration: 1),
+                     AppTrack(id: "b", title: "My Little Love", artistName: "Adele", albumTitle: "30", duration: 1),
+                     AppTrack(id: "c", title: "Hello", artistName: "Adele", albumTitle: "25", duration: 1),
+                     AppTrack(id: "d", title: "Loose", artistName: "Adele", albumTitle: "", duration: 1)]
+        let artist = AppAlbum(id: "artist:adele-test", title: "Adele", artistName: "", preloadedTracks: songs, isArtist: true)
+        let sections = ArtistAlbums.sections(of: songs, for: artist, in: [thirty, twentyFive])
+        #expect(sections.map(\.start) == [0, 2, 3])
+        #expect(sections.map { $0.album?.id } == ["30", "25", nil])
+        #expect(ArtistAlbums.albums(in: sections).map(\.id) == ["30", "25"])
+        // Only an artist's case is split into albums.
+        let album = AppAlbum(id: "30x", title: "30", artistName: "Adele")
+        #expect(ArtistAlbums.sections(of: songs, for: album, in: [thirty]).isEmpty)
+    }
+}
