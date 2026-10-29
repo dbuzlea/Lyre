@@ -1233,3 +1233,14 @@ struct SmartListTests {
         #expect(MusicService().smartMixtapes.isEmpty)
     }
 }
+
+/// A song added with no album information comes back as an album with no title: every
+/// player lists it as "Unknown Album", not a blank row.
+struct UnknownAlbumTests {
+    @Test func anAlbumWithNoTitleIsAnUnknownAlbum() {
+        #expect(AppAlbum.title("") == String(localized: "album.unknown"))
+        #expect(AppAlbum.title("   ") == String(localized: "album.unknown"))
+        #expect(AppAlbum.title(nil) == String(localized: "album.unknown"))
+        #expect(AppAlbum.title("21") == "21")
+    }
+}

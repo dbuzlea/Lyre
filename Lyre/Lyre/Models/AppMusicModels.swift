@@ -327,10 +327,20 @@ nonisolated extension AppTrack {
 }
 
 nonisolated extension AppAlbum {
+    /// An album's name, or "Unknown Album" where it has none: a song added with no album
+    /// information comes back from MusicKit and the media library as an album with no
+    /// title, which every player would otherwise list as a blank row.
+    static func title(_ name: String?) -> String {
+        guard let name, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return String(localized: "album.unknown")
+        }
+        return name
+    }
+
     /// An album from the library, or with `catalog`, from Apple Music's catalogue.
     init(from album: Album, catalog: Bool = false) {
         self.init(
-            id: album.id.rawValue, title: album.title, artistName: album.artistName,
+            id: album.id.rawValue, title: Self.title(album.title), artistName: album.artistName,
             releaseDate: album.releaseDate, musicKitAlbum: album, isCatalog: catalog
         )
     }
@@ -393,7 +403,7 @@ nonisolated extension AppAlbum {
     init(from representative: MPMediaItem, tracks: [AppTrack]) {
         self.init(
             id: "mp.album.\(representative.albumPersistentID)",
-            title: representative.albumTitle ?? "Unknown Album",
+            title: Self.title(representative.albumTitle),
             artistName: representative.albumArtist ?? representative.artist ?? "Unknown Artist",
             releaseDate: representative.releaseDate,
             mpArtwork: representative.artwork,
