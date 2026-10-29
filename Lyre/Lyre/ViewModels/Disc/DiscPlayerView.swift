@@ -1109,7 +1109,18 @@ struct DiscPlayerView: View {
                 openCase = nil
                 isCaseFromDeck = false
             },
-            playingID: musicService.currentEpisode?.id ?? musicService.currentTrack?.id
+            playingID: musicService.currentEpisode?.id ?? musicService.currentTrack?.id,
+            albums: album.isArtist ? library.albums : [],
+            // From an artist's case, one of their albums: their case goes, the album's
+            // opens in its place.
+            onOpenAlbum: album.isArtist ? { other in
+                openCase = nil
+                isCaseFromDeck = false
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    openCaseOf(other)
+                }
+            } : nil
         )
         // On an open Duo the case opens over the shelf, leaving the deck in view.
         return Group {

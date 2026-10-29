@@ -181,7 +181,7 @@ struct SpoolPlayerView: View {
                     onQueue: { tracks, placement in
                         queue(tracks, placement: placement, name: tracks.count == 1 ? tracks[0].title : scene.album.tapeTitle)
                     },
-                    onClose: closeCase,
+                    onClose: { closeCase() },
                     playingID: musicService.currentEpisode?.id ?? musicService.currentTrack?.id,
                     onScrub: { progress in
                         withTransaction(Transaction(animation: nil)) { caseProgress = progress }
@@ -197,8 +197,17 @@ struct SpoolPlayerView: View {
                         withAnimation(.spring(response: 0.62, dampingFraction: 0.84)) { caseProgress = 1 }
                     },
                     // On an open Duo the case opens over the rack, leaving the deck in view.
-                    bounds: foldMonitor.posture == .open && openRackFrame.width > 0 ? openRackFrame : nil
+                    bounds: foldMonitor.posture == .open && openRackFrame.width > 0 ? openRackFrame : nil,
+                    albums: scene.album.isArtist ? library.albums : [],
+                    // From an artist's case, one of their albums: their case goes back,
+                    // the album's opens from the same place.
+                    onOpenAlbum: scene.album.isArtist ? { album in
+                        closeCase { openCaseOf(album, from: scene.closedFrame) }
+                    } : nil
                 )
+                // A case of its own for each album, so one opened straight after another
+                // (an artist's album, from their case) starts closed and swings open.
+                .id(scene.album.id)
                 .transition(.opacity)
                 .zIndex(3)
             }
@@ -1244,8 +1253,8 @@ struct SpoolPlayerView: View {
         openCase = CaseScene(album: album, closedFrame: frame)
     }
 
-    /// Swings the lid shut and puts the case back in its slot.
-    private func closeCase() {
+    /// Swings the lid shut and puts the case back in its slot, then does `then`.
+    private func closeCase(then: (() -> Void)? = nil) {
         guard openCase != nil else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         withAnimation(.spring(response: 0.5, dampingFraction: 0.9)) {
@@ -1254,6 +1263,7 @@ struct SpoolPlayerView: View {
             var settle = Transaction()
             settle.disablesAnimations = true
             withTransaction(settle) { openCase = nil }
+            then?()
         }
     }
 

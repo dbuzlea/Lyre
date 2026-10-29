@@ -237,6 +237,16 @@ struct GramophonePlayerView: View {
                     },
                     onClose: { openSleeve = nil },
                     playingID: musicService.currentEpisode?.id ?? musicService.currentTrack?.id,
+                    albums: album.isArtist ? library.albums : [],
+                    // From an artist's sleeve, one of their records: their sleeve goes,
+                    // the record's opens in its place.
+                    onOpenAlbum: album.isArtist ? { other in
+                        openSleeve = nil
+                        Task {
+                            try? await Task.sleep(for: .milliseconds(300))
+                            openRecord(other)
+                        }
+                    } : nil,
                     // Below the fold with the covers, the gramophone left in view above.
                     lowerHalfHeight: isDuoSplit ? binHeight : nil,
                     bottomInset: safeArea.bottom

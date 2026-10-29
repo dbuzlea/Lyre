@@ -41,6 +41,10 @@ struct JewelCaseView: View {
     let onClose: () -> Void
     /// The song playing, marked in the list.
     var playingID: String?
+    /// An artist's case: the library's albums, to show theirs (ArtistAlbums), and what
+    /// opens one of them.
+    var albums: [AppAlbum] = []
+    var onOpenAlbum: ((AppAlbum) -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.windowSafeArea) private var safeArea
@@ -399,6 +403,10 @@ struct JewelCaseView: View {
                 }
                 .font(.system(size: 13, weight: .semibold))
                 .buttonStyle(.plain)
+                if let onOpenAlbum, case let covers = ArtistAlbums.albums(in: artistSections(tracks)), !covers.isEmpty {
+                    ArtistAlbumStrip(albums: covers, onOpen: onOpenAlbum)
+                        .padding(.top, 6)
+                }
             }
 
             songList
@@ -421,7 +429,11 @@ struct JewelCaseView: View {
                 let episodes = album.podcast?.episodesNewestFirst
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        let headings = Dictionary(uniqueKeysWithValues: artistSections(tracks).map { ($0.start, $0) })
                         ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+                            if let heading = headings[index] {
+                                ArtistAlbumHeading(section: heading, onOpen: { onOpenAlbum?($0) })
+                            }
                             row(track, index: index, of: tracks,
                                 episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil })
                         }
@@ -433,6 +445,11 @@ struct JewelCaseView: View {
         }
     }
 
+    /// An artist's songs by album (ArtistAlbums); none for anything else.
+    private func artistSections(_ tracks: [AppTrack]) -> [ArtistAlbums.Section] {
+        album.isArtist ? ArtistAlbums.sections(of: tracks, for: album, in: albums) : []
+    }
+
     private func row(_ track: AppTrack, index: Int, of tracks: [AppTrack], episode: PodcastEpisode?) -> some View {
         Button { pick(tracks, index, whole: false) } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -440,7 +457,8 @@ struct JewelCaseView: View {
                     if track.id == playingID {
                         Image(systemName: "speaker.wave.2.fill").font(.system(size: 11))
                     } else {
-                        Text(String(format: "%02d", index + 1))
+                        // An artist's songs are numbered as on their albums.
+                        Text(String(format: "%02d", album.isArtist ? track.trackNumber ?? index + 1 : index + 1))
                             .font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .opacity(0.5)
                     }

@@ -644,8 +644,19 @@ final class SpoolUITests: XCTestCase {
         lyre.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
         XCTAssertTrue(element(app, "spool.jcard.track.0").waitForExistence(timeout: 5), "The artist's case didn't open on their songs")
         XCTAssertTrue(element(app, "spool.case.play").exists)
+        // Their albums: a row of covers, and a heading over each album's songs.
+        XCTAssertTrue(element(app, "artist.albums").exists, "The artist's case has no albums")
+        XCTAssertTrue(element(app, "artist.heading.0").exists, "The songs have no album heading")
         sleep(1)
         attachScreenshot(app, named: "spool-artist-case")
+
+        // A cover opens that album's own case. Sample Tape 1 is the newest (it has a date).
+        let cover = element(app, "artist.album.sample-1")
+        XCTAssertTrue(cover.exists, "Sample Tape 1 isn't among the artist's albums")
+        cover.tap()
+        XCTAssertTrue(element(app, "spool.jcard.released").waitForExistence(timeout: 6), "The album's case didn't open")
+        XCTAssertFalse(element(app, "artist.albums").exists, "The artist's case is still open")
+        attachScreenshot(app, named: "spool-album-from-artist")
     }
 
     @MainActor
