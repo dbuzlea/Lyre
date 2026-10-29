@@ -624,6 +624,30 @@ final class SpoolUITests: XCTestCase {
         XCTAssertFalse(element(app, "spool.jcard.track.0").exists, "Swiping right opened the case")
     }
 
+    /// The Artists shelf: each artist as a case, opened on their songs.
+    @MainActor
+    func testTheArtistsShelfOpensAnArtistOnTheirSongs() throws {
+        let app = launchSpool()
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let artists = element(app, "spool.shelf.artists")
+        XCTAssertTrue(artists.waitForExistence(timeout: 3), "No Artists shelf")
+        artists.tap()
+        // The sample albums are all by Lyre.
+        let lyre = element(app, "spool.tape.artist:lyre")
+        XCTAssertTrue(lyre.waitForExistence(timeout: 3), "Lyre isn't on the Artists shelf")
+        sleep(1)
+        attachScreenshot(app, named: "spool-artists-shelf")
+        // The only case on the shelf: its element reaches well above it, so the case
+        // itself, at the bottom, is what's tapped.
+        lyre.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85)).tap()
+        XCTAssertTrue(element(app, "spool.jcard.track.0").waitForExistence(timeout: 5), "The artist's case didn't open on their songs")
+        XCTAssertTrue(element(app, "spool.case.play").exists)
+        sleep(1)
+        attachScreenshot(app, named: "spool-artist-case")
+    }
+
     @MainActor
     func testHoldingASongInTheCaseOffersToQueueIt() throws {
         let app = launchSpool()

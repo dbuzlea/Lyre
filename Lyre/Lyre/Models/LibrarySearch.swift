@@ -92,6 +92,7 @@ struct ShelfSearchMatches: Equatable {
     /// The search these are the matches for.
     var query = ""
     var albums: [AppAlbum] = []
+    var artists: [AppAlbum] = []
     var mixtapes: [AppAlbum] = []
     var podcasts: [AppAlbum] = []
     /// Apple Music's albums for the query that the library hasn't, streamed when played.
@@ -100,6 +101,7 @@ struct ShelfSearchMatches: Equatable {
     func items(on shelf: SpoolShelf) -> [AppAlbum] {
         switch shelf {
         case .albums:     return albums
+        case .artists:    return artists
         case .mixtapes:   return mixtapes
         case .podcasts:   return podcasts
         case .appleMusic: return appleMusic
@@ -215,9 +217,12 @@ nonisolated enum LibrarySearch {
     @MainActor
     static func shelfMatches(for query: String, in library: ShelfLibrary) -> ShelfSearchMatches? {
         guard let matches = shelfFilter(for: query, songs: library.songs) else { return nil }
+        let terms = terms(query)
         return ShelfSearchMatches(
             query: query,
             albums: library.albums.filter(matches),
+            // An artist by name.
+            artists: library.artists.filter { self.matches(terms, $0.title) },
             mixtapes: library.mixtapes.filter(matches),
             podcasts: library.podcasts.filter(matches)
         )

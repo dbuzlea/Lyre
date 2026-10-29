@@ -624,6 +624,20 @@
       ],
       "automated_by": ["LyreTests/PlayIDsTests"]
     },
+    {
+      "key": "ART-01", "suite": "Spool", "title": "An Artists shelf in the Spool, Disc and Gramophone",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "A library with several artists. Online, with Apple Music access, for artists' photos.",
+      "steps": [
+        ["In the Spool, open the rack and tap ARTISTS (between Albums and Mixtapes).", "One cassette case per artist, filed A to Z: their photo on the front (or one of their album covers until it arrives), their name, how many albums and songs."],
+        ["Tap an artist's case.", "It opens on their songs, newest album first, in track order, with Play and Shuffle."],
+        ["Play, then hold an artist's case and choose Play Next or Add to Queue.", "Their songs play or queue."],
+        ["Check an artist with a song featuring a guest, and a compilation (\"Various Artists\").", "The guest song stays with the album's artist; a compilation's songs go to their own artists."],
+        ["Search the rack for an artist's name.", "The ARTISTS divider counts them and shows their case."],
+        ["Repeat in the Disc (jewel cases) and the Gramophone (records).", "The same Artists shelf, with photos on the cases and records."]
+      ],
+      "automated_by": ["LyreTests/ArtistShelfTests", "LyreUITests/SpoolUITests/testTheArtistsShelfOpensAnArtistOnTheirSongs()"]
+    },
 
     {
       "key": "POD-01", "suite": "Podcasts", "title": "Find a show by name and subscribe",

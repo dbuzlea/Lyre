@@ -121,6 +121,7 @@ struct GramophonePlayerView: View {
     @AppStorage("GramophoneAlbumFrontID") private var albumFrontID: String?
     @AppStorage("GramophoneRecordingFrontID") private var recordingFrontID: String?
     @AppStorage("GramophoneBroadcastFrontID") private var broadcastFrontID: String?
+    @AppStorage("GramophoneArtistFrontID") private var artistFrontID: String?
     /// Apple Music's shelf's front, for this search only (it isn't kept).
     @State private var appleMusicFrontID: String?
 
@@ -371,7 +372,7 @@ struct GramophonePlayerView: View {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--gramophone-reset-crate") {
             for key in ["GramophoneShelf", "GramophoneAlbumFrontID", "GramophoneRecordingFrontID",
-                        "GramophoneBroadcastFrontID", "GramophoneBinDivider"]
+                        "GramophoneBroadcastFrontID", "GramophoneArtistFrontID", "GramophoneBinDivider"]
                 + GramophoneCoverCarousel.Divider.allCases.map({ "GramophoneBinPlace." + $0.rawValue }) {
                 UserDefaults.standard.removeObject(forKey: key)
             }
@@ -1256,6 +1257,7 @@ struct GramophonePlayerView: View {
     nonisolated private static func shelfTitle(_ shelf: SpoolShelf) -> String {
         switch shelf {
         case .albums:     return String(localized: "spool.shelf.albums")
+        case .artists:    return String(localized: "spool.shelf.artists")
         case .mixtapes:   return String(localized: "gramophone.shelf.recordings")
         case .podcasts:   return String(localized: "gramophone.shelf.broadcasts")
         case .appleMusic: return String(localized: "catalog.search.title")
@@ -1264,7 +1266,7 @@ struct GramophonePlayerView: View {
 
     private static func emptyText(on shelf: SpoolShelf) -> String {
         switch shelf {
-        case .albums:     return String(localized: "spool.shelf.empty")
+        case .albums, .artists: return String(localized: "spool.shelf.empty")
         case .mixtapes:   return String(localized: "gramophone.shelf.recordings.empty")
         case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
         case .appleMusic: return String(localized: "search.noResults")
@@ -1274,6 +1276,7 @@ struct GramophonePlayerView: View {
     private var frontID: Binding<String?> {
         switch shelf {
         case .albums:     return $albumFrontID
+        case .artists:    return $artistFrontID
         case .mixtapes:   return $recordingFrontID
         case .podcasts:   return $broadcastFrontID
         case .appleMusic: return $appleMusicFrontID

@@ -641,7 +641,8 @@ private struct TourDeckView: View {
 
     private var dividers: some View {
         HStack(spacing: 2) {
-            ForEach(Array(SpoolShelf.allCases.enumerated()), id: \.offset) { index, shelf in
+            // The shelves the tour shows, in the order its steps number them.
+            ForEach(Array([SpoolShelf.albums, .mixtapes, .podcasts].enumerated()), id: \.offset) { index, shelf in
                 Text(shelf.title.uppercased())
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)

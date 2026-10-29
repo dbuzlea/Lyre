@@ -229,6 +229,8 @@
 "spool.shelf.empty" = "No albums in your library";
 "spool.shelf.hint.closed" = "Choose a tape to play it.";
 "spool.shelf.albums" = "Albums";
+"spool.shelf.artists" = "Artists";
+"spool.artist.albums" = "%d albums";
 "spool.shelf.mixtapes" = "Mixtapes";
 "spool.shelf.mixtapes.empty" = "No mixtapes yet. Playlists in your library show up here.";
 "spool.mixtape.madeBy" = "Made by %@";

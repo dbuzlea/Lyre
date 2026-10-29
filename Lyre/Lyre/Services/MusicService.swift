@@ -295,13 +295,19 @@ class MusicService: ObservableObject {
             songSectionLetters = Self.sectionLetters(songs.map(\.title))
             songsByTitle = nil
             songsByPersistentID = nil
+            rebuildArtistShelf()
             // Each title and artist worked out for matching ahead of time, off the
             // main thread (see DeezerTempo.normalized).
             let songs = songs
             Task.detached(priority: .utility) { await DeezerTempo.prepare(songs) }
         }
     }
-    @Published var albums:       [AppAlbum]    = [] { didSet { albumSectionLetters = Self.sectionLetters(albums.map(\.title)) } }
+    @Published var albums:       [AppAlbum]    = [] {
+        didSet {
+            albumSectionLetters = Self.sectionLetters(albums.map(\.title))
+            rebuildArtistShelf()
+        }
+    }
     @Published var artists:      [AppArtist]   = [] { didSet { artistSectionLetters = Self.sectionLetters(artists.map(\.name)) } }
     @Published var playlists:    [AppPlaylist] = [] {
         didSet { shelfMixtapes = playlists.map(AppAlbum.init(mixtape:)).sorted { AppHelpers.sortsBefore($0.title, $1.title) } }
@@ -324,6 +330,25 @@ class MusicService: ObservableObject {
     /// finding a song is a lookup rather than a pass over the whole library.
     private var songsByTitle: [String: [AppTrack]]?
     private var songsByPersistentID: [MPMediaEntityPersistentID: AppTrack]?
+
+    /// The shelves' Artists shelf (ArtistShelf): built in the background whenever the
+    /// songs or albums change, and empty until it's ready.
+    private(set) var shelfArtists: [AppAlbum] = []
+    private var artistShelfTask: Task<Void, Never>?
+
+    private func rebuildArtistShelf() {
+        artistShelfTask?.cancel()
+        let albums = albums, songs = songs
+        artistShelfTask = Task { [weak self] in
+            // Songs and albums arrive one after the other: build once, for both.
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            let artists = await Task.detached(priority: .utility) { ArtistShelf.artists(albums: albums, songs: songs) }.value
+            guard !Task.isCancelled, let self else { return }
+            self.objectWillChange.send()
+            self.shelfArtists = artists
+        }
+    }
 
     /// The library's songs whose normalised title is `title`, in library order.
     func librarySongs(normalizedTitle title: String) -> [AppTrack] {

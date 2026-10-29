@@ -114,7 +114,7 @@ final class AppleMusicCatalog {
     /// Looks up an album (not a playlist or show), once per launch. One from the
     /// catalogue already is the catalogue's; one from the library is searched for.
     func loadAlbum(_ album: AppAlbum) async {
-        guard Self.isAvailable, !album.isMixtape, !album.isPodcast else { return }
+        guard Self.isAvailable, album.hasAlbumInfo else { return }
         let key = Self.albumKey(title: album.tapeTitle, artist: album.artistName)
         guard asked.insert("album:" + key).inserted else { return }
         do {

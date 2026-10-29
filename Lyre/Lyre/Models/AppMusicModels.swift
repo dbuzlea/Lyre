@@ -161,6 +161,9 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
     let podcast: PodcastShow?
     /// From Apple Music's catalogue, not the library: its songs stream when played.
     let isCatalog: Bool
+    /// An artist on the shelves' Artists shelf: their songs, newest album first, in
+    /// a case with their photo (see ArtistShelf).
+    let isArtist: Bool
 
     init(
         id: String, title: String, artistName: String,
@@ -169,7 +172,8 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
         preloadedTracks: [AppTrack] = [],
         mixtape: AppPlaylist? = nil,
         podcast: PodcastShow? = nil,
-        isCatalog: Bool = false
+        isCatalog: Bool = false,
+        isArtist: Bool = false
     ) {
         self.id = id; self.title = title; self.artistName = artistName
         self.releaseDate = releaseDate; self.musicKitAlbum = musicKitAlbum
@@ -178,6 +182,7 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
         self.mixtape = mixtape
         self.podcast = podcast
         self.isCatalog = isCatalog
+        self.isArtist = isArtist
     }
 
     static func == (lhs: AppAlbum, rhs: AppAlbum) -> Bool { lhs.id == rhs.id }
