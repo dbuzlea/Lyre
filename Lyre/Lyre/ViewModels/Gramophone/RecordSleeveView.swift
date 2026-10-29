@@ -35,6 +35,10 @@ struct RecordSleeveView: View {
     /// opens one of them.
     var albums: [AppAlbum] = []
     var onOpenAlbum: ((AppAlbum) -> Void)? = nil
+    /// An artist's case: what Apple Music knows of them (ArtistCatalogSections), and
+    /// what plays their top songs.
+    var musicService: MusicService? = nil
+    var onPlaySongs: (([AppTrack], Int) -> Void)? = nil
     /// iPhone Duo open in portrait: the height of the half below the fold, and the safe
     /// area under it. The sleeve keeps to that half. Nil elsewhere: the whole screen.
     var lowerHalfHeight: CGFloat?
@@ -248,6 +252,9 @@ struct RecordSleeveView: View {
                 let episodes = album.podcast?.episodesNewestFirst
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        if album.isArtist, let musicService, let onOpenAlbum, let onPlaySongs {
+                            ArtistCatalogHeader(name: album.title, musicService: musicService, onPlay: onPlaySongs, onOpen: onOpenAlbum)
+                        }
                         let headings = Dictionary(uniqueKeysWithValues: artistSections(tracks).map { ($0.start, $0) })
                         ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
                             if let heading = headings[index] {
@@ -255,6 +262,9 @@ struct RecordSleeveView: View {
                             }
                             row(track, index: index, of: tracks,
                                 episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil })
+                        }
+                        if album.isArtist, let musicService, let onOpenAlbum {
+                            ArtistCatalogFooter(name: album.title, musicService: musicService, onOpen: onOpenAlbum)
                         }
                     }
                 }
@@ -284,10 +294,13 @@ struct RecordSleeveView: View {
                 .frame(width: 22, alignment: .trailing)
                 VStack(alignment: .leading, spacing: 1) {
                     // An episode's marked if played before, or part way through.
-                    EpisodeTitle(track.title, episode: episode)
-                        .font(album.isMixtape ? .custom(SpoolPalette.handwriting, size: 15) : .system(size: 14, design: .serif))
-                        .foregroundStyle(album.isMixtape ? SpoolPalette.pen : SpoolPalette.labelInk)
-                        .lineLimit(2)
+                    HStack(spacing: 6) {
+                        EpisodeTitle(track.title, episode: episode)
+                            .font(album.isMixtape ? .custom(SpoolPalette.handwriting, size: 15) : .system(size: 14, design: .serif))
+                            .foregroundStyle(album.isMixtape ? SpoolPalette.pen : SpoolPalette.labelInk)
+                            .lineLimit(2)
+                        if !album.isPodcast, track.isExplicit { ExplicitTag() }
+                    }
                     if album.isMixtape || album.isPodcast {
                         Text(album.isPodcast ? (episode?.published.map(CassetteCaseView.episodeDate) ?? "") : track.artistName)
                             .font(.system(size: 11)).opacity(0.6).lineLimit(1)

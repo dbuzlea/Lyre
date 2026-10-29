@@ -232,6 +232,9 @@
 "spool.shelf.artists" = "Artists";
 "spool.artist.albums" = "%d albums";
 "artist.otherSongs" = "Other Songs";
+"count.songs" = "%d songs";
+"smart.maker" = "Lyre";
+"catalog.search.songs" = "Apple Music songs";
 "artist.openAlbum.hint" = "Opens this album";
 "spool.shelf.mixtapes" = "Mixtapes";
 "spool.shelf.mixtapes.empty" = "No mixtapes yet. Playlists in your library show up here.";

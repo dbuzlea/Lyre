@@ -1202,3 +1202,34 @@ struct ArtistAlbumsTests {
         #expect(ArtistAlbums.sections(of: songs, for: album, in: [thirty]).isEmpty)
     }
 }
+
+/// Lyre's own lists (Most Played, the top songs, the recent ones), made for every player
+/// as playlists: the shelves file them with the mixtapes, the classic menu opens them.
+@MainActor
+struct SmartListTests {
+    @Test func aSmartListIsAPlaylistLyreMade() {
+        let tracks = [AppTrack(id: "a", title: "A", artistName: "B", albumTitle: "C", duration: 1)]
+        let album = SmartList.mostPlayed.album(tracks)
+        #expect(album.isMixtape && album.mixtape?.id == "smart:mostPlayed")
+        #expect(album.preloadedTracks.count == 1 && !album.hasAlbumInfo)
+        #expect(SmartList(id: "smart:topCharts") == .topCharts)
+        #expect(SmartList(id: "p.123") == nil)
+    }
+
+    @Test func theClassicMenuOpensMostPlayedAndTheTopSongs() {
+        let items = MainMenuView.items
+        let mostPlayed = items.firstIndex(of: SmartList.mostPlayed.title)
+        let charts = items.firstIndex(of: SmartList.topCharts.title)
+        #expect(mostPlayed != nil && charts != nil)
+        for index in [mostPlayed, charts].compactMap({ $0 }) {
+            guard case .albumDetail(let album) = ScrollWheelView.mainMenuDestination(at: index) else {
+                Issue.record("Row \(index) doesn't open a list"); continue
+            }
+            #expect(SmartList(id: album.mixtape?.id ?? "") != nil)
+        }
+    }
+
+    @Test func aServiceWithNoListsOffersNoSmartMixtapes() {
+        #expect(MusicService().smartMixtapes.isEmpty)
+    }
+}

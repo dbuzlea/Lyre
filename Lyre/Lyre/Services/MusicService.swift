@@ -338,16 +338,51 @@ class MusicService: ObservableObject {
 
     private func rebuildArtistShelf() {
         artistShelfTask?.cancel()
-        let albums = albums, songs = songs
         artistShelfTask = Task { [weak self] in
-            // Songs and albums arrive one after the other: build once, for both.
+            // Songs, albums and the recent lists arrive one after another: build once.
             try? await Task.sleep(for: .milliseconds(200))
-            guard !Task.isCancelled else { return }
-            let artists = await Task.detached(priority: .utility) { ArtistShelf.artists(albums: albums, songs: songs) }.value
             guard !Task.isCancelled, let self else { return }
+            let albums = self.albums, songs = self.songs
+            let (artists, mostPlayed) = await Task.detached(priority: .utility) {
+                (ArtistShelf.artists(albums: albums, songs: songs), AppTrack.mostPlayed(songs, limit: 50))
+            }.value
+            guard !Task.isCancelled else { return }
             self.objectWillChange.send()
             self.shelfArtists = artists
+            self.smartLists[.recentlyPlayed] = Array(self.recentlyPlayed.prefix(50))
+            self.smartLists[.recentlyAdded] = Array(self.recentlyAdded.prefix(50))
+            self.smartLists[.mostPlayed] = mostPlayed
+            await self.loadTopCharts()
         }
+    }
+
+    /// The smart lists' songs (SmartList), built with the Artists shelf.
+    private(set) var smartLists: [SmartList: [AppTrack]] = [:]
+
+    /// The smart lists that have songs, as playlists, in the order SmartList gives.
+    var smartMixtapes: [AppAlbum] {
+        SmartList.allCases.compactMap { list in
+            guard let tracks = smartLists[list], !tracks.isEmpty else { return nil }
+            return list.album(tracks)
+        }
+    }
+
+    /// A smart list as a playlist, empty until it's built.
+    func smartAlbum(_ list: SmartList) -> AppAlbum {
+        list.album(smartLists[list] ?? [])
+    }
+
+    /// Apple Music's top songs, each the library's copy where it has one, else streamed.
+    private func loadTopCharts() async {
+        await AppleMusicCatalog.shared.loadCharts()
+        guard let songs = AppleMusicCatalog.shared.charts?.songs, !songs.isEmpty else { return }
+        let tracks = songs.map { song in
+            AppleMusicCatalog.librarySong(title: song.title, artist: song.artistName, duration: song.duration,
+                                          explicit: song.contentRating.map { $0 == .explicit }, in: self)
+                ?? AppTrack(from: song, catalog: true)
+        }
+        objectWillChange.send()
+        smartLists[.topCharts] = tracks
     }
 
     /// The library's songs whose normalised title is `title`, in library order.
@@ -415,8 +450,18 @@ class MusicService: ObservableObject {
     @Published var shuffleMode:           ShuffleMode = .off
     @Published var currentPlaylistID:     String?
     @Published var currentPodcastShowTitle: String?
-    @Published var recentlyAdded:  [AppTrack] = [] { didSet { recentlyAddedSectionLetters = Self.sectionLetters(recentlyAdded.map(\.title)) } }
-    @Published var recentlyPlayed: [AppTrack] = [] { didSet { recentlyPlayedSectionLetters = Self.sectionLetters(recentlyPlayed.map(\.title)) } }
+    @Published var recentlyAdded:  [AppTrack] = [] {
+        didSet {
+            recentlyAddedSectionLetters = Self.sectionLetters(recentlyAdded.map(\.title))
+            rebuildArtistShelf()
+        }
+    }
+    @Published var recentlyPlayed: [AppTrack] = [] {
+        didSet {
+            recentlyPlayedSectionLetters = Self.sectionLetters(recentlyPlayed.map(\.title))
+            rebuildArtistShelf()
+        }
+    }
 
     // MARK: - Section Letters
     //

@@ -203,6 +203,14 @@ struct SpoolPlayerView: View {
                     // the album's opens from the same place.
                     onOpenAlbum: scene.album.isArtist ? { album in
                         closeCase { openCaseOf(album, from: scene.closedFrame) }
+                    } : nil,
+                    musicService: scene.album.isArtist ? musicService : nil,
+                    // An artist's top songs: the case goes back and they play.
+                    onPlaySongs: scene.album.isArtist ? { tracks, index in
+                        closeCase()
+                        musicService.play(asking: { pendingPlay = $0 }, addToQueue: nil) {
+                            Task { await musicService.play(tracks: tracks, startingAt: index) }
+                        }
                     } : nil
                 )
                 // A case of its own for each album, so one opened straight after another
