@@ -601,6 +601,30 @@ final class LiquidUITests: XCTestCase {
 
     /// Each artist has a rounded-square photo beside their name (here their album's
     /// cover, as the simulator has no Apple Music), and their page opens on it, large.
+    /// The artists can be searched by name, as every Liquid list can.
+    @MainActor
+    func testTheArtistsCanBeSearched() throws {
+        let app = launchLiquid(["-LiquidShot", "artists"])
+        let lyre = element(app, "liquid.artist.Lyre")
+        XCTAssertTrue(lyre.waitForExistence(timeout: 10), "No artist in the list")
+        let field = element(app, "liquid.search.field")
+        XCTAssertTrue(field.exists, "The artists have no search")
+        field.tap()
+        field.typeText("zzz")
+        XCTAssertTrue(waitForDisappearance(lyre), "Searching didn't narrow the artists")
+        XCTAssertTrue(app.staticTexts["No Results"].waitForExistence(timeout: 3))
+        attachScreenshot(app, named: "liquid-artists-search")
+        app.buttons["Clear Search"].tap()
+        XCTAssertTrue(lyre.waitForExistence(timeout: 3), "Clearing the search didn't bring the artists back")
+    }
+
+    /// Recently Played can be searched too, not only every song.
+    @MainActor
+    func testRecentlyPlayedCanBeSearched() throws {
+        let app = launchLiquid(["-LiquidShot", "recentlyPlayed"])
+        XCTAssertTrue(element(app, "liquid.search.field").waitForExistence(timeout: 10), "Recently Played has no search")
+    }
+
     @MainActor
     func testArtistsHavePhotosAndTheirPageOpensOnOne() throws {
         let app = launchLiquid(["-LiquidShot", "artists"])
