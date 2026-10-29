@@ -882,44 +882,89 @@ struct LiquidArtistsPage: View {
 
     private static var memo: (albums: [AppAlbum], artists: [Artist])?
 
+    @State private var query = ""
+    @State private var headerHeight: CGFloat = 0
+
+    /// The artists whose name has every word typed, as the other lists search.
+    private var shown: [Artist] {
+        let terms = LibrarySearch.terms(query)
+        guard !terms.isEmpty else { return artists }
+        return artists.filter { LibrarySearch.matches(terms, $0.name) }
+    }
+
     var body: some View {
-        let artists = self.artists
-        return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 4) {
-                LiquidPageTitle(title: String(localized: "liquid.menu.artists"))
-                    .padding(.bottom, 12)
-                if artists.isEmpty {
-                    Text(String(localized: "spool.shelf.empty"))
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-                ForEach(artists, id: \.name) { artist in
-                    Button { navigator.push(.artist(artist.name)) } label: {
-                        HStack(alignment: .center, spacing: 14) {
-                            ArtistPhoto(name: artist.name, fallback: artist.album, size: 52)
-                            Text(artist.name)
-                                .font(.system(size: 30, weight: .medium))
-                                .tracking(-0.8)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                            Spacer(minLength: 8)
-                            Text("\(artist.count)")
-                                .font(.system(size: 14, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.5))
+        let shown = self.shown
+        let showsIndex = query.isEmpty && shown.count >= 12
+        return ScrollViewReader { proxy in
+            ZStack(alignment: .topTrailing) {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 16) {
+                            LiquidPageTitle(title: String(localized: "liquid.menu.artists"))
+                            LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"),
+                                                                            String(localized: "liquid.menu.artists")))
                         }
-                        .foregroundStyle(.white)
-                        .frame(minHeight: 64)
-                        .contentShape(Rectangle())
+                        .padding(.bottom, 12)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
+                        if shown.isEmpty {
+                            Text(String(localized: query.isEmpty ? "spool.shelf.empty" : "search.noResults"))
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                        ForEach(shown, id: \.name) { artist in
+                            Button { navigator.push(.artist(artist.name)) } label: {
+                                HStack(alignment: .center, spacing: 14) {
+                                    ArtistPhoto(name: artist.name, fallback: artist.album, size: 52)
+                                    Text(artist.name)
+                                        .font(.system(size: 30, weight: .medium))
+                                        .tracking(-0.8)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.6)
+                                    Spacer(minLength: 8)
+                                    Text("\(artist.count)")
+                                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                }
+                                .foregroundStyle(.white)
+                                .frame(minHeight: 64)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(LiquidWordStyle())
+                            .id(artist.name)
+                            .accessibilityIdentifier("liquid.artist.\(artist.name)")
+                        }
                     }
-                    .buttonStyle(LiquidWordStyle())
-                    .accessibilityIdentifier("liquid.artist.\(artist.name)")
+                    .padding(.leading, 20)
+                    .padding(.trailing, showsIndex ? 40 : 20)
+                    .padding(.bottom, bottomInset + 20)
+                }
+                .scrollDismissesKeyboard(.immediately)
+
+                // A to Z down the side, as the albums have.
+                if showsIndex {
+                    LiquidLetterStrip(titles: Self.names(of: shown)) { index in
+                        proxy.scrollTo(shown[index].name, anchor: .top)
+                    }
+                    .padding(.trailing, 6)
+                    .padding(.top, headerHeight + 16)
+                    .padding(.bottom, bottomInset + 12)
+                    .frame(maxHeight: .infinity, alignment: .top)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, bottomInset + 20)
         }
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)
     }
+
+    /// The names for the A–Z strip, kept for the same list (the strip compares them).
+    private static func names(of artists: [Artist]) -> [String] {
+        if let namesMemo, namesMemo.count == artists.count, namesMemo.first == artists.first?.name,
+           namesMemo.last == artists.last?.name { return namesMemo }
+        let names = artists.map(\.name)
+        namesMemo = names
+        return names
+    }
+
+    private static var namesMemo: [String]?
 }
 
 // MARK: - Search
@@ -1011,7 +1056,7 @@ struct LiquidSongsPage: View {
     let title: String
     let tracks: [AppTrack]
     let emptyText: String
-    /// Every song, by name: searchable, with the A–Z strip.
+    /// Every song, by name, with the A–Z strip. (Every list is searchable.)
     let isAlphabetical: Bool
     @ObservedObject var musicService: MusicService
     let onPlay: ([AppTrack], Int, Bool, String) -> Void
@@ -1070,9 +1115,8 @@ struct LiquidSongsPage: View {
             VStack(alignment: .leading, spacing: 16) {
                 LiquidPageTitle(title: title, layout: $layout)
                 linkButton
-                if isAlphabetical {
-                    LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
-                }
+                // Every list can be searched; only every song, filed by name, has the A–Z strip.
+                LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
                 if !shown.isEmpty {
                     playAndShuffle(shown, height: 44)
                 }
@@ -1105,9 +1149,7 @@ struct LiquidSongsPage: View {
                     VStack(alignment: .leading, spacing: 16) {
                         LiquidPageTitle(title: title, layout: $layout)
                 linkButton
-                        if isAlphabetical {
-                            LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
-                        }
+                        LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
                         if !shown.isEmpty {
                             playAndShuffle(shown, height: 50)
                         } else {
