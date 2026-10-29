@@ -1163,6 +1163,19 @@ struct ArtistShelfTests {
         #expect(adele?.caseByline?.contains("2") == true)
     }
 
+    @Test func aCollaborationGoesInWithAnArtistTheShelfHas() {
+        let single = AppAlbum(id: "s", title: "Northern Attitude - Single", artistName: "Noah Kahan & Hozier")
+        let lp = AppAlbum(id: "l", title: "Hozier", artistName: "Hozier")
+        let songs = [song("Northern Attitude", by: "Noah Kahan & Hozier", on: "Northern Attitude - Single"),
+                     song("Take Me to Church", by: "Hozier", on: "Hozier"),
+                     song("Duet", by: "Two & Nobody", on: "")]
+        let artists = ArtistShelf.artists(albums: [single, lp], songs: songs)
+        // Noah Kahan isn't on the shelf; Hozier is. "Two & Nobody" matches no one.
+        #expect(artists.map(\.title) == ["Hozier", "Two & Nobody"])
+        #expect(artists.first?.preloadedTracks.count == 2)
+        #expect(ArtistShelf.names(in: "A, B & C feat. D") == ["a", "b", "c", "d"])
+    }
+
     @Test func aSongWithNoAlbumIsFiledUnderItsOwnArtist() {
         #expect(ArtistShelf.artists(albums: [], songs: [song("Solo", by: "Someone", on: "")]).map(\.title) == ["Someone"])
         #expect(ArtistShelf.artists(albums: [], songs: [song("X", by: "", on: "")]).isEmpty)

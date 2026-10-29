@@ -14,7 +14,9 @@ import MediaPlayer
 // (TapeArtwork). Opened, a case lists the songs as an album's does; held, it queues them.
 //
 // A song is filed under its album's artist, so a song with a guest ("Artist & Guest")
-// stays with the album's artist; on a compilation ("Various Artists"), under its own.
+// stays with the album's artist; on a compilation ("Various Artists"), under its own;
+// a collaboration's album ("Noah Kahan & Hozier") with the first of its artists the
+// shelf has.
 // Built once for a library (MusicService.shelfArtists), not on each redraw.
 
 nonisolated enum ArtistShelf {
@@ -40,6 +42,16 @@ nonisolated enum ArtistShelf {
             byKey[key, default: Filed(name: name, tracks: [])].tracks.append(entry)
         }
 
+        // A collaboration ("Noah Kahan & Hozier") goes in with the first of its artists
+        // the shelf already has, rather than a case of its own for one song.
+        let solo = Set(byKey.keys.filter { names(in: $0).count == 1 })
+        for (key, filed) in byKey {
+            let parts = names(in: key)
+            guard parts.count > 1, let home = parts.first(where: solo.contains) else { continue }
+            byKey[home]?.tracks += filed.tracks
+            byKey[key] = nil
+        }
+
         return byKey.map { key, filed in
             let ordered = filed.tracks.sorted(by: inAlbumOrder).map(\.track)
             // The first album's cover stands in until (or where there's no) photo.
@@ -49,6 +61,15 @@ nonisolated enum ArtistShelf {
                             preloadedTracks: ordered, isArtist: true)
         }
         .sorted { AppHelpers.sortsBefore($0.title, $1.title) }
+    }
+
+    /// The artists a credit names: "A & B", "A, B & C", "A feat. B".
+    static func names(in credit: String) -> [String] {
+        var parts = [credit.lowercased()]
+        for separator in [" feat. ", " featuring ", " & ", ", "] {
+            parts = parts.flatMap { $0.components(separatedBy: separator) }
+        }
+        return parts.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
     /// The same artist, allowing for a guest credit on either side.

@@ -231,7 +231,8 @@ struct RecordSleeveView: View {
         }
         .foregroundStyle(SpoolPalette.labelInk)
         .padding(14)
-        .frame(maxHeight: 360, alignment: .top)
+        // Taller for an artist, whose row of album covers takes room above the songs.
+        .frame(maxHeight: album.isArtist ? 500 : 360, alignment: .top)
         .background(theme.paper, in: RoundedRectangle(cornerRadius: 6))
         .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
     }

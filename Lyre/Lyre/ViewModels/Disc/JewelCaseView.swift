@@ -413,7 +413,8 @@ struct JewelCaseView: View {
         }
         .foregroundStyle(SpoolPalette.labelInk)
         .padding(14)
-        .frame(maxHeight: 380, alignment: .top)
+        // Taller for an artist, whose row of album covers takes room above the songs.
+        .frame(maxHeight: album.isArtist ? 520 : 380, alignment: .top)
         .background(Color(red: 0.97, green: 0.97, blue: 0.95), in: RoundedRectangle(cornerRadius: 6))
         .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
     }
