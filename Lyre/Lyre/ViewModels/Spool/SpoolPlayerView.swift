@@ -123,6 +123,7 @@ struct SpoolPlayerView: View {
     /// The same for the mixtape shelf.
     @AppStorage("SpoolMixtapeFrontID") private var mixtapeFrontID: String?
     @AppStorage("SpoolPodcastFrontID") private var podcastFrontID: String?
+    @AppStorage("SpoolArtistFrontID") private var artistFrontID: String?
     /// Apple Music's shelf's front, for this search only (it isn't kept).
     @State private var appleMusicFrontID: String?
     /// The shelf the rack shows: albums or mixtapes. Kept, so the rack reopens on it.
@@ -322,6 +323,7 @@ struct SpoolPlayerView: View {
             UserDefaults.standard.removeObject(forKey: "SpoolRackFrontID")
             UserDefaults.standard.removeObject(forKey: "SpoolMixtapeFrontID")
             UserDefaults.standard.removeObject(forKey: "SpoolPodcastFrontID")
+            UserDefaults.standard.removeObject(forKey: "SpoolArtistFrontID")
             UserDefaults.standard.removeObject(forKey: "SpoolShelf")
         }
         #endif
@@ -1140,6 +1142,7 @@ struct SpoolPlayerView: View {
     private var shelfFrontID: Binding<String?> {
         switch shelf {
         case .albums:     return $rackFrontID
+        case .artists:    return $artistFrontID
         case .mixtapes:   return $mixtapeFrontID
         case .podcasts:   return $podcastFrontID
         case .appleMusic: return $appleMusicFrontID
@@ -1929,6 +1932,23 @@ struct TapeArtwork: View {
     let size: CGFloat
 
     var body: some View {
+        if album.isArtist {
+            // An artist's case wears their photo, asked for as it comes into view; one
+            // of their albums' covers until then, or where there's none.
+            Group {
+                if let photo = ArtistPhotos.shared.artwork(for: album.title) {
+                    ArtworkImage(photo, width: size, height: size)
+                } else {
+                    cover
+                }
+            }
+            .task(id: album.title) { ArtistPhotos.shared.lookUp(album.title) }
+        } else {
+            cover
+        }
+    }
+
+    @ViewBuilder private var cover: some View {
         if let show = album.podcast {
             LocalArtworkImage(cacheKey: show.artworkCacheKey, size: size, artwork: show.artwork,
                               remoteURL: show.artworkURL) { image in

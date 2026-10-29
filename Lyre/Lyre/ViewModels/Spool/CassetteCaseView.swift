@@ -796,6 +796,10 @@ struct ClosedCaseFront: View {
 extension AppAlbum {
     /// The line under the name on a case: the artist, or who made a mixtape.
     var caseByline: String? {
+        if isArtist {
+            let albums = Set(preloadedTracks.map { TapeFormat.displayTitle($0.albumTitle) }.filter { !$0.isEmpty }).count
+            return String(format: String(localized: "spool.artist.albums"), albums)
+        }
         if isPodcast {
             // When the newest episode came out, so a new one shows from the rack.
             return releaseDate.map {

@@ -673,18 +673,20 @@ private struct TapeCard: View, Equatable {
 /// Docs/CATALOGUE-STREAMING.md).
 enum SpoolShelf: String, CaseIterable, Identifiable {
     case albums
+    case artists
     case mixtapes
     case podcasts
     case appleMusic
 
     /// The library's shelves, always there; Apple Music's appears only with results.
-    static var allCases: [SpoolShelf] { [.albums, .mixtapes, .podcasts] }
+    static var allCases: [SpoolShelf] { [.albums, .artists, .mixtapes, .podcasts] }
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .albums:     return String(localized: "spool.shelf.albums")
+        case .artists:    return String(localized: "spool.shelf.artists")
         case .mixtapes:   return String(localized: "spool.shelf.mixtapes")
         case .podcasts:   return String(localized: "spool.shelf.podcasts")
         case .appleMusic: return String(localized: "catalog.search.title")

@@ -110,6 +110,16 @@ struct ShelfLibrary {
         return musicService.shelfPodcasts
     }
 
+    /// The Artists shelf: each artist's songs in a case (ArtistShelf); built from the
+    /// sample albums when samples stand in for an empty library.
+    var artists: [AppAlbum] {
+        if musicService.albums.isEmpty, usesSamples {
+            let albums = self.albums
+            return ArtistShelf.artists(albums: albums, songs: albums.flatMap(\.preloadedTracks))
+        }
+        return musicService.shelfArtists
+    }
+
     /// Every song, for a shuffle of them all; the sample albums' songs when samples
     /// stand in for an empty library.
     var songs: [AppTrack] {
@@ -120,6 +130,7 @@ struct ShelfLibrary {
     func items(on shelf: SpoolShelf) -> [AppAlbum] {
         switch shelf {
         case .albums:     return albums
+        case .artists:    return artists
         case .mixtapes:   return mixtapes
         case .podcasts:   return podcasts
         // Only ever filled by a search.
@@ -130,6 +141,7 @@ struct ShelfLibrary {
     static func emptyText(on shelf: SpoolShelf) -> String {
         switch shelf {
         case .albums:     return String(localized: "spool.shelf.empty")
+        case .artists:    return String(localized: "spool.shelf.empty")
         case .mixtapes:   return String(localized: "spool.shelf.mixtapes.empty")
         case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
         case .appleMusic: return String(localized: "search.noResults")
@@ -165,6 +177,7 @@ struct ShelfLibrary {
     /// playing, a show by its title, an album by the song's album.
     func isPlaying(_ track: AppTrack, from album: AppAlbum) -> Bool {
         if let playlist = album.mixtape { return musicService.currentPlaylistID == playlist.id }
+        if album.isArtist { return ArtistShelf.sameArtist(track.artistName, album.title) }
         if let show = album.podcast { return musicService.currentPodcastShowTitle == show.title }
         return TapeFormat.displayTitle(track.albumTitle) == album.tapeTitle
     }

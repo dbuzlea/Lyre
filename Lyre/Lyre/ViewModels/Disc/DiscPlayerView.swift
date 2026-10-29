@@ -100,6 +100,7 @@ struct DiscPlayerView: View {
     @AppStorage("DiscAlbumFrontID") private var albumFrontID: String?
     @AppStorage("DiscBurnedFrontID") private var burnedFrontID: String?
     @AppStorage("DiscPodcastFrontID") private var podcastFrontID: String?
+    @AppStorage("DiscArtistFrontID") private var artistFrontID: String?
     /// Apple Music's shelf's front, for this search only (it isn't kept).
     @State private var appleMusicFrontID: String?
     @AppStorage("DiscShelf") private var shelf: SpoolShelf = .albums
@@ -260,7 +261,7 @@ struct DiscPlayerView: View {
     private static let resetShelfForUITests: Void = {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--spool-reset-rack") {
-            for key in ["DiscAlbumFrontID", "DiscBurnedFrontID", "DiscPodcastFrontID", "DiscShelf"] {
+            for key in ["DiscAlbumFrontID", "DiscBurnedFrontID", "DiscPodcastFrontID", "DiscArtistFrontID", "DiscShelf"] {
                 UserDefaults.standard.removeObject(forKey: key)
             }
         }
@@ -1049,6 +1050,7 @@ struct DiscPlayerView: View {
     private var shelfFrontID: Binding<String?> {
         switch shelf {
         case .albums:     return $albumFrontID
+        case .artists:    return $artistFrontID
         case .mixtapes:   return $burnedFrontID
         case .podcasts:   return $podcastFrontID
         case .appleMusic: return $appleMusicFrontID
@@ -1058,6 +1060,7 @@ struct DiscPlayerView: View {
     nonisolated private static func shelfTitle(_ shelf: SpoolShelf) -> String {
         switch shelf {
         case .albums:     return String(localized: "spool.shelf.albums")
+        case .artists:    return String(localized: "spool.shelf.artists")
         case .mixtapes:   return String(localized: "disc.shelf.burned")
         case .podcasts:   return String(localized: "spool.shelf.podcasts")
         case .appleMusic: return String(localized: "catalog.search.title")
@@ -1066,7 +1069,7 @@ struct DiscPlayerView: View {
 
     private static func emptyText(on shelf: SpoolShelf) -> String {
         switch shelf {
-        case .albums:     return String(localized: "spool.shelf.empty")
+        case .albums, .artists: return String(localized: "spool.shelf.empty")
         case .mixtapes:   return String(localized: "disc.shelf.burned.empty")
         case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
         case .appleMusic: return String(localized: "search.noResults")

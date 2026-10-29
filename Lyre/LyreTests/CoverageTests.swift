@@ -981,11 +981,11 @@ struct AppleMusicShelfTests {
     private func album(_ id: String) -> AppAlbum { AppAlbum(id: id, title: id, artistName: "A") }
 
     @Test func theAppleMusicShelfShowsOnlyWithResults() {
-        #expect(SpoolShelf.allCases == [.albums, .mixtapes, .podcasts])
+        #expect(SpoolShelf.allCases == [.albums, .artists, .mixtapes, .podcasts])
         var matches = ShelfSearchMatches(query: "x", albums: [album("a")])
-        #expect(matches.shelves == [.albums, .mixtapes, .podcasts])
+        #expect(matches.shelves == [.albums, .artists, .mixtapes, .podcasts])
         matches.appleMusic = [album("1440934248")]
-        #expect(matches.shelves == [.albums, .mixtapes, .podcasts, .appleMusic])
+        #expect(matches.shelves == [.albums, .artists, .mixtapes, .podcasts, .appleMusic])
         #expect(matches.items(on: .appleMusic).count == 1)
     }
 
@@ -1128,5 +1128,43 @@ struct PlayIDsTests {
         let streamed = track.streaming(as: "1686457789")
         #expect(streamed.isStreamOnly && streamed.queueKey == "s1686457789")
         #expect(streamed.id == track.id && streamed.title == track.title)
+    }
+}
+
+/// The Spool's, Disc's and Gramophone's Artists shelf: each artist's songs in one case.
+struct ArtistShelfTests {
+    private func song(_ title: String, by artist: String, on album: String) -> AppTrack {
+        AppTrack(id: UUID().uuidString, title: title, artistName: artist, albumTitle: album, duration: 200)
+    }
+
+    @Test func aGuestCreditStaysWithTheAlbumsArtist() {
+        let thirty = AppAlbum(id: "30", title: "30", artistName: "Adele")
+        let songs = [song("Easy on Me", by: "Adele", on: "30"),
+                     song("Hold On", by: "Adele & Guest", on: "30")]
+        let artists = ArtistShelf.artists(albums: [thirty], songs: songs)
+        #expect(artists.map(\.title) == ["Adele"])
+        #expect(artists.first?.preloadedTracks.count == 2)
+        #expect(artists.first?.isArtist == true && artists.first?.comesInCase == true)
+        #expect(artists.first?.hasAlbumInfo == false)
+    }
+
+    @Test func aCompilationsSongsGoToTheirOwnArtists() {
+        let hits = AppAlbum(id: "h", title: "Now 100", artistName: "Various Artists")
+        let songs = [song("A", by: "One", on: "Now 100"), song("B", by: "Two", on: "Now 100")]
+        #expect(ArtistShelf.artists(albums: [hits], songs: songs).map(\.title) == ["One", "Two"])
+    }
+
+    @Test func newestAlbumFirst() {
+        let old = AppAlbum(id: "o", title: "19", artistName: "Adele", releaseDate: Date(timeIntervalSince1970: 1_200_000_000))
+        let new = AppAlbum(id: "n", title: "30", artistName: "Adele", releaseDate: Date(timeIntervalSince1970: 1_630_000_000))
+        let songs = [song("Daydreamer", by: "Adele", on: "19"), song("Easy on Me", by: "Adele", on: "30")]
+        let adele = ArtistShelf.artists(albums: [old, new], songs: songs).first
+        #expect(adele?.preloadedTracks.map(\.title) == ["Easy on Me", "Daydreamer"])
+        #expect(adele?.caseByline?.contains("2") == true)
+    }
+
+    @Test func aSongWithNoAlbumIsFiledUnderItsOwnArtist() {
+        #expect(ArtistShelf.artists(albums: [], songs: [song("Solo", by: "Someone", on: "")]).map(\.title) == ["Someone"])
+        #expect(ArtistShelf.artists(albums: [], songs: [song("X", by: "", on: "")]).isEmpty)
     }
 }

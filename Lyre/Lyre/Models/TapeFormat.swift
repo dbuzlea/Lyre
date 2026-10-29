@@ -141,11 +141,12 @@ nonisolated extension AppAlbum {
     var tapeFormat: TapeFormat {
         if isMixtape { return .mixtape }
         if isPodcast { return .spokenWord }
+        if isArtist { return .album }
         return TapeFormat.detect(title: title, isSingle: musicKitAlbum?.isSingle)
     }
 
     /// A mixtape keeps its name as written; an album loses the store's suffix.
-    var tapeTitle: String { isMixtape || isPodcast ? title : TapeFormat.displayTitle(title) }
+    var tapeTitle: String { isMixtape || isPodcast || isArtist ? title : TapeFormat.displayTitle(title) }
 
     /// The tape's songs as they go on it. An album lists each song once; a mixtape keeps
     /// whatever was put on it, repeats included, since a song taped twice is meant.
@@ -155,7 +156,7 @@ nonisolated extension AppAlbum {
 
     /// Songs on the tape, when known without loading it.
     var tapeTrackCount: Int? {
-        if let count = musicKitAlbum?.trackCount, count > 0 { return count }
+        if !isArtist, let count = musicKitAlbum?.trackCount, count > 0 { return count }
         let tracks = tapeSongs(preloadedTracks)
         return tracks.isEmpty ? nil : tracks.count
     }
@@ -171,7 +172,8 @@ nonisolated extension AppAlbum {
     /// count not yet known counts as several: few albums in a library are one song. A
     /// podcast always comes in its case, to choose an episode from.
     var comesInCase: Bool {
-        if isPodcast { return true }
+        // An artist always comes in a case, their photo on it, however few their songs.
+        if isPodcast || isArtist { return true }
         return (tapeFormat == .album || tapeFormat == .mixtape) && (tapeTrackCount ?? 2) > 1
     }
 

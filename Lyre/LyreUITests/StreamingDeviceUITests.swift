@@ -262,4 +262,38 @@ final class StreamingDeviceUITests: XCTestCase {
         add(shot)
         any("liquid.playPause").tap()
     }
+
+    /// The Artists shelf with the listener's own library, in the Spool, the Disc and the
+    /// Gramophone: screenshots of each, to see the artists' photos on their cases.
+    @MainActor
+    func testTheArtistsShelfInEachPlayer() throws {
+        for style in ["spool", "disc", "gramophone"] {
+            let app = XCUIApplication()
+            app.launchArguments = ["-LyrePlayerStyle", style]
+            app.launch()
+            func any(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id].firstMatch }
+            let divider = any("spool.shelf.artists")
+            if !divider.waitForExistence(timeout: 6) {
+                if any("spool.door").exists { any("spool.door").tap() }
+                if any("gramophone.crate").exists { any("gramophone.crate").tap() }
+            }
+            XCTAssertTrue(divider.waitForExistence(timeout: 10), "\(style) has no Artists shelf")
+            divider.tap()
+            sleep(4)
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "artists-\(style)"
+            shot.lifetime = .keepAlways
+            add(shot)
+            let artist = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'spool.tape.artist:'")).firstMatch
+            if artist.exists {
+                artist.tap()
+                sleep(3)
+                let opened = XCTAttachment(screenshot: app.screenshot())
+                opened.name = "artist-open-\(style)"
+                opened.lifetime = .keepAlways
+                add(opened)
+            }
+            app.terminate()
+        }
+    }
 }

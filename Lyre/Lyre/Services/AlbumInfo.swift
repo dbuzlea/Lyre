@@ -35,7 +35,7 @@ final class AlbumInfoCenter {
 
 nonisolated extension AppAlbum {
     /// An album, as against a playlist shown as a mixtape or a podcast show.
-    var hasAlbumInfo: Bool { !isMixtape && !isPodcast }
+    var hasAlbumInfo: Bool { !isMixtape && !isPodcast && !isArtist }
 
     /// When it came out, written out ("July 24, 2020"); nil for a playlist or a show.
     var releaseLine: String? {
