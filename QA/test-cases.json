@@ -176,6 +176,27 @@
         ["Scroll Songs fast, and scrub the A–Z index in each player.", "Scrolling is smooth; the index jumps straight to each letter."]
       ]
     },
+    {
+      "key": "LIB-08", "suite": "Music Access & Library", "title": "Discover shows Apple Music's suggestions in every player",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Apple Music access allowed, an Apple Music subscription, online.",
+      "steps": [
+        ["In Liquid, tap the Discover blob.", "Made for You groups, New Releases, Top Songs, Top Albums, Top Playlists and Genres appear, a section at a time."],
+        ["Tap an album the library hasn't, then Play.", "Its page opens and the album streams."],
+        ["Tap a playlist under Top Playlists, then a genre.", "Each opens on its songs, with the playlist's own cover; they play."],
+        ["On the Spool, Disc and Gramophone, choose the DISCOVER divider.", "The same albums and playlists are on the shelf; opening one lists its songs and it plays."],
+        ["On Classic, select Discover in the main menu, then a section, then an item.", "Sections list with their counts; the item opens as an album's list and plays."],
+        ["Turn on Airplane Mode, relaunch, and open Discover.", "It says it's asking Apple Music or that there's nothing to suggest; nothing freezes."],
+        ["Open Discover while the library is scrolling or a song is playing.", "No stutter: Discover loads in the background."]
+      ],
+      "automated_by": [
+        "LyreTests/DiscoverTests",
+        "LyreUITests/LiquidUITests/testDiscoverOpensItsCoversAndGenres()",
+        "LyreUITests/SpoolUITests/testTheDiscoverShelfHoldsAppleMusicsSuggestions()",
+        "LyreUITests/PlayerSwitchUITests/testClassicDiscoverOpensASectionAndAnAlbum()",
+        "LyreUITests/PlayerSwitchUITests/testClassicMainMenuListsDiscover()"
+      ]
+    },
 
     {
       "key": "PLY-01", "suite": "Playback & Queue", "title": "Play, pause, next and previous work in every player",

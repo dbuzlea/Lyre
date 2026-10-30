@@ -641,6 +641,26 @@ final class SpoolUITests: XCTestCase {
         app.alerts["New Playlist"].buttons["Cancel"].tap()
     }
 
+    /// The Discover shelf holds Apple Music's suggestions (here placeholders: the
+    /// simulator has no Apple Music), an album opening on its songs.
+    @MainActor
+    func testTheDiscoverShelfHoldsAppleMusicsSuggestions() throws {
+        let app = launchSpool(extraArguments: ["-DiscoverSamples", "YES"])
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let discover = element(app, "spool.shelf.discover")
+        XCTAssertTrue(discover.waitForExistence(timeout: 3), "No Discover shelf")
+        discover.tap()
+        let album = element(app, "spool.tape.discover-sample-album")
+        XCTAssertTrue(album.waitForExistence(timeout: 5), "The Discover shelf is empty")
+        XCTAssertTrue(element(app, "spool.tape.mixtape:discover-sample-mix").exists, "The playlist isn't on the shelf")
+        sleep(1)
+        attachScreenshot(app, named: "spool-discover-shelf")
+        album.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(element(app, "spool.jcard.track.0").waitForExistence(timeout: 5), "The album's case didn't open")
+    }
+
     /// The Artists shelf: each artist as a case, opened on their songs.
     @MainActor
     func testTheArtistsShelfOpensAnArtistOnTheirSongs() throws {

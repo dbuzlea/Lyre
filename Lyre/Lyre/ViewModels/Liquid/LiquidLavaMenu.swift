@@ -314,12 +314,13 @@ final class LavaLamp {
 
     /// Where each blob rests, zigzagging down the lamp, and how big it is (a share of
     /// the lamp's width).
+    /// Down the lamp, side to side: one home and size for each of the nine ways in.
     private static let homes: [CGPoint] = [
-        CGPoint(x: 0.3, y: 0.04), CGPoint(x: 0.72, y: 0.17), CGPoint(x: 0.28, y: 0.31),
-        CGPoint(x: 0.72, y: 0.44), CGPoint(x: 0.28, y: 0.57), CGPoint(x: 0.72, y: 0.7),
-        CGPoint(x: 0.3, y: 0.83), CGPoint(x: 0.72, y: 0.96)
+        CGPoint(x: 0.3, y: 0.04), CGPoint(x: 0.72, y: 0.155), CGPoint(x: 0.28, y: 0.27),
+        CGPoint(x: 0.72, y: 0.385), CGPoint(x: 0.28, y: 0.5), CGPoint(x: 0.72, y: 0.615),
+        CGPoint(x: 0.28, y: 0.73), CGPoint(x: 0.72, y: 0.845), CGPoint(x: 0.3, y: 0.96)
     ]
-    private static let radii: [CGFloat] = [0.165, 0.145, 0.15, 0.15, 0.15, 0.15, 0.14, 0.13]
+    private static let radii: [CGFloat] = [0.155, 0.14, 0.145, 0.145, 0.145, 0.145, 0.14, 0.135, 0.13]
 
     func configure(items: [(id: String, title: String, route: LiquidRoute)], size: CGSize, top: CGFloat, bottom: CGFloat) {
         guard size.width > 0, size.height > 0 else { return }

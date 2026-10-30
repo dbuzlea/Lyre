@@ -141,7 +141,8 @@ struct LiquidCover: View {
             return track.musicKitSong?.artwork ?? track.musicKitTrack?.artwork
         case .album(let album):
             guard album.podcast == nil else { return nil }
-            if album.isMixtape { return nil }
+            // A catalogue playlist's own cover (Discover); a library playlist's collage.
+            if let playlist = album.mixtape { return playlist.isCatalog ? playlist.musicKitPlaylist?.artwork : nil }
             return album.musicKitAlbum?.artwork
         }
     }

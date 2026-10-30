@@ -124,6 +124,7 @@ struct GramophonePlayerView: View {
     @AppStorage("GramophoneArtistFrontID") private var artistFrontID: String?
     /// Apple Music's shelf's front, for this search only (it isn't kept).
     @State private var appleMusicFrontID: String?
+    @State private var discoverFrontID: String?
 
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -1137,6 +1138,8 @@ struct GramophonePlayerView: View {
                         title: { ShelfSearchMatches.dividerTitle(Self.shelfTitle($0), on: $0, matches: crateMatches) },
                         onFindShows: { showPodcastSearch = true }
                     )
+                    // Discover is asked for the first time it's shown.
+                    .task(id: shelf) { if shelf == .discover { await Discover.shared.load(in: musicService) } }
                     crateHeader(front)
                     Spacer()
                     if !albums.isEmpty {
@@ -1278,6 +1281,7 @@ struct GramophonePlayerView: View {
         case .artists:    return String(localized: "spool.shelf.artists")
         case .mixtapes:   return String(localized: "gramophone.shelf.recordings")
         case .podcasts:   return String(localized: "gramophone.shelf.broadcasts")
+        case .discover:   return String(localized: "discover.title")
         case .appleMusic: return String(localized: "catalog.search.title")
         }
     }
@@ -1287,6 +1291,7 @@ struct GramophonePlayerView: View {
         case .albums, .artists: return String(localized: "spool.shelf.empty")
         case .mixtapes:   return String(localized: "gramophone.shelf.recordings.empty")
         case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
+        case .discover:   return Discover.emptyText
         case .appleMusic: return String(localized: "search.noResults")
         }
     }
@@ -1297,6 +1302,7 @@ struct GramophonePlayerView: View {
         case .artists:    return $artistFrontID
         case .mixtapes:   return $recordingFrontID
         case .podcasts:   return $broadcastFrontID
+        case .discover:   return $discoverFrontID
         case .appleMusic: return $appleMusicFrontID
         }
     }

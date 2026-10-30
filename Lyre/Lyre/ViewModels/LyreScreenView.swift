@@ -192,6 +192,21 @@ struct LyreScreenView: View {
                         BacklightDurationSelectionView(selection: $menuSelection, themeSettings: themeSettings)
                     case .playerStyleSelection:
                         PlayerStyleSelectionView(selection: $menuSelection, themeSettings: themeSettings)
+                    case .discover:
+                        DiscoverListView(
+                            title: String(localized: "discover.title"),
+                            rows: Discover.shared.sections.map { ($0.title, String(format: String(localized: "discover.count"), $0.items.count)) },
+                            selection: $menuSelection,
+                            themeSettings: themeSettings
+                        )
+                        .task { await Discover.shared.load(in: musicService) }
+                    case .discoverSection(let section):
+                        DiscoverListView(
+                            title: section.title,
+                            rows: section.items.map { ($0.title, $0.artistName.isEmpty ? nil : $0.artistName) },
+                            selection: $detailSelection,
+                            themeSettings: themeSettings
+                        )
                     case .about:
                         AboutView(themeSettings: themeSettings)
                     }
