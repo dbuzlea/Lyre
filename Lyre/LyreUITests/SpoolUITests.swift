@@ -624,6 +624,23 @@ final class SpoolUITests: XCTestCase {
         XCTAssertFalse(element(app, "spool.jcard.track.0").exists, "Swiping right opened the case")
     }
 
+    /// The mixtapes shelf offers a new playlist, which asks for its name.
+    @MainActor
+    func testTheMixtapesShelfMakesANewPlaylist() throws {
+        let app = launchSpool()
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let mixtapes = element(app, "spool.shelf.mixtapes")
+        XCTAssertTrue(mixtapes.waitForExistence(timeout: 3))
+        mixtapes.tap()
+        let new = element(app, "spool.shelf.newPlaylist")
+        XCTAssertTrue(new.waitForExistence(timeout: 3), "The mixtapes shelf has no New Playlist")
+        new.tap()
+        XCTAssertTrue(app.alerts["New Playlist"].waitForExistence(timeout: 3), "New Playlist didn't ask for a name")
+        app.alerts["New Playlist"].buttons["Cancel"].tap()
+    }
+
     /// The Artists shelf: each artist as a case, opened on their songs.
     @MainActor
     func testTheArtistsShelfOpensAnArtistOnTheirSongs() throws {

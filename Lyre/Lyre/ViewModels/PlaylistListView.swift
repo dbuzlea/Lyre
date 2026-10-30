@@ -7,8 +7,13 @@ import SwiftUI
 
 // Scrollable list of playlists. Unlike Songs/Albums/Artists, playlists are not
 // alphabetically sectioned because they don't have a natural letter grouping.
-// The selected row auto-scrolls to center on each selection change.
+// The selected row auto-scrolls to center on each selection change. New Playlist… comes
+// first (`newRow`), naming one with the keyboard; the playlists follow it.
 struct PlaylistListView: View {
+    /// New Playlist…, before the playlists, which start at `fixedRows`.
+    static let newRow = 0
+    static let fixedRows = 1
+
     let playlists: [AppPlaylist]
     @Binding var selection: Int
     let themeSettings: ThemeSettings
@@ -29,6 +34,8 @@ struct PlaylistListView: View {
 
             Divider().background(themeSettings.currentTheme.dividerColor)
 
+            row(String(localized: "playlist.new.action"), isSelected: selection == Self.newRow)
+                .accessibilityIdentifier("playlist.new")
             if playlists.isEmpty {
                 VStack(spacing: 6) {
                     Spacer()
@@ -48,18 +55,9 @@ struct PlaylistListView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 4) {
-                            ForEach(Array(playlists.enumerated()), id: \.offset) { index, playlist in
-                                Text(playlist.name)
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(selection == index
-                                        ? themeSettings.currentTheme.highlightTextColor
-                                        : themeSettings.currentTheme.screenTextColor)
-                                    .padding(.horizontal, 8).padding(.vertical, 4)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(selection == index
-                                        ? themeSettings.currentTheme.highlightColor
-                                        : Color.clear)
-                                    .selectionBarRefraction(when: selection == index)
+                            ForEach(Array(playlists.enumerated()), id: \.offset) { offset, playlist in
+                                let index = offset + Self.fixedRows
+                                row(playlist.name, isSelected: selection == index)
                                     .id(index)
                             }
                         }
@@ -71,5 +69,17 @@ struct PlaylistListView: View {
                 }
             }
         }
+    }
+
+    private func row(_ title: String, isSelected: Bool) -> some View {
+        Text(title)
+            .font(.system(size: 12))
+            .foregroundStyle(isSelected
+                ? themeSettings.currentTheme.highlightTextColor
+                : themeSettings.currentTheme.screenTextColor)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? themeSettings.currentTheme.highlightColor : Color.clear)
+            .selectionBarRefraction(when: isSelected)
     }
 }

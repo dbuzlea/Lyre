@@ -784,6 +784,11 @@
 
 /* Add to Playlist (PlaylistAdder, PlaylistPicker) */
 "playlist.add.action" = "Add to Playlist…";
+"playlist.new.action" = "New Playlist…";
+"playlist.new.title" = "New Playlist";
+"playlist.new.placeholder" = "Name";
+"playlist.new.create" = "Create";
+"playlist.new.made" = "Made “%@”.";
 
 /* Album Info (AlbumInfo, AlbumInfoSheet) */
 "albumInfo.action" = "Album Info";

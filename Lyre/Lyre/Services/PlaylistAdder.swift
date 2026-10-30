@@ -51,6 +51,31 @@ final class PlaylistAdder {
 
     func offer(_ item: Item) { pending = item }
 
+    /// A new playlist waiting to be named (NewPlaylistPrompt), from a player's New
+    /// Playlist button.
+    var isNamingNewPlaylist = false
+
+    func promptNewPlaylist() { isNamingNewPlaylist = true }
+
+    /// Makes a playlist named `name` in the listener's library, with `item` in it if
+    /// given, and puts it among the service's playlists at once (the next load of the
+    /// library finds it there anyway).
+    @discardableResult
+    func createPlaylist(named name: String, adding item: Item? = nil, in musicService: MusicService) async throws -> AppPlaylist {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let playlist: Playlist
+        if let item {
+            let song = try await musicKitSong(for: item)
+            playlist = try await MusicLibrary.shared.createPlaylist(name: trimmed, items: [song])
+        } else {
+            playlist = try await MusicLibrary.shared.createPlaylist(name: trimmed)
+        }
+        let made = AppPlaylist(from: playlist)
+        musicService.playlists.append(made)
+        logger.debug("Made a playlist")
+        return made
+    }
+
     enum AddError: LocalizedError {
         case notInAppleMusic
         case playlistNotFound
@@ -98,7 +123,7 @@ final class PlaylistAdder {
         return found
     }
 
-    private func musicKitSong(for item: Item) async throws -> Song {
+    func musicKitSong(for item: Item) async throws -> Song {
         switch item {
         case .song(let song):
             return song

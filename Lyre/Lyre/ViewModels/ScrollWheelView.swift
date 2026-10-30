@@ -497,8 +497,9 @@ struct ScrollWheelView: View {
 
         case .playlists:
             let playlists = Array(musicService.playlists)
-            guard playlists.indices.contains(menuSelection) else { break }
-            let playlist = playlists[menuSelection]
+            let row = menuSelection - PlaylistListView.fixedRows
+            guard playlists.indices.contains(row) else { break }
+            let playlist = playlists[row]
             queueCollection(named: playlist.name, placement: placement) { await musicService.loadTracks(for: playlist) }
 
         // On the Play and Shuffle rows of a detail list the swipe queues the whole
@@ -773,7 +774,9 @@ struct ScrollWheelView: View {
         case .artists:
             return musicService.artists.indices.contains(menuSelection) ? musicService.artists[menuSelection].name : ""
         case .playlists:
-            return musicService.playlists.indices.contains(menuSelection) ? musicService.playlists[menuSelection].name : ""
+            if menuSelection == PlaylistListView.newRow { return String(localized: "playlist.new.action") }
+            let row = menuSelection - PlaylistListView.fixedRows
+            return musicService.playlists.indices.contains(row) ? musicService.playlists[row].name : ""
         case .podcasts:
             switch menuSelection {
             case PodcastListView.searchRow:     return String(localized: "podcasts.search")
@@ -973,7 +976,8 @@ struct ScrollWheelView: View {
                 didScroll = false
             }
         case .playlists:
-            maxIndex = musicService.playlists.count - 1
+            // New Playlist… first, then the playlists.
+            maxIndex = musicService.playlists.count + PlaylistListView.fixedRows - 1
             if menuSelection < maxIndex {
                 menuSelection += 1
                 didScroll = true
@@ -1385,8 +1389,13 @@ struct ScrollWheelView: View {
             }
 
         case .playlists:
-            if !musicService.playlists.isEmpty && menuSelection < musicService.playlists.count {
-                let playlist = Array(musicService.playlists)[menuSelection]
+            if menuSelection == PlaylistListView.newRow {
+                PlaylistAdder.shared.promptNewPlaylist()
+                break
+            }
+            let row = menuSelection - PlaylistListView.fixedRows
+            if musicService.playlists.indices.contains(row) {
+                let playlist = Array(musicService.playlists)[row]
                 saveSelectionState()
                 navigationStack.append(currentScreen)
                 let target = LyreScreen.playlistDetail(playlist)

@@ -199,6 +199,7 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(addToPlaylist.waitForExistence(timeout: 3), "Holding a song doesn't offer Add to Playlist")
         addToPlaylist.tap()
         XCTAssertTrue(app.navigationBars["Add to Playlist"].waitForExistence(timeout: 5), "The playlists didn't come up")
+        XCTAssertTrue(element(app, "playlist.new").exists, "No New Playlist in Add to Playlist")
         attachScreenshot(app, named: "liquid-add-to-playlist")
         app.navigationBars["Add to Playlist"].buttons["Cancel"].tap()
         XCTAssertTrue(waitForDisappearance(app.navigationBars["Add to Playlist"]), "Cancel didn't close the playlists")
@@ -601,6 +602,21 @@ final class LiquidUITests: XCTestCase {
 
     /// Each artist has a rounded-square photo beside their name (here their album's
     /// cover, as the simulator has no Apple Music), and their page opens on it, large.
+    /// The playlists page offers a new playlist, which asks for its name.
+    @MainActor
+    func testThePlaylistsPageMakesANewPlaylist() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let playlists = element(app, "liquid.menu.playlists")
+        XCTAssertTrue(playlists.waitForExistence(timeout: 10))
+        playlists.tap()
+        let new = element(app, "liquid.newPlaylist")
+        XCTAssertTrue(new.waitForExistence(timeout: 5), "The playlists page has no New Playlist")
+        new.tap()
+        XCTAssertTrue(app.alerts["New Playlist"].waitForExistence(timeout: 3), "New Playlist didn't ask for a name")
+        attachScreenshot(app, named: "liquid-new-playlist")
+        app.alerts["New Playlist"].buttons["Cancel"].tap()
+    }
+
     /// The artists can be searched by name, as every Liquid list can.
     @MainActor
     func testTheArtistsCanBeSearched() throws {
