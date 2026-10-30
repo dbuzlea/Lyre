@@ -322,7 +322,9 @@ struct LiquidLibraryView: View {
             LiquidRememberedLayout("playlists") { layout in
                 LiquidGridPage(title: String(localized: "liquid.menu.playlists"), items: library.mixtapes,
                                emptyText: String(localized: "spool.shelf.mixtapes.empty"), bottomInset: bottomInset,
-                               layout: layout, musicService: musicService)
+                               layout: layout, musicService: musicService,
+                               searchAction: (String(localized: "playlist.new.action"), "plus", "liquid.newPlaylist",
+                                              { PlaylistAdder.shared.promptNewPlaylist() }))
             }
         case .podcasts:
             LiquidRememberedLayout("podcasts") { layout in

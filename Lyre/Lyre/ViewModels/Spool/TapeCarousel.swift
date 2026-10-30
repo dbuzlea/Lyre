@@ -737,6 +737,20 @@ struct ShelfDividers: View {
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
                 .accessibilityIdentifier("spool.shelf.\(option.rawValue)")
             }
+            // A new, empty playlist, beside the playlists.
+            if shelf == .mixtapes {
+                Button { PlaylistAdder.shared.promptNewPlaylist() } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(theme.keySymbol)
+                        .frame(width: 30, height: 26)
+                        .background(theme.keyLight.opacity(0.75), in: Capsule())
+                        .padding(.bottom, 4)
+                }
+                .accessibilityLabel(String(localized: "playlist.new.action"))
+                .accessibilityIdentifier("spool.shelf.newPlaylist")
+                .transition(.opacity)
+            }
             if shelf == .podcasts {
                 Button(action: onFindShows) {
                     Image(systemName: "magnifyingglass")

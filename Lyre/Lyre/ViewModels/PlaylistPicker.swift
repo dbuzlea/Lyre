@@ -20,6 +20,8 @@ struct PlaylistPicker: View {
     @State private var adding: String?
     @State private var added: String?
     @State private var failure: String?
+    @State private var isNaming = false
+    @State private var newName = ""
 
     private var playlists: [AppPlaylist] { PlaylistAdder.editable(musicService.playlists) }
 
@@ -27,6 +29,12 @@ struct PlaylistPicker: View {
         NavigationStack {
             List {
                 Section {
+                    // A playlist of its own, the song going in as it's made.
+                    Button { newName = ""; isNaming = true } label: {
+                        Label(String(localized: "playlist.new.action"), systemImage: "plus")
+                    }
+                    .disabled(adding != nil || added != nil)
+                    .accessibilityIdentifier("playlist.new")
                     if playlists.isEmpty {
                         Text(String(localized: "playlist.add.none"))
                             .foregroundStyle(.secondary)
@@ -68,6 +76,32 @@ struct PlaylistPicker: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .alert(String(localized: "playlist.new.title"), isPresented: $isNaming) {
+            TextField(String(localized: "playlist.new.placeholder"), text: $newName)
+            Button(String(localized: "catalog.offer.cancel"), role: .cancel) {}
+            Button(String(localized: "playlist.new.create")) { create() }
+                .disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+    }
+
+    /// Makes the playlist with the song in it, ticks it and closes.
+    private func create() {
+        let name = newName
+        adding = "new"
+        failure = nil
+        Task {
+            do {
+                let made = try await PlaylistAdder.shared.createPlaylist(named: name, adding: item, in: musicService)
+                adding = nil
+                added = made.id
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                try? await Task.sleep(for: .milliseconds(700))
+                dismiss()
+            } catch {
+                adding = nil
+                failure = error.localizedDescription
+            }
+        }
     }
 
     private func add(to playlist: AppPlaylist) {
@@ -97,6 +131,43 @@ struct PlaylistPickerPresenter: ViewModifier {
         content.sheet(item: Binding(get: { PlaylistAdder.shared.pending },
                                     set: { PlaylistAdder.shared.pending = $0 })) { item in
             PlaylistPicker(musicService: musicService, item: item)
+        }
+    }
+}
+
+/// Names a new, empty playlist when a player's New Playlist button asks
+/// (PlaylistAdder.isNamingNewPlaylist), and says how it went.
+struct NewPlaylistPrompt: ViewModifier {
+    @ObservedObject var musicService: MusicService
+    var isActive = true
+    @State private var name = ""
+    @State private var outcome: String?
+
+    func body(content: Content) -> some View {
+        content
+            .alert(String(localized: "playlist.new.title"),
+                   isPresented: Binding(get: { isActive && PlaylistAdder.shared.isNamingNewPlaylist },
+                                        set: { PlaylistAdder.shared.isNamingNewPlaylist = $0 })) {
+                TextField(String(localized: "playlist.new.placeholder"), text: $name)
+                Button(String(localized: "catalog.offer.cancel"), role: .cancel) { name = "" }
+                Button(String(localized: "playlist.new.create")) { create() }
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .alert(outcome ?? "", isPresented: Binding(get: { isActive && outcome != nil }, set: { if !$0 { outcome = nil } })) {
+                Button(String(localized: "albumInfo.done"), role: .cancel) {}
+            }
+    }
+
+    private func create() {
+        let name = self.name
+        self.name = ""
+        Task {
+            do {
+                let made = try await PlaylistAdder.shared.createPlaylist(named: name, in: musicService)
+                outcome = String(format: String(localized: "playlist.new.made"), made.name)
+            } catch {
+                outcome = error.localizedDescription
+            }
         }
     }
 }
