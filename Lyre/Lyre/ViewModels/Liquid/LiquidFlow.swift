@@ -52,6 +52,9 @@ struct LiquidNavigator {
     var catalogSong: (Song, [Song], String) -> Void = { _, _, _ in }
     /// An album from the catalogue chosen: its page if the library has it, else offered.
     var catalogAlbum: (Album) -> Void = { _ in }
+    /// Adds a catalogue song to the library and nothing more (a row's + button): true
+    /// once Apple Music has taken it.
+    var addSong: (Song) async -> Bool = { _ in false }
     /// The library's copy of a catalogue song, if it has one.
     var librarySong: (Song) -> AppTrack? = { _ in nil }
     /// A catalogue song as a track to play or queue: the library's copy, else streamed.
