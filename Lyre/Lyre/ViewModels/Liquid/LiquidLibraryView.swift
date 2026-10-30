@@ -171,6 +171,7 @@ struct LiquidLibraryView: View {
                     catalogOffer = .album(album)
                 }
             },
+            addSong: { song in await addQuietly(song) },
             librarySong: librarySong,
             catalogTrack: catalogTrack,
             hasArtist: { name in
@@ -257,6 +258,25 @@ struct LiquidLibraryView: View {
             }
             onNotice(String(format: String(localized: "catalog.added.later"), offer.title))
         }
+    }
+
+    /// Adds a song to the library without playing it, as a row's + asks: says so, then
+    /// looks for it in the library a few times so the row's tick comes from the library.
+    private func addQuietly(_ song: Song) async -> Bool {
+        do {
+            try await AppleMusicCatalog.shared.add(song, subscribed: musicService.subscriptionState.isSubscribed)
+        } catch {
+            onNotice(error.localizedDescription)
+            return false
+        }
+        onNotice(String(format: String(localized: "catalog.added.quiet"), song.title))
+        Task {
+            for _ in 0..<10 where librarySong(song) == nil {
+                try? await Task.sleep(for: .seconds(3))
+                await musicService.refreshOnForeground()
+            }
+        }
+        return true
     }
 
     /// The most played songs, worked out at most every half minute for the same

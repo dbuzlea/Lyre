@@ -871,3 +871,7 @@
 "love.row" = "Love";
 "love.row.loved" = "Loved";
 "love.row.notLoved" = "Not loved";
+
+/* Liquid: a catalogue song's + button, which adds it to the library without playing it. */
+"catalog.addSong" = "Add “%@” to Library";
+"catalog.added.quiet" = "Added “%@” to your library.";

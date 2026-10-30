@@ -107,7 +107,7 @@ private struct SectionTitle: View {
 }
 
 /// A catalogue song as a row: its cover, name and artist, a tick when the library has
-/// it (else a plus: it can be added), and an "E" when explicit. `rank` numbers a chart.
+/// it (else a + button that adds it), and an "E" when explicit. `rank` numbers a chart.
 /// Tapped, it plays from there through `list` (named `listName`); held, it offers Play
 /// Next, Add to Queue and Add to Playlist.
 struct LiquidCatalogSongRow: View {
@@ -116,8 +116,19 @@ struct LiquidCatalogSongRow: View {
     var rank: Int?
     var list: [Song] = []
     var listName = ""
+    /// Being added, and added: the tick shows at once, before the library has it.
+    @State private var isAdding = false
+    @State private var isAdded = false
 
     var body: some View {
+        HStack(spacing: 0) {
+            row
+            addButton
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var row: some View {
         Button { navigator.catalogSong(song, list, listName.isEmpty ? song.title : listName) } label: {
             HStack(spacing: 12) {
                 if let rank {
@@ -135,11 +146,6 @@ struct LiquidCatalogSongRow: View {
                     Text(song.artistName).font(.system(size: 12)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
                 }
                 Spacer(minLength: 6)
-                let isMine = navigator.librarySong(song) != nil
-                Image(systemName: isMine ? "checkmark.circle.fill" : "plus.circle")
-                    .font(.system(size: 18))
-                    .foregroundStyle(.white.opacity(isMine ? 0.5 : 0.8))
-                    .accessibilityLabel(String(localized: isMine ? "catalog.inLibrary" : "catalog.notInLibrary"))
             }
             .foregroundStyle(.white)
             .frame(minHeight: 60)
@@ -157,6 +163,39 @@ struct LiquidCatalogSongRow: View {
             Button { PlaylistAdder.shared.offer(.song(song)) } label: {
                 Label(String(localized: "playlist.add.action"), systemImage: "music.note.list")
             }
+        }
+    }
+
+    /// A tick when the library has it; otherwise a + of its own, apart from the row,
+    /// that adds the song and doesn't play it.
+    @ViewBuilder private var addButton: some View {
+        if isAdded || navigator.librarySong(song) != nil {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 18))
+                .foregroundStyle(.white.opacity(0.5))
+                .frame(width: 44, height: 44)
+                .accessibilityLabel(String(localized: "catalog.inLibrary"))
+        } else if isAdding {
+            ProgressView()
+                .tint(.white)
+                .frame(width: 44, height: 44)
+        } else {
+            Button {
+                isAdding = true
+                Task {
+                    isAdded = await navigator.addSong(song)
+                    isAdding = false
+                }
+            } label: {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(format: String(localized: "catalog.addSong"), song.title))
+            .accessibilityIdentifier("liquid.catalog.add")
         }
     }
 
