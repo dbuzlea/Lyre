@@ -837,6 +837,7 @@ struct SpoolPlayerView: View {
             if axis == .vertical {
                 hotlineMenu
                 playerSwitchKey
+                loveKey
                 airPlayKey
                 counter
                 Spacer(minLength: 8)
@@ -932,9 +933,10 @@ struct SpoolPlayerView: View {
         }
     }
 
-    /// AirPlay, Change Player, then Settings.
+    /// Love, AirPlay, Change Player, then Settings.
     private var optionsMenu: some View {
         HStack(spacing: 8) {
+            loveKey
             airPlayKey
             playerSwitchKey
             Button { showSettings = true } label: {
@@ -955,6 +957,17 @@ struct SpoolPlayerView: View {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(theme.keySymbol)
+                .frame(width: 36, height: 36)
+                .background(theme.keyLight.opacity(0.7), in: Circle())
+        }
+    }
+
+    /// The ♥ for the song playing (LoveButton), lit in the accent colour once loved.
+    private var loveKey: some View {
+        LoveButton(track: musicService.nowPlayingTrack, identifier: "spool.love") { isLoved in
+            Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(isLoved ? theme.accent : theme.keySymbol)
                 .frame(width: 36, height: 36)
                 .background(theme.keyLight.opacity(0.7), in: Circle())
         }

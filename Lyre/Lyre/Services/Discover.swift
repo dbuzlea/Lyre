@@ -15,17 +15,21 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 // (Liquid's Discover page, the DISCOVER shelf of the Spool, Disc and Gramophone, the
 // classic player's Discover row):
 //
-//   Made for You   Apple Music's recommendations for the listener, a section per group
-//   New Releases   the latest releases of the artists the library has most of, from
-//                  the past year, newest first
+//   Made for You   Apple Music's recommendations for the listener, a section per group;
+//                  they learn from what's played and loved (Loves) in Lyre too, since
+//                  Lyre plays through Apple Music
+//   New Releases   the latest releases of the artists played most (those the library
+//                  has most of, before anything's been played), from the past year,
+//                  newest first
 //   Charts         the top songs as a mixtape, then the most played albums and playlists
 //   Genres         each of Apple Music's genres as a mixtape of its top songs, filled in
 //                  when it's opened (`tracks(forGenre:in:)`)
 //
 // Everything is an AppAlbum, as the shelves hold: an album (the library's copy where it
 // has one, else the catalogue's, which streams), or a playlist as a mixtape. Asked for
-// once per launch, the first time Discover is shown, a section at a time as each answer
-// arrives; nothing is stored. `-DiscoverSamples YES` (debug builds) fills it with
+// the first time Discover is shown, a section at a time as each answer arrives, and
+// Made for You and New Releases again when Lyre comes back to the front after Apple
+// Music has made its suggestions again (`refreshIfDue`); nothing is stored. `-DiscoverSamples YES` (debug builds) fills it with
 // placeholders instead, for UI tests, which can't reach Apple Music.
 
 nonisolated struct DiscoverSection: Identifiable, Hashable {
@@ -71,6 +75,8 @@ final class Discover {
     private(set) var isLoading = false
 
     @ObservationIgnored private var hasLoaded = false
+    /// When Apple Music makes its suggestions again: the soonest of the groups' times.
+    @ObservationIgnored private var nextRefresh: Date?
     @ObservationIgnored private var byKind: [DiscoverSection.Kind: [DiscoverSection]] = [:]
     @ObservationIgnored private var genres: [String: Genre] = [:]
     @ObservationIgnored private var genreTracks: [String: [AppTrack]] = [:]
@@ -118,6 +124,30 @@ final class Discover {
         isLoading = false
     }
 
+    /// Asks again for what's made for the listener, once Apple Music has made it again
+    /// (or, with no time given, a day on): Made for You, and New Releases, whose most
+    /// played artists may have changed. Only once Discover's been shown.
+    func refreshIfDue(in musicService: MusicService, now: Date = .now) async {
+        guard hasLoaded, !isLoading, Self.isDue(nextRefresh, now: now), AppleMusicCatalog.isAvailable else { return }
+        nextRefresh = now.addingTimeInterval(Self.fallbackRefresh)
+        let albums = musicService.albums
+        let library = await Task.detached(priority: .utility) { Self.albumIndex(albums) }.value
+        async let made = madeForYou(library: library)
+        async let new = newReleases(in: musicService, library: library)
+        let (madeForYou, newReleases) = await (made, new)
+        if !madeForYou.isEmpty { byKind[.madeForYou] = madeForYou }
+        if !newReleases.isEmpty { byKind[.newReleases] = newReleases }
+        publish()
+    }
+
+    /// How long suggestions are kept when Apple Music doesn't say.
+    nonisolated static let fallbackRefresh: TimeInterval = 86_400
+
+    nonisolated static func isDue(_ refresh: Date?, now: Date) -> Bool {
+        guard let refresh else { return false }
+        return now >= refresh
+    }
+
     private func publish() {
         let ordered = DiscoverSection.Kind.allCases.flatMap { byKind[$0] ?? [] }
         guard ordered != sections else { return }
@@ -132,6 +162,8 @@ final class Discover {
             var request = MusicPersonalRecommendationsRequest()
             request.limit = 8
             let response = try await request.response()
+            nextRefresh = response.recommendations.compactMap(\.nextRefreshDate).min()
+                ?? Date.now.addingTimeInterval(Self.fallbackRefresh)
             return response.recommendations.compactMap { recommendation in
                 let items = recommendation.items.prefix(Self.itemsPerSection).compactMap { item -> AppAlbum? in
                     switch item {
@@ -158,8 +190,7 @@ final class Discover {
     private func newReleases(in musicService: MusicService, library: [String: AppAlbum]) async -> [DiscoverSection] {
         let shelf = musicService.shelfArtists
         let names = await Task.detached(priority: .utility) {
-            shelf.sorted { $0.preloadedTracks.count > $1.preloadedTracks.count }
-                .prefix(Self.newReleaseArtists).map(\.title)
+            Self.mostPlayedArtists(shelf, limit: Self.newReleaseArtists)
         }.value
         await withTaskGroup(of: Void.self) { group in
             for name in names { group.addTask { await AppleMusicCatalog.shared.loadArtist(name) } }
@@ -169,6 +200,16 @@ final class Discover {
         guard !items.isEmpty else { return [] }
         return [DiscoverSection(id: "discover:new", title: String(localized: "discover.newReleases"),
                                 kind: .newReleases, items: items)]
+    }
+
+    /// The artists played most, by their songs' plays added up; those with more songs
+    /// first where plays are level (as all are before anything's been played).
+    nonisolated static func mostPlayedArtists(_ artists: [AppAlbum], limit: Int,
+                                              plays: (AppTrack) -> Int = { $0.playCount }) -> [String] {
+        artists
+            .map { artist in (artist.title, artist.preloadedTracks.reduce(0) { $0 + plays($1) }, artist.preloadedTracks.count) }
+            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.2 > $1.2 }
+            .prefix(limit).map(\.0)
     }
 
     /// Releases from the past year, newest first, each once.

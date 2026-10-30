@@ -641,6 +641,23 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(element(app, "liquid.album.track.0").waitForExistence(timeout: 5), "The genre didn't open its songs")
     }
 
+    /// Now Playing has a ♥ that loves the song (in Apple Music; here kept in Lyre, as the
+    /// simulator has none), and a second tap takes it back.
+    @MainActor
+    func testTheHeartLovesTheSongPlaying() throws {
+        let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying", "-LoveSamples", "YES"])
+        XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
+        let love = element(app, "liquid.love")
+        XCTAssertTrue(love.waitForExistence(timeout: 5), "Now Playing has no ♥")
+        XCTAssertEqual(love.label, "Love")
+        love.tap()
+        XCTAssertTrue(love.waitForLabel("Loved"), "The ♥ didn't fill: \(love.label)")
+        attachScreenshot(app, named: "liquid-loved")
+        love.tap()
+        XCTAssertTrue(love.waitForLabel("Love"), "The love wasn't taken back: \(love.label)")
+    }
+
     /// The artists can be searched by name, as every Liquid list can.
     @MainActor
     func testTheArtistsCanBeSearched() throws {
@@ -932,5 +949,14 @@ final class LiquidUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+}
+
+
+private extension XCUIElement {
+    /// Waits for the element's label to become `label`.
+    func waitForLabel(_ label: String, timeout: TimeInterval = 3) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", label), object: self)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
     }
 }

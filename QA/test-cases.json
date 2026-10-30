@@ -197,6 +197,24 @@
         "LyreUITests/PlayerSwitchUITests/testClassicMainMenuListsDiscover()"
       ]
     },
+    {
+      "key": "LIB-09", "suite": "Music Access & Library", "title": "Loving a song tells Apple Music, and Discover keeps up",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Apple Music access allowed, an Apple Music subscription, online. An Apple Music song playing.",
+      "steps": [
+        ["In Liquid, tap the ♥ beside AirPlay.", "It fills at once; the song shows as Loved in the Music app."],
+        ["Tap it again.", "It empties; the love is gone in the Music app too."],
+        ["Love a song in the Music app, then play it in Lyre.", "Lyre's ♥ is already filled."],
+        ["Repeat on the Spool, Disc and Gramophone (the ♥ beside AirPlay), and on Classic (Now Playing's Love row, pressed with the centre button).", "Same in every player."],
+        ["Play a file of your own (not from Apple Music), then a podcast.", "No ♥ (and no Love row on Classic)."],
+        ["Turn on Airplane Mode and tap the ♥.", "It fills, then goes back: Apple Music couldn't be told."],
+        ["Over a few days, play and love music in Lyre; open Discover after Lyre has been in the background.", "Made for You changes with what's played and loved, without relaunching; New Releases follows the artists played most."]
+      ],
+      "automated_by": [
+        "LyreTests/LoveTests",
+        "LyreUITests/LiquidUITests/testTheHeartLovesTheSongPlaying()"
+      ]
+    },
 
     {
       "key": "PLY-01", "suite": "Playback & Queue", "title": "Play, pause, next and previous work in every player",

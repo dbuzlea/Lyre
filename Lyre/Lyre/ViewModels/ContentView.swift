@@ -102,7 +102,11 @@ struct ContentView: View {
             // Picks up access granted in Settings while the app was backgrounded, and
             // any music added to the device since the last load.
             guard phase == .active else { return }
-            Task { await musicService.refreshOnForeground() }
+            Task {
+                await musicService.refreshOnForeground()
+                // Apple Music's suggestions, if they've been made again since.
+                await Discover.shared.refreshIfDue(in: musicService)
+            }
         }
         .onChange(of: musicService.lastError) { _, error in
             if let error { logger.error("Music service error presented: \(error.alertTitle)") }

@@ -457,6 +457,13 @@ struct LiquidNowPlayingView: View {
             HStack {
                 roundButton("line.3.horizontal", label: "liquid.library", id: "liquid.library", action: onOpenLibrary)
                 Spacer()
+                LoveButton(track: current, identifier: "liquid.love") { isLoved in
+                    Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(isLoved ? Color.pink : .white)
+                        .frame(width: 44, height: 44)
+                        .background(.black.opacity(0.28), in: Circle())
+                }
                 AirPlayRouteButton(identifier: "liquid.airplay") { isActive in
                     Image(systemName: "airplayaudio")
                         .font(.system(size: 16, weight: .semibold))

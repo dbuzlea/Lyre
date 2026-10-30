@@ -425,6 +425,15 @@ struct GramophonePlayerView: View {
                     .accessibilityHidden(true)
             }
             Spacer()
+            // The ♥ for the song playing (LoveButton), in the felt's colour once loved.
+            LoveButton(track: musicService.nowPlayingTrack, identifier: "gramophone.love") { isLoved in
+                Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(isLoved ? theme.felt : theme.plateInk)
+                    .frame(width: 36, height: 36)
+                    .background(theme.metalGradient, in: Circle())
+                    .frame(width: 44, height: 44)
+            }
             // Where it plays: the phone, or an AirPlay speaker. The glyph turns the
             // felt's colour while it's on one.
             AirPlayRouteButton(identifier: "gramophone.airplay") { isActive in

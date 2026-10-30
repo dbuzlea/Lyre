@@ -1302,3 +1302,62 @@ struct DiscoverTests {
     }
     #endif
 }
+
+/// The ♥ in every player, and Discover keeping up with what's played.
+@MainActor
+struct LoveTests {
+    private func track(storeID: String? = nil) -> AppTrack {
+        AppTrack(id: "t", title: "Song", artistName: "A", albumTitle: "", duration: 100, storeID: storeID)
+    }
+
+    @Test func aSongIsLovedByItsAppleMusicID() {
+        #expect(Loves.ratingPath(for: track(storeID: "1440934248")) == "songs/1440934248")
+        // A file of the listener's own has no Apple Music ID, so no ♥.
+        #expect(Loves.ratingPath(for: track()) == nil)
+        #expect(Loves.ratingPath(for: track(storeID: "0")) == nil)
+        #expect(!Loves.isCatalogID("i.abc"))
+    }
+
+    @Test func aLoveIsARatingOfOne() throws {
+        let body = try JSONSerialization.jsonObject(with: Loves.loveBody) as? [String: Any]
+        #expect(body?["type"] as? String == "rating")
+        #expect((body?["attributes"] as? [String: Any])?["value"] as? Int == 1)
+        #expect(Loves.isLoved(ratingData: Data(#"{"data":[{"id":"1","type":"ratings","attributes":{"value":1}}]}"#.utf8)))
+        #expect(!Loves.isLoved(ratingData: Data(#"{"data":[{"id":"1","type":"ratings","attributes":{"value":-1}}]}"#.utf8)))
+        #expect(!Loves.isLoved(ratingData: Data("nonsense".utf8)))
+    }
+
+    #if DEBUG
+    @Test func aTapLovesAndASecondTakesItBack() async {
+        UserDefaults.standard.set(true, forKey: "LoveSamples")
+        defer { UserDefaults.standard.removeObject(forKey: "LoveSamples") }
+        let song = AppTrack(id: "love-test", title: "Song", artistName: "A", albumTitle: "", duration: 100)
+        #expect(Loves.shared.canLove(song))
+        #expect(!Loves.shared.isLoved(song))
+        await Loves.shared.toggle(song)
+        #expect(Loves.shared.isLoved(song))
+        await Loves.shared.toggle(song)
+        #expect(!Loves.shared.isLoved(song))
+    }
+    #endif
+
+    @Test func newReleasesFollowTheArtistsPlayedMost() {
+        func artist(_ name: String, songs: Int) -> AppAlbum {
+            AppAlbum(id: "artist:" + name, title: name, artistName: name,
+                     preloadedTracks: (0..<songs).map { AppTrack(id: "\(name)\($0)", title: "\($0)", artistName: name,
+                                                                 albumTitle: "", duration: 100) })
+        }
+        let artists = [artist("Big", songs: 30), artist("Played", songs: 2), artist("Small", songs: 5)]
+        let plays: (AppTrack) -> Int = { $0.artistName == "Played" ? 50 : 0 }
+        #expect(Discover.mostPlayedArtists(artists, limit: 2, plays: plays) == ["Played", "Big"])
+        // Before anything's been played, the artists the library has most of.
+        #expect(Discover.mostPlayedArtists(artists, limit: 3, plays: { _ in 0 }) == ["Big", "Small", "Played"])
+    }
+
+    @Test func suggestionsAreAskedForAgainOnceAppleMakesThemAgain() {
+        let now = Date()
+        #expect(Discover.isDue(now.addingTimeInterval(-1), now: now))
+        #expect(!Discover.isDue(now.addingTimeInterval(60), now: now))
+        #expect(!Discover.isDue(nil, now: now))
+    }
+}
