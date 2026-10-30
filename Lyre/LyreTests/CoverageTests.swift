@@ -981,7 +981,7 @@ struct AppleMusicShelfTests {
     private func album(_ id: String) -> AppAlbum { AppAlbum(id: id, title: id, artistName: "A") }
 
     @Test func theAppleMusicShelfShowsOnlyWithResults() {
-        #expect(SpoolShelf.allCases == [.albums, .artists, .mixtapes, .podcasts])
+        #expect(SpoolShelf.allCases == [.albums, .artists, .mixtapes, .podcasts, .discover])
         var matches = ShelfSearchMatches(query: "x", albums: [album("a")])
         #expect(matches.shelves == [.albums, .artists, .mixtapes, .podcasts])
         matches.appleMusic = [album("1440934248")]
@@ -1243,4 +1243,62 @@ struct UnknownAlbumTests {
         #expect(AppAlbum.title(nil) == String(localized: "album.unknown"))
         #expect(AppAlbum.title("21") == "21")
     }
+}
+
+/// Discover: what Apple Music offers, in a place of its own in every player.
+@MainActor
+struct DiscoverTests {
+    private func album(_ id: String) -> AppAlbum { AppAlbum(id: id, title: id, artistName: "A") }
+
+    @Test func aGenresMixtapeKnowsItsGenre() {
+        let id = DiscoverSection.genrePlaylistID("21")
+        #expect(DiscoverSection.genreID(ofPlaylist: id) == "21")
+        #expect(DiscoverSection.genreID(ofPlaylist: "pl.abc") == nil)
+        #expect(DiscoverSection.genreID(ofPlaylist: "smart:topCharts") == nil)
+    }
+
+    @Test func onlyApplesPlaylistsAreTheCatalogues() {
+        #expect(AppPlaylist(id: "pl.u-123", name: "Today's Hits").isCatalog)
+        #expect(!AppPlaylist(id: "p.123", name: "Mine").isCatalog)
+        #expect(!AppPlaylist(id: "8273645", name: "Synced").isCatalog)
+        #expect(!AppPlaylist(id: "smart:mostPlayed", name: "Most Played").isCatalog)
+    }
+
+    @Test func theShelfHoldsEachItemOnceInSectionOrder() {
+        let sections = [
+            DiscoverSection(id: "a", title: "A", kind: .madeForYou, items: [album("1"), album("2")]),
+            DiscoverSection(id: "b", title: "B", kind: .charts, items: [album("2"), album("3")])
+        ]
+        #expect(DiscoverSection.shelfItems(sections).map(\.id) == ["1", "2", "3"])
+    }
+
+    @Test func discoverIsAShelfButNotSearched() {
+        #expect(SpoolShelf.allCases.last == .discover)
+        #expect(!SpoolShelf.library.contains(.discover))
+        let matches = ShelfSearchMatches(query: "x", albums: [album("a")])
+        #expect(!matches.shelves.contains(.discover))
+        #expect(matches.items(on: .discover).isEmpty)
+    }
+
+    @Test func theClassicMenuOpensDiscover() throws {
+        let index = try #require(MainMenuView.items.firstIndex(of: String(localized: "discover.title")))
+        #expect(ScrollWheelView.mainMenuDestination(at: index) == .discover)
+    }
+
+    /// A genre the service hasn't heard of (a sample's) keeps the songs it came with.
+    @Test func aGenreNobodyAskedForKeepsItsOwnSongs() async {
+        let track = AppTrack(id: "t", title: "Song", artistName: "A", albumTitle: "", duration: 100)
+        let genre = AppPlaylist(id: DiscoverSection.genrePlaylistID("unknown"), name: "Jazz", preloadedTracks: [track])
+        let tracks = await MusicService().loadTracks(for: genre)
+        #expect(tracks.map(\.id) == ["t"])
+    }
+
+    #if DEBUG
+    @Test func theSamplesHaveAnAlbumAPlaylistAndAGenre() {
+        let items = DiscoverSection.shelfItems(Discover.samples)
+        #expect(items.contains { !$0.isMixtape })
+        #expect(items.contains { $0.isMixtape && DiscoverSection.genreID(ofPlaylist: $0.mixtape!.id) == nil })
+        #expect(items.contains { DiscoverSection.genreID(ofPlaylist: $0.mixtape?.id ?? "") != nil })
+    }
+    #endif
 }

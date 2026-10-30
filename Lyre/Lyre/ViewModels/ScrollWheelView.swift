@@ -797,6 +797,10 @@ struct ScrollWheelView: View {
             return detailRow(detailSelection, item: String(localized: "wheel.a11y.track"))
         case .artistDetail:
             return String(format: String(localized: "wheel.a11y.row"), String(localized: "wheel.a11y.album"), detailSelection + 1)
+        case .discover:
+            return pick(Discover.shared.sections.map(\.title), menuSelection)
+        case .discoverSection(let section):
+            return pick(section.items.map(\.title), detailSelection)
         case .settings:
             return pick(SettingsView.items, menuSelection)
         case .themeSelection:
@@ -876,14 +880,14 @@ struct ScrollWheelView: View {
             } else {
                 didScroll = false
             }
-        case .albums, .playlists, .artists, .podcasts, .downloadedPodcasts, .search, .settings, .themeSelection, .screenSizeSelection, .highlightColorSelection, .scrollSensitivitySelection, .clickSoundSelection, .backlightDurationSelection, .playerStyleSelection:
+        case .albums, .playlists, .artists, .podcasts, .downloadedPodcasts, .search, .discover, .settings, .themeSelection, .screenSizeSelection, .highlightColorSelection, .scrollSensitivitySelection, .clickSoundSelection, .backlightDurationSelection, .playerStyleSelection:
             if menuSelection > 0 {
                 menuSelection -= 1
                 didScroll = true
             } else {
                 didScroll = false
             }
-        case .albumDetail, .playlistDetail, .artistDetail, .podcastDetail:
+        case .albumDetail, .playlistDetail, .artistDetail, .podcastDetail, .discoverSection:
             if detailSelection > 0 {
                 detailSelection -= 1
                 didScroll = true
@@ -993,6 +997,14 @@ struct ScrollWheelView: View {
             } else {
                 didScroll = false
             }
+        case .discover:
+            maxIndex = Discover.shared.sections.count - 1
+            if menuSelection < maxIndex {
+                menuSelection += 1
+                didScroll = true
+            } else {
+                didScroll = false
+            }
         case .downloadedPodcasts:
             maxIndex = musicService.downloadedPodcastShows().count - 1
             if menuSelection < maxIndex {
@@ -1079,7 +1091,7 @@ struct ScrollWheelView: View {
                 await scrubForward()
             }
             didScroll = true
-        case .albumDetail, .playlistDetail, .artistDetail, .podcastDetail:
+        case .albumDetail, .playlistDetail, .artistDetail, .podcastDetail, .discoverSection:
             // For detail views, just increment and let the view clamp it
             detailSelection += 1
             didScroll = true
@@ -1191,7 +1203,7 @@ struct ScrollWheelView: View {
                 menuSelection = 0
                 songSelection = 0
                 detailSelection = 0
-            case .albums, .artists, .playlists, .podcasts, .downloadedPodcasts:
+            case .albums, .artists, .playlists, .podcasts, .downloadedPodcasts, .discover:
                 // Keep menuSelection for list position, reset others
                 songSelection = 0
                 detailSelection = 0
@@ -1219,7 +1231,7 @@ struct ScrollWheelView: View {
             case .recentlyAdded, .recentlyPlayed:
                 menuSelection = 0
                 detailSelection = 0
-            case .albumDetail, .playlistDetail, .artistDetail, .podcastDetail:
+            case .albumDetail, .playlistDetail, .artistDetail, .podcastDetail, .discoverSection:
                 // Keep detailSelection for track position, reset others
                 menuSelection = 0
                 songSelection = 0
@@ -1299,13 +1311,14 @@ struct ScrollWheelView: View {
         // Lyre's own lists, opened as a playlist is; filled in as they open (`smartAlbum`).
         case 5: return .albumDetail(SmartList.mostPlayed.album([]))
         case 6: return .albumDetail(SmartList.topCharts.album([]))
-        case 7: return .albums
-        case 8: return .artists
-        case 9: return .playlists
-        case 10: return .podcasts
-        case 11: return .search
-        case 12: return .playerStyleSelection
-        case 13: return .settings
+        case 7: return .discover
+        case 8: return .albums
+        case 9: return .artists
+        case 10: return .playlists
+        case 11: return .podcasts
+        case 12: return .search
+        case 13: return .playerStyleSelection
+        case 14: return .settings
         default: return nil
         }
     }
@@ -1507,6 +1520,25 @@ struct ScrollWheelView: View {
                     }
                 }
             }
+
+        case .discover:
+            // A section opens as a list of its own.
+            let sections = Discover.shared.sections
+            guard sections.indices.contains(menuSelection) else { return }
+            let target = LyreScreen.discoverSection(sections[menuSelection])
+            saveSelectionState()
+            navigationStack.append(currentScreen)
+            restoreSelectionState(for: target)
+            withAnimation(.easeInOut(duration: 0.15)) { currentScreen = target }
+
+        case .discoverSection(let section):
+            // An album, a playlist or a genre, opened as an album's list is.
+            guard section.items.indices.contains(detailSelection) else { return }
+            let target = LyreScreen.albumDetail(section.items[detailSelection])
+            saveSelectionState()
+            navigationStack.append(currentScreen)
+            restoreSelectionState(for: target)
+            withAnimation(.easeInOut(duration: 0.15)) { currentScreen = target }
 
         case .settings:
             saveSelectionState()

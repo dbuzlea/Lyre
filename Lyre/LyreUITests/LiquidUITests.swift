@@ -617,6 +617,30 @@ final class LiquidUITests: XCTestCase {
         app.alerts["New Playlist"].buttons["Cancel"].tap()
     }
 
+    /// Discover has a blob of its own; its page lists Apple Music's suggestions (here
+    /// placeholders: the simulator has no Apple Music). A cover opens its page, and a
+    /// genre opens as a list of its songs.
+    @MainActor
+    func testDiscoverOpensItsCoversAndGenres() throws {
+        let app = launchLiquid(["-LiquidShot", "library", "-DiscoverSamples", "YES"])
+        let discover = element(app, "liquid.menu.discover")
+        XCTAssertTrue(discover.waitForExistence(timeout: 10), "The lava menu has no Discover")
+        attachScreenshot(app, named: "liquid-menu-discover")
+        discover.tap()
+        XCTAssertTrue(element(app, "liquid.discover.discover:made:sample").waitForExistence(timeout: 5),
+                      "Discover didn't list Made for You")
+        XCTAssertTrue(element(app, "liquid.discover.discover:genres").exists, "Discover has no genres")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-discover")
+        element(app, "liquid.discover.item").tap()
+        XCTAssertTrue(element(app, "liquid.album.track.0").waitForExistence(timeout: 5), "The cover didn't open its page")
+        element(app, "liquid.back").tap()
+        let genre = element(app, "liquid.discover.genre")
+        XCTAssertTrue(genre.waitForExistence(timeout: 5))
+        genre.tap()
+        XCTAssertTrue(element(app, "liquid.album.track.0").waitForExistence(timeout: 5), "The genre didn't open its songs")
+    }
+
     /// The artists can be searched by name, as every Liquid list can.
     @MainActor
     func testTheArtistsCanBeSearched() throws {

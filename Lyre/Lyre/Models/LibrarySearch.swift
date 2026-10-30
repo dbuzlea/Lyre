@@ -105,12 +105,14 @@ struct ShelfSearchMatches: Equatable {
         case .mixtapes:   return mixtapes
         case .podcasts:   return podcasts
         case .appleMusic: return appleMusic
+        // A search looks through the library, not Discover.
+        case .discover:   return []
         }
     }
 
     /// The dividers to show: the library's shelves, and Apple Music's when it has any.
     var shelves: [SpoolShelf] {
-        appleMusic.isEmpty ? SpoolShelf.allCases : SpoolShelf.allCases + [.appleMusic]
+        appleMusic.isEmpty ? SpoolShelf.library : SpoolShelf.library + [.appleMusic]
     }
 
     /// The first shelf with anything on it, when `shelf` has nothing: where the rack

@@ -851,3 +851,15 @@
 
 /* Liquid album page: the top-right button that offers Play Next and Add to Queue (LYRE-14). */
 "liquid.album.queueMenu" = "Queue Album";
+
+/* Discover: what Apple Music offers, in a place of its own in every player (the Liquid lava menu, the DISCOVER shelf, the classic main menu). */
+"discover.title" = "Discover";
+"discover.madeForYou" = "Made for You";
+"discover.newReleases" = "New Releases";
+"discover.topPlaylists" = "Top Playlists";
+"discover.genres" = "Genres";
+"discover.loading" = "Asking Apple Music…";
+"discover.empty" = "Apple Music has nothing to suggest right now.";
+"discover.needsAccess" = "Discover needs access to Apple Music. Allow it in Settings.";
+/* Classic Discover: how many albums or playlists a section holds. */
+"discover.count" = "%d items";

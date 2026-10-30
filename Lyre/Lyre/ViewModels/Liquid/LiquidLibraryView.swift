@@ -9,8 +9,8 @@ import MusicKit
 // MARK: - Liquid Library
 //
 // The way into the music. The first page is a lava lamp (LiquidLavaMenu): a blob of wax
-// for each of albums, artists, playlists, podcasts and search, in the colour of what's
-// playing, drifting and tilting with the phone. Each opens its page:
+// for each of albums, artists, playlists, Discover, podcasts and search, in the colour
+// of what's playing, drifting and tilting with the phone. Each opens its page:
 //
 //   albums, playlists, podcasts   a grid of covers, with search and an A–Z strip
 //   artists                       the names in big type; one opens that artist's albums
@@ -18,6 +18,9 @@ import MusicKit
 //                                 then Apple Music's songs, albums and artists
 //   songs, recently played,       the songs, each with its cover, to play from or swipe
 //   recently added                right to queue; every song has search and an A–Z strip
+//
+//   discover                      what Apple Music offers (Discover): Made for You, New
+//                                 Releases, the charts and the genres, a row of covers each
 //
 // A cover opens its page (LiquidAlbumPage): the cover melting into its own colour, the
 // name, Play and Shuffle, and the songs. What's played floods into Now Playing (the
@@ -35,6 +38,7 @@ enum LiquidRoute: Hashable {
     case playlists
     case podcasts
     case search
+    case discover
     case album(AppAlbum)
 }
 
@@ -300,6 +304,7 @@ struct LiquidLibraryView: View {
          ("artists", String(localized: "liquid.menu.artists"), .artists),
          ("songs", String(localized: "liquid.menu.songs"), .songs),
          ("playlists", String(localized: "liquid.menu.playlists"), .playlists),
+         ("discover", String(localized: "discover.title").lowercased(), .discover),
          ("recentlyAdded", String(localized: "liquid.menu.recentlyAdded"), .recentlyAdded),
          ("recentlyPlayed", String(localized: "liquid.menu.recentlyPlayed"), .recentlyPlayed),
          ("podcasts", String(localized: "liquid.menu.podcasts"), .podcasts),
@@ -375,6 +380,8 @@ struct LiquidLibraryView: View {
             }
         case .search:
             LiquidSearchPage(library: library, bottomInset: bottomInset)
+        case .discover:
+            LiquidDiscoverPage(musicService: musicService, bottomInset: bottomInset)
         case .album(let album):
             LiquidAlbumPage(album: album, library: library, musicService: musicService,
                             onPlay: onPlay, onQueue: onQueue, bottomInset: bottomInset)

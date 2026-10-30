@@ -42,5 +42,9 @@ enum LyreScreen: Equatable, Hashable {
     case playerStyleSelection
     case recentlyAdded
     case recentlyPlayed
+    /// What Apple Music offers (Discover): its sections, from the main menu.
+    case discover
+    /// One section of Discover: its albums, playlists or genres.
+    case discoverSection(DiscoverSection)
     case about
 }

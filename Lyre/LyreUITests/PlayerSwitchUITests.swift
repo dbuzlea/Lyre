@@ -32,6 +32,34 @@ final class PlayerSwitchUITests: XCTestCase {
                           "Change Player should come just above Settings")
     }
 
+    /// The classic player's Discover lists Apple Music's sections (placeholders here); a
+    /// section lists what's in it, and an album opens on its songs.
+    @MainActor
+    func testClassicDiscoverOpensASectionAndAnAlbum() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest", "--uitest-complete-onboarding", "-LyrePlayerStyle", "classic",
+                               "-DiscoverSamples", "YES", "--uitest-open-discover", "--uitest-hide-library-errors"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Made for You"].waitForExistence(timeout: 5), "Discover didn't list its sections")
+        XCTAssertTrue(app.staticTexts["Genres"].exists)
+        app.buttons["Select"].tap()
+        XCTAssertTrue(app.staticTexts["Discover Album"].waitForExistence(timeout: 3), "The section didn't open")
+        XCTAssertTrue(app.staticTexts["Discover Mix"].exists)
+        app.buttons["Select"].tap()
+        XCTAssertTrue(app.staticTexts["Discover Song 1"].waitForExistence(timeout: 5), "The album didn't open on its songs")
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "classic-discover-album"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
+    /// The main menu lists Discover.
+    @MainActor
+    func testClassicMainMenuListsDiscover() throws {
+        let app = launch(style: "classic")
+        XCTAssertTrue(app.staticTexts["Discover"].waitForExistence(timeout: 5), "The main menu has no Discover")
+    }
+
     // MARK: - The Other Players
 
     /// LYRE-15

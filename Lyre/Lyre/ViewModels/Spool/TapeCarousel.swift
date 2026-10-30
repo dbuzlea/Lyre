@@ -668,18 +668,23 @@ private struct TapeCard: View, Equatable {
 
 // MARK: - Shelves
 
-/// What the rack is showing: one of the library's shelves, or while searching, Apple
-/// Music's albums for what's typed (with a subscription, streamed; see
-/// Docs/CATALOGUE-STREAMING.md).
+/// What the rack is showing: one of the library's shelves, Discover (what Apple Music
+/// offers, see Discover), or while searching, Apple Music's albums for what's typed
+/// (with a subscription, streamed; see Docs/CATALOGUE-STREAMING.md).
 enum SpoolShelf: String, CaseIterable, Identifiable {
     case albums
     case artists
     case mixtapes
     case podcasts
+    case discover
     case appleMusic
 
-    /// The library's shelves, always there; Apple Music's appears only with results.
-    static var allCases: [SpoolShelf] { [.albums, .artists, .mixtapes, .podcasts] }
+    /// The shelves always there: the library's, then Discover. Apple Music's search
+    /// shelf appears only with results.
+    static var allCases: [SpoolShelf] { library + [.discover] }
+
+    /// The library's shelves, the ones a search looks through.
+    static var library: [SpoolShelf] { [.albums, .artists, .mixtapes, .podcasts] }
 
     var id: String { rawValue }
 
@@ -689,6 +694,7 @@ enum SpoolShelf: String, CaseIterable, Identifiable {
         case .artists:    return String(localized: "spool.shelf.artists")
         case .mixtapes:   return String(localized: "spool.shelf.mixtapes")
         case .podcasts:   return String(localized: "spool.shelf.podcasts")
+        case .discover:   return String(localized: "discover.title")
         case .appleMusic: return String(localized: "catalog.search.title")
         }
     }

@@ -134,6 +134,8 @@ struct ShelfLibrary {
         case .artists:    return artists
         case .mixtapes:   return mixtapes
         case .podcasts:   return podcasts
+        // Filled as Apple Music answers (`Discover.load`, asked for when it's shown).
+        case .discover:   return Discover.shared.shelfItems
         // Only ever filled by a search.
         case .appleMusic: return []
         }
@@ -145,6 +147,7 @@ struct ShelfLibrary {
         case .artists:    return String(localized: "spool.shelf.empty")
         case .mixtapes:   return String(localized: "spool.shelf.mixtapes.empty")
         case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
+        case .discover:   return Discover.emptyText
         case .appleMusic: return String(localized: "search.noResults")
         }
     }

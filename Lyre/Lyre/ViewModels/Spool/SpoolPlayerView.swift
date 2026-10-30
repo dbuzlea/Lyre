@@ -126,6 +126,7 @@ struct SpoolPlayerView: View {
     @AppStorage("SpoolArtistFrontID") private var artistFrontID: String?
     /// Apple Music's shelf's front, for this search only (it isn't kept).
     @State private var appleMusicFrontID: String?
+    @State private var discoverFrontID: String?
     /// The shelf the rack shows: albums or mixtapes. Kept, so the rack reopens on it.
     @AppStorage("SpoolShelf") private var shelf: SpoolShelf = .albums
     /// What's typed over the rack, and the tapes it leaves on each shelf; nil when
@@ -599,6 +600,8 @@ struct SpoolPlayerView: View {
                 title: { ShelfSearchMatches.dividerTitle($0.title, on: $0, matches: shelfMatches) },
                 onFindShows: { showPodcastSearch = true }
             )
+            // Discover is asked for the first time it's shown.
+            .task(id: shelf) { if shelf == .discover { await Discover.shared.load(in: musicService) } }
             // Each shelf is its own rack, so it opens on its own front tape;
             // switching crossfades one rack for the other.
             ZStack {
@@ -1162,6 +1165,7 @@ struct SpoolPlayerView: View {
         case .artists:    return $artistFrontID
         case .mixtapes:   return $mixtapeFrontID
         case .podcasts:   return $podcastFrontID
+        case .discover:   return $discoverFrontID
         case .appleMusic: return $appleMusicFrontID
         }
     }
@@ -2000,7 +2004,12 @@ struct MixtapeArtwork: View {
 
     var body: some View {
         let covers = Self.covers(album.preloadedTracks)
-        if covers.count == 4 {
+        // One of Apple Music's playlists (Discover) has its own cover.
+        if let playlist = album.mixtape, playlist.isCatalog, let art = playlist.musicKitPlaylist?.artwork {
+            ArtworkImage(art, width: size, height: size)
+                .frame(width: size, height: size)
+                .clipped()
+        } else if covers.count == 4 {
             let half = (size / 2).rounded()
             Grid(horizontalSpacing: 0, verticalSpacing: 0) {
                 GridRow {

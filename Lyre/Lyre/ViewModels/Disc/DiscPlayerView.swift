@@ -103,6 +103,7 @@ struct DiscPlayerView: View {
     @AppStorage("DiscArtistFrontID") private var artistFrontID: String?
     /// Apple Music's shelf's front, for this search only (it isn't kept).
     @State private var appleMusicFrontID: String?
+    @State private var discoverFrontID: String?
     @AppStorage("DiscShelf") private var shelf: SpoolShelf = .albums
     @AppStorage("DiscShowsRemaining") private var showsRemaining = false
     @State private var shelfQuery = ""
@@ -1010,6 +1011,8 @@ struct DiscPlayerView: View {
                 title: { ShelfSearchMatches.dividerTitle(Self.shelfTitle($0), on: $0, matches: shelfMatches) },
                 onFindShows: { showPodcastSearch = true }
             )
+            // Discover is asked for the first time it's shown.
+            .task(id: shelf) { if shelf == .discover { await Discover.shared.load(in: musicService) } }
             ZStack {
                 TapeCarousel(
                     albums: shelfItems,
@@ -1053,6 +1056,7 @@ struct DiscPlayerView: View {
         case .artists:    return $artistFrontID
         case .mixtapes:   return $burnedFrontID
         case .podcasts:   return $podcastFrontID
+        case .discover:   return $discoverFrontID
         case .appleMusic: return $appleMusicFrontID
         }
     }
@@ -1063,6 +1067,7 @@ struct DiscPlayerView: View {
         case .artists:    return String(localized: "spool.shelf.artists")
         case .mixtapes:   return String(localized: "disc.shelf.burned")
         case .podcasts:   return String(localized: "spool.shelf.podcasts")
+        case .discover:   return String(localized: "discover.title")
         case .appleMusic: return String(localized: "catalog.search.title")
         }
     }
@@ -1072,6 +1077,7 @@ struct DiscPlayerView: View {
         case .albums, .artists: return String(localized: "spool.shelf.empty")
         case .mixtapes:   return String(localized: "disc.shelf.burned.empty")
         case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
+        case .discover:   return Discover.emptyText
         case .appleMusic: return String(localized: "search.noResults")
         }
     }

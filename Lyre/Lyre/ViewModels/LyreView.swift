@@ -293,6 +293,10 @@ struct LyreView: View {
             if ProcessInfo.processInfo.arguments.contains("--uitest-open-search") {
                 navigateTo(.search)
             }
+            // `--uitest-open-discover` likewise starts on Discover.
+            if ProcessInfo.processInfo.arguments.contains("--uitest-open-discover") {
+                navigateTo(.discover)
+            }
             #endif
         }
         .task {

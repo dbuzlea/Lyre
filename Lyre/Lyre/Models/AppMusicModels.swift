@@ -277,6 +277,10 @@ nonisolated struct AppPlaylist: Identifiable, Hashable {
         self.preloadedTracks = preloadedTracks
     }
 
+    /// One of Apple Music's playlists (Discover), not the library's: the catalogue's
+    /// playlist IDs start "pl.", the library's "p." (or are a media item's number).
+    var isCatalog: Bool { id.hasPrefix("pl.") }
+
     static func == (lhs: AppPlaylist, rhs: AppPlaylist) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

@@ -1328,6 +1328,11 @@ class MusicService: ObservableObject {
         // An artist's case already holds all their songs. Its MusicKit album is only
         // one of theirs, there for the cover; expanding it listed that album alone.
         if album.isArtist { return album.preloadedTracks }
+        // A catalogue playlist or a genre's mixtape (Discover), opened as an album's list
+        // is: its songs are the playlist's.
+        if let playlist = album.mixtape, playlist.isCatalog || DiscoverSection.genreID(ofPlaylist: playlist.id) != nil {
+            return await loadTracks(for: playlist)
+        }
         // Picked from the cached library: it has no MusicKit album to expand.
         let album = await liveAlbum(for: album)
         guard let mkAlbum = album.musicKitAlbum else { return album.preloadedTracks }
@@ -1343,11 +1348,18 @@ class MusicService: ObservableObject {
     }
 
     func loadTracks(for playlist: AppPlaylist) async -> [AppTrack] {
-        let playlist = await livePlaylist(for: playlist)
+        // A genre's mixtape (Discover): its top songs, asked for now.
+        if let genre = DiscoverSection.genreID(ofPlaylist: playlist.id) {
+            let tracks = await Discover.shared.tracks(forGenre: genre, in: self)
+            return tracks.isEmpty ? playlist.preloadedTracks : tracks
+        }
+        // The catalogue's playlists aren't the library's, which they'd wait for.
+        let playlist = playlist.isCatalog ? playlist : await livePlaylist(for: playlist)
         guard let mkPlaylist = playlist.musicKitPlaylist else { return playlist.preloadedTracks }
         do {
             let detailed = try await mkPlaylist.with([.tracks])
-            let tracks = (detailed.tracks ?? []).map { attachingLocalItem(to: AppTrack(from: $0)) }
+            // A catalogue playlist's songs stream, unless the library has its own copy.
+            let tracks = (detailed.tracks ?? []).map { attachingLocalItem(to: AppTrack(from: $0, catalog: playlist.isCatalog)) }
             return tracks.isEmpty ? playlist.preloadedTracks : tracks
         } catch {
             logger.error("Failed to load tracks for playlist '\(playlist.name)': \(error)")
