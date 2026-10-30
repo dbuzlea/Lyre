@@ -46,6 +46,23 @@ extension AppAlbum {
     }
 }
 
+/// Apple Music art filling a square `side` wide: drawn wide or tall enough to cover it
+/// either way, then cropped. A playlist's cover is often wider than it's tall; drawn
+/// at its own shape, it would only be a strip across the square.
+struct FillingArtwork: View {
+    let artwork: Artwork
+    let side: CGFloat
+
+    var body: some View {
+        let ratio = artwork.maximumWidth > 0 && artwork.maximumHeight > 0
+            ? CGFloat(artwork.maximumWidth) / CGFloat(artwork.maximumHeight) : 1
+        let width = (side * max(1, ratio)).rounded()
+        ArtworkImage(artwork, width: width, height: (width / ratio).rounded())
+            .frame(width: side, height: side)
+            .clipped()
+    }
+}
+
 /// What's printed on a record's label.
 enum RecordLabel: Equatable {
     case album(AppAlbum)
@@ -80,19 +97,48 @@ struct RecordDisc: View, Equatable {
     var body: some View {
         let r = diameter / 2
         ZStack {
-            Circle().fill(surface)
+            if let picture = pictureDisc {
+                pictureArt(picture)
+                    .frame(width: diameter, height: diameter)
+                    .clipShape(Circle())
+            } else {
+                Circle().fill(surface)
+            }
             Canvas { context, size in
                 let center = CGPoint(x: size.width / 2, y: size.height / 2)
                 drawGrooves(in: context, center: center, radius: r)
             }
-            labelView
-                .frame(width: diameter * 0.34, height: diameter * 0.34)
-                .clipShape(Circle())
+            if pictureDisc == nil {
+                labelView
+                    .frame(width: diameter * 0.34, height: diameter * 0.34)
+                    .clipShape(Circle())
+            }
             Circle()
                 .fill(Color.black.opacity(0.85))
                 .frame(width: diameter * 0.022, height: diameter * 0.022)
         }
         .frame(width: diameter, height: diameter)
+    }
+
+    /// One of Apple Music's playlists (Discover), pressed as a picture disc: its cover
+    /// across the whole record, under the grooves, with no label.
+    private var pictureDisc: AppAlbum? {
+        guard kind == .homeRecording, case .album(let album) = label,
+              album.mixtape?.isCatalog == true, album.hasPlaylistArtwork else { return nil }
+        return album
+    }
+
+    @ViewBuilder
+    private func pictureArt(_ album: AppAlbum) -> some View {
+        if let still, let image = still.image {
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        } else if let artwork = album.mixtape?.musicKitPlaylist?.artwork {
+            FillingArtwork(artwork: artwork, side: diameter)
+        } else {
+            Circle().fill(surface)
+        }
     }
 
     private var surface: RadialGradient {

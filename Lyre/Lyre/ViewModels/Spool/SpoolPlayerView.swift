@@ -1980,8 +1980,11 @@ struct TapeArtwork: View {
             } placeholder: {
                 KraftSleeve(title: album.title, size: size)
             }
-        } else if let artwork = album.musicKitAlbum?.artwork ?? album.mixtape?.musicKitPlaylist?.artwork {
+        } else if let artwork = album.musicKitAlbum?.artwork {
             ArtworkImage(artwork, width: size)
+        } else if let artwork = album.mixtape?.musicKitPlaylist?.artwork {
+            // A playlist's cover is often wider than it's tall: it fills the square.
+            FillingArtwork(artwork: artwork, side: size)
         } else if album.mpArtwork != nil {
             LocalArtworkImage(cacheKey: album.id, size: size, artwork: album.mpArtwork) { image in
                 image
@@ -2006,9 +2009,7 @@ struct MixtapeArtwork: View {
         let covers = Self.covers(album.preloadedTracks)
         // One of Apple Music's playlists (Discover) has its own cover.
         if let playlist = album.mixtape, playlist.isCatalog, let art = playlist.musicKitPlaylist?.artwork {
-            ArtworkImage(art, width: size, height: size)
-                .frame(width: size, height: size)
-                .clipped()
+            FillingArtwork(artwork: art, side: size)
         } else if covers.count == 4 {
             let half = (size / 2).rounded()
             Grid(horizontalSpacing: 0, verticalSpacing: 0) {
