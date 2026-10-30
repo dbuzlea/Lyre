@@ -531,6 +531,13 @@ struct DiscPlayerView: View {
             .minimumScaleFactor(0.6)
             .accessibilityHidden(true)
             Spacer(minLength: 8)
+            LoveButton(track: musicService.nowPlayingTrack, identifier: "disc.love") { isLoved in
+                Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(isLoved ? theme.accent : theme.buttonSymbol)
+                    .frame(width: 36, height: 36)
+                    .background(theme.buttonLight.opacity(0.8), in: Circle())
+            }
             AirPlayRouteButton(identifier: "disc.airplay") { isActive in
                 Image(systemName: "airplayaudio")
                     .font(.system(size: 15, weight: .bold))

@@ -20,10 +20,12 @@ import MediaPlayer
 // The title bar carries an AirPlay button (see AirPlayButton) for choosing where
 // audio plays.
 //
-// Shuffle and Repeat rows, and while a podcast plays a Speed row, are selectable via the
-// scroll wheel: `selection` (bound from the parent) tracks which row is focused (0 =
-// Shuffle, 1 = Repeat, 2 = Speed). Pressing the center button cycles the highlighted
-// row's setting; Speed steps through the same speeds the other players offer.
+// Shuffle and Repeat rows, and while a podcast plays a Speed row (a song Apple Music
+// knows, a Love row instead), are selectable via the scroll wheel: `selection` (bound
+// from the parent) tracks which row is focused (0 = Shuffle, 1 = Repeat, 2 = Speed or
+// Love). Pressing the center button cycles the highlighted row's setting; Speed steps
+// through the same speeds the other players offer, and Love loves the song or takes
+// it back (Loves).
 //
 // The artwork is the largest element: it grows to fill whatever height the screen has
 // left after everything below it, up to the screen's width, so it scales with the
@@ -136,7 +138,7 @@ struct NowPlayingView: View {
 
                             Divider().background(themeSettings.currentTheme.dividerColor).padding(.vertical, 4)
 
-                            // Shuffle / Repeat, and a podcast's speed
+                            // Shuffle / Repeat, then a podcast's speed or a song's love
                             VStack(alignment: .leading, spacing: 4) {
                                 rowItem(icon: musicService.shuffleMode.icon, label: String(localized: "nowPlaying.shuffle"),
                                         value: musicService.shuffleMode.rawValue, index: 0)
@@ -145,6 +147,13 @@ struct NowPlayingView: View {
                                 if musicService.isPlayingPodcast {
                                     rowItem(icon: "gauge.with.dots.needle.67percent", label: String(localized: "nowPlaying.speed"),
                                             value: SpoolPlayerView.speedText(musicService.podcastRate), index: 2)
+                                } else if Loves.shared.canLove(musicService.nowPlayingTrack) {
+                                    let isLoved = Loves.shared.isLoved(musicService.nowPlayingTrack)
+                                    rowItem(icon: LoveButton<EmptyView>.symbol(isLoved), label: String(localized: "love.row"),
+                                            value: isLoved ? String(localized: "love.row.loved") : String(localized: "love.row.notLoved"),
+                                            index: 2)
+                                        .accessibilityIdentifier("nowPlaying.love")
+                                        .task(id: musicService.nowPlayingTrack?.id) { await Loves.shared.load(musicService.nowPlayingTrack) }
                                 }
                             }
                         }

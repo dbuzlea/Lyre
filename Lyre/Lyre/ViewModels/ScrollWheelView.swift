@@ -1615,8 +1615,10 @@ struct ScrollWheelView: View {
 
         case .nowPlaying:
             // Each press changes the highlighted row's setting and moves on to the next
-            // row: Shuffle, Repeat, and while a podcast plays, Speed.
-            let rows = musicService.isPlayingPodcast ? 3 : 2
+            // row: Shuffle, Repeat, and while a podcast plays, Speed (a song Apple Music
+            // knows, Love).
+            let canLove = !musicService.isPlayingPodcast && Loves.shared.canLove(musicService.nowPlayingTrack)
+            let rows = musicService.isPlayingPodcast || canLove ? 3 : 2
             let row = min(menuSelection, rows - 1)
             Task {
                 switch row {
@@ -1624,6 +1626,8 @@ struct ScrollWheelView: View {
                     await musicService.toggleShuffleMode()
                 case 1:
                     await musicService.toggleRepeatMode()
+                case 2 where canLove:
+                    await Loves.shared.toggle(musicService.nowPlayingTrack)
                 default:
                     let rates = MusicService.podcastRates
                     let at = rates.firstIndex(of: musicService.podcastRate) ?? 0

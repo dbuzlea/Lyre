@@ -863,3 +863,11 @@
 "discover.needsAccess" = "Discover needs access to Apple Music. Allow it in Settings.";
 /* Classic Discover: how many albums or playlists a section holds. */
 "discover.count" = "%d items";
+
+/* The ♥ in every player: loves the song playing in Apple Music (VoiceOver labels). */
+"love.label" = "Love";
+"love.loved" = "Loved";
+/* Classic Now Playing: the row that loves the song playing, and what it says once loved. */
+"love.row" = "Love";
+"love.row.loved" = "Loved";
+"love.row.notLoved" = "Not loved";
