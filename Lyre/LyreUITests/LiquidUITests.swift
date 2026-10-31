@@ -520,6 +520,36 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(waitForDisappearance(element(app, "liquid.stack.top")), "The grid didn't come back")
     }
 
+    /// LYRE-21: a song swung open from the stack has Play, Play Next and Add to Queue side
+    /// by side, sharing the width evenly without running into one another; on a narrow
+    /// phone a name drops its symbol rather than meeting the capsule's edge (checked in
+    /// the screenshot).
+    @MainActor
+    func testASongsButtonsShareTheWidthEvenly() throws {
+        let app = launchLiquid(["-LiquidShot", "songs"])
+        let layout = element(app, "liquid.layout")
+        XCTAssertTrue(layout.waitForExistence(timeout: 10), "No layout switch")
+        layout.tap()
+        let top = element(app, "liquid.stack.top")
+        XCTAssertTrue(top.waitForExistence(timeout: 10), "No stack of songs")
+        top.tap()
+        let buttons = ["liquid.fold.play", "liquid.fold.playNext", "liquid.fold.addToQueue"].map { element(app, $0) }
+        XCTAssertTrue(buttons[2].waitForExistence(timeout: 5), "The song didn't open")
+        sleep(1)
+        let frames = buttons.map(\.frame)
+        for (frame, next) in zip(frames, frames.dropFirst()) {
+            XCTAssertLessThanOrEqual(frame.maxX, next.minX, "Buttons overlap: \(frames)")
+            XCTAssertEqual(frame.width, next.width, accuracy: 2, "Buttons aren't the same width: \(frames)")
+        }
+        XCTAssertEqual(buttons[2].label, "Add to Queue")
+        attachScreenshot(app, named: "lyre-21-song-buttons")
+        element(app, "liquid.fold.close").tap()
+        XCTAssertTrue(waitForDisappearance(buttons[0]), "The song didn't close")
+        // Left as every song at once, for the tests after.
+        layout.tap()
+        XCTAssertTrue(waitForDisappearance(top), "The songs didn't go back to a list")
+    }
+
     func testTheStackOpensOnTheCoverItWasLeftOn() throws {
         let app = launchLiquid(["-LiquidShot", "albums"])
         let layout = element(app, "liquid.layout")
