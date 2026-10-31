@@ -281,6 +281,12 @@ nonisolated struct AppPlaylist: Identifiable, Hashable {
     /// playlist IDs start "pl.", the library's "p." (or are a media item's number).
     var isCatalog: Bool { id.hasPrefix("pl.") }
 
+    /// One of the listener's own, in their library: not the catalogue's, nor one Lyre
+    /// makes up (a smart list, Discover's genres, stations, charts and Replay).
+    var isLibrary: Bool {
+        !isCatalog && !["smart:", "discover:", "station:"].contains { id.hasPrefix($0) }
+    }
+
     static func == (lhs: AppPlaylist, rhs: AppPlaylist) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

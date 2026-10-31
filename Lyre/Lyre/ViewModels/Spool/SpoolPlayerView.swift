@@ -962,7 +962,7 @@ struct SpoolPlayerView: View {
         }
     }
 
-    /// The ♥ for the song playing (LoveButton), lit in the accent colour once loved.
+    /// The ★ for the song playing (LoveButton), lit in the accent colour once a favourite.
     private var loveKey: some View {
         LoveButton(track: musicService.nowPlayingTrack, identifier: "spool.love") { isLoved in
             Image(systemName: LoveButton<EmptyView>.symbol(isLoved))

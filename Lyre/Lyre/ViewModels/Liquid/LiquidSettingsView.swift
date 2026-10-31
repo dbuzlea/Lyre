@@ -30,6 +30,8 @@ struct LiquidSettingsView: View {
                         get: { musicService.shuffleMode != .off },
                         set: { _ in Task { await musicService.toggleShuffleMode() } }
                     ))
+                    Toggle(String(localized: "settings.cleanVersions"), isOn: $themeSettings.cleanVersions)
+                        .accessibilityHint(String(localized: "settings.cleanVersions.detail"))
                     Picker(String(localized: "spool.settings.repeat"), selection: Binding(
                         get: { musicService.repeatMode },
                         set: setRepeat

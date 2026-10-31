@@ -101,6 +101,12 @@ struct LiquidLibraryView: View {
             if case .album(let album) = offer, musicService.canStream {
                 Button(String(localized: "catalog.offer.play")) { play(album) }
             }
+            // Without a subscription, Apple's trial, for what was picked.
+            if musicService.subscriptionState == .notSubscribed {
+                Button(String(localized: "onboarding.trySubscription")) {
+                    SubscriptionOffer.shared.offer(itemID: offer.itemID, toPlay: true)
+                }
+            }
             Button(String(localized: "catalog.offer.add")) { add(offer) }
             if case .song(let song) = offer {
                 Button(String(localized: "playlist.add.action")) { PlaylistAdder.shared.offer(.song(song)) }
@@ -222,11 +228,18 @@ struct LiquidLibraryView: View {
             case .album(let album): album.url
             }
         }
+        var itemID: String {
+            switch self {
+            case .song(let song): song.id.rawValue
+            case .album(let album): album.id.rawValue
+            }
+        }
     }
 
-    /// Adds it to the library, then, once Apple has put it there, plays it (a song) or
-    /// opens its page (an album). Apple can take a little while; if it hasn't arrived
-    /// after half a minute, it's left to turn up on its own.
+    /// Adds it to the library, then, once Apple has put it there, opens its page (an
+    /// album). A song isn't played: adding isn't asking to play it (App Review 4.5.2:
+    /// the listener starts every Apple Music stream). Apple can take a little while; if
+    /// it hasn't arrived after half a minute, it's left to turn up on its own.
     private func add(_ offer: CatalogOffer) {
         Task {
             do {
@@ -245,10 +258,7 @@ struct LiquidLibraryView: View {
                 await musicService.refreshOnForeground()
                 switch offer {
                 case .song(let song):
-                    if let track = librarySong(song) {
-                        onPlaySongs([track], 0, false, track.title)
-                        return
-                    }
+                    if librarySong(song) != nil { return }
                 case .album(let album):
                     if let mine = AppleMusicCatalog.libraryAlbum(title: album.title, artist: album.artistName, in: library.albums) {
                         navigator.push(.album(mine))
@@ -720,7 +730,7 @@ struct LiquidPageTitle: View {
                     .accessibilityIdentifier("liquid.artist.photo")
             }
             HStack(alignment: .center) {
-                Text(title.lowercased())
+                Text(title.lowercasedKeepingAppleMusic)
                     .font(.system(size: 44, weight: .medium))
                     .tracking(-1.5)
                     .lineLimit(1)
@@ -1007,6 +1017,9 @@ struct LiquidSearchPage: View {
     @State private var matches: ShelfSearchMatches?
     /// What Apple Music has for the query, below the library's.
     @State private var catalog: AppleMusicCatalog.SearchResults?
+    /// What Apple Music suggests searching for as the query's typed: each tapped, it's
+    /// searched for.
+    @State private var suggestions: [(display: String, search: String)] = []
     @State private var gridWidth: CGFloat = 0
     @FocusState private var isFocused: Bool
 
@@ -1016,6 +1029,26 @@ struct LiquidSearchPage: View {
                 LiquidPageTitle(title: String(localized: "liquid.menu.search"))
                 LiquidSearchField(query: $query, prompt: String(localized: "liquid.search.prompt"))
                     .focused($isFocused)
+                if !query.isEmpty, !suggestions.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(suggestions, id: \.search) { suggestion in
+                                Button { query = suggestion.search } label: {
+                                    Label(suggestion.display, systemImage: "magnifyingglass")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .lineLimit(1)
+                                        .padding(.horizontal, 12)
+                                        .frame(minHeight: 36)
+                                        .background(.white.opacity(0.12), in: Capsule())
+                                }
+                                .foregroundStyle(.white)
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("liquid.search.suggestion")
+                            }
+                        }
+                    }
+                    .accessibilityLabel(String(localized: "search.suggestions"))
+                }
                 if let matches {
                     let sections: [(String, [AppAlbum])] = [
                         (String(localized: "liquid.menu.albums"), matches.albums),
@@ -1027,7 +1060,7 @@ struct LiquidSearchPage: View {
                             .foregroundStyle(.white.opacity(0.7))
                     }
                     ForEach(sections, id: \.0) { section in
-                        Text(section.0.lowercased())
+                        Text(section.0.lowercasedKeepingAppleMusic)
                             .font(.system(size: 24, weight: .medium))
                             .foregroundStyle(.white)
                         LazyVGrid(columns: LiquidCoverTile.columns(for: gridWidth), spacing: 18) {
@@ -1062,6 +1095,14 @@ struct LiquidSearchPage: View {
                 guard !Task.isCancelled else { return }
             }
             matches = LibrarySearch.shelfMatches(for: query, in: library)
+        }
+        .task(id: query) {
+            // Suggestions as typing pauses; none once one is what's typed.
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            let found = await AppleMusicCatalog.shared.suggestions(for: query)
+            guard !Task.isCancelled else { return }
+            suggestions = found.filter { $0.search.caseInsensitiveCompare(query) != .orderedSame }
         }
         .task(id: query) {
             // The catalogue is asked once typing has paused a little longer.

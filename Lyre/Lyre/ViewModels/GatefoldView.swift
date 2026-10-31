@@ -1050,7 +1050,7 @@ struct KraftSleeve: View {
         ZStack {
             GatefoldPalette.kraft
 
-            Text(title.uppercased())
+            Text(title.uppercasedKeepingAppleMusic)
                 .font(.system(size: max(9, size * 0.055), weight: .medium))
                 .tracking(max(1.5, size * 0.012))
                 .foregroundColor(GatefoldPalette.ink.opacity(0.62))

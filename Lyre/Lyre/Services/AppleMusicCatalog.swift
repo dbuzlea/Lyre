@@ -92,7 +92,7 @@ final class AppleMusicCatalog {
             guard let found = try await search.response().artists.first(where: { ArtistPhotos.key(for: $0.name) == key }) else { return }
             let artist = try await found.with([.topSongs, .latestRelease, .similarArtists])
             artists[key] = ArtistDetails(biography: Self.plainText(artist.editorialNotes?.standard ?? artist.editorialNotes?.short),
-                                         topSongs: Array(artist.topSongs?.prefix(10) ?? []),
+                                         topSongs: await clean(Array(artist.topSongs?.prefix(10) ?? [])),
                                          latestRelease: artist.latestRelease,
                                          similarArtists: Array(artist.similarArtists?.prefix(12) ?? []))
         } catch {
@@ -187,8 +187,8 @@ final class AppleMusicCatalog {
             var request = MusicCatalogChartsRequest(kinds: [.mostPlayed], types: [Song.self, Album.self])
             request.limit = 25
             let response = try await request.response()
-            charts = Charts(songs: Array(response.songCharts.first?.items ?? []),
-                            albums: Array(response.albumCharts.first?.items ?? []))
+            charts = Charts(songs: await clean(Array(response.songCharts.first?.items ?? [])),
+                            albums: await clean(Array(response.albumCharts.first?.items ?? [])))
         } catch {
             asked.remove("charts")
             logger.error("Charts failed: \(String(describing: error), privacy: .public)")
@@ -224,13 +224,82 @@ final class AppleMusicCatalog {
             search.limit = 10
             let response = try await search.response()
             logger.debug("Catalogue search: \(response.songs.count) songs, \(response.albums.count) albums, \(response.artists.count) artists")
-            return SearchResults(songs: Array(response.songs.prefix(8)),
-                                 albums: Array(response.albums),
+            return SearchResults(songs: Array(await clean(Array(response.songs)).prefix(8)),
+                                 albums: await clean(Array(response.albums)),
                                  artists: Array(response.artists))
         } catch {
             logger.error("Catalogue search failed: \(String(describing: error), privacy: .public)")
             return nil
         }
+    }
+
+    /// Forgets the charts and artists' top songs, so they're asked for again (after
+    /// Clean Versions is turned on or off).
+    func forgetSongLists() {
+        charts = nil
+        artists = [:]
+        asked = asked.filter { !$0.hasPrefix("artist:") && $0 != "charts" }
+    }
+
+    // MARK: Suggestions
+
+    /// What Apple Music suggests searching for as `query` is typed: each a term to show
+    /// and the one to search. Empty when it can't be asked.
+    func suggestions(for query: String) async -> [(display: String, search: String)] {
+        guard let term = Self.searchTerm(query) else { return [] }
+        #if DEBUG
+        // `-SearchSuggestionSamples YES`: made-up suggestions, for UI tests (the
+        // simulator can't reach Apple Music).
+        if UserDefaults.standard.bool(forKey: "SearchSuggestionSamples") {
+            return ["\(term) songs", "\(term) live"].map { ($0, $0) }
+        }
+        #endif
+        guard Self.isAvailable else { return [] }
+        var request = MusicCatalogSearchSuggestionsRequest(term: term)
+        request.limit = 6
+        let suggestions = (try? await request.response().suggestions) ?? []
+        return suggestions.map { ($0.displayTerm, $0.searchTerm) }
+    }
+
+    // MARK: Clean Versions
+
+    /// Whether the listener wants clean versions of Apple Music's explicit songs and
+    /// albums (Settings: Clean Versions). The library's own aren't changed.
+    static var prefersClean: Bool { UserDefaults.standard.bool(forKey: ThemeSettings.cleanVersionsKey) }
+
+    /// `songs` with each explicit one swapped for its clean version, by Apple Music's
+    /// `restrict=explicit`, and any with none left out. As they are when clean versions
+    /// aren't wanted, or none is explicit.
+    func clean(_ songs: [Song]) async -> [Song] {
+        await clean(songs, path: "songs") { $0.contentRating == .explicit }
+    }
+
+    /// The same for albums.
+    func clean(_ albums: [Album]) async -> [Album] {
+        await clean(albums, path: "albums") { $0.contentRating == .explicit }
+    }
+
+    private func clean<Item: MusicItem & Decodable>(_ items: [Item], path: String,
+                                                    isExplicit: (Item) -> Bool) async -> [Item] {
+        guard Self.prefersClean, Self.isAvailable else { return items }
+        let explicit = items.filter(isExplicit)
+        guard !explicit.isEmpty else { return items }
+        var substitutes: [MusicItemID: Item] = [:]
+        do {
+            let storefront = try await MusicDataRequest.currentCountryCode
+            var components = URLComponents(string: "https://api.music.apple.com/v1/catalog/\(storefront)/\(path)")!
+            components.queryItems = [URLQueryItem(name: "ids", value: explicit.map(\.id.rawValue).joined(separator: ",")),
+                                     URLQueryItem(name: "restrict", value: "explicit")]
+            let data = try await MusicDataRequest(urlRequest: URLRequest(url: components.url!)).response().data
+            let found = try JSONDecoder().decode(CatalogResponse<Item>.self, from: data).data
+            // Answered in the order asked; a clean version has an ID of its own.
+            for (original, answer) in zip(explicit, found) where !isExplicit(answer) {
+                substitutes[original.id] = answer
+            }
+        } catch {
+            logger.debug("Clean versions failed: \(String(describing: error), privacy: .public)")
+        }
+        return items.compactMap { isExplicit($0) ? substitutes[$0.id] : $0 }
     }
 
     // MARK: The library
@@ -271,9 +340,13 @@ final class AppleMusicCatalog {
         var errorDescription: String? { String(localized: "catalog.add.needsSubscription") }
     }
 
-    /// Adds a song or album to the library. Needs an Apple Music subscription.
+    /// Adds a song or album to the library. Needs an Apple Music subscription; without
+    /// one, Apple's trial is offered for it.
     func add<Item: MusicLibraryAddable>(_ item: Item, subscribed: Bool) async throws {
-        guard subscribed else { throw AddError.needsSubscription }
+        guard subscribed else {
+            SubscriptionOffer.shared.offer(itemID: item.id.rawValue, toPlay: false)
+            throw AddError.needsSubscription
+        }
         try await MusicLibrary.shared.add(item)
     }
 
@@ -291,6 +364,11 @@ final class AppleMusicCatalog {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+}
+
+/// A catalogue answer's resources (`{"data": […]}`).
+private struct CatalogResponse<Item: Decodable>: Decodable {
+    let data: [Item]
 }
 
 extension AppTrack {

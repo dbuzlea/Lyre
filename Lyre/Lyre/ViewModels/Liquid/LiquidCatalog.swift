@@ -98,7 +98,7 @@ private struct ExpandableText: View {
 private struct SectionTitle: View {
     let text: String
     var body: some View {
-        Text(text.lowercased())
+        Text(text.lowercasedKeepingAppleMusic)
             .font(.system(size: 24, weight: .medium))
             .tracking(-0.6)
             .foregroundStyle(.white)

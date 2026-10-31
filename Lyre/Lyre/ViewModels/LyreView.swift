@@ -368,6 +368,7 @@ struct LyreView: View {
         .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
         // Add to Playlist…, held on a song in any player; Album Info, held on an album.
         .modifier(PlaylistPickerPresenter(musicService: musicService))
+        .modifier(SubscriptionOfferPresenter())
         .modifier(AlbumInfoPresenter(musicService: musicService, isActive: !showArtworkCarousel))
         .modifier(NewPlaylistPrompt(musicService: musicService, isActive: !showArtworkCarousel))
         .fullScreenCover(isPresented: $showArtworkCarousel) {

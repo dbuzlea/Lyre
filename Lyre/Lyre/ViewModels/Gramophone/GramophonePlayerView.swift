@@ -425,7 +425,7 @@ struct GramophonePlayerView: View {
                     .accessibilityHidden(true)
             }
             Spacer()
-            // The ♥ for the song playing (LoveButton), in the felt's colour once loved.
+            // The ★ for the song playing (LoveButton), in the felt's colour once a favourite.
             LoveButton(track: musicService.nowPlayingTrack, identifier: "gramophone.love") { isLoved in
                 Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
                     .font(.system(size: 15, weight: .semibold))

@@ -68,6 +68,10 @@ struct GramophoneSettingsView: View {
                         )) {
                             rowLabel(String(localized: "spool.settings.shuffle"))
                         }
+                        Toggle(isOn: $themeSettings.cleanVersions) {
+                            rowLabel(String(localized: "settings.cleanVersions"))
+                        }
+                        .accessibilityHint(String(localized: "settings.cleanVersions.detail"))
                         HStack {
                             rowLabel(String(localized: "spool.settings.repeat"))
                             Spacer(minLength: 16)
