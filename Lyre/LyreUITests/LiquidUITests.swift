@@ -171,6 +171,11 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(element(app, "albumInfo.released").waitForExistence(timeout: 5), "Album Info has no release date")
         XCTAssertTrue(element(app, "albumInfo.length").waitForExistence(timeout: 5), "Album Info has no length")
         XCTAssertTrue(element(app, "albumInfo.song.0").exists, "Album Info lists no songs")
+        // LYRE-22: Play, its symbol and word together in the middle of the button
+        // (checked in the screenshot).
+        let play = element(app, "albumInfo.play")
+        XCTAssertTrue(play.exists, "Album Info has no Play")
+        XCTAssertEqual(play.label, "Play")
         attachScreenshot(app, named: "liquid-album-info")
         app.buttons["Done"].tap()
         XCTAssertTrue(waitForDisappearance(element(app, "albumInfo.released")), "Done didn't close Album Info")

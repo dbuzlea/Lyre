@@ -102,8 +102,15 @@ private struct AlbumInfoPage: View {
                         Text(kind).font(.caption).foregroundStyle(.secondary)
                     }
                     Button { play(from: 0) } label: {
-                        Label(String(localized: "detail.play"), systemImage: "play.fill")
-                            .font(.subheadline.weight(.semibold))
+                        // Drawn as symbol and word rather than a Label: a Label in a List
+                        // takes the list's style, its symbol tinted (blue on the blue
+                        // button) in a column of its own, leaving the word off to one
+                        // side (LYRE-22).
+                        HStack(spacing: 6) {
+                            Image(systemName: "play.fill")
+                            Text(String(localized: "detail.play"))
+                        }
+                        .font(.subheadline.weight(.semibold))
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(tracks?.isEmpty != false)
