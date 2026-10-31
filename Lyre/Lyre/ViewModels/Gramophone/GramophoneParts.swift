@@ -97,22 +97,14 @@ struct RecordDisc: View, Equatable {
     var body: some View {
         let r = diameter / 2
         ZStack {
-            if let picture = pictureDisc {
-                pictureArt(picture)
-                    .frame(width: diameter, height: diameter)
-                    .clipShape(Circle())
-            } else {
-                Circle().fill(surface)
-            }
+            Circle().fill(surface)
             Canvas { context, size in
                 let center = CGPoint(x: size.width / 2, y: size.height / 2)
                 drawGrooves(in: context, center: center, radius: r)
             }
-            if pictureDisc == nil {
-                labelView
-                    .frame(width: diameter * 0.34, height: diameter * 0.34)
-                    .clipShape(Circle())
-            }
+            labelView
+                .frame(width: diameter * 0.34, height: diameter * 0.34)
+                .clipShape(Circle())
             Circle()
                 .fill(Color.black.opacity(0.85))
                 .frame(width: diameter * 0.022, height: diameter * 0.022)
@@ -120,33 +112,20 @@ struct RecordDisc: View, Equatable {
         .frame(width: diameter, height: diameter)
     }
 
-    /// One of Apple Music's playlists (Discover), pressed as a picture disc: its cover
-    /// across the whole record, under the grooves, with no label.
-    private var pictureDisc: AppAlbum? {
-        guard kind == .homeRecording, case .album(let album) = label,
-              album.mixtape?.isCatalog == true, album.hasPlaylistArtwork else { return nil }
-        return album
-    }
-
-    @ViewBuilder
-    private func pictureArt(_ album: AppAlbum) -> some View {
-        if let still, let image = still.image {
-            Image(uiImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } else if let artwork = album.mixtape?.musicKitPlaylist?.artwork {
-            FillingArtwork(artwork: artwork, side: diameter)
-        } else {
-            Circle().fill(surface)
-        }
+    /// A playlist with a cover of its own is pressed as an album is (LYRE-24): a black
+    /// record, the cover on its label and the grooves only around it, so none run
+    /// across the cover. One with none is cut at home: aluminium, written on in pen.
+    private var hasPlaylistCover: Bool {
+        guard kind == .homeRecording, case .album(let album) = label else { return false }
+        return album.hasPlaylistArtwork
     }
 
     private var surface: RadialGradient {
         switch kind {
-        case .homeRecording:
+        case .homeRecording where !hasPlaylistCover:
             return RadialGradient(colors: [Color(white: 0.78), Color(white: 0.62), Color(white: 0.7)],
                                   center: .center, startRadius: 0, endRadius: diameter / 2)
-        case .album, .transcription:
+        case .album, .homeRecording, .transcription:
             return RadialGradient(colors: [Color(white: 0.11), Color(white: 0.05), Color(white: 0.09)],
                                   center: .center, startRadius: 0, endRadius: diameter / 2)
         }
@@ -154,7 +133,7 @@ struct RecordDisc: View, Equatable {
 
     private func drawGrooves(in context: GraphicsContext, center: CGPoint, radius r: CGFloat) {
         let outer = r * 0.94, inner = r * 0.36
-        let light = kind == .homeRecording
+        let light = kind == .homeRecording && !hasPlaylistCover
         // The grooves: fine rings across the playing surface.
         var groove = outer
         var odd = false

@@ -4,6 +4,8 @@
 //
 
 import Foundation
+import MediaPlayer
+import UIKit
 
 // MARK: - Shelf Library
 //
@@ -77,6 +79,7 @@ struct ShelfLibrary {
                     }
                     tracks.append(tracks[0])
                     let playlist = AppPlaylist(id: "sample-mix-\(index)", name: name, curatorName: curator,
+                                               mpArtwork: Self.sampleMixtapeArtwork(index),
                                                preloadedTracks: tracks)
                     return AppAlbum(mixtape: playlist)
                 }
@@ -86,6 +89,22 @@ struct ShelfLibrary {
         // Lyre's own lists first (SmartList), then the listener's playlists.
         return musicService.smartMixtapes + musicService.shelfMixtapes
     }
+
+    #if DEBUG
+    /// `-SampleMixtapeArt YES`: the sample mixtapes have covers of their own, as a
+    /// playlist made in the Music app can, for the Gramophone's record (LYRE-24).
+    private static func sampleMixtapeArtwork(_ index: Int) -> MPMediaItemArtwork? {
+        guard UserDefaults.standard.bool(forKey: "SampleMixtapeArt") else { return nil }
+        let colors: [UIColor] = [.systemPink, .systemTeal, .systemOrange]
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 300, height: 300)).image { context in
+            colors[index % colors.count].setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 300, height: 300))
+            UIColor.white.setFill()
+            context.cgContext.fillEllipse(in: CGRect(x: 90, y: 90, width: 120, height: 120))
+        }
+        return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    }
+    #endif
 
     /// The podcasts, as spoken-word tapes or broadcast discs, filed by name.
     var podcasts: [AppAlbum] {
