@@ -102,7 +102,10 @@ nonisolated enum LibraryScanner {
     /// The same, from the song's ID, rating (nil where unknown), album and length.
     static func bestItem<Item: MatchCandidate>(id: String, explicit: Bool?, album: String, duration: TimeInterval,
                                                among items: [Item]) -> Item? {
-        guard items.count > 1 || explicit != nil else { return items.first }
+        // One item is the song's either way: with none rated as it is, the choice runs
+        // over all of them. So a song with one item (most of them) reads none of its
+        // properties, each a trip to the media library.
+        guard items.count > 1 else { return items.first }
         if let exact = items.first(where: { String($0.persistentID) == id }) { return exact }
         var pool = items
         if let explicit {
@@ -329,13 +332,16 @@ nonisolated enum LibraryScanner {
         var snapshot = LibrarySnapshot()
         let index = local.snapshot.mpItemIndex
 
-        snapshot.songs = library.songs.map { song in
+        // MusicKit decodes each property as it's first read, which makes this the
+        // longest part of a launch (four seconds on one core for 6,000 songs and 2,000
+        // albums, three spread across them all).
+        snapshot.songs = concurrentMap(library.songs) { song in
             let track = AppTrack(from: song)
             return track.attaching(mpItem: bestItem(for: track, among: index[matchKey(title: song.title, artist: song.artistName)] ?? []))
         }
-        snapshot.albums    = library.albums.map { AppAlbum(from: $0) }
-        snapshot.artists   = library.artists.map { AppArtist(from: $0) }
-        snapshot.playlists = library.playlists.map { AppPlaylist(from: $0) }
+        snapshot.albums    = concurrentMap(library.albums) { AppAlbum(from: $0) }
+        snapshot.artists   = concurrentMap(library.artists) { AppArtist(from: $0) }
+        snapshot.playlists = concurrentMap(library.playlists) { AppPlaylist(from: $0) }
 
         // Recency lives in the on-device library, so order by MPMediaItem dates and use
         // the matching MusicKit song for its catalogue artwork where one exists.
@@ -355,6 +361,71 @@ nonisolated enum LibraryScanner {
         snapshot.recentlyAdded  = upgraded(local.byDateAdded)
         snapshot.recentlyPlayed = upgraded(local.byLastPlayed)
         return snapshot
+    }
+}
+
+extension LibraryScanner {
+    /// The library restored from the launch cache, with the device's own items put
+    /// back on it once the on-device scan has them (a second into a launch, where the
+    /// MusicKit load takes several): each song its item, by the persistent ID the cache
+    /// kept, and each album its item's cover. So the covers and the songs' art show
+    /// while the rest of the load runs. What only MusicKit has (playlists' covers, the
+    /// catalogue's artwork) still waits for it.
+    nonisolated static func attachingLocalItems(to cached: LibrarySnapshot, from local: LocalScan) -> LibrarySnapshot {
+        var byID: [MPMediaEntityPersistentID: MPMediaItem] = [:]
+        var byAlbum: [String: MPMediaItem] = [:]
+        for record in local.records {
+            byID[record.item.persistentID] = record.item
+            let key = albumKey(title: record.track.albumTitle, artist: record.track.artistName)
+            if byAlbum[key] == nil { byAlbum[key] = record.item }
+        }
+        func track(_ track: AppTrack) -> AppTrack {
+            guard track.mpItem == nil, let id = track.mpPersistentID, let item = byID[id] else { return track }
+            return track.attaching(mpItem: item)
+        }
+        func album(_ album: AppAlbum) -> AppAlbum {
+            guard album.mpArtwork == nil, album.musicKitAlbum == nil, album.mixtape == nil, album.podcast == nil else { return album }
+            let tracks = album.preloadedTracks.map(track)
+            let item = tracks.first?.mpItem ?? byAlbum[albumKey(title: album.title, artist: album.artistName)]
+            return AppAlbum(id: album.id, title: album.title, artistName: album.artistName, releaseDate: album.releaseDate,
+                            mpArtwork: item?.artwork, preloadedTracks: tracks, isArtist: album.isArtist)
+        }
+        var snapshot = cached
+        snapshot.songs = concurrentMap(cached.songs, track)
+        snapshot.recentlyAdded = cached.recentlyAdded.map(track)
+        snapshot.recentlyPlayed = cached.recentlyPlayed.map(track)
+        snapshot.albums = concurrentMap(cached.albums, album)
+        snapshot.artists = cached.artists.map { artist in
+            AppArtist(id: artist.id, name: artist.name, musicKitArtist: artist.musicKitArtist,
+                      mpArtwork: artist.mpArtwork, preloadedAlbums: artist.preloadedAlbums.map(album))
+        }
+        snapshot.playlists = cached.playlists.map { playlist in
+            var playlist = playlist
+            playlist.preloadedTracks = playlist.preloadedTracks.map(track)
+            return playlist
+        }
+        return snapshot
+    }
+
+    nonisolated private static func albumKey(title: String, artist: String) -> String {
+        title.lowercased() + "|" + artist.lowercased()
+    }
+
+    /// `items.map(transform)`, in chunks across every core, in the same order. A short
+    /// list isn't worth the hand-off and is mapped as it is.
+    nonisolated static func concurrentMap<T, U>(_ items: [T], _ transform: (T) -> U) -> [U] {
+        guard items.count > 256 else { return items.map(transform) }
+        let chunks = max(1, ProcessInfo.processInfo.activeProcessorCount * 2)
+        let size = (items.count + chunks - 1) / chunks
+        var results = [[U]](repeating: [], count: chunks)
+        results.withUnsafeMutableBufferPointer { buffer in
+            DispatchQueue.concurrentPerform(iterations: chunks) { chunk in
+                let start = chunk * size, end = min(start + size, items.count)
+                guard start < end else { return }
+                buffer[chunk] = items[start..<end].map(transform)
+            }
+        }
+        return results.flatMap { $0 }
     }
 }
 
