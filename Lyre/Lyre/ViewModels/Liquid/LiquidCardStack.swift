@@ -715,24 +715,33 @@ struct LiquidFoldView: View {
                 actionButton(String(localized: "detail.play"), symbol: "play.fill", isPrimary: true, id: "liquid.fold.play") {
                     navigator.playSongs(list, index, false, listName)
                 }
-                actionButton(String(localized: "queue.action.playNext"), symbol: "text.insert", id: "liquid.fold.playNext") {
+                // The queue buttons as words alone: three across, with symbols, didn't fit
+                // inside their capsules on a phone (LYRE-21). Play keeps its symbol.
+                actionButton(String(localized: "queue.action.playNext"), symbol: nil, id: "liquid.fold.playNext") {
                     navigator.queue([track], .next, track.title)
                 }
-                actionButton(String(localized: "queue.action.addToQueue"), symbol: "text.append", id: "liquid.fold.addToQueue") {
+                actionButton(String(localized: "queue.action.addToQueue"), symbol: nil, id: "liquid.fold.addToQueue") {
                     navigator.queue([track], .last, track.title)
                 }
             }
         }
     }
 
-    private func actionButton(_ title: String, symbol: String, isPrimary: Bool = false, id: String,
+    /// A button under the name, its words kept inside the capsule's edge: a name that
+    /// won't fit beside its symbol drops the symbol, and shrinks a little before it
+    /// would meet the edge (LYRE-21).
+    private func actionButton(_ title: String, symbol: String?, isPrimary: Bool = false, id: String,
                               action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(title, systemImage: symbol)
+            ViewThatFits(in: .horizontal) {
+                if let symbol { Label(title, systemImage: symbol) }
+                Text(title)
+                    .minimumScaleFactor(0.8)
+            }
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
                 .foregroundStyle(isPrimary ? Color.black : .white)
+                .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, minHeight: 40)
                 .background {
                     if isPrimary {
