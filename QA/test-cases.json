@@ -215,6 +215,25 @@
         "LyreUITests/LiquidUITests/testTheHeartLovesTheSongPlaying()"
       ]
     },
+    {
+      "key": "LIB-10", "suite": "Music Access & Library", "title": "Playlists refuse duplicates, and a song can be removed from a playlist made in Lyre",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Apple Music access allowed. A playlist made in Lyre (New Playlist…) with a few songs, and one made in the Music app.",
+      "steps": [
+        ["Hold a song that's already in the Lyre playlist, Add to Playlist…, choose that playlist.", "It isn't added: the picker says the song is already in the playlist."],
+        ["Do the same with the catalogue copy of a song the playlist has from the library (Liquid search).", "Also refused as already there."],
+        ["Add a remix or another version of a song in the playlist.", "It's added: another version isn't a duplicate."],
+        ["Open the Lyre playlist in Liquid, hold a song, Remove from Playlist.", "The row goes at once; the song is gone from the playlist in the Music app too."],
+        ["In a playlist with the same song twice, remove the second copy.", "Only that copy goes; the first stays in its place."],
+        ["Repeat on the Spool (case), Disc (case and booklet) and Gramophone (sleeve).", "Same in every player."],
+        ["Try Remove from Playlist in the playlist made in the Music app.", "Lyre says Apple only lets it change playlists made in Lyre; the option doesn't appear there again."],
+        ["Look for Remove in Most Played, a Discover playlist, a genre and an album.", "Not offered."]
+      ],
+      "automated_by": [
+        "LyreTests/PlaylistEditingTests",
+        "LyreUITests/SpoolUITests/testHoldingASongInAMixtapeRemovesItFromThePlaylist()"
+      ]
+    },
 
     {
       "key": "PLY-01", "suite": "Playback & Queue", "title": "Play, pause, next and previous work in every player",

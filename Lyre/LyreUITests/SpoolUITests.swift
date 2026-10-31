@@ -641,6 +641,35 @@ final class SpoolUITests: XCTestCase {
         app.alerts["New Playlist"].buttons["Cancel"].tap()
     }
 
+    /// Holding a song in one of the listener's playlists offers Remove from Playlist,
+    /// which takes it out of the list.
+    @MainActor
+    func testHoldingASongInAMixtapeRemovesItFromThePlaylist() throws {
+        let app = launchSpool()
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let mixtapes = element(app, "spool.shelf.mixtapes")
+        XCTAssertTrue(mixtapes.waitForExistence(timeout: 3))
+        mixtapes.tap()
+        // Late Night: nine songs and the first again, ten in all.
+        let lateNight = element(app, "spool.tape.mixtape:sample-mix-1")
+        XCTAssertTrue(lateNight.waitForExistence(timeout: 3))
+        lateNight.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        let first = element(app, "spool.jcard.track.0")
+        XCTAssertTrue(first.waitForExistence(timeout: 3), "The mixtape's case did not open")
+        XCTAssertTrue(first.label.contains("Mix Song 1"), "Late Night should start with Mix Song 1: \(first.label)")
+        first.press(forDuration: 1.0)
+        let remove = app.buttons["Remove from Playlist"]
+        XCTAssertTrue(remove.waitForExistence(timeout: 3), "The hold menu has no Remove from Playlist")
+        attachScreenshot(app, named: "spool-remove-from-playlist")
+        remove.tap()
+        // The second song moves up into its place.
+        let moved = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Mix Song 2'"), object: first)
+        XCTAssertEqual(XCTWaiter().wait(for: [moved], timeout: 3), .completed, "The song wasn't taken out: \(first.label)")
+        XCTAssertTrue(element(app, "spool.jcard.track.1").label.contains("Mix Song 3"), "More than one song went")
+    }
+
     /// The Discover shelf holds Apple Music's suggestions (here placeholders: the
     /// simulator has no Apple Music), an album opening on its songs.
     @MainActor

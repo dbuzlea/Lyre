@@ -1361,3 +1361,35 @@ struct LoveTests {
         #expect(!Discover.isDue(nil, now: now))
     }
 }
+
+/// Playlists: a song isn't added twice, and one can be taken out of the listener's own.
+@MainActor
+struct PlaylistEditingTests {
+    private typealias Entry = PlaylistAdder.Entry
+
+    @Test func theSameSongIsntAddedTwice() {
+        let inPlaylist = [Entry(id: "i.abc", title: "bad guy", artist: "Billie Eilish", duration: 194)]
+        // The same item, or the catalogue's copy of the library's (another ID).
+        #expect(PlaylistAdder.isDuplicate(Entry(id: "i.abc", title: "bad guy", artist: "Billie Eilish", duration: 194), among: inPlaylist))
+        #expect(PlaylistAdder.isDuplicate(Entry(id: "1450695739", title: "Bad Guy", artist: "Billie Eilish", duration: 195), among: inPlaylist))
+        // Another version, another artist, or another length isn't the same song.
+        #expect(!PlaylistAdder.isDuplicate(Entry(id: "2", title: "bad guy (Remix)", artist: "Billie Eilish", duration: 194), among: inPlaylist))
+        #expect(!PlaylistAdder.isDuplicate(Entry(id: "3", title: "bad guy", artist: "Someone Else", duration: 194), among: inPlaylist))
+        #expect(!PlaylistAdder.isDuplicate(Entry(id: "4", title: "bad guy", artist: "Billie Eilish", duration: 260), among: inPlaylist))
+        #expect(!PlaylistAdder.isDuplicate(Entry(id: "5", title: "bad guy", artist: "Billie Eilish", duration: 194), among: []))
+    }
+
+    @Test func onlyTheListenersOwnPlaylistsOfferRemove() {
+        func mixtape(_ id: String, curator: String? = nil) -> AppAlbum {
+            AppAlbum(mixtape: AppPlaylist(id: id, name: id, curatorName: curator))
+        }
+        let adder = PlaylistAdder.shared
+        #expect(adder.canRemove(from: mixtape("p.mine")))
+        #expect(!adder.canRemove(from: mixtape("pl.apple")))
+        #expect(!adder.canRemove(from: mixtape("smart:mostPlayed")))
+        #expect(!adder.canRemove(from: mixtape(DiscoverSection.genrePlaylistID("21"))))
+        #expect(!adder.canRemove(from: mixtape("mp.123")))
+        #expect(!adder.canRemove(from: mixtape("p.mix", curator: "Apple Music")))
+        #expect(!adder.canRemove(from: AppAlbum(id: "a", title: "Album", artistName: "A")))
+    }
+}
