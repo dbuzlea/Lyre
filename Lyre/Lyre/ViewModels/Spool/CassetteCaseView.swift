@@ -435,7 +435,11 @@ struct CassetteCaseView: View {
             // plays from the case, offers its download.
             .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track,
                                 episode: album.podcast?.episodes.first { $0.id == track.id },
-                                onQueue: onQueue))
+                                onQueue: onQueue,
+                                // Only from the whole list: a search's matches aren't in the playlist's places.
+                                onRemove: shown.count == tracks.count
+                                    ? PlaylistAdder.shared.removeAction(track, at: index, from: album) { self.tracks?.remove(at: index) }
+                                    : nil))
             .accessibilityActions {
                 if !album.isPodcast {
                     Button(String(localized: "queue.action.playNext")) { onQueue([track], .next) }
@@ -598,7 +602,8 @@ struct CassetteCaseView: View {
 }
 
 /// Holding a song offers to queue it, next or at the end, or to add it to a playlist
-/// (PlaylistAdder). Holding a podcast episode, which isn't queued, offers its download
+/// (PlaylistAdder), and in a playlist of the listener's own, to take it out. Holding a
+/// podcast episode, which isn't queued, offers its download
 /// instead (Download, Cancel Download or Remove Download), as the click wheel and the
 /// gatefold do. Shared by the Spool's cassette case and the Gramophone's sleeve.
 struct QueueMenu: ViewModifier {
@@ -607,6 +612,8 @@ struct QueueMenu: ViewModifier {
     /// The episode the row is, when it is one.
     var episode: PodcastEpisode? = nil
     let onQueue: ([AppTrack], QueuePlacement) -> Void
+    /// Takes the song out of the playlist showing, where it can be (PlaylistAdder).
+    var onRemove: (() -> Void)? = nil
     @ObservedObject private var downloads = PodcastDownloads.shared
 
     func body(content: Content) -> some View {
@@ -620,6 +627,11 @@ struct QueueMenu: ViewModifier {
                 }
                 Button { PlaylistAdder.shared.offer(.track(track)) } label: {
                     Label(String(localized: "playlist.add.action"), systemImage: "music.note.list")
+                }
+                if let onRemove {
+                    Button(role: .destructive, action: onRemove) {
+                        Label(String(localized: "playlist.remove.action"), systemImage: "minus.circle")
+                    }
                 }
             }
         } else if let episode, episode.streamURL != nil {

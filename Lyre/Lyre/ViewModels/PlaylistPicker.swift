@@ -156,6 +156,12 @@ struct NewPlaylistPrompt: ViewModifier {
             .alert(outcome ?? "", isPresented: Binding(get: { isActive && outcome != nil }, set: { if !$0 { outcome = nil } })) {
                 Button(String(localized: "albumInfo.done"), role: .cancel) {}
             }
+            // A song a playlist wouldn't let go of (PlaylistAdder.remove), and why.
+            .alert(PlaylistAdder.shared.removalFailure ?? "",
+                   isPresented: Binding(get: { isActive && PlaylistAdder.shared.removalFailure != nil },
+                                        set: { if !$0 { PlaylistAdder.shared.removalFailure = nil } })) {
+                Button(String(localized: "albumInfo.done"), role: .cancel) {}
+            }
     }
 
     private func create() {

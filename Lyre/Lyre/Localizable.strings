@@ -875,3 +875,11 @@
 /* Liquid: a catalogue song's + button, which adds it to the library without playing it. */
 "catalog.addSong" = "Add “%@” to Library";
 "catalog.added.quiet" = "Added “%@” to your library.";
+
+/* Playlists: a song that's already in the playlist isn't added again. 1: the song, 2: the playlist. */
+"playlist.add.duplicate" = "“%1$@” is already in “%2$@”.";
+/* Removing a song from a playlist (hold menu), and what's said after. */
+"playlist.remove.action" = "Remove from Playlist";
+"playlist.remove.done" = "Removed “%@” from the playlist.";
+"playlist.remove.notLyres" = "Apple only lets Lyre change playlists made in Lyre.";
+"playlist.remove.changed" = "The playlist has changed since it was opened. Open it again and try once more.";
