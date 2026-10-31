@@ -177,15 +177,62 @@ final class PlaylistAdder {
     /// The playlists Apple wouldn't let Lyre change, kept between launches.
     private(set) var refused: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "PlaylistsLyreCantChange") ?? [])
 
-    /// Whether a song can be taken out of `album`, a playlist: one of the listener's own
-    /// that Apple hasn't refused Lyre changing (not Lyre's smart lists, Apple's, or the
-    /// catalogue's).
+    /// Whether a song can be taken out of `album`, a playlist: one Lyre made (`canEdit`).
     func canRemove(from album: AppAlbum) -> Bool {
-        guard let playlist = album.mixtape, playlist.isLibrary, !refused.contains(playlist.id) else { return false }
+        album.mixtape.map(canEdit) ?? false
+    }
+
+    /// The name MusicKit files a playlist an app makes under, as its curator: what tells
+    /// the playlists Lyre made (which Apple lets it change) from the Music app's (which
+    /// it doesn't). Checked on a device: a playlist made in Lyre is curated by "Lyre",
+    /// as one made by another app is by that app's name.
+    nonisolated static let lyreCurator = "Lyre"
+
+    /// Whether Lyre may change `playlist`: one of the listener's own that Lyre made, and
+    /// that Apple hasn't refused it changing (LYRE-25). Others show no Edit or Remove.
+    func canEdit(_ playlist: AppPlaylist) -> Bool {
+        guard playlist.isLibrary, !refused.contains(playlist.id) else { return false }
         #if DEBUG
         if Self.isSample(playlist) { return true }
         #endif
-        return Self.isEditable(id: playlist.id, kind: playlist.musicKitPlaylist?.kind, curatorName: playlist.curatorName)
+        return playlist.curatorName?.caseInsensitiveCompare(Self.lyreCurator) == .orderedSame
+    }
+
+    // MARK: Editing
+
+    /// Saves an edited playlist (LYRE-25): its name, if changed, and its songs, as given:
+    /// reordered, some taken out, some added. Returns the playlist as it now is.
+    func save(_ playlist: AppPlaylist, name: String, tracks: [AppTrack]) async throws -> AppPlaylist {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        #if DEBUG
+        // The sample mixtapes are only in Lyre.
+        if Self.isSample(playlist) {
+            return AppPlaylist(id: playlist.id, name: name, curatorName: playlist.curatorName,
+                               mpArtwork: playlist.mpArtwork, preloadedTracks: tracks)
+        }
+        #endif
+        let target = try await musicKitPlaylist(for: playlist)
+        var items: [Track] = []
+        for track in tracks {
+            if let item = track.musicKitTrack { items.append(item) }
+            else { items.append(.song(try await musicKitSong(for: .track(track)))) }
+        }
+        do {
+            let edited = try await MusicLibrary.shared.edit(target, name: name == target.name ? nil : name, items: items)
+            logger.debug("Edited a playlist")
+            return AppPlaylist(from: edited)
+        } catch {
+            if error is URLError || error is CancellationError { throw error }
+            refused.insert(playlist.id)
+            UserDefaults.standard.set(Array(refused), forKey: "PlaylistsLyreCantChange")
+            throw AddError.notLyres
+        }
+    }
+
+    /// What tells a song in a playlist from another, for one being added (`isDuplicate`).
+    nonisolated static func entry(_ track: AppTrack) -> Entry {
+        Entry(id: track.musicKitSong?.id.rawValue ?? track.id, title: track.title, artist: track.artistName,
+              duration: track.duration > 0 ? track.duration : nil)
     }
 
     /// Takes the song at `index` (`track`) out of `album`'s playlist. Checks the playlist

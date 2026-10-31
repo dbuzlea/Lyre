@@ -1491,7 +1491,13 @@ struct ScrollWheelView: View {
             }
 
         case .playlistDetail(let playlist):
-            let row = detailSelection
+            // A playlist Lyre made starts with Edit Playlist (LYRE-25).
+            let editRows = PlaylistDetailView.editRows(for: playlist)
+            if editRows == 1, detailSelection == 0 {
+                PlaylistEditCenter.shared.edit(playlist)
+                break
+            }
+            let row = detailSelection - editRows
             startPlayback {
                 let tracks = await musicService.loadTracks(for: playlist)
                 return await playDetailRow(row, of: tracks, playlistID: playlist.id)

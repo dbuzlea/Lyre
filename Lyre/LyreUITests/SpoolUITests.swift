@@ -670,6 +670,41 @@ final class SpoolUITests: XCTestCase {
         XCTAssertTrue(element(app, "spool.jcard.track.1").label.contains("Mix Song 3"), "More than one song went")
     }
 
+    /// LYRE-25: a playlist Lyre made has an Edit button in its case, which opens Edit
+    /// Playlist: its name, its songs to reorder or take out, and Add Music.
+    @MainActor
+    func testAPlaylistsCaseOpensEditPlaylist() throws {
+        let app = launchSpool()
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let mixtapes = element(app, "spool.shelf.mixtapes")
+        XCTAssertTrue(mixtapes.waitForExistence(timeout: 3))
+        mixtapes.tap()
+        let lateNight = element(app, "spool.tape.mixtape:sample-mix-1")
+        XCTAssertTrue(lateNight.waitForExistence(timeout: 3))
+        lateNight.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        let edit = element(app, "spool.case.edit")
+        XCTAssertTrue(edit.waitForExistence(timeout: 5), "The playlist's case has no Edit")
+        edit.tap()
+        let name = element(app, "playlist.edit.name")
+        XCTAssertTrue(name.waitForExistence(timeout: 5), "Edit Playlist didn't open")
+        XCTAssertEqual(name.value as? String, "Late Night")
+        XCTAssertTrue(element(app, "playlist.edit.song.0").waitForExistence(timeout: 5), "Edit Playlist lists no songs")
+        attachScreenshot(app, named: "lyre-25-edit-playlist")
+        // Add Music is under the songs.
+        let search = element(app, "playlist.edit.search")
+        for _ in 0..<4 where !search.exists { app.swipeUp() }
+        XCTAssertTrue(search.exists, "Edit Playlist can't add music")
+        attachScreenshot(app, named: "lyre-25-add-music")
+        // Back at the top, where the bar's Cancel is.
+        let cancel = app.buttons["Cancel"].firstMatch
+        for _ in 0..<4 where !cancel.exists { app.swipeDown() }
+        XCTAssertTrue(cancel.waitForExistence(timeout: 3), "Edit Playlist has no Cancel")
+        cancel.tap()
+        XCTAssertTrue(name.waitForNonExistence(timeout: 3), "Cancel didn't close Edit Playlist")
+    }
+
     /// The Discover shelf holds Apple Music's suggestions (here placeholders: the
     /// simulator has no Apple Music), an album opening on its songs.
     @MainActor

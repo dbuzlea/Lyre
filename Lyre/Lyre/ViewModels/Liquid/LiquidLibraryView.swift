@@ -1433,6 +1433,10 @@ struct LiquidAlbumPage: View {
             withAnimation(.easeInOut(duration: 0.4)) { color = tint }
             await AppleMusicCatalog.shared.loadAlbum(album)
         }
+        // An edit saved (PlaylistEditSheet): the playlist's songs as they now are.
+        .onChange(of: PlaylistEditCenter.shared.revision) {
+            Task { tracks = await library.tracks(for: album) }
+        }
     }
 
     /// The cover across the top, melting into the page's colour, with the way back and,
@@ -1463,6 +1467,15 @@ struct LiquidAlbumPage: View {
         .overlay(alignment: .topTrailing) {
             // LYRE-14: the whole album to Up Next, without holding its cover. A show's
             // episodes can't be queued, so a show has none.
+            HStack(spacing: 10) {
+            // A playlist Lyre made can be edited (LYRE-25).
+            PlaylistEditButton(playlist: album.mixtape, identifier: "liquid.album.edit") {
+                Image(systemName: "pencil")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .background(.black.opacity(0.3), in: Circle())
+                    .foregroundStyle(.white)
+            }
             if !album.isPodcast {
                 Menu {
                     Button { navigator.queueAlbum(album, .next) } label: {
@@ -1478,11 +1491,12 @@ struct LiquidAlbumPage: View {
                         .background(.black.opacity(0.3), in: Circle())
                 }
                 .foregroundStyle(.white)
-                .padding(.trailing, 16)
-                .padding(.top, 56)
                 .accessibilityLabel(String(localized: "liquid.album.queueMenu"))
                 .accessibilityIdentifier("liquid.album.queueMenu")
             }
+            }
+            .padding(.trailing, 16)
+            .padding(.top, 56)
         }
     }
 

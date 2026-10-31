@@ -894,3 +894,13 @@
 "settings.cleanVersions.detail" = "Plays the clean version of explicit songs and albums on Apple Music, and leaves out any that have none. Your own library isn't changed.";
 /* Liquid search: Apple Music's suggested searches, as the query's typed (VoiceOver). */
 "search.suggestions" = "Suggested searches";
+
+/* Edit Playlist (LYRE-25): a playlist Lyre made, renamed, reordered, songs taken out or added. */
+"playlist.edit.action" = "Edit Playlist";
+"playlist.edit.title" = "Edit Playlist";
+"playlist.edit.name" = "Name";
+"playlist.edit.songs" = "Songs";
+"playlist.edit.add" = "Add Music";
+"playlist.edit.search" = "Search your library and Apple Music";
+"playlist.edit.addSong" = "Add “%@”";
+"playlist.edit.done" = "Done";

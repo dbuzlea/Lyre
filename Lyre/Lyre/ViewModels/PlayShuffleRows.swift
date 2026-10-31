@@ -15,6 +15,8 @@ struct PlayShuffleRows: View {
 
     let selection: Int
     let themeSettings: ThemeSettings
+    /// Rows above Play (Edit Playlist), for scrolling to these by their place in the list.
+    var rowsAbove = 0
 
     var body: some View {
         row(offset: Self.playOffset, icon: "play.fill", label: String(localized: "detail.play"))
@@ -44,6 +46,6 @@ struct PlayShuffleRows: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-        .id(offset)
+        .id(offset + rowsAbove)
     }
 }

@@ -86,6 +86,10 @@ struct RecordSleeveView: View {
             let loaded = await loadTracks()
             if !loaded.isEmpty || tracks == nil { tracks = loaded }
         }
+        // An edit saved (PlaylistEditSheet): the playlist's songs as they now are.
+        .onChange(of: PlaylistEditCenter.shared.revision) {
+            Task { tracks = await loadTracks() }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("gramophone.sleeve")
         .accessibilityAction(.escape, close)
@@ -221,6 +225,13 @@ struct RecordSleeveView: View {
                                 .padding(.vertical, 8)
                                 .overlay(Capsule().strokeBorder(SpoolPalette.labelInk.opacity(0.6), lineWidth: 1.5))
                         }
+                    }
+                    // A playlist Lyre made can be edited (LYRE-25).
+                    PlaylistEditButton(playlist: album.mixtape, identifier: "gramophone.sleeve.edit") {
+                        Image(systemName: "pencil")
+                            .frame(width: 36, height: 36)
+                            .overlay(Circle().strokeBorder(SpoolPalette.labelInk.opacity(0.6), lineWidth: 1.5))
+                            .contentShape(Circle())
                     }
                 }
                 .font(.system(size: 13, weight: .semibold))

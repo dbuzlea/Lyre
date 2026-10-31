@@ -1384,7 +1384,10 @@ struct PlaylistEditingTests {
             AppAlbum(mixtape: AppPlaylist(id: id, name: id, curatorName: curator))
         }
         let adder = PlaylistAdder.shared
-        #expect(adder.canRemove(from: mixtape("p.mine")))
+        // LYRE-25: only a playlist Lyre made (curated by "Lyre"); the Music app's aren't.
+        #expect(adder.canRemove(from: mixtape("p.mine", curator: "Lyre")))
+        #expect(!adder.canRemove(from: mixtape("p.music", curator: "Daniel Buzlea")))
+        #expect(!adder.canRemove(from: mixtape("p.untitled")))
         #expect(!adder.canRemove(from: mixtape("pl.apple")))
         #expect(!adder.canRemove(from: mixtape("smart:mostPlayed")))
         #expect(!adder.canRemove(from: mixtape(DiscoverSection.genrePlaylistID("21"))))
@@ -1507,5 +1510,44 @@ struct DuplicateAlbumTests {
         #expect(restored.albums.map(\.id) == ["a", "e"])
         #expect(restored.albums[0].parts.map(\.id) == ["a", "b"])
         #expect(restored.albums[1].isExplicit)
+    }
+}
+
+
+/// LYRE-25: a playlist Lyre made can be edited, in every player.
+@MainActor
+struct PlaylistEditTests {
+    private func track(_ id: String) -> AppTrack {
+        AppTrack(id: id, title: "Song \(id)", artistName: "A", albumTitle: "", duration: 100 + Double(id.count))
+    }
+
+    @Test func onlyPlaylistsLyreMadeAreEditable() {
+        let adder = PlaylistAdder.shared
+        #expect(adder.canEdit(AppPlaylist(id: "p.1", name: "Spooky Jams", curatorName: "Lyre")))
+        #expect(adder.canEdit(AppPlaylist(id: "p.2", name: "x", curatorName: "lyre")))
+        #expect(!adder.canEdit(AppPlaylist(id: "p.3", name: "x", curatorName: "Daniel Buzlea")))
+        #expect(!adder.canEdit(AppPlaylist(id: "p.4", name: "x", curatorName: "S-GPT")))
+        #expect(!adder.canEdit(AppPlaylist(id: "smart:mostPlayed", name: "x", curatorName: "Lyre")))
+        #expect(!adder.canEdit(AppPlaylist(id: "pl.abc", name: "x", curatorName: "Lyre")))
+    }
+
+    @Test func classicOffersEditFirstOnlyOnAPlaylistLyreMade() {
+        #expect(PlaylistDetailView.editRows(for: AppPlaylist(id: "p.1", name: "x", curatorName: "Lyre")) == 1)
+        #expect(PlaylistDetailView.editRows(for: AppPlaylist(id: "p.2", name: "x", curatorName: "Someone")) == 0)
+    }
+
+    #if DEBUG
+    @Test func aSavedEditKeepsTheNewNameAndOrder() async throws {
+        let sample = AppPlaylist(id: "sample-mix-9", name: "Old", curatorName: "Sam", preloadedTracks: [track("1"), track("2")])
+        let saved = try await PlaylistAdder.shared.save(sample, name: "  New Name ", tracks: [track("2"), track("3")])
+        #expect(saved.name == "New Name")
+        #expect(saved.preloadedTracks.map(\.id) == ["2", "3"])
+    }
+    #endif
+
+    @Test func aSongAlreadyInThePlaylistIsntAddedAgain() {
+        let list = [track("1"), track("2")].map(PlaylistAdder.entry)
+        #expect(PlaylistAdder.isDuplicate(PlaylistAdder.entry(track("1")), among: list))
+        #expect(!PlaylistAdder.isDuplicate(PlaylistAdder.entry(track("3")), among: list))
     }
 }
