@@ -70,6 +70,26 @@ final class GramophoneUITests: XCTestCase {
         attachScreenshot(app, named: "gramophone-cabinet-front")
     }
 
+    /// LYRE-24: a playlist with a cover of its own is a black record with the cover on
+    /// its label, no grooves across it, as an album's is (checked in the screenshots).
+    @MainActor
+    func testAPlaylistsRecordHasItsCoverOnTheLabel() throws {
+        let app = launchGramophone(extraArguments: ["-SampleMixtapeArt", "YES"])
+        openCrate(app)
+        let recordings = element(app, "spool.shelf.mixtapes")
+        XCTAssertTrue(recordings.waitForExistence(timeout: 8), "No recordings shelf")
+        recordings.tap()
+        // Late Night is first by name.
+        let record = element(app, "gramophone.stack.mixtape:sample-mix-1")
+        XCTAssertTrue(record.waitForExistence(timeout: 5), "No sample playlist in the crate")
+        sleep(1)
+        attachScreenshot(app, named: "lyre-24-crate")
+        record.tap()
+        XCTAssertTrue(element(app, "gramophone.sleeve.track.0").waitForExistence(timeout: 5), "The playlist's sleeve didn't open")
+        sleep(1)
+        attachScreenshot(app, named: "lyre-24-sleeve")
+    }
+
     @MainActor
     func testChoosingASongFromASleevePutsTheRecordOnTheTurntable() throws {
         let app = launchGramophone()
