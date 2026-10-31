@@ -712,14 +712,28 @@ class MusicService: ObservableObject {
 
     /// The live counterpart of an album, playlist or artist the user picked from the
     /// cached library, which has no MusicKit object to expand and no artwork.
+    /// Asked of MusicKit on its own, by ID, rather than waiting for the whole library to
+    /// load: a launch's load takes seconds, and opening one album or playlist from the
+    /// cached library shouldn't. Waits for the load only when MusicKit hasn't it (one
+    /// from the device's library alone, an `mp.` ID).
     private func liveAlbum(for album: AppAlbum) async -> AppAlbum {
-        guard isShowingCachedLibrary else { return album }
+        guard isShowingCachedLibrary, album.musicKitAlbum == nil else { return album }
+        if !album.id.hasPrefix("mp.") {
+            var request = MusicLibraryRequest<Album>()
+            request.filter(matching: \.id, equalTo: MusicItemID(album.id))
+            if let found = try? await request.response().items.first { return AppAlbum(from: found) }
+        }
         await waitForLiveLibrary()
         return albums.first { $0.id == album.id } ?? album
     }
 
     private func livePlaylist(for playlist: AppPlaylist) async -> AppPlaylist {
-        guard isShowingCachedLibrary else { return playlist }
+        guard isShowingCachedLibrary, playlist.musicKitPlaylist == nil else { return playlist }
+        if !playlist.id.hasPrefix("mp."), !playlist.id.hasPrefix("smart:") {
+            var request = MusicLibraryRequest<Playlist>()
+            request.filter(matching: \.id, equalTo: MusicItemID(playlist.id))
+            if let found = try? await request.response().items.first { return AppPlaylist(from: found) }
+        }
         await waitForLiveLibrary()
         return playlists.first { $0.id == playlist.id } ?? playlist
     }
@@ -1136,6 +1150,22 @@ class MusicService: ObservableObject {
         setPodcastShowsIfChanged(podcastShowsFound)
 
         var local = await localScan
+
+        // The launch cache on screen has no artwork: the device's items go back on it
+        // now, a second in, rather than when MusicKit's load lands several later.
+        if isShowingCachedLibrary {
+            let cached = LibrarySnapshot(songs: songs, albums: albums, artists: artists, playlists: playlists,
+                                         recentlyAdded: recentlyAdded, recentlyPlayed: recentlyPlayed)
+            let scanned = local
+            let upgraded = await Task.detached(priority: .userInitiated) {
+                LibraryScanner.attachingLocalItems(to: cached, from: scanned)
+            }.value
+            // Only while the cache is still what's showing.
+            if isShowingCachedLibrary {
+                publish(upgraded, source: librarySource)
+                localItemIndex = local.snapshot.mpItemIndex
+            }
+        }
 
         // With nothing on screen yet — a first launch, or no usable cache — show the
         // on-device songs now instead of after MusicKit's round trips. Skipped when the
