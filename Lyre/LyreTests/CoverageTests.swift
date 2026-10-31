@@ -1457,3 +1457,55 @@ struct MusicKitIntegrationTests {
         #expect(ScrollWheelView.mainMenuDestination(at: 7) == .discover)
     }
 }
+
+/// LYRE-23: the library's several entries for one album are one album in every player.
+@MainActor
+struct DuplicateAlbumTests {
+    private func track(_ id: String) -> AppTrack {
+        AppTrack(id: id, title: "Song \(id)", artistName: "Lady Gaga", albumTitle: "Joanne", duration: 200)
+    }
+    private func album(_ id: String, _ title: String = "Joanne", artist: String = "Lady Gaga",
+                       explicit: Bool = false, tracks: [String] = []) -> AppAlbum {
+        AppAlbum(id: id, title: title, artistName: artist, preloadedTracks: tracks.map(track), isExplicit: explicit)
+    }
+
+    @Test func entriesOfOneAlbumBecomeOne() {
+        let albums = [album("a", tracks: ["1"]), album("other", "Chromatica"), album("b", "joanne", tracks: ["2"]),
+                      album("c", tracks: ["3"])]
+        let merged = albums.consolidated
+        #expect(merged.map(\.id) == ["a", "other"])
+        #expect(merged[0].parts.map(\.id) == ["a", "b", "c"])
+        #expect(merged[0].preloadedTracks.map(\.id) == ["1", "2", "3"])
+    }
+
+    @Test func editionsAndExplicitVersionsStayApart() {
+        let albums = [album("a"), album("deluxe", "Joanne (Deluxe)"), album("e", explicit: true),
+                      album("e2", explicit: true), album("cover", artist: "Someone Else")]
+        let merged = albums.consolidated
+        #expect(merged.map(\.id) == ["a", "deluxe", "e", "cover"])
+        #expect(merged.first { $0.id == "e" }?.parts.count == 2)
+        #expect(merged.first { $0.id == "e" }?.isExplicit == true)
+        #expect(merged.first { $0.id == "a" }?.parts.isEmpty == true)
+    }
+
+    @Test func playlistsArentMerged() {
+        let mix = AppAlbum(mixtape: AppPlaylist(id: "p.1", name: "Joanne", curatorName: "Lady Gaga"))
+        let mix2 = AppAlbum(mixtape: AppPlaylist(id: "p.2", name: "Joanne", curatorName: "Lady Gaga"))
+        #expect([mix, mix2].consolidated.count == 2)
+    }
+
+    @Test func aMergedAlbumPlaysEveryEntrysSongs() async {
+        let merged = [album("a", tracks: ["1"]), album("b", tracks: ["2", "3"])].consolidated[0]
+        let tracks = await MusicService().loadTracks(for: merged)
+        #expect(tracks.map(\.id) == ["1", "2", "3"])
+    }
+
+    @Test func theLaunchCacheKeepsMergedAlbums() {
+        var snapshot = LibrarySnapshot()
+        snapshot.albums = [album("a", tracks: ["1"]), album("b", tracks: ["2"]), album("e", explicit: true)].consolidated
+        let restored = CacheFile(snapshot: snapshot, source: .appleMusic, formatVersion: 3).restored().snapshot
+        #expect(restored.albums.map(\.id) == ["a", "e"])
+        #expect(restored.albums[0].parts.map(\.id) == ["a", "b"])
+        #expect(restored.albums[1].isExplicit)
+    }
+}

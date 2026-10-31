@@ -383,12 +383,13 @@ extension LibraryScanner {
             guard track.mpItem == nil, let id = track.mpPersistentID, let item = byID[id] else { return track }
             return track.attaching(mpItem: item)
         }
-        func album(_ album: AppAlbum) -> AppAlbum {
-            guard album.mpArtwork == nil, album.musicKitAlbum == nil, album.mixtape == nil, album.podcast == nil else { return album }
-            let tracks = album.preloadedTracks.map(track)
-            let item = tracks.first?.mpItem ?? byAlbum[albumKey(title: album.title, artist: album.artistName)]
-            return AppAlbum(id: album.id, title: album.title, artistName: album.artistName, releaseDate: album.releaseDate,
-                            mpArtwork: item?.artwork, preloadedTracks: tracks, isArtist: album.isArtist)
+        func album(_ entry: AppAlbum) -> AppAlbum {
+            guard entry.mpArtwork == nil, entry.musicKitAlbum == nil, entry.mixtape == nil, entry.podcast == nil else { return entry }
+            let tracks = entry.preloadedTracks.map(track)
+            let item = tracks.first?.mpItem ?? byAlbum[albumKey(title: entry.title, artist: entry.artistName)]
+            return AppAlbum(id: entry.id, title: entry.title, artistName: entry.artistName, releaseDate: entry.releaseDate,
+                            mpArtwork: item?.artwork, preloadedTracks: tracks, isArtist: entry.isArtist,
+                            isExplicit: entry.isExplicit, parts: entry.parts.map(album))
         }
         var snapshot = cached
         snapshot.songs = concurrentMap(cached.songs, track)

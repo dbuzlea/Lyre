@@ -100,7 +100,12 @@ struct AlbumListView: View {
                                         .padding(.top, index == 0 ? 0 : 4).padding(.bottom, 2)
                                     }
 
-                                    Text(album.title)
+                                    // An explicit album is marked, beside its clean
+                                    // version (LYRE-23).
+                                    HStack(spacing: 4) {
+                                        Text(album.title)
+                                        if album.isExplicit { ExplicitTag() }
+                                    }
                                         .font(.system(size: 12))
                                         .foregroundStyle(selection == index
                                             ? themeSettings.currentTheme.highlightTextColor

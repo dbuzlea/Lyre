@@ -37,7 +37,9 @@ nonisolated enum LibraryCache {
 
     /// Bump when the stored shape or list order changes. A mismatched file is ignored
     /// and replaced. 2: local lists sort ignoring leading articles.
-    private static let formatVersion = 2
+    /// 3: albums keep whether they're explicit and the entries a merged album stands for
+    /// (LYRE-23).
+    private static let formatVersion = 3
 
     private static var fileURL: URL? {
         FileManager.default
@@ -108,7 +110,7 @@ nonisolated enum LibraryCache {
 // library lists every song in Songs, again in its album and again under its artist, so
 // nesting them would roughly triple the file.
 
-private nonisolated struct CacheFile: Codable {
+nonisolated struct CacheFile: Codable {
     var formatVersion: Int
     var source: MusicLibrarySource
     var tracks: [CachedTrack]
@@ -136,6 +138,8 @@ private nonisolated struct CacheFile: Codable {
         var artistName: String
         var releaseDate: Date?
         var trackIDs: [String]
+        var isExplicit: Bool? = nil
+        var parts: [CachedAlbum]? = nil
     }
 
     struct CachedArtist: Codable {
@@ -163,10 +167,12 @@ private nonisolated struct CacheFile: Codable {
             }
             return tracks.map(\.id)
         }
-        func album(_ album: AppAlbum) -> CachedAlbum {
+        func album(_ entry: AppAlbum) -> CachedAlbum {
             CachedAlbum(
-                id: album.id, title: album.title, artistName: album.artistName,
-                releaseDate: album.releaseDate, trackIDs: ids(album.preloadedTracks)
+                id: entry.id, title: entry.title, artistName: entry.artistName,
+                releaseDate: entry.releaseDate, trackIDs: ids(entry.preloadedTracks),
+                isExplicit: entry.isExplicit ? true : nil,
+                parts: entry.parts.isEmpty ? nil : entry.parts.map(album)
             )
         }
 
@@ -202,7 +208,9 @@ private nonisolated struct CacheFile: Codable {
         func album(_ cached: CachedAlbum) -> AppAlbum {
             AppAlbum(
                 id: cached.id, title: cached.title, artistName: cached.artistName,
-                releaseDate: cached.releaseDate, preloadedTracks: resolve(cached.trackIDs)
+                releaseDate: cached.releaseDate, preloadedTracks: resolve(cached.trackIDs),
+                isExplicit: cached.isExplicit ?? false,
+                parts: cached.parts?.map(album) ?? []
             )
         }
 

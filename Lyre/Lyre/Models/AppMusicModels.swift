@@ -164,6 +164,13 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
     /// An artist on the shelves' Artists shelf: their songs, newest album first, in
     /// a case with their photo (see ArtistShelf).
     let isArtist: Bool
+    /// Rated explicit, as Apple Music has it: marked "E" beside its name, and never
+    /// merged with its clean version (`consolidated`).
+    let isExplicit: Bool
+    /// The library's entries this one album stands for, when it held the same album
+    /// more than once (LYRE-23, `consolidated`): its songs are all of theirs. Empty for
+    /// an album that's one entry.
+    let parts: [AppAlbum]
 
     init(
         id: String, title: String, artistName: String,
@@ -173,7 +180,9 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
         mixtape: AppPlaylist? = nil,
         podcast: PodcastShow? = nil,
         isCatalog: Bool = false,
-        isArtist: Bool = false
+        isArtist: Bool = false,
+        isExplicit: Bool = false,
+        parts: [AppAlbum] = []
     ) {
         self.id = id; self.title = title; self.artistName = artistName
         self.releaseDate = releaseDate; self.musicKitAlbum = musicKitAlbum
@@ -183,10 +192,50 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
         self.podcast = podcast
         self.isCatalog = isCatalog
         self.isArtist = isArtist
+        self.isExplicit = isExplicit
+        self.parts = parts
     }
 
     static func == (lhs: AppAlbum, rhs: AppAlbum) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
+// MARK: - Duplicate Albums
+
+nonisolated extension Array where Element == AppAlbum {
+    /// The albums with the library's several entries for one album made one (LYRE-23):
+    /// a library can hold an album as an entry per song added to it on its own. The
+    /// same title by the same artist is the same album; another edition ("Deluxe") has
+    /// another title, and an explicit album is never merged with its clean version.
+    /// Each merged album stands where its first entry did, with that entry's cover and
+    /// all the entries as its `parts`, so it plays all of their songs. Playlists, shows
+    /// and artists are left as they are.
+    var consolidated: [AppAlbum] {
+        func key(_ album: AppAlbum) -> String? {
+            guard album.mixtape == nil, album.podcast == nil, !album.isArtist else { return nil }
+            let title = album.title.trimmingCharacters(in: .whitespaces).lowercased()
+            let artist = album.artistName.trimmingCharacters(in: .whitespaces).lowercased()
+            return title + "\u{1}" + artist + (album.isExplicit ? "\u{1}E" : "")
+        }
+        var groups: [String: [AppAlbum]] = [:]
+        for album in self {
+            if let key = key(album) { groups[key, default: []].append(album) }
+        }
+        guard groups.values.contains(where: { $0.count > 1 }) else { return self }
+        var placed: Set<String> = []
+        return compactMap { album in
+            guard let key = key(album), let group = groups[key], group.count > 1 else { return album }
+            guard placed.insert(key).inserted else { return nil }
+            let first = group[0]
+            return AppAlbum(id: first.id, title: first.title, artistName: first.artistName,
+                            releaseDate: group.compactMap(\.releaseDate).min(),
+                            musicKitAlbum: first.musicKitAlbum ?? group.first { $0.musicKitAlbum != nil }?.musicKitAlbum,
+                            mpArtwork: first.mpArtwork ?? group.first { $0.mpArtwork != nil }?.mpArtwork,
+                            preloadedTracks: group.flatMap(\.preloadedTracks),
+                            isCatalog: first.isCatalog, isExplicit: first.isExplicit,
+                            parts: group)
+        }
+    }
 }
 
 // MARK: - Duplicate Songs
@@ -351,7 +400,8 @@ nonisolated extension AppAlbum {
     init(from album: Album, catalog: Bool = false) {
         self.init(
             id: album.id.rawValue, title: Self.title(album.title), artistName: album.artistName,
-            releaseDate: album.releaseDate, musicKitAlbum: album, isCatalog: catalog
+            releaseDate: album.releaseDate, musicKitAlbum: album, isCatalog: catalog,
+            isExplicit: album.contentRating == .explicit
         )
     }
 }
@@ -417,7 +467,8 @@ nonisolated extension AppAlbum {
             artistName: representative.albumArtist ?? representative.artist ?? "Unknown Artist",
             releaseDate: representative.releaseDate,
             mpArtwork: representative.artwork,
-            preloadedTracks: tracks
+            preloadedTracks: tracks,
+            isExplicit: tracks.contains { $0.isExplicit }
         )
     }
 }

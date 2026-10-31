@@ -255,6 +255,21 @@
         "LyreUITests/LiquidUITests/testTheHeartLovesTheSongPlaying()"
       ]
     },
+    {
+      "key": "LIB-12", "suite": "Music Access & Library", "title": "One album shows once; editions and clean/explicit versions stay apart, the explicit one marked E",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "A library holding one album as two entries (songs added to it at different times), an album with a Deluxe edition, and an album in both clean and explicit versions.",
+      "steps": [
+        ["Open Albums on the Spool, Disc, Gramophone, Liquid and Classic.", "The album held as two entries shows once; opening it lists the songs from both, each once, in track order."],
+        ["Find the album and its Deluxe edition.", "Two separate albums."],
+        ["Find the clean and explicit versions.", "Two albums; the explicit one has an E beside its name (the rack/crate title, Liquid's grid and album page, Classic's list)."],
+        ["Relaunch Lyre while offline.", "The library from the last launch shows the same merged albums at once."]
+      ],
+      "automated_by": [
+        "LyreTests/DuplicateAlbumTests",
+        "LyreUITests/LiquidUITests/testAnExplicitAlbumIsMarked()"
+      ]
+    },
 
     {
       "key": "PLY-01", "suite": "Playback & Queue", "title": "Play, pause, next and previous work in every player",

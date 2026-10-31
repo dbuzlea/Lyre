@@ -713,6 +713,24 @@ final class LiquidUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [searched], timeout: 3), .completed, "The suggestion wasn't searched: \(field.value ?? "")")
     }
 
+    /// LYRE-23: an explicit album is marked "E" beside its name, so it can be told from
+    /// its clean version.
+    @MainActor
+    func testAnExplicitAlbumIsMarked() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let albums = element(app, "liquid.menu.albums")
+        XCTAssertTrue(albums.waitForExistence(timeout: 10))
+        albums.tap()
+        let explicit = element(app, "liquid.cover.sample-4")
+        XCTAssertTrue(explicit.waitForExistence(timeout: 5), "No fourth sample album")
+        XCTAssertTrue(explicit.label.contains("Explicit"), "The explicit album isn't marked: \(explicit.label)")
+        XCTAssertFalse(element(app, "liquid.cover.sample-1").label.contains("Explicit"), "A clean album is marked explicit")
+        // Its name clear of the droplet, for the screenshot.
+        app.swipeUp(velocity: .slow)
+        sleep(1)
+        attachScreenshot(app, named: "lyre-23-explicit-album")
+    }
+
     /// The artists can be searched by name, as every Liquid list can.
     @MainActor
     func testTheArtistsCanBeSearched() throws {

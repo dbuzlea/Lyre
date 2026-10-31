@@ -1210,8 +1210,18 @@ class MusicService: ObservableObject {
             local.snapshot.playlists = collections.playlists
         }
 
-        let merged = LibrarySnapshot.merging(preferred: musicKit, fallback: local.snapshot)
+        var merged = LibrarySnapshot.merging(preferred: musicKit, fallback: local.snapshot)
         let source = LibrarySnapshot.source(preferred: musicKit, merged: merged)
+        // The library's several entries for one album made one (LYRE-23), off the main
+        // thread.
+        let (albums, artists) = (merged.albums, merged.artists)
+        (merged.albums, merged.artists) = await Task.detached(priority: .userInitiated) {
+            (albums.consolidated, artists.map { artist in
+                var artist = artist
+                artist.preloadedAlbums = artist.preloadedAlbums.consolidated
+                return artist
+            })
+        }.value
 
         // -1 for a MusicKit count means the request threw rather than returned empty.
         logger.notice("""
@@ -1367,6 +1377,13 @@ class MusicService: ObservableObject {
         // An artist's case already holds all their songs. Its MusicKit album is only
         // one of theirs, there for the cover; expanding it listed that album alone.
         if album.isArtist { return album.preloadedTracks }
+        // Several of the library's entries made one album (LYRE-23): all their songs, in
+        // disc and track order (the same song in two entries goes in `withoutDuplicates`).
+        if !album.parts.isEmpty {
+            var tracks: [AppTrack] = []
+            for part in album.parts { tracks += await loadAllTracks(for: part) }
+            return Self.inAlbumOrder(tracks)
+        }
         // A catalogue playlist or a genre's mixtape (Discover), opened as an album's list
         // is: its songs are the playlist's.
         if let playlist = album.mixtape, playlist.isCatalog || DiscoverSection.genreID(ofPlaylist: playlist.id) != nil {
@@ -1406,12 +1423,22 @@ class MusicService: ObservableObject {
         }
     }
 
+    /// Songs in the order an album lists them: by disc, then track, those with no
+    /// number after, as they came.
+    nonisolated static func inAlbumOrder(_ tracks: [AppTrack]) -> [AppTrack] {
+        tracks.enumerated().sorted { a, b in
+            let left = (a.element.discNumber ?? 1, a.element.trackNumber ?? Int.max, a.offset)
+            let right = (b.element.discNumber ?? 1, b.element.trackNumber ?? Int.max, b.offset)
+            return left < right
+        }.map(\.element)
+    }
+
     func loadAlbums(for artist: AppArtist) async -> [AppAlbum] {
         let artist = await liveArtist(for: artist)
         guard let mkArtist = artist.musicKitArtist else { return artist.preloadedAlbums }
         do {
             let detailed = try await mkArtist.with([.albums])
-            let albums = (detailed.albums ?? []).map { AppAlbum(from: $0) }
+            let albums = (detailed.albums ?? []).map { AppAlbum(from: $0) }.consolidated
             return albums.isEmpty ? artist.preloadedAlbums : albums
         } catch {
             logger.error("Failed to load albums for artist '\(artist.name)': \(error)")
