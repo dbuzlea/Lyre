@@ -20,8 +20,12 @@ struct SettingsView: View {
         String(localized: "settings.clickSound"),
         String(localized: "settings.backlight"),
         String(localized: "settings.playerStyle"),
+        String(localized: "settings.cleanVersions"),
         String(localized: "settings.about")
     ]
+
+    /// The Clean Versions row: pressed, it turns clean versions on or off in place.
+    static let cleanVersionsRow = 7
 
     private var settingsItems: [String] { Self.items }
     
@@ -40,6 +44,9 @@ struct SettingsView: View {
             Divider()
                 .background(themeSettings.currentTheme.dividerColor)
             
+            // Scrolls, keeping the highlighted row in view, on a screen too short for them all.
+            ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(0..<settingsItems.count, id: \.self) { index in
                     HStack {
@@ -55,6 +62,12 @@ struct SettingsView: View {
                                             .font(.system(size: 14, weight: .semibold))
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                         Spacer()
+                                        if let value = value(at: index) {
+                                            Text(value)
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.8))
+                                                .padding(.trailing, 8)
+                                        }
                                     }
                                     .padding(.leading, 8)
                                 }
@@ -65,16 +78,33 @@ struct SettingsView: View {
                                     .font(.system(size: 14))
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                 Spacer()
+                                if let value = value(at: index) {
+                                    Text(value)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
+                                        .padding(.trailing, 8)
+                                }
                             }
                             .padding(.leading, 8)
                         }
                     }
                     .frame(height: 28)
+                    .id(index)
                 }
             }
-            
+            }
+            .onAppear { proxy.scrollTo(selection) }
+            .onChange(of: selection) { _, row in withAnimation { proxy.scrollTo(row) } }
+            }
+
             Spacer()
         }
+    }
+
+    /// What a row's set to, shown beside it: Clean Versions' On or Off.
+    private func value(at index: Int) -> String? {
+        guard index == Self.cleanVersionsRow else { return nil }
+        return themeSettings.cleanVersions ? String(localized: "settings.clickSound.on") : String(localized: "settings.clickSound.off")
     }
 }
 

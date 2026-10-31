@@ -102,3 +102,24 @@ final class OneShotTimer {
         timer = nil
     }
 }
+
+// MARK: - The Apple Music Name
+
+nonisolated extension String {
+    /// Lowercased for a title's style, but "Apple Music" kept as written: Apple asks that
+    /// its name always be set with a capital A and M (Apple Music Identity Guidelines).
+    var lowercasedKeepingAppleMusic: String { recasedKeepingAppleMusic { $0.lowercased() } }
+
+    /// Uppercased for a title's style, "Apple Music" kept as written ("APPLE MUSIC" is
+    /// one of the forms Apple's guidelines rule out).
+    var uppercasedKeepingAppleMusic: String { recasedKeepingAppleMusic { $0.uppercased() } }
+
+    private func recasedKeepingAppleMusic(_ recase: (String) -> String) -> String {
+        var result = "", rest = self[...]
+        while let found = rest.range(of: "Apple Music", options: .caseInsensitive) {
+            result += recase(String(rest[..<found.lowerBound])) + "Apple Music"
+            rest = rest[found.upperBound...]
+        }
+        return result + recase(String(rest))
+    }
+}

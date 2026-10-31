@@ -641,21 +641,41 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(element(app, "liquid.album.track.0").waitForExistence(timeout: 5), "The genre didn't open its songs")
     }
 
-    /// Now Playing has a ♥ that loves the song (in Apple Music; here kept in Lyre, as the
-    /// simulator has none), and a second tap takes it back.
+    /// Now Playing has a ★ that favourites the song (in Apple Music; here kept in Lyre, as
+    /// the simulator has none), and a second tap takes it back.
     @MainActor
     func testTheHeartLovesTheSongPlaying() throws {
         let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying", "-LoveSamples", "YES"])
         XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
         let love = element(app, "liquid.love")
-        XCTAssertTrue(love.waitForExistence(timeout: 5), "Now Playing has no ♥")
-        XCTAssertEqual(love.label, "Love")
+        XCTAssertTrue(love.waitForExistence(timeout: 5), "Now Playing has no ★")
+        XCTAssertEqual(love.label, "Favorite")
         love.tap()
-        XCTAssertTrue(love.waitForLabel("Loved"), "The ♥ didn't fill: \(love.label)")
+        XCTAssertTrue(love.waitForLabel("Favorited"), "The ★ didn't fill: \(love.label)")
         attachScreenshot(app, named: "liquid-loved")
         love.tap()
-        XCTAssertTrue(love.waitForLabel("Love"), "The love wasn't taken back: \(love.label)")
+        XCTAssertTrue(love.waitForLabel("Favorite"), "The favourite wasn't taken back: \(love.label)")
+    }
+
+    /// Typing a search offers Apple Music's suggested searches (here made up, as the
+    /// simulator has no Apple Music); one tapped is searched for.
+    @MainActor
+    func testSearchOffersSuggestions() throws {
+        let app = launchLiquid(["-LiquidShot", "library", "-SearchSuggestionSamples", "YES"])
+        let search = element(app, "liquid.menu.search")
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("lyre")
+        let suggestion = element(app, "liquid.search.suggestion")
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 5), "No suggested searches")
+        attachScreenshot(app, named: "liquid-search-suggestions")
+        suggestion.tap()
+        let searched = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value BEGINSWITH 'lyre '"), object: field)
+        XCTAssertEqual(XCTWaiter().wait(for: [searched], timeout: 3), .completed, "The suggestion wasn't searched: \(field.value ?? "")")
     }
 
     /// The artists can be searched by name, as every Liquid list can.

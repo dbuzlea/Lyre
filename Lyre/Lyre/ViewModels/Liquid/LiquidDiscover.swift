@@ -32,7 +32,7 @@ struct LiquidDiscoverPage: View {
                 }
                 ForEach(sections) { section in
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(section.title.lowercased())
+                        Text(section.title.lowercasedKeepingAppleMusic)
                             .font(.system(size: 24, weight: .medium))
                             .tracking(-0.6)
                             .foregroundStyle(.white)

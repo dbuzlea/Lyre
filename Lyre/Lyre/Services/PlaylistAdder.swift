@@ -181,8 +181,7 @@ final class PlaylistAdder {
     /// that Apple hasn't refused Lyre changing (not Lyre's smart lists, Apple's, or the
     /// catalogue's).
     func canRemove(from album: AppAlbum) -> Bool {
-        guard let playlist = album.mixtape, !playlist.isCatalog, SmartList(id: playlist.id) == nil,
-              DiscoverSection.genreID(ofPlaylist: playlist.id) == nil, !refused.contains(playlist.id) else { return false }
+        guard let playlist = album.mixtape, playlist.isLibrary, !refused.contains(playlist.id) else { return false }
         #if DEBUG
         if Self.isSample(playlist) { return true }
         #endif

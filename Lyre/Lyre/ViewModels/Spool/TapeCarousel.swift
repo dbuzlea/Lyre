@@ -721,7 +721,7 @@ struct ShelfDividers: View {
                     UISelectionFeedbackGenerator().selectionChanged()
                     withAnimation(.easeInOut(duration: 0.22)) { shelf = option }
                 } label: {
-                    Text(title(option).uppercased())
+                    Text(title(option).uppercasedKeepingAppleMusic)
                         .font(.system(size: 11, weight: .heavy, design: .rounded))
                         .tracking(0.5)
                         .lineLimit(1)

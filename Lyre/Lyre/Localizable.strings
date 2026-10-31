@@ -771,16 +771,16 @@
 "catalog.inLibrary" = "In your library";
 "catalog.notInLibrary" = "Not in your library";
 "catalog.offer.title" = "“%@” isn't in your library";
-"catalog.offer.message" = "Playing it from Apple Music or adding it to your library needs an Apple Music subscription.";
+"catalog.offer.message" = "Playing it on Apple Music or adding it to your library needs an Apple Music subscription.";
 "catalog.offer.add" = "Add to Library";
-"catalog.offer.open" = "Open in Apple Music";
+"catalog.offer.open" = "Listen on Apple Music";
 "catalog.offer.cancel" = "Cancel";
-"catalog.added" = "Added “%@”. It'll play in a moment.";
+"catalog.added" = "Added “%@” to your library.";
 "catalog.added.later" = "Added “%@”. It'll appear once Apple Music has synced it.";
 "catalog.add.needsSubscription" = "Adding to your library needs an Apple Music subscription.";
 "catalog.search.title" = "Apple Music";
 "catalog.offer.play" = "Play";
-"catalog.play.failed" = "This album couldn't be loaded from Apple Music.";
+"catalog.play.failed" = "This album couldn't be loaded. Try again in a moment.";
 
 /* Add to Playlist (PlaylistAdder, PlaylistPicker) */
 "playlist.add.action" = "Add to Playlist…";
@@ -807,8 +807,8 @@
 "albumInfo.kind.single" = "Single";
 "albumInfo.kind.compilation" = "Compilation";
 "playlist.add.title" = "Add to Playlist";
-"playlist.add.none" = "You haven't made any playlists in Apple Music yet.";
-"playlist.add.notInAppleMusic" = "This song isn't in Apple Music, so it can't be added to a playlist.";
+"playlist.add.none" = "You haven't made any playlists yet.";
+"playlist.add.notInAppleMusic" = "This song isn't on Apple Music, so it can't be added to a playlist.";
 "playlist.add.notFound" = "That playlist couldn't be found. It may have been deleted.";
 "liquid.menu.mostPlayed" = "most played";
 "liquid.mostPlayed.empty" = "Songs you play a few times show up here.";
@@ -864,13 +864,13 @@
 /* Classic Discover: how many albums or playlists a section holds. */
 "discover.count" = "%d items";
 
-/* The ♥ in every player: loves the song playing in Apple Music (VoiceOver labels). */
-"love.label" = "Love";
-"love.loved" = "Loved";
-/* Classic Now Playing: the row that loves the song playing, and what it says once loved. */
-"love.row" = "Love";
-"love.row.loved" = "Loved";
-"love.row.notLoved" = "Not loved";
+/* The ★ in every player: favourites the song playing, as the Music app's Favorite does (VoiceOver labels). */
+"love.label" = "Favorite";
+"love.loved" = "Favorited";
+/* Classic Now Playing: the row that favourites the song playing, and what it says. */
+"love.row" = "Favorite";
+"love.row.loved" = "Yes";
+"love.row.notLoved" = "No";
 
 /* Liquid: a catalogue song's + button, which adds it to the library without playing it. */
 "catalog.addSong" = "Add “%@” to Library";
@@ -883,3 +883,14 @@
 "playlist.remove.done" = "Removed “%@” from the playlist.";
 "playlist.remove.notLyres" = "Apple only lets Lyre change playlists made in Lyre.";
 "playlist.remove.changed" = "The playlist has changed since it was opened. Open it again and try once more.";
+/* Discover: a station (made for the listener, or played lately), as its card says who made it. */
+"discover.station" = "Apple Music Radio";
+/* Discover: the listener's Apple Music Replay. %d: the year. */
+"discover.replay" = "Replay";
+"discover.replay.year" = "Replay %d";
+
+/* Settings in every player: swap Apple Music's explicit songs and albums for their clean versions. */
+"settings.cleanVersions" = "Clean Versions";
+"settings.cleanVersions.detail" = "Plays the clean version of explicit songs and albums on Apple Music, and leaves out any that have none. Your own library isn't changed.";
+/* Liquid search: Apple Music's suggested searches, as the query's typed (VoiceOver). */
+"search.suggestions" = "Suggested searches";

@@ -1022,7 +1022,7 @@ struct ScrollWheelView: View {
                 didScroll = false
             }
         case .settings:
-            maxIndex = SettingsView.items.count - 1 // Theme … Backlight, Player Style, About
+            maxIndex = SettingsView.items.count - 1 // Theme … Backlight, Player Style, Clean Versions, About
             if menuSelection < maxIndex {
                 menuSelection += 1
                 didScroll = true
@@ -1552,7 +1552,12 @@ struct ScrollWheelView: View {
             case 4: settingsTarget = .clickSoundSelection
             case 5: settingsTarget = .backlightDurationSelection
             case 6: settingsTarget = .playerStyleSelection
-            case 7: settingsTarget = .about
+            case SettingsView.cleanVersionsRow:
+                // Turned on or off in place.
+                _ = navigationStack.popLast()
+                themeSettings.cleanVersions.toggle()
+                return
+            case 8: settingsTarget = .about
             default:
                 _ = navigationStack.popLast()
                 return

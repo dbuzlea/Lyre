@@ -12,12 +12,13 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 
 // MARK: - Loves
 //
-// The ♥ every player has for the song playing: loving a song tells Apple Music, as the
-// Music app's Love does, so its recommendations (Discover's Made for You) learn from
-// it. Through Apple Music's ratings (`/v1/me/ratings`), which MusicKit's data requests
+// The ★ every player has for the song playing: favouriting a song tells Apple Music, as
+// the Music app's Favorite does, so its recommendations (Discover's Made for You) learn
+// from it. A favourite is a rating of 1: the Music app's favourites read back as one,
+// checked on a device, so the star shows what the Music app shows. Through Apple Music's ratings (`/v1/me/ratings`), which MusicKit's data requests
 // sign for the listener: a catalogue song by its Apple Music ID, a library song by its
 // library ID. A song with neither (a file of the listener's own) can't be loved, and
-// shows no ♥.
+// shows no ★.
 //
 // What's known is kept for as long as Lyre is open, each song asked about once, when
 // it plays. A tap changes the heart at once and is put back if Apple Music says no.
@@ -72,7 +73,7 @@ final class Loves {
         !id.isEmpty && id.allSatisfy(\.isNumber) && id != "0"
     }
 
-    /// Whether a ♥ is offered for this song at all.
+    /// Whether a ★ is offered for this song at all.
     func canLove(_ track: AppTrack?) -> Bool {
         guard let track, path(for: track) != nil else { return false }
         return Self.usesSamples || AppleMusicCatalog.isAvailable

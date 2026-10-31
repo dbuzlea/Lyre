@@ -471,6 +471,10 @@ class MusicService: ObservableObject {
     private(set) var songSectionLetters:           [String] = []
     private(set) var albumSectionLetters:          [String] = []
     private(set) var artistSectionLetters:         [String] = []
+    /// Recently Played as the device's library has it, before Apple Music's history goes
+    /// in front (AppleMusicRecents): what a reload is compared with, so the merge isn't
+    /// taken for a change.
+    private(set) var deviceRecentlyPlayed: [AppTrack] = []
     private(set) var recentlyAddedSectionLetters:  [String] = []
     private(set) var recentlyPlayedSectionLetters: [String] = []
 
@@ -697,6 +701,7 @@ class MusicService: ObservableObject {
         playlists      = snapshot.playlists
         recentlyAdded  = snapshot.recentlyAdded
         recentlyPlayed = snapshot.recentlyPlayed
+        deviceRecentlyPlayed = snapshot.recentlyPlayed
         librarySource  = source
         if let nowPlaying = player.nowPlayingItem {
             currentTrack = libraryTrack(for: nowPlaying) ?? currentTrack
@@ -729,7 +734,7 @@ class MusicService: ObservableObject {
 
     private func livePlaylist(for playlist: AppPlaylist) async -> AppPlaylist {
         guard isShowingCachedLibrary, playlist.musicKitPlaylist == nil else { return playlist }
-        if !playlist.id.hasPrefix("mp."), !playlist.id.hasPrefix("smart:") {
+        if !playlist.id.hasPrefix("mp."), playlist.isLibrary {
             var request = MusicLibraryRequest<Playlist>()
             request.filter(matching: \.id, equalTo: MusicItemID(playlist.id))
             if let found = try? await request.response().items.first { return AppPlaylist(from: found) }
@@ -1174,6 +1179,7 @@ class MusicService: ObservableObject {
             songs          = local.snapshot.songs
             recentlyAdded  = local.snapshot.recentlyAdded
             recentlyPlayed = local.snapshot.recentlyPlayed
+            deviceRecentlyPlayed = local.snapshot.recentlyPlayed
         }
 
         // A throw here is not fatal as long as the local snapshot found something.
@@ -1269,6 +1275,9 @@ class MusicService: ObservableObject {
         isShowingCachedLibrary  = false
         logger.notice("Loaded \(self.songs.count) songs, \(self.albums.count) albums, \(self.artists.count) artists, \(self.playlists.count) playlists, \(self.podcastShows.count) podcasts from \(String(describing: source)) [subscription: \(String(describing: self.subscriptionState))]")
 
+        // Apple Music's own history goes in front of the device's (AppleMusicRecents).
+        Task { await mergeAppleMusicRecents() }
+
         // Written in the background so nothing waiting on this load waits on the disk.
         // `save` itself skips the write when the file already holds this library.
         if !isUnchanged {
@@ -1290,7 +1299,7 @@ class MusicService: ObservableObject {
         return source == librarySource
             && sameTracks(songs, snapshot.songs)
             && sameTracks(recentlyAdded, snapshot.recentlyAdded)
-            && sameTracks(recentlyPlayed, snapshot.recentlyPlayed)
+            && sameTracks(deviceRecentlyPlayed, snapshot.recentlyPlayed)
             && albums.elementsEqual(snapshot.albums) {
                 $0.id == $1.id && $0.title == $1.title && $0.artistName == $1.artistName
                     && sameTracks($0.preloadedTracks, $1.preloadedTracks)
@@ -1416,6 +1425,11 @@ class MusicService: ObservableObject {
     func play(tracks: [AppTrack], startingAt index: Int = 0, playlistID: String? = nil) async -> PlaybackStartOutcome {
         guard index < tracks.count else { return .nothingPlayable }
         logger.info("Starting playback: \(tracks.count) track(s), index \(index)")
+        // A song only Apple Music has, without a subscription: Apple's trial offer, for it.
+        if subscriptionState == .notSubscribed, tracks[index].isStreamOnly {
+            SubscriptionOffer.shared.offer(itemID: tracks[index].storeID)
+            return .trackUnavailable
+        }
 
         // Only a window around the chosen track goes to the player; the rest is fed in
         // by refillQueueIfNeeded() as playback gets near the end of it. Resolving media

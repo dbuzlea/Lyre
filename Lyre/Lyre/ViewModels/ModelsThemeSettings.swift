@@ -159,6 +159,20 @@ class ThemeSettings {
         }
     }
 
+    /// Whether Apple Music's explicit songs and albums are swapped for their clean
+    /// versions (AppleMusicCatalog.clean), in every player. Off unless turned on.
+    var cleanVersions: Bool {
+        didSet {
+            UserDefaults.standard.set(cleanVersions, forKey: Self.cleanVersionsKey)
+            // What Apple Music was asked for already is asked for again, the new way.
+            Task { @MainActor in
+                AppleMusicCatalog.shared.forgetSongLists()
+                await Discover.shared.forget()
+            }
+        }
+    }
+    nonisolated static let cleanVersionsKey = "LyreCleanVersions"
+
     /// Whether Liquid asks Deezer for songs' tempos (see SongTempos). On unless turned off.
     var liquidTempoLookup: Bool {
         didSet {
@@ -293,6 +307,7 @@ class ThemeSettings {
         // Read with bool(forKey:), which also takes a launch argument's "NO".
         self.liquidRipple = UserDefaults.standard.object(forKey: "LyreLiquidRipple") == nil
             || UserDefaults.standard.bool(forKey: "LyreLiquidRipple")
+        self.cleanVersions = UserDefaults.standard.bool(forKey: Self.cleanVersionsKey)
         self.liquidTempoLookup = UserDefaults.standard.object(forKey: "LyreLiquidTempoLookup") == nil
             || UserDefaults.standard.bool(forKey: "LyreLiquidTempoLookup")
 

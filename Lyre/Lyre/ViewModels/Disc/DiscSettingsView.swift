@@ -57,6 +57,10 @@ struct DiscSettingsView: View {
                         )) {
                             rowLabel(String(localized: "disc.random.label"))
                         }
+                        Toggle(isOn: $themeSettings.cleanVersions) {
+                            rowLabel(String(localized: "settings.cleanVersions"))
+                        }
+                        .accessibilityHint(String(localized: "settings.cleanVersions.detail"))
                         HStack {
                             rowLabel(String(localized: "spool.settings.repeat"))
                             Spacer(minLength: 16)

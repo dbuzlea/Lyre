@@ -1393,3 +1393,67 @@ struct PlaylistEditingTests {
         #expect(!adder.canRemove(from: AppAlbum(id: "a", title: "Album", artistName: "A")))
     }
 }
+
+/// What the MusicKit review asked of Lyre: Apple Music's name as Apple writes it, a
+/// favourite rather than a love, Apple Music's own history, stations, Replay and clean
+/// versions.
+@MainActor
+struct MusicKitIntegrationTests {
+    @Test func appleMusicKeepsItsCapitalsInAStyledTitle() {
+        #expect("Top Songs on Apple Music".lowercasedKeepingAppleMusic == "top songs on Apple Music")
+        #expect("Apple Music".uppercasedKeepingAppleMusic == "Apple Music")
+        #expect("made by apple music · 2 apple music songs".uppercasedKeepingAppleMusic == "MADE BY Apple Music · 2 Apple Music SONGS")
+        #expect("Albums".lowercasedKeepingAppleMusic == "albums")
+    }
+
+    /// "on Apple Music", never "in" or "from" (Apple Music Identity Guidelines).
+    @Test func lyreSaysOnAppleMusic() throws {
+        let url = try #require(Bundle.main.url(forResource: "Localizable", withExtension: "strings"))
+        let strings = try #require(NSDictionary(contentsOf: url) as? [String: String])
+        let offending = strings.filter { $0.value.range(of: #"\b(in|from) Apple Music\b"#, options: .regularExpression) != nil }
+        #expect(offending.isEmpty, "\(offending.keys.sorted())")
+        #expect(strings["catalog.offer.open"] == "Listen on Apple Music")
+        #expect(strings["love.label"] == "Favorite")
+    }
+
+    @Test func theStarIsAFavourite() {
+        #expect(LoveButton<EmptyView>.symbol(true) == "star.fill")
+        #expect(LoveButton<EmptyView>.symbol(false) == "star")
+    }
+
+    @Test func appleMusicsHistoryGoesFirstEachSongOnce() {
+        func track(_ id: String, _ title: String) -> AppTrack {
+            AppTrack(id: id, title: title, artistName: "A", albumTitle: "", duration: 100)
+        }
+        let apple = [track("s1", "Streamed"), track("l2", "Both")]
+        let device = [track("d2", "Both"), track("d3", "Device Only")]
+        #expect(MusicService.mergedRecents(apple: apple, device: device).map(\.id) == ["s1", "l2", "d3"])
+        #expect(MusicService.mergedRecents(apple: apple, device: device, limit: 2).count == 2)
+    }
+
+    @Test func lyresOwnPlaylistsArentTheLibrarys() {
+        #expect(AppPlaylist(id: "p.123", name: "Mine").isLibrary)
+        for id in ["pl.abc", "smart:mostPlayed", "discover:genre:21", "discover:replay:songs", "station:ra.1"] {
+            #expect(!AppPlaylist(id: id, name: id).isLibrary, "\(id)")
+        }
+    }
+
+    @Test func aReplaySummaryGivesItsYearSongsAndAlbums() throws {
+        let json = #"""
+        {"data":[{"id":"r","type":"music-summaries","attributes":{"year":2025},
+          "views":{"top-songs":{"data":[{"id":"1440934248","type":"songs","attributes":{"name":"Song","artistName":"Artist"}}]},
+                   "top-albums":{"data":[{"id":"1440934000","type":"albums","attributes":{"name":"Album","artistName":"Artist"}}]}}}]}
+        """#
+        let summary = try #require(try Discover.replaySummary(from: Data(json.utf8)))
+        #expect(summary.year == 2025)
+        #expect(summary.songs.map(\.title) == ["Song"])
+        #expect(summary.albums.map(\.title) == ["Album"])
+        #expect(try Discover.replaySummary(from: Data(#"{"data":[]}"#.utf8)) == nil)
+    }
+
+    @Test func theClassicSettingsTurnCleanVersionsOnAndOff() {
+        #expect(SettingsView.items[SettingsView.cleanVersionsRow] == String(localized: "settings.cleanVersions"))
+        #expect(SettingsView.items.last == String(localized: "settings.about"))
+        #expect(ScrollWheelView.mainMenuDestination(at: 7) == .discover)
+    }
+}

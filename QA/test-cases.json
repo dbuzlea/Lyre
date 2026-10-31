@@ -198,17 +198,17 @@
       ]
     },
     {
-      "key": "LIB-09", "suite": "Music Access & Library", "title": "Loving a song tells Apple Music, and Discover keeps up",
+      "key": "LIB-09", "suite": "Music Access & Library", "title": "Favoriting a song tells Apple Music, and Discover keeps up",
       "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
       "preconditions": "Apple Music access allowed, an Apple Music subscription, online. An Apple Music song playing.",
       "steps": [
-        ["In Liquid, tap the ♥ beside AirPlay.", "It fills at once; the song shows as Loved in the Music app."],
-        ["Tap it again.", "It empties; the love is gone in the Music app too."],
-        ["Love a song in the Music app, then play it in Lyre.", "Lyre's ♥ is already filled."],
-        ["Repeat on the Spool, Disc and Gramophone (the ♥ beside AirPlay), and on Classic (Now Playing's Love row, pressed with the centre button).", "Same in every player."],
-        ["Play a file of your own (not from Apple Music), then a podcast.", "No ♥ (and no Love row on Classic)."],
-        ["Turn on Airplane Mode and tap the ♥.", "It fills, then goes back: Apple Music couldn't be told."],
-        ["Over a few days, play and love music in Lyre; open Discover after Lyre has been in the background.", "Made for You changes with what's played and loved, without relaunching; New Releases follows the artists played most."]
+        ["In Liquid, tap the ★ beside AirPlay.", "It fills at once; the song shows as a Favorite in the Music app."],
+        ["Tap it again.", "It empties; the favorite is gone in the Music app too."],
+        ["Favorite a song in the Music app, then play it in Lyre.", "Lyre's ★ is already filled."],
+        ["Repeat on the Spool, Disc and Gramophone (the ★ beside AirPlay), and on Classic (Now Playing's Favorite row, pressed with the centre button).", "Same in every player."],
+        ["Play a file of your own (not from Apple Music), then a podcast.", "No ★ (and no Favorite row on Classic)."],
+        ["Turn on Airplane Mode and tap the ★.", "It fills, then goes back: Apple Music couldn't be told."],
+        ["Over a few days, play and favorite music in Lyre; open Discover after Lyre has been in the background.", "Made for You changes with what's played and favorited, without relaunching; New Releases follows the artists played most."]
       ],
       "automated_by": [
         "LyreTests/LoveTests",
@@ -232,6 +232,27 @@
       "automated_by": [
         "LyreTests/PlaylistEditingTests",
         "LyreUITests/SpoolUITests/testHoldingASongInAMixtapeRemovesItFromThePlaylist()"
+      ]
+    },
+    {
+      "key": "LIB-11", "suite": "Music Access & Library", "title": "MusicKit: trial offer, Apple Music history, stations, Replay, charts, suggestions and clean versions",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Apple Music access allowed, online. A subscribed account, and (for step 1) one without a subscription.",
+      "steps": [
+        ["Without a subscription, pick a song or album only Apple Music has (Discover, Liquid search).", "Apple's own trial offer opens, showing what was picked."],
+        ["Stream a song you haven't added (Discover), then open Recently Played in Liquid and on the Spool's Mixtapes shelf.", "The streamed song is at the top, ahead of the library's songs; no song twice."],
+        ["Open Discover.", "Recently Played (albums, playlists, stations), Replay with the year, Top Songs with the daily global chart beside it, Top Albums, Top Playlists and city charts appear."],
+        ["Open a station from Made for You or Recently Played and play it.", "The station plays, in every player. If it doesn't, note the player and station."],
+        ["In Liquid search, type a few letters.", "Suggested searches appear under the field; tapping one searches for it."],
+        ["Turn on Clean Versions (any player's settings, or Classic: Settings > Clean Versions), then open Discover's charts and an artist's Top Songs.", "No E badges: explicit songs are swapped for clean versions or left out. Your own library keeps its songs."],
+        ["Look at Apple Music's name across Liquid (search, Discover), the shelves' dividers and artist cases.", "Always 'Apple Music', never 'apple music' or 'APPLE MUSIC'; 'Listen on Apple Music', not 'Open in'."],
+        ["In Liquid, Add to Library a song from the not-in-library dialog.", "It's added and nothing starts playing."],
+        ["Tap the ★ on a song.", "It fills and the song is a Favorite in the Music app."]
+      ],
+      "automated_by": [
+        "LyreTests/MusicKitIntegrationTests",
+        "LyreUITests/LiquidUITests/testSearchOffersSuggestions()",
+        "LyreUITests/LiquidUITests/testTheHeartLovesTheSongPlaying()"
       ]
     },
 

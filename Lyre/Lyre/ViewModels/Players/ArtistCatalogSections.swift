@@ -175,7 +175,7 @@ struct ArtistCatalogFooter: View {
 private struct ArtistSectionTitle: View {
     let text: String
     var body: some View {
-        Text(text.uppercased())
+        Text(text.uppercasedKeepingAppleMusic)
             .font(.system(size: 11, weight: .heavy, design: .rounded))
             .tracking(0.6)
             .opacity(0.6)
