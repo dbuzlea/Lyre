@@ -270,6 +270,23 @@
         "LyreUITests/LiquidUITests/testAnExplicitAlbumIsMarked()"
       ]
     },
+    {
+      "key": "LIB-13", "suite": "Music Access & Library", "title": "Edit a playlist Lyre made: rename, reorder, remove, add",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "A playlist made in Lyre (New Playlist…) with a few songs, and one made in the Music app.",
+      "steps": [
+        ["Open the Lyre playlist on the Spool, Disc, Gramophone and in Liquid.", "Each has an Edit (pencil) button; Classic's playlist starts with an Edit Playlist row."],
+        ["Open the playlist made in the Music app.", "No Edit and no Remove from Playlist: Apple won't let Lyre change it."],
+        ["Tap Edit; rename it, drag a song to the top, remove another, search and add a song (one from Apple Music too), tap Done.", "The sheet closes; the playlist shows the new name and order at once, and the Music app shows the same."],
+        ["Edit again and add a song the playlist already has.", "It isn't added: the sheet says it's already there."],
+        ["Edit, change things, then tap Cancel.", "Nothing changes."],
+        ["Turn on Airplane Mode and save an edit.", "It says it couldn't save; the playlist is as it was."]
+      ],
+      "automated_by": [
+        "LyreTests/PlaylistEditTests",
+        "LyreUITests/SpoolUITests/testAPlaylistsCaseOpensEditPlaylist()"
+      ]
+    },
 
     {
       "key": "PLY-01", "suite": "Playback & Queue", "title": "Play, pause, next and previous work in every player",

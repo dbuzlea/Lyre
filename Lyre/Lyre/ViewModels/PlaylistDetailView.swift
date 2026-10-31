@@ -19,6 +19,13 @@ struct PlaylistDetailView: View {
     @State private var tracks: [AppTrack] = []
     @State private var isLoading = true
 
+    /// A playlist Lyre made starts with an Edit Playlist row (LYRE-25), which opens the
+    /// sheet every player edits a playlist in; Play, Shuffle and the songs follow it.
+    static func editRows(for playlist: AppPlaylist) -> Int {
+        PlaylistAdder.shared.canEdit(playlist) ? 1 : 0
+    }
+    private var editRows: Int { Self.editRows(for: playlist) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -72,12 +79,13 @@ struct PlaylistDetailView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 2) {
-                            PlayShuffleRows(selection: selection, themeSettings: themeSettings)
+                            if editRows == 1 { editRow.id(0) }
+                            PlayShuffleRows(selection: selection - editRows, themeSettings: themeSettings, rowsAbove: editRows)
                             ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
                                 // One layout for both states, with the highlight as a background:
                                 // the text stays inside the row instead of overflowing an overlay,
                                 // and the row isn't rebuilt (and cross-faded) as the cursor moves.
-                                let isSelected = selection == index + PlayShuffleRows.count
+                                let isSelected = selection == index + PlayShuffleRows.count + editRows
                                 HStack {
                                     Text("\(index + 1)")
                                         .font(.system(size: 9, weight: isSelected ? .medium : .regular))
@@ -109,7 +117,7 @@ struct PlaylistDetailView: View {
                                 .frame(height: 32)
                                 .background(isSelected ? themeSettings.currentTheme.highlightColor : Color.clear)
                                 .selectionBarRefraction(when: isSelected)
-                                .id(index + PlayShuffleRows.count)
+                                .id(index + PlayShuffleRows.count + editRows)
                             }
                         }
                     }
@@ -121,14 +129,37 @@ struct PlaylistDetailView: View {
             }
         }
         .task { await loadTracks() }
+        // An edit saved: the playlist's songs as they now are.
+        .onChange(of: PlaylistEditCenter.shared.revision) {
+            Task { await loadTracks() }
+        }
         .onChange(of: selection) { _, newValue in
             if !tracks.isEmpty {
+                let rows = tracks.count + PlayShuffleRows.count + editRows
                 if newValue < 0 { selection = 0 }
-                else if newValue >= tracks.count + PlayShuffleRows.count {
-                    selection = tracks.count + PlayShuffleRows.count - 1
-                }
+                else if newValue >= rows { selection = rows - 1 }
             }
         }
+    }
+
+    private var editRow: some View {
+        let isSelected = selection == 0
+        return HStack(spacing: 6) {
+            Image(systemName: "pencil")
+                .font(.system(size: 10))
+                .frame(width: 20, alignment: .trailing)
+            Text(String(localized: "playlist.edit.action"))
+                .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                .lineLimit(1)
+            Spacer()
+        }
+        .foregroundStyle(isSelected ? themeSettings.currentTheme.highlightTextColor : themeSettings.currentTheme.screenTextColor)
+        .padding(.leading, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 32)
+        .background(isSelected ? themeSettings.currentTheme.highlightColor : Color.clear)
+        .selectionBarRefraction(when: isSelected)
+        .accessibilityIdentifier("playlist.edit.row")
     }
 
     @ViewBuilder

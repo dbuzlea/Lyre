@@ -100,6 +100,10 @@ struct JewelCaseView: View {
             let loaded = await loadTracks()
             if !loaded.isEmpty || tracks == nil { tracks = loaded }
         }
+        // An edit saved (PlaylistEditSheet): the playlist's songs as they now are.
+        .onChange(of: PlaylistEditCenter.shared.revision) {
+            Task { tracks = await loadTracks() }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("disc.case")
         .accessibilityAction(.escape, close)
@@ -403,6 +407,13 @@ struct JewelCaseView: View {
                                 .overlay(Capsule().strokeBorder(SpoolPalette.labelInk.opacity(0.6), lineWidth: 1.5))
                         }
                         .accessibilityIdentifier("disc.case.shuffle")
+                    }
+                    // A playlist Lyre made can be edited (LYRE-25).
+                    PlaylistEditButton(playlist: album.mixtape, identifier: "disc.case.edit") {
+                        Image(systemName: "pencil")
+                            .frame(width: 36, height: 36)
+                            .overlay(Circle().strokeBorder(SpoolPalette.labelInk.opacity(0.6), lineWidth: 1.5))
+                            .contentShape(Circle())
                     }
                 }
                 .font(.system(size: 13, weight: .semibold))

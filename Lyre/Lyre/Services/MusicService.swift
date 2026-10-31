@@ -1423,6 +1423,13 @@ class MusicService: ObservableObject {
         }
     }
 
+    /// Puts an edited playlist (PlaylistEditSheet) in place of the one it was, so every
+    /// player shows its new name at once.
+    func replacePlaylist(_ playlist: AppPlaylist) {
+        guard let index = playlists.firstIndex(where: { $0.id == playlist.id }) else { return }
+        playlists[index] = playlist
+    }
+
     /// Songs in the order an album lists them: by disc, then track, those with no
     /// number after, as they came.
     nonisolated static func inAlbumOrder(_ tracks: [AppTrack]) -> [AppTrack] {
