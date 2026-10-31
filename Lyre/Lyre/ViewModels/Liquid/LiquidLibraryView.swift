@@ -675,9 +675,13 @@ struct LiquidCoverTile: View {
                 .aspectRatio(1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .shadow(color: .black.opacity(0.45), radius: 10, y: 6)
-            Text(album.tapeTitle)
-                .font(.system(size: 14, weight: .semibold))
-                .lineLimit(1)
+            HStack(spacing: 5) {
+                Text(album.tapeTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .lineLimit(1)
+                // An explicit album is marked, beside its clean version (LYRE-23).
+                if album.isExplicit { ExplicitBadge() }
+            }
             Text(album.caseByline ?? album.artistName)
                 .font(.system(size: 12))
                 .foregroundStyle(.white.opacity(0.6))
@@ -1486,9 +1490,12 @@ struct LiquidAlbumPage: View {
     private func details(ground: Color) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(album.tapeTitle)
-                    .font(.system(size: 30, weight: .bold))
-                    .accessibilityAddTraits(.isHeader)
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(album.tapeTitle)
+                        .font(.system(size: 30, weight: .bold))
+                        .accessibilityAddTraits(.isHeader)
+                    if album.isExplicit { ExplicitBadge() }
+                }
                 Text(detailsText)
                     .font(.system(size: 14))
                     .foregroundStyle(.white.opacity(0.7))

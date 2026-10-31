@@ -293,11 +293,15 @@ struct TapeCarousel: View {
             // Names the tape at the front, changing as the rack moves. An empty rack
             // has nothing to name, so it says what the rack is instead.
             VStack(alignment: .leading, spacing: 2) {
-                Text(frontAlbum?.tapeTitle ?? String(localized: "spool.shelf.title"))
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(theme.ink)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
+                // An explicit album is marked, beside its clean version (LYRE-23).
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(frontAlbum?.tapeTitle ?? String(localized: "spool.shelf.title"))
+                        .font(.system(size: 22, weight: .bold))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                    if frontAlbum?.isExplicit == true { ExplicitTag() }
+                }
+                .foregroundStyle(theme.ink)
                 Text(frontAlbum.map(headerByline) ?? String(localized: "spool.carousel.hint"))
                     .font(.system(size: 15))
                     .foregroundStyle(theme.ink.opacity(0.75))

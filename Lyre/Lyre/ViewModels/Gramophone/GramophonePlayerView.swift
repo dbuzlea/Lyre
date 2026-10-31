@@ -1186,11 +1186,15 @@ struct GramophonePlayerView: View {
     private func crateHeader(_ front: AppAlbum?) -> some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(front?.tapeTitle ?? String(localized: "gramophone.crate"))
-                    .font(.system(size: 22, weight: .bold, design: .serif))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
+                // An explicit album is marked, beside its clean version (LYRE-23).
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(front?.tapeTitle ?? String(localized: "gramophone.crate"))
+                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                    if front?.isExplicit == true { ExplicitTag() }
+                }
+                .foregroundStyle(.white)
                 if let front {
                     Text([front.caseByline, front.tapeTrackCount.map(front.tapeFormat.count)]
                             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
