@@ -930,7 +930,18 @@ struct PlaylistAdderTests {
                          AppPlaylist(id: "mp.playlist.1", name: "Device"),
                          AppPlaylist(id: "p.1", name: "Afternoon"),
                          AppPlaylist(id: "p.3", name: "Hits", curatorName: "Apple Music")]
-        #expect(PlaylistAdder.editable(playlists).map(\.name) == ["Afternoon", "Running"])
+        #expect(PlaylistAdder.editable(playlists, edited: { _ in nil }).map(\.name) == ["Afternoon", "Running"])
+    }
+
+    /// LYRE-26: the last edited playlist comes first, then the others by when they were
+    /// edited, then any never edited by name.
+    @Test func theLastEditedPlaylistIsOfferedFirst() {
+        let playlists = [AppPlaylist(id: "p.1", name: "Afternoon"), AppPlaylist(id: "p.2", name: "Running"),
+                         AppPlaylist(id: "p.3", name: "Spooky Jams"), AppPlaylist(id: "p.4", name: "Beats")]
+        let now = Date()
+        let edited: [String: Date] = ["p.3": now, "p.2": now.addingTimeInterval(-3600)]
+        #expect(PlaylistAdder.editable(playlists, edited: { edited[$0.id] }).map(\.name)
+                == ["Spooky Jams", "Running", "Afternoon", "Beats"])
     }
 
     @Test func theCatalogueIsAskedOnlyForTwoLettersOrMore() {
