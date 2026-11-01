@@ -150,6 +150,10 @@ struct RecordSleeveView: View {
             case .album:
                 TapeArtwork(album: album, size: side.rounded())
                     .frame(width: side, height: side)
+            // A playlist's or show's own art across the whole sleeve (LYRE-27).
+            case .homeRecording, .transcription where album.hasSleeveArtwork:
+                TapeArtwork(album: album, size: side.rounded())
+                    .frame(width: side, height: side)
             case .homeRecording:
                 Rectangle().fill(Color(red: 0.76, green: 0.62, blue: 0.42))
                     .overlay(alignment: .top) {

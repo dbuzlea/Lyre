@@ -71,7 +71,8 @@ final class GramophoneUITests: XCTestCase {
     }
 
     /// LYRE-24: a playlist with a cover of its own is a black record with the cover on
-    /// its label, no grooves across it, as an album's is (checked in the screenshots).
+    /// its label, no grooves across it, as an album's is. LYRE-27: its sleeve, in the
+    /// crate and opened, has the cover across the whole of it (checked in the screenshots).
     @MainActor
     func testAPlaylistsRecordHasItsCoverOnTheLabel() throws {
         let app = launchGramophone(extraArguments: ["-SampleMixtapeArt", "YES"])
