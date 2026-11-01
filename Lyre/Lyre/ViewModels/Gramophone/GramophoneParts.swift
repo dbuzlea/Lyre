@@ -44,6 +44,13 @@ extension AppAlbum {
     var hasPlaylistArtwork: Bool {
         isMixtape && (mixtape?.musicKitPlaylist?.artwork != nil || mpArtwork != nil)
     }
+
+    /// A playlist or show with art of its own, printed across its whole sleeve as an
+    /// album's cover is (LYRE-27); without, it keeps the plain sleeve it's filed in.
+    var hasSleeveArtwork: Bool {
+        if let show = podcast { return show.artwork != nil || show.artworkURL != nil }
+        return hasPlaylistArtwork
+    }
 }
 
 /// Apple Music art filling a square `side` wide: drawn wide or tall enough to cover it
