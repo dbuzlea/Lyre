@@ -79,6 +79,7 @@ final class PlaylistAdder {
             playlist = try await MusicLibrary.shared.createPlaylist(name: trimmed)
         }
         let made = AppPlaylist(from: playlist)
+        noteEdited(made.id)
         musicService.playlists.append(made)
         logger.debug("Made a playlist")
         return made
@@ -108,11 +109,36 @@ final class PlaylistAdder {
 
     // MARK: Which playlists
 
-    /// The playlists a song can be added to, by name.
-    static func editable(_ playlists: [AppPlaylist]) -> [AppPlaylist] {
+    /// The playlists a song can be added to, the last edited first (LYRE-26), then by
+    /// name. `edited` is when each was last changed.
+    static func editable(_ playlists: [AppPlaylist], edited: (AppPlaylist) -> Date?) -> [AppPlaylist] {
         playlists
             .filter { isEditable(id: $0.id, kind: $0.musicKitPlaylist?.kind, curatorName: $0.curatorName) }
-            .sorted { AppHelpers.sortsBefore($0.name, $1.name) }
+            .map { ($0, edited($0)) }
+            .sorted { a, b in
+                switch (a.1, b.1) {
+                case let (x?, y?) where x != y: return x > y
+                case (.some, nil): return true
+                case (nil, .some): return false
+                default: return AppHelpers.sortsBefore(a.0.name, b.0.name)
+                }
+            }
+            .map(\.0)
+    }
+
+    /// When Lyre last changed each playlist (added to it, took a song out, edited or made
+    /// it), kept between launches: Apple's own date can lag a change Lyre just made.
+    private(set) var lastEdited: [String: Date] =
+        (UserDefaults.standard.dictionary(forKey: "PlaylistsLastEdited") as? [String: Date]) ?? [:]
+
+    private func noteEdited(_ id: String) {
+        lastEdited[id] = .now
+        UserDefaults.standard.set(lastEdited, forKey: "PlaylistsLastEdited")
+    }
+
+    /// When a playlist was last changed: here, or anywhere Apple knows of.
+    func edited(_ playlist: AppPlaylist) -> Date? {
+        [lastEdited[playlist.id], playlist.musicKitPlaylist?.lastModifiedDate].compactMap { $0 }.max()
     }
 
     /// The listener's own: from MusicKit (not an `mp.` id), and not one of Apple's.
@@ -133,6 +159,7 @@ final class PlaylistAdder {
             throw AddError.alreadyInPlaylist(song: song.title, playlist: playlist.name)
         }
         _ = try await MusicLibrary.shared.add(song, to: target)
+        noteEdited(playlist.id)
         logger.debug("Added a song to a playlist")
     }
 
@@ -219,6 +246,7 @@ final class PlaylistAdder {
         }
         do {
             let edited = try await MusicLibrary.shared.edit(target, name: name == target.name ? nil : name, items: items)
+            noteEdited(playlist.id)
             logger.debug("Edited a playlist")
             return AppPlaylist(from: edited)
         } catch {
@@ -253,6 +281,7 @@ final class PlaylistAdder {
         items.remove(at: index)
         do {
             _ = try await MusicLibrary.shared.edit(target, items: items)
+            noteEdited(playlist.id)
             logger.debug("Took a song out of a playlist")
         } catch {
             // Offline isn't a refusal; anything else from Apple is.

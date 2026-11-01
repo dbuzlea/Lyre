@@ -8,9 +8,10 @@ import UIKit
 
 // MARK: - Playlist Picker
 //
-// The sheet PlaylistAdder's `pending` song brings up: the listener's own playlists, by
-// name. Tapping one adds the song, ticks the row and closes; a failure (no subscription,
-// not in Apple Music, offline) is said under the list and the sheet stays.
+// The sheet PlaylistAdder's `pending` song brings up: the listener's own playlists, the
+// last edited first, then by name (LYRE-26). Tapping one adds the song, ticks the row and
+// closes; a failure (no subscription, not in Apple Music, offline) is said under the list
+// and the sheet stays.
 
 struct PlaylistPicker: View {
     @ObservedObject var musicService: MusicService
@@ -23,7 +24,9 @@ struct PlaylistPicker: View {
     @State private var isNaming = false
     @State private var newName = ""
 
-    private var playlists: [AppPlaylist] { PlaylistAdder.editable(musicService.playlists) }
+    /// The playlists, the last edited first (LYRE-26): put in order once, as the sheet
+    /// opens, not on every redraw.
+    @State private var playlists: [AppPlaylist] = []
 
     var body: some View {
         NavigationStack {
@@ -61,6 +64,9 @@ struct PlaylistPicker: View {
                 }
             }
             .navigationTitle(String(localized: "playlist.add.title"))
+            .onAppear {
+                playlists = PlaylistAdder.editable(musicService.playlists, edited: PlaylistAdder.shared.edited)
+            }
             .navigationBarTitleDisplayMode(.inline)
             .safeAreaInset(edge: .top) {
                 Text(item.title)
