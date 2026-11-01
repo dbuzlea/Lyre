@@ -904,3 +904,7 @@
 "playlist.edit.search" = "Search your library and Apple Music";
 "playlist.edit.addSong" = "Add “%@”";
 "playlist.edit.done" = "Done";
+
+/* Settings in every player (LYRE-28): set up without access to the music library, it can be given here. */
+"settings.allowMusicAccess" = "Allow Access to Apple Music Library";
+"settings.allowMusicAccess.detail" = "Opens Lyre in Settings, where Media & Apple Music lets Lyre play your library.";

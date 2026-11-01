@@ -1466,7 +1466,7 @@ struct MusicKitIntegrationTests {
     }
 
     @Test func theClassicSettingsTurnCleanVersionsOnAndOff() {
-        #expect(SettingsView.items[SettingsView.cleanVersionsRow] == String(localized: "settings.cleanVersions"))
+        #expect(SettingsView.settingsItems[SettingsView.cleanVersionsRow] == String(localized: "settings.cleanVersions"))
         #expect(SettingsView.items.last == String(localized: "settings.about"))
         #expect(ScrollWheelView.mainMenuDestination(at: 7) == .discover)
     }
@@ -1560,5 +1560,19 @@ struct PlaylistEditTests {
         let list = [track("1"), track("2")].map(PlaylistAdder.entry)
         #expect(PlaylistAdder.isDuplicate(PlaylistAdder.entry(track("1")), among: list))
         #expect(!PlaylistAdder.isDuplicate(PlaylistAdder.entry(track("3")), among: list))
+    }
+}
+
+
+/// LYRE-28: set up without access to the music library, every player's settings offer it.
+@MainActor
+struct MusicAccessSettingsTests {
+    @Test func classicSettingsLeadWithAllowAccessOnlyWhileItsNeeded() {
+        UserDefaults.standard.set(true, forKey: "ForceNeedsMusicAccess")
+        defer { UserDefaults.standard.removeObject(forKey: "ForceNeedsMusicAccess") }
+        #expect(MusicAccess.isNeeded)
+        #expect(SettingsView.accessRows == 1)
+        #expect(SettingsView.items.first == String(localized: "settings.allowMusicAccess"))
+        #expect(Array(SettingsView.items.dropFirst()) == SettingsView.settingsItems)
     }
 }

@@ -20,6 +20,16 @@ struct LiquidSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // LYRE-28: set up without access to the music library, it can be given here.
+                if MusicAccess.isNeeded || !musicService.isAuthorized {
+                    Section {
+                        AllowMusicAccessButton(musicService: musicService) {
+                            Label(String(localized: "settings.allowMusicAccess"), systemImage: "music.note.list")
+                        }
+                    } footer: {
+                        Text(String(localized: "settings.allowMusicAccess.detail"))
+                    }
+                }
                 Section(String(localized: "spool.settings.tutorial")) {
                     LiquidTourPager(ink: .primary)
                         .padding(.vertical, 8)

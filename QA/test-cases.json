@@ -287,6 +287,22 @@
         "LyreUITests/SpoolUITests/testAPlaylistsCaseOpensEditPlaylist()"
       ]
     },
+    {
+      "key": "LIB-14", "suite": "Music Access & Library", "title": "Settings offer access to the music library when set up without it",
+      "priority": "high", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "Lyre set up with Media & Apple Music access declined (or turned off in Settings).",
+      "steps": [
+        ["Open Settings on the Spool, Disc, Gramophone and Liquid, and Settings on Classic.", "Each starts with Allow Access to Apple Music Library."],
+        ["Tap it (Classic: select it).", "The Settings app opens on Lyre, with the Media & Apple Music switch."],
+        ["Turn the switch on and go back to Lyre.", "The library loads; the Allow Access option is gone from every player's settings."],
+        ["With access already given, open each player's settings.", "No Allow Access option."],
+        ["On a fresh install, skip the access question in set-up, then tap Allow Access.", "Apple's access question is asked (the Settings app has no switch for Lyre yet)."]
+      ],
+      "automated_by": [
+        "LyreTests/MusicAccessSettingsTests",
+        "LyreUITests/SpoolUITests/testSettingsOfferAccessWhileLyreHasNone()"
+      ]
+    },
 
     {
       "key": "PLY-01", "suite": "Playback & Queue", "title": "Play, pause, next and previous work in every player",
