@@ -33,6 +33,30 @@ struct SpoolSettingsView: View {
             VStack(alignment: .leading, spacing: 30) {
                 header
 
+                // LYRE-28: set up without access to the music library, it can be given here.
+                AllowMusicAccessButton(musicService: musicService) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "music.note.list")
+                            .font(.system(size: 20, weight: .semibold))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(String(localized: "settings.allowMusicAccess"))
+                                .font(.system(size: 16, weight: .semibold))
+                            Text(String(localized: "settings.allowMusicAccess.detail"))
+                                .font(.system(size: 12))
+                                .opacity(0.7)
+                        }
+                        .multilineTextAlignment(.leading)
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .bold))
+                            .opacity(0.6)
+                    }
+                    .padding(14)
+                    .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
+                    .contentShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+
                 section(1, String(localized: "spool.settings.tutorial")) {
                     SpoolTourPager(theme: theme, appearance: .manual)
                         .padding(.top, 4)

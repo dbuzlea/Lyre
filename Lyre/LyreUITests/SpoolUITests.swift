@@ -1021,6 +1021,30 @@ final class SpoolUITests: XCTestCase {
 
     // MARK: - Settings
 
+    /// LYRE-28: set up without access to the music library, Settings offers Allow
+    /// Access to Apple Music Library first; with access, it doesn't.
+    @MainActor
+    func testSettingsOfferAccessWhileLyreHasNone() throws {
+        for needsAccess in [true, false] {
+            let app = launchSpool(extraArguments: ["-ForceNeedsMusicAccess", needsAccess ? "YES" : "NO"])
+            let settings = element(app, "spool.settings")
+            XCTAssertTrue(settings.waitForExistence(timeout: 10), "No settings button on the rail")
+            let dismiss = app.alerts.buttons["Dismiss"]
+            if dismiss.waitForExistence(timeout: 3) { dismiss.tap(); sleep(1) }
+            settings.tap()
+            XCTAssertTrue(element(app, "spool.settings.done").waitForExistence(timeout: 3), "Settings did not open")
+            let allow = element(app, "settings.allowMusicAccess")
+            if needsAccess {
+                XCTAssertTrue(allow.waitForExistence(timeout: 3), "Settings don't offer access")
+                XCTAssertEqual(allow.label, "Allow Access to Apple Music Library")
+                attachScreenshot(app, named: "lyre-28-spool-settings")
+            } else {
+                XCTAssertFalse(allow.exists, "Settings offer access Lyre already has")
+            }
+            app.terminate()
+        }
+    }
+
     @MainActor
     func testTheHotlineButtonOpensSettingsAndAFinishAppliesStraightAway() throws {
         let app = launchSpool(finish: "blue")

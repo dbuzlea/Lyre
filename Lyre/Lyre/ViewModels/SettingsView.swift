@@ -12,7 +12,17 @@ struct SettingsView: View {
     let themeSettings: ThemeSettings
     
     /// Shared with ScrollWheelView, which reads the highlighted item out to VoiceOver.
-    static let items = [
+    /// The rows: Allow Access first while Lyre has no access to the music library
+    /// (LYRE-28), then the settings.
+    static var items: [String] {
+        (accessRows == 1 ? [String(localized: "settings.allowMusicAccess")] : []) + settingsItems
+    }
+
+    /// 1 while the Allow Access row leads the list; the wheel takes it off a row's place
+    /// before choosing a setting.
+    static var accessRows: Int { MusicAccess.isNeeded ? 1 : 0 }
+
+    static let settingsItems = [
         String(localized: "settings.theme"),
         String(localized: "settings.screenSize"),
         String(localized: "settings.highlightColor"),
@@ -27,7 +37,7 @@ struct SettingsView: View {
     /// The Clean Versions row: pressed, it turns clean versions on or off in place.
     static let cleanVersionsRow = 7
 
-    private var settingsItems: [String] { Self.items }
+    private var rows: [String] { Self.items }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -48,7 +58,7 @@ struct SettingsView: View {
             ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 4) {
-                ForEach(0..<settingsItems.count, id: \.self) { index in
+                ForEach(0..<rows.count, id: \.self) { index in
                     HStack {
                         if selection == index {
                             Rectangle()
@@ -58,7 +68,7 @@ struct SettingsView: View {
                                         Image(systemName: "chevron.right")
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
-                                        Text(settingsItems[index])
+                                        Text(rows[index])
                                             .font(.system(size: 14, weight: .semibold))
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                         Spacer()
@@ -74,7 +84,7 @@ struct SettingsView: View {
                                 .selectionBarRefraction()
                         } else {
                             HStack {
-                                Text(settingsItems[index])
+                                Text(rows[index])
                                     .font(.system(size: 14))
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                 Spacer()
@@ -103,7 +113,7 @@ struct SettingsView: View {
 
     /// What a row's set to, shown beside it: Clean Versions' On or Off.
     private func value(at index: Int) -> String? {
-        guard index == Self.cleanVersionsRow else { return nil }
+        guard index - Self.accessRows == Self.cleanVersionsRow else { return nil }
         return themeSettings.cleanVersions ? String(localized: "settings.clickSound.on") : String(localized: "settings.clickSound.off")
     }
 }

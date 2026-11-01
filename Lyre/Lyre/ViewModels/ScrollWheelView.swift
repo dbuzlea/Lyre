@@ -1550,7 +1550,13 @@ struct ScrollWheelView: View {
             saveSelectionState()
             navigationStack.append(currentScreen)
             let settingsTarget: LyreScreen
-            switch menuSelection {
+            // Allow Access leads the list while Lyre has none (LYRE-28).
+            if SettingsView.accessRows == 1, menuSelection == 0 {
+                _ = navigationStack.popLast()
+                Task { await MusicAccess.allow(musicService: musicService) }
+                return
+            }
+            switch menuSelection - SettingsView.accessRows {
             case 0: settingsTarget = .themeSelection
             case 1: settingsTarget = .screenSizeSelection
             case 2: settingsTarget = .highlightColorSelection
