@@ -209,14 +209,23 @@ struct LiquidCatalogSongRow: View {
     }
 }
 
-/// A catalogue album as a cover with its name under it.
+/// A catalogue album as a cover with its name under it. In a row (`row`, named
+/// `rowTitle`), it opens as a card, the row's others either side of it.
 struct LiquidCatalogAlbumTile: View {
     @Environment(\.liquidNavigator) private var navigator
     let album: Album
     var side: CGFloat = 140
+    var row: [Album] = []
+    var rowTitle = ""
 
     var body: some View {
-        Button { navigator.catalogAlbum(album) } label: {
+        Button {
+            if let index = row.firstIndex(of: album) {
+                navigator.openCatalogAlbums(row, index, rowTitle)
+            } else {
+                navigator.catalogAlbum(album)
+            }
+        } label: {
             VStack(alignment: .leading, spacing: 6) {
                 Group {
                     if let art = album.artwork {
@@ -273,7 +282,8 @@ struct LiquidArtistIntro: View {
             if let latest = details?.latestRelease {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionTitle(text: String(localized: "catalog.latestRelease"))
-                    LiquidCatalogAlbumTile(album: latest, side: 160)
+                    LiquidCatalogAlbumTile(album: latest, side: 160, row: [latest],
+                                           rowTitle: String(localized: "catalog.latestRelease"))
                 }
             }
             if details?.topSongs.isEmpty == false || details?.latestRelease != nil {
@@ -292,30 +302,29 @@ struct LiquidSimilarArtists: View {
         if let artists = AppleMusicCatalog.shared.details(forArtist: name)?.similarArtists, !artists.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 SectionTitle(text: String(localized: "catalog.similarArtists"))
-                LiquidCatalogArtistStrip(artists: artists)
+                LiquidCatalogArtistStrip(artists: artists, title: String(localized: "catalog.similarArtists"))
             }
             .accessibilityIdentifier("liquid.artist.similar")
         }
     }
 }
 
-/// Catalogue artists in a row, as rounded-square photos with their names. One the
-/// library has opens their page; one it hasn't, Apple Music.
+/// Catalogue artists in a row, as rounded-square photos with their names. One chosen
+/// opens as a card, the row's others either side of it: the library's albums by them,
+/// or, for one it hasn't, what Apple Music has of them (LiquidCatalogArtistAlbums), in
+/// Lyre rather than in Apple Music.
 struct LiquidCatalogArtistStrip: View {
     @Environment(\.liquidNavigator) private var navigator
-    @Environment(\.openURL) private var openURL
     let artists: [Artist]
+    /// The row's name, at the top of its cards.
+    let title: String
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(alignment: .top, spacing: 14) {
-                ForEach(artists) { artist in
+                ForEach(Array(artists.enumerated()), id: \.element.id) { index, artist in
                     Button {
-                        if navigator.hasArtist(artist.name) {
-                            navigator.push(.artist(artist.name))
-                        } else if let url = artist.url {
-                            openURL(url)
-                        }
+                        navigator.openDeck(artists.map { .artist($0.name) }, index, title)
                     } label: {
                         VStack(spacing: 6) {
                             Group {
@@ -336,8 +345,29 @@ struct LiquidCatalogArtistStrip: View {
                         .foregroundStyle(.white)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("liquid.catalog.artist")
                 }
             }
+        }
+    }
+}
+
+/// The albums Apple Music has of an artist the library hasn't any of, as covers in a grid
+/// `width` wide, each opening as a card. Nothing until they've been found.
+struct LiquidCatalogArtistAlbums: View {
+    let name: String
+    let width: CGFloat
+
+    var body: some View {
+        if let albums = AppleMusicCatalog.shared.details(forArtist: name)?.albums, !albums.isEmpty {
+            let columns = LiquidCoverTile.columns(for: width)
+            let side = max(0, (width - LiquidCoverTile.spacing * CGFloat(columns.count - 1)) / CGFloat(columns.count))
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
+                ForEach(albums) { album in
+                    LiquidCatalogAlbumTile(album: album, side: side, row: albums, rowTitle: name)
+                }
+            }
+            .accessibilityIdentifier("liquid.artist.catalogAlbums")
         }
     }
 }
@@ -391,7 +421,9 @@ struct LiquidCharts: View {
                     SectionTitle(text: String(localized: "catalog.charts.albums"))
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(alignment: .top, spacing: 14) {
-                            ForEach(albums) { LiquidCatalogAlbumTile(album: $0) }
+                            ForEach(albums) {
+                                LiquidCatalogAlbumTile(album: $0, row: albums, rowTitle: String(localized: "catalog.charts.albums"))
+                            }
                         }
                     }
                 }
@@ -424,7 +456,9 @@ struct LiquidCatalogSearch: View {
                         .foregroundStyle(.white.opacity(0.8))
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(alignment: .top, spacing: 14) {
-                            ForEach(results.albums) { LiquidCatalogAlbumTile(album: $0) }
+                            ForEach(results.albums) {
+                                LiquidCatalogAlbumTile(album: $0, row: results.albums, rowTitle: String(localized: "liquid.menu.albums"))
+                            }
                         }
                     }
                 }
@@ -434,7 +468,7 @@ struct LiquidCatalogSearch: View {
                     Text(String(localized: "liquid.menu.artists").lowercased())
                         .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(.white.opacity(0.8))
-                    LiquidCatalogArtistStrip(artists: results.artists)
+                    LiquidCatalogArtistStrip(artists: results.artists, title: String(localized: "liquid.menu.artists"))
                 }
             }
         }

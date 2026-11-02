@@ -39,6 +39,8 @@ final class AppleMusicCatalog {
         var topSongs: [Song]
         var latestRelease: Album?
         var similarArtists: [Artist]
+        /// Their albums, for the page of an artist the library hasn't.
+        var albums: [Album] = []
     }
 
     struct AlbumDetails {
@@ -90,11 +92,12 @@ final class AppleMusicCatalog {
             var search = MusicCatalogSearchRequest(term: name, types: [Artist.self])
             search.limit = 5
             guard let found = try await search.response().artists.first(where: { ArtistPhotos.key(for: $0.name) == key }) else { return }
-            let artist = try await found.with([.topSongs, .latestRelease, .similarArtists])
+            let artist = try await found.with([.topSongs, .latestRelease, .similarArtists, .albums])
             artists[key] = ArtistDetails(biography: Self.plainText(artist.editorialNotes?.standard ?? artist.editorialNotes?.short),
                                          topSongs: await clean(Array(artist.topSongs?.prefix(10) ?? [])),
                                          latestRelease: artist.latestRelease,
-                                         similarArtists: Array(artist.similarArtists?.prefix(12) ?? []))
+                                         similarArtists: Array(artist.similarArtists?.prefix(12) ?? []),
+                                         albums: await clean(Array(artist.albums?.prefix(25) ?? [])))
         } catch {
             asked.remove("artist:" + key)
             logger.debug("Artist details failed for \(name, privacy: .private): \(error.localizedDescription)")

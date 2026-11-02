@@ -197,8 +197,19 @@ struct LiquidLibraryView: View {
                 let key = ArtistPhotos.key(for: name)
                 return library.albums.contains { ArtistPhotos.key(for: $0.artistName) == key }
             },
+            openCatalogAlbums: { albums, index, title in
+                let mine = library.albums
+                let items: [LiquidDeckItem] = albums.map { album in
+                    .album(AppleMusicCatalog.libraryAlbum(title: album.title, artist: album.artistName, in: mine)
+                           ?? AppAlbum(from: album, catalog: true))
+                }
+                navigator.openDeck(items, index, title)
+            },
+            addAlbum: { album in add(.album(album)) },
             openDeck: { items, index, title in
                 guard items.indices.contains(index) else { return }
+                // Chosen from a search: the keyboard goes, rather than covering the card.
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.88)) {
                     deck = LiquidDeck(items: items, index: index, title: title)
                 }
@@ -301,7 +312,8 @@ struct LiquidLibraryView: View {
                     if librarySong(song) != nil { return }
                 case .album(let album):
                     if let mine = AppleMusicCatalog.libraryAlbum(title: album.title, artist: album.artistName, in: library.albums) {
-                        navigator.push(.album(mine))
+                        // Over a card (added from its page), the card stays.
+                        if deck == nil { navigator.push(.album(mine)) }
                         return
                     }
                 }
@@ -406,7 +418,7 @@ struct LiquidLibraryView: View {
                 LiquidGridPage(title: String(localized: "liquid.menu.podcasts"), items: library.podcasts,
                                emptyText: String(localized: "spool.shelf.podcasts.empty"), bottomInset: bottomInset,
                                layout: layout, musicService: musicService,
-                               emptyAction: (String(localized: "spool.shelf.findShows"), onFindShows),
+                               emptyAction: (String(localized: "spool.shelf.findShows"), onFindShows), opensInDeck: true,
                                searchAction: (String(localized: "spool.shelf.findShows"), "plus.magnifyingglass",
                                               "liquid.podcasts.findShows", onFindShows))
             }
@@ -615,6 +627,8 @@ struct LiquidGridPage: View {
                     VStack(alignment: .leading, spacing: 16) {
                         VStack(alignment: .leading, spacing: 16) {
                             LiquidPageTitle(title: title, layout: $layout, artist: isArtist ? (title, items.first) : nil)
+                            // Nothing of theirs in the library to search (an artist from Apple Music).
+                            if !(isArtist && items.isEmpty) {
                             HStack(spacing: 10) {
                                 LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
                                 if let searchAction {
@@ -629,6 +643,7 @@ struct LiquidGridPage: View {
                                     .accessibilityIdentifier(searchAction.id)
                                 }
                             }
+                            }
                         }
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
                         // An artist's page: what Apple Music says of them, above their albums.
@@ -636,7 +651,12 @@ struct LiquidGridPage: View {
                             LiquidArtistIntro(name: title)
                                 .padding(.trailing, 20)
                         }
-                        if shown.isEmpty {
+                        if isArtist, items.isEmpty, AppleMusicCatalog.isAvailable {
+                            // An artist the library hasn't (a similar artist, one found in
+                            // search): what Apple Music has of them.
+                            LiquidCatalogArtistAlbums(name: title, width: gridWidth)
+                                .padding(.trailing, 20)
+                        } else if shown.isEmpty {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
                                     .font(.system(size: 16))
@@ -664,10 +684,10 @@ struct LiquidGridPage: View {
                                     .accessibilityIdentifier("liquid.cover.\(album.id)")
                                 }
                             }
-                            if isArtist, query.isEmpty {
-                                LiquidSimilarArtists(name: title)
-                                    .padding(.top, 10)
-                            }
+                        }
+                        if isArtist, query.isEmpty {
+                            LiquidSimilarArtists(name: title)
+                                .padding(.top, 10)
                         }
                     }
                     .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
@@ -718,7 +738,7 @@ struct LiquidCoverTile: View {
         return max(2, fit - fit % 2)
     }
 
-    private static let spacing: CGFloat = 14
+    static let spacing: CGFloat = 14
     /// The narrowest a cover gets before a column is dropped.
     private static let minimumWidth: CGFloat = 150
 
@@ -1125,10 +1145,13 @@ struct LiquidSearchPage: View {
                             .font(.system(size: 24, weight: .medium))
                             .foregroundStyle(.white)
                         LazyVGrid(columns: LiquidCoverTile.columns(for: gridWidth), spacing: 18) {
-                            ForEach(section.1) { album in
-                                Button { navigator.push(.album(album)) } label: { LiquidCoverTile(album: album) }
+                            ForEach(Array(section.1.enumerated()), id: \.element.id) { index, album in
+                                Button { navigator.openDeck(section.1.map { .album($0) }, index, section.0) } label: {
+                                    LiquidCoverTile(album: album)
+                                }
                                     .modifier(LiquidAlbumHoldMenu(album: album))
                                     .buttonStyle(.plain)
+                                    .accessibilityIdentifier("liquid.search.cover.\(album.id)")
                             }
                         }
                     }
@@ -1528,6 +1551,20 @@ struct LiquidAlbumPage: View {
             // LYRE-14: the whole album to Up Next, without holding its cover. A show's
             // episodes can't be queued, so a show has none.
             HStack(spacing: 10) {
+            // An album from Apple Music the library hasn't (from Discover, the charts,
+            // search, an artist's card): added from here.
+            if album.isCatalog, album.mixtape == nil, let catalogue = album.musicKitAlbum {
+                Button { navigator.addAlbum(catalogue) } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .background(.black.opacity(0.3), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+                .accessibilityLabel(String(localized: "catalog.offer.add"))
+                .accessibilityIdentifier("liquid.album.add")
+            }
             // A playlist Lyre made can be edited (LYRE-25).
             PlaylistEditButton(playlist: album.mixtape, identifier: "liquid.album.edit") {
                 Image(systemName: "pencil")

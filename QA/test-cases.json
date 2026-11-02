@@ -316,13 +316,19 @@
         ["Pull the card down from its top, or tap its chevron.", "The card closes; the albums are as they were."],
         ["Repeat from Playlists, Artists (a card of the artist's albums; a cover there opens their albums as cards) and a Discover row.", "Each opens as a card and pages through the list it came from."],
         ["On a card, tap Play, swipe a song right, and tap the artist's name or a song's album.", "Play plays; the swipe queues; the artist's or album's page opens with the card closed."],
+        ["Search for an album you have, then tap a match; open Podcasts and tap a show.", "Each opens as a card (the keyboard goes), paging through the matches or the shows."],
+        ["In search (Apple Music results), tap an album you don't have, then one in the charts.", "It opens as a card with its songs, a + to add it to the library, and the row's other albums either side."],
+        ["On an artist's page, tap a similar artist you don't have; also an artist in search's Apple Music results.", "It opens as a card in Lyre (not the Apple Music app): their photo, biography, top songs and albums from Apple Music, and their similar artists."],
         ["With VoiceOver on, open a card.", "VoiceOver reads only the card, not the list behind; the escape gesture closes it."]
       ],
       "automated_by": [
         "LyreTests/MusicAccessSettingsTests/aLiquidCardIsNamedForWhatItHolds()",
         "LyreUITests/LiquidUITests/testACoverOpensAsACardThatPagesAndFillsTheScreen()",
         "LyreUITests/LiquidUITests/testDiscoverOpensItsCoversAndGenres()",
-        "LyreUITests/LiquidUITests/testArtistsHavePhotosAndTheirPageOpensOnOne()"
+        "LyreUITests/LiquidUITests/testArtistsHavePhotosAndTheirPageOpensOnOne()",
+        "LyreUITests/LiquidUITests/testASearchMatchOpensAsACard()",
+        "LyreUITests/LiquidUITests/testAShowOpensAsACard()",
+        "LyreUITests/StreamingDeviceUITests/testACatalogueArtistOpensAsACardInLyre()"
       ]
     },
 
