@@ -384,6 +384,47 @@ final class LiquidUITests: XCTestCase {
                       "Search didn't find the album")
     }
 
+    /// A cover among the search's matches opens as a card, paging through the matches.
+    @MainActor
+    func testASearchMatchOpensAsACard() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let search = element(app, "liquid.menu.search")
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        let field = element(app, "liquid.search.field")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Sample Tape")
+        let cover = element(app, "liquid.search.cover.sample-1")
+        XCTAssertTrue(cover.waitForExistence(timeout: 5), "Search didn't find the album")
+        cover.tap()
+        XCTAssertTrue(element(app, "liquid.deck.card.0").waitForExistence(timeout: 5), "The match didn't open as a card")
+        XCTAssertTrue(element(app, "liquid.deck.card.1").exists, "The other matches aren't either side of it")
+        XCTAssertEqual(element(app, "liquid.deck.title").label, "albums", "The card isn't named for the matches it came from")
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 1), "The keyboard covers the card")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-search-card")
+    }
+
+    /// A show among the podcasts opens as a card of its episodes.
+    @MainActor
+    func testAShowOpensAsACard() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let podcasts = element(app, "liquid.menu.podcasts")
+        XCTAssertTrue(podcasts.waitForExistence(timeout: 10))
+        podcasts.tap()
+        let show = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.cover.podcast:'")).firstMatch
+        XCTAssertTrue(show.waitForExistence(timeout: 5), "No shows")
+        show.tap()
+        let card = element(app, "liquid.deck.card.0")
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "The show didn't open as a card")
+        XCTAssertTrue(card.descendants(matching: .any)["liquid.album.track.0"].waitForExistence(timeout: 5),
+                      "The card has no episodes")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-show-card")
+    }
+
     @MainActor
     func testSettingsOpenAndOfferTheOtherPlayers() throws {
         let app = launchLiquid(["-LiquidShot", "nowPlaying"])

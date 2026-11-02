@@ -314,4 +314,52 @@ final class StreamingDeviceUITests: XCTestCase {
             app.terminate()
         }
     }
+
+    /// An artist from Apple Music, in search or among an artist's similar artists, opens
+    /// as a card in Lyre, with what Apple Music has of them, not in the Apple Music app.
+    @MainActor
+    func testACatalogueArtistOpensAsACardInLyre() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-LyrePlayerStyle", "liquid"]
+        app.launch()
+        func any(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id].firstMatch }
+        let search = any("liquid.menu.search")
+        if !search.waitForExistence(timeout: 10) {
+            XCTAssertTrue(any("liquid.library").waitForExistence(timeout: 10), "Liquid didn't open")
+            any("liquid.library").tap()
+            XCTAssertTrue(search.waitForExistence(timeout: 10), "The library has no search")
+        }
+        search.tap()
+        let field = any("liquid.search.field")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        app.typeText("nils frahm\n")
+
+        let artist = any("liquid.catalog.artist")
+        XCTAssertTrue(artist.waitForExistence(timeout: 20), "Search found no artists in Apple Music")
+        artist.tap()
+        let card = any("liquid.deck.card.0")
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "The artist didn't open as a card")
+        XCTAssertEqual(app.state, .runningForeground, "The artist opened outside Lyre")
+        XCTAssertTrue(any("liquid.artist.photo").waitForExistence(timeout: 5), "The artist's card has no photo")
+        sleep(3)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "catalogue-artist-card"
+        shot.lifetime = .keepAlways
+        add(shot)
+
+        // Down the card to their similar artists, and one of those.
+        let similar = card.descendants(matching: .any).matching(identifier: "liquid.catalog.artist").firstMatch
+        for _ in 0..<8 where !similar.isHittable { card.swipeUp() }
+        XCTAssertTrue(similar.isHittable, "The card has no similar artists")
+        similar.tap()
+        XCTAssertTrue(any("liquid.deck.card.0").waitForExistence(timeout: 5), "The similar artist didn't open as a card")
+        sleep(3)
+        XCTAssertEqual(app.state, .runningForeground, "The similar artist opened outside Lyre")
+        XCTAssertTrue(any("liquid.deck.title").label.contains("similar"), "The card isn't named for the similar artists")
+        let similarShot = XCTAttachment(screenshot: app.screenshot())
+        similarShot.name = "similar-artist-card"
+        similarShot.lifetime = .keepAlways
+        add(similarShot)
+    }
 }

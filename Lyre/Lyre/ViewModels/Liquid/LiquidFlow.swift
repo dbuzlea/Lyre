@@ -61,6 +61,11 @@ struct LiquidNavigator {
     var catalogTrack: (Song) -> AppTrack = { AppTrack(from: $0, catalog: true) }
     /// Whether the library has albums by an artist of this name.
     var hasArtist: (String) -> Bool = { _ in false }
+    /// A row of catalogue albums opened as cards from the one chosen: each the library's
+    /// copy if it has one, else the catalogue's, which streams and can be added.
+    var openCatalogAlbums: ([Album], Int, String) -> Void = { _, _, _ in }
+    /// Adds a catalogue album to the library (its page's + button).
+    var addAlbum: (Album) -> Void = { _ in }
     /// Something chosen from a list opened as a card over it (LiquidCardDeck): the
     /// list's cards, the one chosen, and the list's name.
     var openDeck: ([LiquidDeckItem], Int, String) -> Void = { _, _, _ in }
