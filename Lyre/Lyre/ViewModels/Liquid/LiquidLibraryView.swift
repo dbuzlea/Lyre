@@ -67,6 +67,8 @@ struct LiquidLibraryView: View {
     @Environment(\.liquidFlood) private var flood
     @Environment(\.openURL) private var openURL
     @State private var catalogOffer: CatalogOffer?
+    /// What's open as a card over the library, if anything (LiquidCardDeck).
+    @State private var deck: LiquidDeck?
 
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
@@ -87,11 +89,21 @@ struct LiquidLibraryView: View {
                 }
         }
         .tint(.white)
+        // Behind a card, the list is dimmed, out of VoiceOver's way too.
+        .accessibilityHidden(deck != nil)
         // A cover swung open from a stack, over everything.
         .overlay {
             if let item = fold.item {
                 LiquidFoldView(item: item, closedFrame: fold.frame, musicService: musicService) { fold.item = nil }
                     .id(item.id)
+            }
+        }
+        // Something chosen from a list, as a card over it.
+        .overlay {
+            if let deck {
+                LiquidCardDeckView(deck: deck, onClose: closeDeck) { item in card(for: item) }
+                    .id(deck.id)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .environment(\.liquidNavigator, navigator)
@@ -130,6 +142,7 @@ struct LiquidLibraryView: View {
     private var navigator: LiquidNavigator {
         LiquidNavigator(
             push: { route in
+                deck = nil
                 Task {
                     let color = await Self.color(of: route)
                     flood(color) { path.append(route) }
@@ -183,8 +196,35 @@ struct LiquidLibraryView: View {
             hasArtist: { name in
                 let key = ArtistPhotos.key(for: name)
                 return library.albums.contains { ArtistPhotos.key(for: $0.artistName) == key }
+            },
+            openDeck: { items, index, title in
+                guard items.indices.contains(index) else { return }
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.88)) {
+                    deck = LiquidDeck(items: items, index: index, title: title)
+                }
             }
         )
+    }
+
+    private func closeDeck() {
+        guard deck != nil else { return }
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) { deck = nil }
+    }
+
+    /// A card's page: an album's or playlist's own, or an artist's page of albums, whose
+    /// albums open as cards in turn.
+    @ViewBuilder
+    private func card(for item: LiquidDeckItem) -> some View {
+        switch item {
+        case .album(let album):
+            LiquidAlbumPage(album: album, library: library, musicService: musicService,
+                            onPlay: onPlay, onQueue: onQueue, bottomInset: bottomInset)
+        case .artist(let name):
+            LiquidGridPage(title: name, items: library.albums.filter { $0.artistName == name },
+                           emptyText: String(localized: "spool.shelf.empty"), bottomInset: bottomInset,
+                           layout: .constant(.grid), musicService: musicService, showsIndex: false,
+                           isArtist: true, opensInDeck: true)
+        }
     }
 
     private func librarySong(_ song: Song) -> AppTrack? {
@@ -351,13 +391,13 @@ struct LiquidLibraryView: View {
             LiquidRememberedLayout("albums") { layout in
                 LiquidGridPage(title: String(localized: "liquid.menu.albums"), items: library.albums,
                                emptyText: String(localized: "spool.shelf.empty"), bottomInset: bottomInset,
-                               layout: layout, musicService: musicService)
+                               layout: layout, musicService: musicService, opensInDeck: true)
             }
         case .playlists:
             LiquidRememberedLayout("playlists") { layout in
                 LiquidGridPage(title: String(localized: "liquid.menu.playlists"), items: library.mixtapes,
                                emptyText: String(localized: "spool.shelf.mixtapes.empty"), bottomInset: bottomInset,
-                               layout: layout, musicService: musicService,
+                               layout: layout, musicService: musicService, opensInDeck: true,
                                searchAction: (String(localized: "playlist.new.action"), "plus", "liquid.newPlaylist",
                                               { PlaylistAdder.shared.promptNewPlaylist() }))
             }
@@ -476,9 +516,13 @@ struct LiquidGridPage: View {
     var showsIndex = true
     /// One artist's albums: the page opens on their photo.
     var isArtist = false
+    /// A cover tapped in the grid opens as a card, the other covers either side of it
+    /// (LiquidCardDeck), rather than as a page.
+    var opensInDeck = false
     /// A button beside the search: Find Shows, on the podcasts page.
     var searchAction: (title: String, symbol: String, id: String, action: () -> Void)?
 
+    @Environment(\.liquidCard) private var card
     @State private var query = ""
     /// How tall the name and search are at the top of the grid: the letter index starts
     /// below them, so on a short screen (an iPhone Duo closed) it isn't run up past the
@@ -611,7 +655,7 @@ struct LiquidGridPage: View {
                             LazyVGrid(columns: LiquidCoverTile.columns(for: gridWidth),
                                       spacing: 18) {
                                 ForEach(shown) { album in
-                                    Button { navigator.push(.album(album)) } label: {
+                                    Button { open(album, in: shown) } label: {
                                         LiquidCoverTile(album: album)
                                     }
                                     .modifier(LiquidAlbumHoldMenu(album: album))
@@ -632,6 +676,7 @@ struct LiquidGridPage: View {
                     .padding(.bottom, bottomInset + 20)
                 }
                 .scrollDismissesKeyboard(.immediately)
+                .reportsLiquidCardScroll(card)
 
                 if showsIndex, shown.count >= 12 {
                     LiquidLetterStrip(titles: shown.map(\.title)) { index in
@@ -646,6 +691,14 @@ struct LiquidGridPage: View {
             }
         }
         .transition(.opacity)
+    }
+
+    private func open(_ album: AppAlbum, in shown: [AppAlbum]) {
+        if opensInDeck, let index = shown.firstIndex(of: album) {
+            navigator.openDeck(shown.map { .album($0) }, index, title)
+        } else {
+            navigator.push(.album(album))
+        }
     }
 }
 
@@ -702,11 +755,13 @@ struct LiquidPageTitle: View {
     /// goes large above the title.
     var artist: (name: String, fallback: AppAlbum?)? = nil
     @Environment(\.liquidNavigator) private var navigator
+    @Environment(\.liquidCard) private var card
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // In a card, the way back closes it.
             Button { navigator.back() } label: {
-                Image(systemName: "chevron.left")
+                Image(systemName: card == nil ? "chevron.left" : "chevron.down")
                     .font(.system(size: 17, weight: .semibold))
                     .frame(width: 44, height: 44)
                     .background(.white.opacity(0.1), in: Circle())
@@ -714,7 +769,7 @@ struct LiquidPageTitle: View {
             .foregroundStyle(.white)
             // Its own button: on a list's first row, a tap elsewhere on the row isn't one.
             .buttonStyle(.plain)
-            .accessibilityLabel(String(localized: "liquid.back"))
+            .accessibilityLabel(String(localized: card == nil ? "liquid.back" : "liquid.card.close"))
             .accessibilityIdentifier("liquid.back")
             if let artist {
                 // Their photo, large, lit from behind by its own colours.
@@ -742,7 +797,7 @@ struct LiquidPageTitle: View {
                     .foregroundStyle(.white)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 8)
-                if let layout {
+                if let layout, card == nil {
                     LiquidLayoutSwitch(layout: layout)
                 }
             }
@@ -953,8 +1008,10 @@ struct LiquidArtistsPage: View {
                             Text(String(localized: query.isEmpty ? "spool.shelf.empty" : "search.noResults"))
                                 .foregroundStyle(.white.opacity(0.7))
                         }
-                        ForEach(shown, id: \.name) { artist in
-                            Button { navigator.push(.artist(artist.name)) } label: {
+                        ForEach(Array(shown.enumerated()), id: \.element.name) { index, artist in
+                            Button {
+                                navigator.openDeck(shown.map { .artist($0.name) }, index, String(localized: "liquid.menu.artists"))
+                            } label: {
                                 HStack(alignment: .center, spacing: 14) {
                                     ArtistPhoto(name: artist.name, fallback: artist.album, size: 52)
                                     Text(artist.name)
@@ -1374,6 +1431,7 @@ struct LiquidAlbumPage: View {
     @State private var tracks: [AppTrack]?
     @State private var color: Color
     @Environment(\.liquidNavigator) private var navigator
+    @Environment(\.liquidCard) private var card
 
     init(album: AppAlbum, library: ShelfLibrary, musicService: MusicService,
          onPlay: @escaping (AppAlbum, [AppTrack], Int, Bool) -> Void,
@@ -1419,6 +1477,7 @@ struct LiquidAlbumPage: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .reportsLiquidCardScroll(card)
         .environment(\.defaultMinListRowHeight, 1)
         .ignoresSafeArea(edges: .top)
         .foregroundStyle(.white)
@@ -1452,7 +1511,7 @@ struct LiquidAlbumPage: View {
                         .offset(y: 1)
                 }
             Button { navigator.back() } label: {
-                Image(systemName: "chevron.left")
+                Image(systemName: card == nil ? "chevron.left" : "chevron.down")
                     .font(.system(size: 17, weight: .semibold))
                     .frame(width: 44, height: 44)
                     .background(.black.opacity(0.3), in: Circle())
@@ -1460,8 +1519,9 @@ struct LiquidAlbumPage: View {
             .buttonStyle(.plain)
             .foregroundStyle(.white)
             .padding(.leading, 16)
-            .padding(.top, 56)
-            .accessibilityLabel(String(localized: "liquid.back"))
+            // A card starts below the status bar.
+            .padding(.top, card == nil ? 56 : 16)
+            .accessibilityLabel(String(localized: card == nil ? "liquid.back" : "liquid.card.close"))
             .accessibilityIdentifier("liquid.back")
         }
         .overlay(alignment: .topTrailing) {
