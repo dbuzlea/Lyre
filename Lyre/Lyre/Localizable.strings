@@ -731,6 +731,7 @@
 "liquid.search.in" = "Search %@";
 "liquid.search.prompt" = "Albums, artists, songs, shows";
 "liquid.back" = "Back";
+"liquid.card.close" = "Close";
 "liquid.index" = "Index";
 "liquid.layout.grid" = "Show All at Once";
 "liquid.layout.stack" = "Show One at a Time";

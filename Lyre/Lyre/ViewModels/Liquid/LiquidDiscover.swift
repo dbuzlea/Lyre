@@ -38,9 +38,9 @@ struct LiquidDiscoverPage: View {
                             .foregroundStyle(.white)
                             .accessibilityAddTraits(.isHeader)
                         if section.kind == .genres {
-                            genres(section.items)
+                            genres(section.items, in: section.title)
                         } else {
-                            covers(section.items)
+                            covers(section.items, in: section.title)
                         }
                     }
                     .accessibilityIdentifier("liquid.discover.\(section.id)")
@@ -54,11 +54,12 @@ struct LiquidDiscoverPage: View {
         .task { await Discover.shared.load(in: musicService) }
     }
 
-    private func covers(_ items: [AppAlbum]) -> some View {
+    /// A cover opens as a card, the section's others either side of it.
+    private func covers(_ items: [AppAlbum], in title: String) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(alignment: .top, spacing: 14) {
-                ForEach(items) { album in
-                    Button { navigator.push(.album(album)) } label: {
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, album in
+                    Button { navigator.openDeck(items.map { .album($0) }, index, title) } label: {
                         LiquidCoverTile(album: album).frame(width: Self.coverSide)
                     }
                     .buttonStyle(.plain)
@@ -68,10 +69,10 @@ struct LiquidDiscoverPage: View {
         }
     }
 
-    private func genres(_ items: [AppAlbum]) -> some View {
+    private func genres(_ items: [AppAlbum], in title: String) -> some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], alignment: .leading, spacing: 10) {
-            ForEach(items) { genre in
-                Button { navigator.push(.album(genre)) } label: {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, genre in
+                Button { navigator.openDeck(items.map { .album($0) }, index, title) } label: {
                     Text(genre.title)
                         .font(.system(size: 15, weight: .medium))
                         .lineLimit(1)

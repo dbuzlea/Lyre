@@ -669,7 +669,9 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "liquid-discover")
         element(app, "liquid.discover.item").tap()
         XCTAssertTrue(element(app, "liquid.album.track.0").waitForExistence(timeout: 5), "The cover didn't open its page")
-        element(app, "liquid.back").tap()
+        // It opened as a card (LiquidCardDeck), which its chevron closes.
+        element(app, "liquid.deck.card.0").descendants(matching: .any)["liquid.back"].firstMatch.tap()
+        XCTAssertTrue(element(app, "liquid.deck").waitForNonExistence(timeout: 4), "The card didn't close")
         let genre = element(app, "liquid.discover.genre")
         XCTAssertTrue(genre.waitForExistence(timeout: 5))
         genre.tap()
@@ -770,6 +772,59 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(element(app, "liquid.cover.sample-1").waitForExistence(timeout: 5), "The artist's albums are missing")
         sleep(1)
         attachScreenshot(app, named: "liquid-artist-page")
+    }
+
+    /// A cover chosen from the albums opens as a card over them, as Apple Sports opens a
+    /// game: the list dimmed and named behind it, the next card showing at the edge.
+    /// Swiped across, the next card comes round; scrolled down, the card fills the screen
+    /// with a bar naming it, and back at its top it's a card again; its chevron closes it.
+    @MainActor
+    func testACoverOpensAsACardThatPagesAndFillsTheScreen() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let albums = element(app, "liquid.menu.albums")
+        XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
+        albums.tap()
+        let cover = element(app, "liquid.cover.sample-1")
+        XCTAssertTrue(cover.waitForExistence(timeout: 5), "Albums didn't open")
+        cover.tap()
+
+        let first = element(app, "liquid.deck.card.0")
+        XCTAssertTrue(first.waitForExistence(timeout: 5), "The cover didn't open as a card")
+        let title = element(app, "liquid.deck.title")
+        XCTAssertTrue(title.exists, "The card doesn't name the list it came from")
+        let window = app.windows.firstMatch.frame
+        XCTAssertGreaterThanOrEqual(first.frame.minY, title.frame.maxY, "The card isn't below the list's name")
+        XCTAssertLessThan(first.frame.width, window.width - 20, "The card fills the width, with nothing at its edges")
+        let next = element(app, "liquid.deck.card.1")
+        XCTAssertTrue(next.exists, "The next card isn't there")
+        XCTAssertLessThan(next.frame.minX, window.maxX, "The next card doesn't show at the edge")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-card")
+
+        let front = first.frame.midX
+        // Across, by the cover at the top of the card (the songs below swipe to queue).
+        first.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.15))
+            .press(forDuration: 0.05, thenDragTo: first.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.15)),
+                   withVelocity: .fast, thenHoldForDuration: 0)
+        sleep(1)
+        XCTAssertEqual(next.frame.midX, front, accuracy: 12, "Swiping across didn't bring the next card round")
+        attachScreenshot(app, named: "liquid-card-next")
+
+        let cardWidth = next.frame.width
+        next.swipeUp()
+        let bar = element(app, "liquid.card.bar")
+        XCTAssertTrue(bar.waitForExistence(timeout: 4), "Scrolled down, the card didn't fill the screen")
+        XCTAssertGreaterThan(next.frame.width, cardWidth + 20, "The card didn't grow to the screen's width")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-card-full")
+
+        for _ in 0..<3 where bar.exists { next.swipeDown() }
+        XCTAssertFalse(bar.waitForExistence(timeout: 1), "Back at its top, the card didn't come back")
+        attachScreenshot(app, named: "liquid-card-back")
+
+        next.descendants(matching: .any)["liquid.back"].firstMatch.tap()
+        XCTAssertTrue(element(app, "liquid.deck").waitForNonExistence(timeout: 4), "The chevron didn't close the card")
+        XCTAssertTrue(cover.waitForExistence(timeout: 3), "The albums weren't there behind it")
     }
 
     /// Recently Played offers Most Played, which says what will show there before any

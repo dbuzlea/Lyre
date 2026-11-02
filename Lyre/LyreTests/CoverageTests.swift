@@ -1575,4 +1575,14 @@ struct MusicAccessSettingsTests {
         #expect(SettingsView.items.first == String(localized: "settings.allowMusicAccess"))
         #expect(Array(SettingsView.items.dropFirst()) == SettingsView.settingsItems)
     }
+
+    /// Liquid's card deck: a card is named for its album as the album's page names it,
+    /// or for its artist, and opens on the one chosen.
+    @Test func aLiquidCardIsNamedForWhatItHolds() {
+        let album = AppAlbum(id: "a", title: "Joanne (Deluxe)", artistName: "Lady Gaga")
+        #expect(LiquidDeckItem.album(album).title == album.tapeTitle)
+        #expect(LiquidDeckItem.artist("Lady Gaga").title == "Lady Gaga")
+        let deck = LiquidDeck(items: [.album(album), .artist("Lady Gaga")], index: 1, title: "Artists")
+        #expect(deck.items[deck.index] == .artist("Lady Gaga"))
+    }
 }

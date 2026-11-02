@@ -305,6 +305,28 @@
     },
 
     {
+      "key": "LIB-15", "suite": "Music Access & Library", "title": "Liquid opens what's chosen from a list as a card that pages and fills the screen",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "Liquid player; a library with several albums, playlists and artists; signed in to Apple Music for Discover.",
+      "steps": [
+        ["Open Albums and tap a cover.", "The album opens as a card over the albums, which dim behind it with \"albums\" at the top; the next album's card shows at the right edge."],
+        ["Swipe left on the card's cover, then right.", "The next album's card comes round, then the first again."],
+        ["Scroll down the card's songs.", "The card grows to fill the screen, with a bar at the top showing its cover, name and a close chevron."],
+        ["Scroll back to the top.", "It's a card again, with the list behind it."],
+        ["Pull the card down from its top, or tap its chevron.", "The card closes; the albums are as they were."],
+        ["Repeat from Playlists, Artists (a card of the artist's albums; a cover there opens their albums as cards) and a Discover row.", "Each opens as a card and pages through the list it came from."],
+        ["On a card, tap Play, swipe a song right, and tap the artist's name or a song's album.", "Play plays; the swipe queues; the artist's or album's page opens with the card closed."],
+        ["With VoiceOver on, open a card.", "VoiceOver reads only the card, not the list behind; the escape gesture closes it."]
+      ],
+      "automated_by": [
+        "LyreTests/MusicAccessSettingsTests/aLiquidCardIsNamedForWhatItHolds()",
+        "LyreUITests/LiquidUITests/testACoverOpensAsACardThatPagesAndFillsTheScreen()",
+        "LyreUITests/LiquidUITests/testDiscoverOpensItsCoversAndGenres()",
+        "LyreUITests/LiquidUITests/testArtistsHavePhotosAndTheirPageOpensOnOne()"
+      ]
+    },
+
+    {
       "key": "PLY-01", "suite": "Playback & Queue", "title": "Play, pause, next and previous work in every player",
       "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
       "preconditions": "Library with an album of 3+ songs.",
