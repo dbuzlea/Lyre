@@ -729,6 +729,7 @@ final class SpoolUITests: XCTestCase {
         XCTAssertTrue(element(app, "shelf.songs").waitForExistence(timeout: 3), "The Songs shelf didn't open")
         let song = element(app, "shelf.song.0")
         XCTAssertTrue(song.waitForExistence(timeout: 3), "The Songs shelf lists no songs")
+        XCTAssertTrue(element(app, "shelf.songs.shuffle").exists, "The Songs shelf has no Shuffle")
         sleep(1)
         attachScreenshot(app, named: "spool-songs")
         song.press(forDuration: 0.8)

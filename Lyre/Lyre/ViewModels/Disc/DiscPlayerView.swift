@@ -1027,6 +1027,7 @@ struct DiscPlayerView: View {
                                   emptyText: shelfMatches == nil ? Self.emptyText(on: shelf) : String(localized: "search.noResults"),
                                   playingID: musicService.currentTrack?.id,
                                   onPlay: { index in playSong(index, of: shelfSongs) },
+                                  onShuffle: { playSong(0, of: shelfSongs.shuffled()) },
                                   onQueue: { tracks, placement in queue(tracks, placement: placement, name: tracks.first?.title ?? "") })
                         .padding(.horizontal, 12)
                         .padding(.bottom, 8)

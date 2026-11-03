@@ -588,6 +588,7 @@ final class GramophoneUITests: XCTestCase {
         attachScreenshot(app, named: "gramophone-dividers")
         songs.tap()
         XCTAssertTrue(element(app, "shelf.song.0").waitForExistence(timeout: 3), "The jukebox lists no songs")
+        XCTAssertTrue(element(app, "shelf.songs.shuffle").exists, "The Songs shelf has no Shuffle")
         sleep(1)
         attachScreenshot(app, named: "gramophone-songs")
     }

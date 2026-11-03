@@ -15,7 +15,8 @@ import SwiftUI
 //
 // A song tapped plays, the rest of the list after it in Up Next, as the click wheel's
 // Songs list plays; held, it offers Play Next, Add to Queue and Add to Playlist
-// (QueueMenu). While searching, the list is the songs that match.
+// (QueueMenu). Shuffle, at the top, plays the whole list in a random order. While
+// searching, the list (and so what Shuffle plays) is the songs that match.
 
 enum ShelfSongStyle {
     /// The Spool: a cassette's J-card.
@@ -35,6 +36,8 @@ struct ShelfSongList: View {
     var playingID: String?
     /// Plays from song `index` of `tracks`.
     let onPlay: (Int) -> Void
+    /// Plays the list shuffled.
+    let onShuffle: () -> Void
     let onQueue: ([AppTrack], QueuePlacement) -> Void
 
     /// The first song under each letter, worked out when the list changes rather than
@@ -66,7 +69,7 @@ struct ShelfSongList: View {
             ZStack(alignment: .trailing) {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: style == .jukebox ? 6 : 0) {
-                        if style == .jCard { jCardHeader }
+                        header
                         ForEach(tracks.indices, id: \.self) { index in
                             if let letter = headings[index] { heading(letter) }
                             row(tracks[index], index: index)
@@ -239,16 +242,61 @@ struct ShelfSongList: View {
         .accessibilityAddTraits(.isHeader)
     }
 
-    /// Across the top of the J-card, as a tape's own title is written.
-    private var jCardHeader: some View {
-        Text(String(localized: "spool.shelf.songs").uppercased())
-            .font(.system(size: 12, weight: .heavy, design: .monospaced))
-            .tracking(2)
-            .foregroundStyle(ink.opacity(0.75))
+    /// Above the songs: Shuffle, in the player's own hand. On the J-card it's written
+    /// across the top beside the card's title; in the booklet, a printed button; on the
+    /// jukebox, a chrome push button.
+    @ViewBuilder private var header: some View {
+        switch style {
+        case .jCard:
+            HStack(alignment: .firstTextBaseline) {
+                Text(String(localized: "spool.shelf.songs").uppercased())
+                    .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                    .tracking(2)
+                    .foregroundStyle(ink.opacity(0.75))
+                    .accessibilityHidden(true)
+                Spacer(minLength: 6)
+                shuffleButton {
+                    Label(String(localized: "detail.shuffle").uppercased(), systemImage: "shuffle")
+                        .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                        .foregroundStyle(Self.jCardRed)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .overlay(Capsule().strokeBorder(Self.jCardRed.opacity(0.7), lineWidth: 1.2))
+                }
+            }
             .padding(.bottom, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .bottom) { Rectangle().fill(Self.jCardRed.opacity(0.7)).frame(height: 1.5) }
-            .accessibilityHidden(true)
+        case .booklet:
+            shuffleButton {
+                Label(String(localized: "detail.shuffle"), systemImage: "shuffle")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.98))
+                    .frame(maxWidth: .infinity, minHeight: 36)
+                    .background(Color(white: 0.15), in: Capsule())
+            }
+            .padding(.bottom, 4)
+        case .jukebox:
+            shuffleButton {
+                Label(String(localized: "detail.shuffle").uppercased(), systemImage: "shuffle")
+                    .font(.system(size: 13, weight: .black, design: .serif))
+                    .tracking(1)
+                    .foregroundStyle(Color(white: 0.12))
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                    .background(
+                        LinearGradient(colors: [Color(white: 0.97), Color(white: 0.62), Color(white: 0.9)],
+                                       startPoint: .top, endPoint: .bottom),
+                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+            }
+            .padding(.bottom, 4)
+        }
+    }
+
+    private func shuffleButton<Label: View>(@ViewBuilder label: () -> Label) -> some View {
+        Button(action: onShuffle, label: label)
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "detail.shuffle"))
+            .accessibilityIdentifier("shelf.songs.shuffle")
     }
 
     // MARK: Parts
