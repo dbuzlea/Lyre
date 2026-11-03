@@ -338,9 +338,9 @@
       "preconditions": "A library with songs from several albums; an Apple Music subscription for the Apple Music shelf's search results. Check on a closed iPhone Duo as well as a regular phone.",
       "steps": [
         ["Open the rack (Spool), the shelf (Disc) and the drawer (Gramophone).", "Six dividers in two staggered rows: Albums, Songs, Podcasts behind; Artists, Playlists, Apple Music in front. Every name readable, none cut off."],
-        ["Tap Songs in each player.", "Every song A to Z: on a J-card (Spool), in a booklet (Disc), on jukebox title strips (Gramophone), with letter headings and an A-Z index."],
-        ["Tap a song.", "It plays, and the songs after it follow in Up Next (Disc spins up a Songs disc; Gramophone puts on a Songs record)."],
-        ["Hold a song.", "Play Next, Add to Queue and Add to Playlist."],
+        ["Tap Songs in each player.", "Every song A to Z: on a J-card (Spool), in a booklet (Disc), printed on a record sleeve (Gramophone, with its X to close the drawer), with letter headings, an A-Z index and Shuffle."],
+        ["Tap a song.", "It plays, and the songs after it follow in Up Next. The tape, disc or record shows the song's own album cover, not a generic Songs one."],
+        ["Swipe a song right; then hold one.", "The swipe slides it onto Play Next and Add to Queue (a long swipe plays it next); holding offers those and Add to Playlist."],
         ["Search for a song title.", "The Songs divider shows its count; the list is the matching songs."],
         ["Tap Apple Music with nothing typed, then search for something you don't have.", "Discover with nothing typed; Apple Music's results for the search while searching. Clearing the search shows Discover again."],
         ["On Playlists, then Podcasts.", "The + (new playlist) and find-shows buttons sit at the end of the back row."]
@@ -349,7 +349,7 @@
         "LyreTests/AppleMusicShelfTests",
         "LyreUITests/SpoolUITests/testTheSongsShelfListsEverySongOnAJCard()",
         "LyreUITests/DiscUITests/testTheSongsShelfListsEverySongInABooklet()",
-        "LyreUITests/GramophoneUITests/testTheSongsShelfListsEverySongOnJukeboxStrips()"
+        "LyreUITests/GramophoneUITests/testTheSongsShelfListsEverySongOnASleeve()"
       ]
     },
 

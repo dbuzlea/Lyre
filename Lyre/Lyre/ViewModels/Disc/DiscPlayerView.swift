@@ -805,6 +805,8 @@ struct DiscPlayerView: View {
     /// Whether what's playing came off the last disc put on.
     private var isPlayingFromSeated: Bool {
         guard let seatedDisc else { return false }
+        // A disc from the Songs shelf gives way to each song's own album disc as it plays.
+        if seatedDisc.id.hasPrefix("songs:") { return false }
         if let album = seatedDisc.album { return library.isPlaying(from: album) }
         guard let id = musicService.currentTrack?.id else { return false }
         return seatedTracks.contains { $0.id == id }
@@ -1077,15 +1079,18 @@ struct DiscPlayerView: View {
     private var shelfSongs: [AppTrack] { shelfMatches?.songs ?? library.songs }
 
     /// A song from the Songs shelf: a disc of the list spins up from it, as Shuffle's
-    /// does. Asks first if Up Next holds songs queued by hand.
+    /// does, printed with the song's own album cover. Once it plays, the spindle shows
+    /// each song's album in turn (see `isPlayingFromSeated`). Asks first if Up Next
+    /// holds songs queued by hand.
     private func playSong(_ index: Int, of songs: [AppTrack]) {
         guard songs.indices.contains(index) else { return }
         musicService.play(asking: { pendingPlay = $0 }, addToQueue: {
             queue([songs[index]], placement: .last, name: songs[index].title)
         }) {
             deckLoad = nil
-            let disc = LoadedDisc(album: nil, title: String(localized: "spool.shelf.songs"), kind: .burned, art: .none,
-                                  id: "songs:\(songs[index].id)")
+            let song = songs[index]
+            let disc = LoadedDisc(album: nil, title: TapeFormat.displayTitle(song.albumTitle), kind: .pressed,
+                                  art: .track(song), id: "songs:\(song.id)")
             spinUp(disc, tracks: Task { songs }, startingAt: index)
         }
     }

@@ -201,7 +201,7 @@
 "gramophone.tour.crank.title" = "Shuffle";
 "gramophone.tour.crank.detail" = "Wind the crank a full turn to shuffle all your songs.";
 "gramophone.tour.broadcasts.title" = "Recordings and Broadcasts";
-"gramophone.tour.broadcasts.detail" = "The drawer's dividers switch between albums, artists, every song on jukebox strips, home recordings (your playlists), broadcasts (your podcasts) and Apple Music. While a broadcast plays, the knob sets its speed.";
+"gramophone.tour.broadcasts.detail" = "The drawer's dividers switch between albums, artists, every song printed on a sleeve, home recordings (your playlists), broadcasts (your podcasts) and Apple Music. While a broadcast plays, the knob sets its speed.";
 "gramophone.tour.booklet.title" = "This Booklet";
 "gramophone.tour.booklet.detail" = "The book button at the top opens these instructions: design, finish, sound, and playback.";
 "onboarding.player.gramophone.detail" = "A wind-up gramophone. Pick a record from the crate and drop the needle on a song.";

@@ -1103,10 +1103,13 @@ struct GramophonePlayerView: View {
     private var crateSongs: [AppTrack] { crateMatches?.songs ?? library.songs }
 
     /// A song from the Songs shelf: a record of the list goes on from it, as Shuffle's
-    /// does (the record holds the next few dozen; the rest follow in Up Next).
+    /// does (the record holds the next few dozen; the rest follow in Up Next). Its label
+    /// is the song's own album cover, named for the album, not a plain "Songs" label.
     private func playSong(_ index: Int, of songs: [AppTrack]) {
         guard songs.indices.contains(index) else { return }
-        put(nil, title: String(localized: "spool.shelf.songs"),
+        let song = songs[index]
+        put(nil, title: TapeFormat.displayTitle(song.albumTitle.isEmpty ? song.title : song.albumTitle),
+            label: .track(song),
             tracks: Array(songs[index...].prefix(Self.recordLength)), startingAt: 0,
             addToQueue: { queue([songs[index]], placement: .last, name: songs[index].title) }) {
             await musicService.play(tracks: songs, startingAt: index)
@@ -1166,8 +1169,10 @@ struct GramophonePlayerView: View {
                     // Discover is asked for the first time it's shown.
                     .task(id: shelf) { if shelf == .discover { await Discover.shared.load(in: musicService) } }
                     if shelf == .songs {
-                        // Every song, on a jukebox's title strips rather than records.
-                        ShelfSongList(tracks: crateSongs, style: .jukebox,
+                        // Every song, printed on the back of a sleeve rather than records,
+                        // under its name and the way out of the drawer.
+                        songsHeader
+                        ShelfSongList(tracks: crateSongs, style: .sleeve,
                                       emptyText: crateMatches == nil ? Self.emptyText(on: shelf) : String(localized: "search.noResults"),
                                       playingID: musicService.currentTrack?.id,
                                       onPlay: { index in playSong(index, of: crateSongs) },
@@ -1238,6 +1243,32 @@ struct GramophonePlayerView: View {
             .animation(.easeInOut(duration: 0.15), value: front?.id)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("gramophone.stack.nowShowing")
+            Button(action: closeCrate) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(theme.spoolTheme.keySymbol)
+                    .frame(width: 34, height: 34)
+                    .background(theme.spoolTheme.keyLight.opacity(0.85), in: Circle())
+            }
+            .accessibilityLabel(String(localized: "gramophone.crate.close"))
+            .accessibilityIdentifier("gramophone.crate.close")
+        }
+    }
+
+    /// Over the Songs shelf's list: how many songs, and closing the drawer, as the
+    /// records' header has.
+    private var songsHeader: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "spool.shelf.songs"))
+                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .foregroundStyle(.white)
+                Text(TapeFormat.album.count(crateSongs.count))
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundStyle(.white.opacity(0.75))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
             Button(action: closeCrate) {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .bold))
