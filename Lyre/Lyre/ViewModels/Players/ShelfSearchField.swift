@@ -17,9 +17,9 @@ import MusicKit
 // typing, searches once, and hands back the matches with the query they're for, which
 // the players use to rebuild the rack once per search rather than once per keystroke.
 // A little later, with an Apple Music subscription, Apple Music's albums for the same
-// words that the library hasn't arrive on a shelf of their own (`appleMusic`); opened,
-// their songs stream. Leaving that shelf empty when the search clears turns the rack
-// back to Albums.
+// words that the library hasn't arrive on the Apple Music shelf (`appleMusic`), in
+// place of Discover; opened, their songs stream. When the search clears, the shelf is
+// Discover again.
 
 struct ShelfSearchField: View {
     @Binding var query: String
@@ -64,7 +64,7 @@ extension ShelfSearchMatches {
     /// A divider's title, followed while searching by how many matches are on its shelf.
     static func dividerTitle(_ title: String, on shelf: SpoolShelf, matches: ShelfSearchMatches?) -> String {
         guard let matches else { return title }
-        return "\(title) \(matches.items(on: shelf).count)"
+        return "\(title) \(matches.count(on: shelf))"
     }
 }
 
@@ -84,7 +84,6 @@ struct ShelfSearching: ViewModifier {
             let found = LibrarySearch.shelfMatches(for: query, in: library)
             withAnimation(.easeInOut(duration: 0.2)) {
                 matches = found
-                if found == nil, shelf == .appleMusic { shelf = .albums }
                 if let other = found?.shelfWithMatches(preferring: shelf) { shelf = other }
             }
             // Apple Music, once the typing has paused a little longer.

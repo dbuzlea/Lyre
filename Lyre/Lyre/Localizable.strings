@@ -201,7 +201,7 @@
 "gramophone.tour.crank.title" = "Shuffle";
 "gramophone.tour.crank.detail" = "Wind the crank a full turn to shuffle all your songs.";
 "gramophone.tour.broadcasts.title" = "Recordings and Broadcasts";
-"gramophone.tour.broadcasts.detail" = "The drawer's dividers switch between albums, home recordings (your playlists) and broadcasts (your podcasts). While a broadcast plays, the knob sets its speed.";
+"gramophone.tour.broadcasts.detail" = "The drawer's dividers switch between albums, artists, every song on jukebox strips, home recordings (your playlists), broadcasts (your podcasts) and Apple Music. While a broadcast plays, the knob sets its speed.";
 "gramophone.tour.booklet.title" = "This Booklet";
 "gramophone.tour.booklet.detail" = "The book button at the top opens these instructions: design, finish, sound, and playback.";
 "onboarding.player.gramophone.detail" = "A wind-up gramophone. Pick a record from the crate and drop the needle on a song.";
@@ -229,6 +229,7 @@
 "spool.shelf.empty" = "No albums in your library";
 "spool.shelf.hint.closed" = "Choose a tape to play it.";
 "spool.shelf.albums" = "Albums";
+"spool.shelf.songs" = "Songs";
 "spool.shelf.artists" = "Artists";
 "spool.artist.albums" = "%d albums";
 "artist.otherSongs" = "Other Songs";
@@ -602,8 +603,8 @@
 "spool.tour.loadTape.detail" = "Swipe the front tape left into the door to play it. Swipe it right to add it to Up Next, or hold it to choose Play Next.";
 "spool.tour.openCase.title" = "Choose a Song";
 "spool.tour.openCase.detail" = "Albums come in cases. Tap one to open it, then tap a song to start the tape there, or hold a song to queue it.";
-"spool.tour.shelves.title" = "Albums, Mixtapes, Podcasts";
-"spool.tour.shelves.detail" = "Switch shelves with the dividers at the top of the rack. Playlists are hand-labeled mixtapes, and podcasts are spoken-word tapes.";
+"spool.tour.shelves.title" = "Six Shelves";
+"spool.tour.shelves.detail" = "Switch shelves with the dividers at the top of the rack: albums, artists, every song on a J-card, mixtapes (your playlists), podcasts and Apple Music.";
 "spool.tour.keys.title" = "The Keys";
 "spool.tour.keys.detail" = "Play starts and pauses the tape. Tap fast-forward to skip to the next song, or rewind to go back to the start of this one, then the one before. Hold Eject to shuffle all your songs.";
 "spool.tour.wind.title" = "Wind Through a Song";
@@ -701,7 +702,7 @@
 "disc.tour.holdLid.title" = "What's Playing";
 "disc.tour.holdLid.detail" = "Hold the lid to open the case of the album playing and pick another song from it.";
 "disc.tour.shelves.title" = "Burned and Enhanced";
-"disc.tour.shelves.detail" = "The dividers switch between albums, burned CDs (your playlists) and enhanced CDs (your podcasts). Hold a case to queue it, or swipe it right.";
+"disc.tour.shelves.detail" = "The dividers switch between albums, artists, every song in a booklet, burned CDs (your playlists), enhanced CDs (your podcasts) and Apple Music. Hold a case to queue it, or swipe it right.";
 "onboarding.player.disc.detail" = "A portable CD player. Open the lid, choose a disc, and watch it spin.";
 "onboarding.disc.title" = "Meet the Disc";
 "onboarding.disc.message" = "Watch each move. You can see these again any time in the Disc's operating instructions.";

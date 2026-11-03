@@ -705,6 +705,37 @@ final class SpoolUITests: XCTestCase {
         XCTAssertTrue(name.waitForNonExistence(timeout: 3), "Cancel didn't close Edit Playlist")
     }
 
+    /// Six dividers, cut in two staggered rows so every name fits whole: Albums, Songs
+    /// and Podcasts behind; Artists, Playlists and Apple Music in front, half a tab along.
+    /// The Songs shelf lists every song on a J-card; held, a song offers to queue it.
+    @MainActor
+    func testTheSongsShelfListsEverySongOnAJCard() throws {
+        let app = launchSpool()
+        let door = element(app, ID.door)
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        let ids = ["albums", "artists", "songs", "mixtapes", "podcasts", "discover"].map { "spool.shelf.\($0)" }
+        let tabs = ids.map { element(app, $0) }
+        XCTAssertTrue(tabs[0].waitForExistence(timeout: 3), "The rack has no dividers")
+        for (id, tab) in zip(ids, tabs) { XCTAssertTrue(tab.exists, "No \(id) divider") }
+        XCTAssertLessThan(tabs[0].frame.midY, tabs[1].frame.midY - 8, "The dividers aren't in two rows")
+        XCTAssertEqual(tabs[0].frame.midY, tabs[2].frame.midY, accuracy: 3, "Albums and Songs aren't in the same row")
+        XCTAssertGreaterThan(tabs[1].frame.minX, tabs[0].frame.minX + 20, "The front row isn't half a tab along")
+        XCTAssertGreaterThan(tabs[5].frame.width, 56, "The Apple Music divider is too narrow for its name")
+        sleep(1)
+        attachScreenshot(app, named: "spool-dividers")
+
+        tabs[2].tap()
+        XCTAssertTrue(element(app, "shelf.songs").waitForExistence(timeout: 3), "The Songs shelf didn't open")
+        let song = element(app, "shelf.song.0")
+        XCTAssertTrue(song.waitForExistence(timeout: 3), "The Songs shelf lists no songs")
+        sleep(1)
+        attachScreenshot(app, named: "spool-songs")
+        song.press(forDuration: 0.8)
+        XCTAssertTrue(app.buttons["Play Next"].waitForExistence(timeout: 3), "Holding a song doesn't offer Play Next")
+        XCTAssertTrue(app.buttons["Add to Playlist…"].exists, "Holding a song doesn't offer Add to Playlist")
+    }
+
     /// The Discover shelf holds Apple Music's suggestions (here placeholders: the
     /// simulator has no Apple Music), an album opening on its songs.
     @MainActor

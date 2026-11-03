@@ -1021,6 +1021,20 @@ struct DiscPlayerView: View {
             // Discover is asked for the first time it's shown.
             .task(id: shelf) { if shelf == .discover { await Discover.shared.load(in: musicService) } }
             ZStack {
+                if shelf == .songs {
+                    // Every song, in a booklet rather than a shelf of cases.
+                    ShelfSongList(tracks: shelfSongs, style: .booklet,
+                                  emptyText: shelfMatches == nil ? Self.emptyText(on: shelf) : String(localized: "search.noResults"),
+                                  playingID: musicService.currentTrack?.id,
+                                  onPlay: { index in playSong(index, of: shelfSongs) },
+                                  onQueue: { tracks, placement in queue(tracks, placement: placement, name: tracks.first?.title ?? "") })
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                        .transition(.opacity)
+                        .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { _ in
+                            isShelfSearchFocused = false
+                        })
+                } else {
                 TapeCarousel(
                     albums: shelfItems,
                     emptyText: shelfMatches == nil ? Self.emptyText(on: shelf) : String(localized: "search.noResults"),
@@ -1049,6 +1063,7 @@ struct DiscPlayerView: View {
                 .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { _ in
                     isShelfSearchFocused = false
                 })
+                }
             }
         }
         // Stops above the keyboard while it's up.
@@ -1057,14 +1072,33 @@ struct DiscPlayerView: View {
 
     private var shelfItems: [AppAlbum] { shelfMatches?.items(on: shelf) ?? library.items(on: shelf) }
 
+    /// The Songs shelf's list: every song, or those matching the search.
+    private var shelfSongs: [AppTrack] { shelfMatches?.songs ?? library.songs }
+
+    /// A song from the Songs shelf: a disc of the list spins up from it, as Shuffle's
+    /// does. Asks first if Up Next holds songs queued by hand.
+    private func playSong(_ index: Int, of songs: [AppTrack]) {
+        guard songs.indices.contains(index) else { return }
+        musicService.play(asking: { pendingPlay = $0 }, addToQueue: {
+            queue([songs[index]], placement: .last, name: songs[index].title)
+        }) {
+            deckLoad = nil
+            let disc = LoadedDisc(album: nil, title: String(localized: "spool.shelf.songs"), kind: .burned, art: .none,
+                                  id: "songs:\(songs[index].id)")
+            spinUp(disc, tracks: Task { songs }, startingAt: index)
+        }
+    }
+
     private var shelfFrontID: Binding<String?> {
         switch shelf {
         case .albums:     return $albumFrontID
         case .artists:    return $artistFrontID
         case .mixtapes:   return $burnedFrontID
         case .podcasts:   return $podcastFrontID
-        case .discover:   return $discoverFrontID
-        case .appleMusic: return $appleMusicFrontID
+        // The Apple Music shelf: Discover, or a search's results, each where it was left.
+        case .discover:   return shelfMatches == nil ? $discoverFrontID : $appleMusicFrontID
+        // A list, not a rack of cases.
+        case .songs:      return .constant(nil)
         }
     }
 
@@ -1074,8 +1108,8 @@ struct DiscPlayerView: View {
         case .artists:    return String(localized: "spool.shelf.artists")
         case .mixtapes:   return String(localized: "disc.shelf.burned")
         case .podcasts:   return String(localized: "spool.shelf.podcasts")
-        case .discover:   return String(localized: "discover.title")
-        case .appleMusic: return String(localized: "catalog.search.title")
+        case .songs:      return String(localized: "spool.shelf.songs")
+        case .discover:   return String(localized: "catalog.search.title")
         }
     }
 
@@ -1084,8 +1118,8 @@ struct DiscPlayerView: View {
         case .albums, .artists: return String(localized: "spool.shelf.empty")
         case .mixtapes:   return String(localized: "disc.shelf.burned.empty")
         case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
+        case .songs:      return String(localized: "liquid.songs.empty")
         case .discover:   return Discover.emptyText
-        case .appleMusic: return String(localized: "search.noResults")
         }
     }
 

@@ -921,6 +921,9 @@ struct LiquidLetterBubble: View {
 struct LiquidLetterStrip: View {
     let titles: [String]
     let onJump: (Int) -> Void
+    /// The letters' colour: white on Liquid's dark pages; the Spool's J-card and the
+    /// Disc's booklet are pale, and ask for dark.
+    var ink: Color = .white
 
     @State private var lastLetter: String?
     /// Where along the strip the finger is, for the letter's bubble.
@@ -936,7 +939,7 @@ struct LiquidLetterStrip: View {
                 ForEach(letters, id: \.letter) { entry in
                     Text(entry.letter)
                         .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(lastLetter == entry.letter ? 1 : 0.6))
+                        .foregroundStyle(ink.opacity(lastLetter == entry.letter ? 1 : 0.6))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
@@ -968,7 +971,7 @@ struct LiquidLetterStrip: View {
         }
         .frame(width: 24)
         .frame(maxHeight: 520)
-        .background(.white.opacity(0.07), in: Capsule())
+        .background(ink.opacity(0.07), in: Capsule())
         .onChange(of: titles, initial: true) { letters = LiquidLetterEntry.index(titles) }
         .accessibilityElement()
         .accessibilityLabel(String(localized: "liquid.index"))

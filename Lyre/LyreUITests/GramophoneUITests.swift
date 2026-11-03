@@ -577,6 +577,21 @@ final class GramophoneUITests: XCTestCase {
         return app
     }
 
+    /// The Songs divider opens every song as a jukebox's title strips.
+    @MainActor
+    func testTheSongsShelfListsEverySongOnJukeboxStrips() throws {
+        let app = launchGramophone()
+        openCrate(app)
+        let songs = element(app, "spool.shelf.songs")
+        XCTAssertTrue(songs.waitForExistence(timeout: 5), "The crate has no Songs divider")
+        sleep(1)
+        attachScreenshot(app, named: "gramophone-dividers")
+        songs.tap()
+        XCTAssertTrue(element(app, "shelf.song.0").waitForExistence(timeout: 3), "The jukebox lists no songs")
+        sleep(1)
+        attachScreenshot(app, named: "gramophone-songs")
+    }
+
     private func openCrate(_ app: XCUIApplication) {
         let crate = element(app, "gramophone.crate")
         XCTAssertTrue(crate.waitForExistence(timeout: 10))

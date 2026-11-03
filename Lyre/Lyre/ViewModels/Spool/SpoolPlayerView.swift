@@ -605,6 +605,19 @@ struct SpoolPlayerView: View {
             // Each shelf is its own rack, so it opens on its own front tape;
             // switching crossfades one rack for the other.
             ZStack {
+                if shelf == .songs {
+                    // Every song, on a J-card rather than a rack of tapes.
+                    ShelfSongList(tracks: shelfSongs, style: .jCard, emptyText: shelfEmptyText,
+                                  playingID: musicService.currentTrack?.id,
+                                  onPlay: { index in playSong(index, of: shelfSongs) },
+                                  onQueue: { tracks, placement in queue(tracks, placement: placement, name: tracks.first?.title ?? "") })
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 8)
+                        .transition(.opacity)
+                        .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { _ in
+                            isShelfSearchFocused = false
+                        })
+                } else {
                 TapeCarousel(
                     albums: shelfTapes,
                     emptyText: shelfEmptyText,
@@ -628,6 +641,7 @@ struct SpoolPlayerView: View {
                 .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { _ in
                     isShelfSearchFocused = false
                 })
+                }
             }
         }
         // Stops above the keyboard while it's up. LyreView ignores the keyboard's safe
@@ -1167,6 +1181,27 @@ struct SpoolPlayerView: View {
     /// The tapes on the shelf the rack is showing: those that match, while searching.
     private var shelfTapes: [AppAlbum] { shelfMatches?.items(on: shelf) ?? library.items(on: shelf) }
 
+    /// The Songs shelf's list: every song, or those matching the search.
+    private var shelfSongs: [AppTrack] { shelfMatches?.songs ?? library.songs }
+
+    /// A song from the Songs shelf: it plays, the rest of the list after it in Up Next,
+    /// whatever's in the deck coming out. Asks first if Up Next holds songs queued by hand.
+    private func playSong(_ index: Int, of songs: [AppTrack]) {
+        guard songs.indices.contains(index) else { return }
+        musicService.play(asking: { pendingPlay = $0 }, addToQueue: {
+            queue([songs[index]], placement: .last, name: songs[index].title)
+        }) {
+            deckLoad = nil
+            pendingTape = nil
+            seatedTape = nil
+            Task {
+                if await musicService.play(tracks: songs, startingAt: index) != .started {
+                    showNotice(String(localized: "playback.nothingPlayable"))
+                }
+            }
+        }
+    }
+
     private var shelfEmptyText: String {
         shelfMatches == nil ? ShelfLibrary.emptyText(on: shelf) : String(localized: "search.noResults")
     }
@@ -1178,8 +1213,10 @@ struct SpoolPlayerView: View {
         case .artists:    return $artistFrontID
         case .mixtapes:   return $mixtapeFrontID
         case .podcasts:   return $podcastFrontID
-        case .discover:   return $discoverFrontID
-        case .appleMusic: return $appleMusicFrontID
+        // The Apple Music shelf: Discover, or a search's results, each where it was left.
+        case .discover:   return shelfMatches == nil ? $discoverFrontID : $appleMusicFrontID
+        // A list, not a rack of cases.
+        case .songs:      return .constant(nil)
         }
     }
 
