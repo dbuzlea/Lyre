@@ -42,6 +42,7 @@ final class DiscUITests: XCTestCase {
         attachScreenshot(app, named: "disc-dividers")
         songs.tap()
         XCTAssertTrue(element(app, "shelf.song.0").waitForExistence(timeout: 3), "The booklet lists no songs")
+        XCTAssertTrue(element(app, "shelf.songs.shuffle").exists, "The Songs shelf has no Shuffle")
         sleep(1)
         attachScreenshot(app, named: "disc-songs")
     }

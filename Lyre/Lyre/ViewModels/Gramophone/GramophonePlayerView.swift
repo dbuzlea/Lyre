@@ -1171,6 +1171,7 @@ struct GramophonePlayerView: View {
                                       emptyText: crateMatches == nil ? Self.emptyText(on: shelf) : String(localized: "search.noResults"),
                                       playingID: musicService.currentTrack?.id,
                                       onPlay: { index in playSong(index, of: crateSongs) },
+                                  onShuffle: { playSong(0, of: crateSongs.shuffled()) },
                                       onQueue: { tracks, placement in queue(tracks, placement: placement, name: tracks.first?.title ?? "") })
                             .transition(.opacity)
                             .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { _ in
