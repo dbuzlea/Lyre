@@ -384,6 +384,41 @@ final class LiquidUITests: XCTestCase {
                       "Search didn't find the album")
     }
 
+    /// The last card, filling the screen, is lined up with it: the card before it
+    /// doesn't show at the left, nor is this one cut off at the right.
+    @MainActor
+    func testTheLastCardFillsTheScreenLinedUp() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let albums = element(app, "liquid.menu.albums")
+        XCTAssertTrue(albums.waitForExistence(timeout: 10))
+        albums.tap()
+        let covers = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.cover.'"))
+        XCTAssertTrue(covers.firstMatch.waitForExistence(timeout: 5), "Albums didn't open")
+        for _ in 0..<6 { app.swipeUp() }
+        let last = covers.element(boundBy: covers.count - 1)
+        XCTAssertTrue(last.waitForExistence(timeout: 3))
+        last.tap()
+        let cards = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.deck.card.'"))
+        XCTAssertTrue(cards.firstMatch.waitForExistence(timeout: 5), "The cover didn't open as a card")
+        sleep(1)
+        let window = app.windows.firstMatch.frame
+        // The card in front: the one nearest the middle.
+        let front = (0..<cards.count).map { cards.element(boundBy: $0) }
+            .min { abs($0.frame.midX - window.midX) < abs($1.frame.midX - window.midX) }!
+        let id = front.identifier
+        let card = element(app, id)
+        card.swipeUp()
+        XCTAssertTrue(element(app, "liquid.card.bar").waitForExistence(timeout: 4), "The card didn't fill the screen")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-last-card-full")
+        XCTAssertEqual(card.frame.minX, window.minX, accuracy: 1, "The last card isn't lined up with the screen")
+        let index = Int(id.replacingOccurrences(of: "liquid.deck.card.", with: "")) ?? 0
+        if index > 0 {
+            let before = element(app, "liquid.deck.card.\(index - 1)")
+            XCTAssertFalse(before.exists && before.frame.maxX > window.minX + 1, "The card before shows at the left")
+        }
+    }
+
     /// A cover among the search's matches opens as a card, paging through the matches.
     @MainActor
     func testASearchMatchOpensAsACard() throws {
@@ -856,6 +891,11 @@ final class LiquidUITests: XCTestCase {
         let bar = element(app, "liquid.card.bar")
         XCTAssertTrue(bar.waitForExistence(timeout: 4), "Scrolled down, the card didn't fill the screen")
         XCTAssertGreaterThan(next.frame.width, cardWidth + 20, "The card didn't grow to the screen's width")
+        // Lined up with the screen, the card before it out of sight (it spilt in at the
+        // left, and this card off the right, further along the list).
+        sleep(1)
+        XCTAssertEqual(next.frame.minX, window.minX, accuracy: 1, "The full-screen card isn't lined up with the screen")
+        XCTAssertFalse(first.exists && first.frame.maxX > next.frame.minX + 1, "The card before shows at the left")
         sleep(1)
         attachScreenshot(app, named: "liquid-card-full")
 
