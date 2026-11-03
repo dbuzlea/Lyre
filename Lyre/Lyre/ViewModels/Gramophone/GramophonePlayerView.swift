@@ -327,7 +327,11 @@ struct GramophonePlayerView: View {
             syncArm(animated: false)
             Task { await showNowPlayingLabel() }
         }
-        .task(id: musicService.currentMediaItem?.persistentID) { await showNowPlayingLabel() }
+        // Each song as it comes up, by Lyre's own idea of what's playing (the system
+        // player's item lags or is missing for a list played through MusicKit).
+        .task(id: "\(musicService.currentTrack?.id ?? ""):\(musicService.currentMediaItem?.persistentID ?? 0)") {
+            await showNowPlayingLabel()
+        }
         .onChange(of: isArmParked) { syncArm(animated: true) }
         .onReceive(musicService.clock.$time) { _ in syncArm(animated: true) }
         .onChange(of: musicService.isPlaying && !reduceMotion, initial: true) { _, spinning in
@@ -817,13 +821,24 @@ struct GramophonePlayerView: View {
     /// what's playing is still the last record's song until the new one starts, and its
     /// cover used to end up on the new record's label; the stage labels the new record
     /// with its own cover meanwhile, and this runs again when its song starts.
+    ///
+    /// The song is Lyre's playing track, as the name plate shows it. The system player's
+    /// item was used before, but a list played through MusicKit (the Songs shelf, a
+    /// shuffle) leaves it stale or empty: the label kept the first song's cover while
+    /// the plate moved on.
     private func showNowPlayingLabel() async {
-        guard !isPlayingOffAnotherRecord, let item = musicService.currentMediaItem,
-              let artwork = item.artwork else { return }
-        let image = await RecordLabelArt.image(for: artwork, id: item.persistentID)
-        // A record may have gone on, or the song moved on, while the picture loaded.
-        guard !isPlayingOffAnotherRecord, musicService.currentMediaItem?.persistentID == item.persistentID else { return }
-        stage.setLabel(image)
+        guard !isPlayingOffAnotherRecord else { return }
+        if let track = musicService.currentTrack {
+            let image = await RecordLabelArt.image(for: track)
+            // A record may have gone on, or the song moved on, while the picture loaded.
+            guard !isPlayingOffAnotherRecord, musicService.currentTrack?.id == track.id else { return }
+            stage.setLabel(image)
+        } else if let item = musicService.currentMediaItem, let artwork = item.artwork {
+            let image = await RecordLabelArt.image(for: artwork, id: item.persistentID)
+            guard !isPlayingOffAnotherRecord, musicService.currentTrack == nil,
+                  musicService.currentMediaItem?.persistentID == item.persistentID else { return }
+            stage.setLabel(image)
+        }
     }
 
     /// Whether the record shown is the one put on, and what's playing isn't on it: the
