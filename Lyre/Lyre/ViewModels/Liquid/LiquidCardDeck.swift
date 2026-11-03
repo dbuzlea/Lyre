@@ -81,8 +81,13 @@ struct LiquidCardDeckView<Content: View>: View {
     let onClose: () -> Void
     @ViewBuilder let content: (LiquidDeckItem) -> Content
 
-    @State private var current: Int?
+    @State private var current: Int
     @State private var isExpanded = false
+    /// How far a sideways drag has the cards along, while it lasts.
+    @State private var drag: CGFloat = 0
+    /// Whether the drag in progress is sideways (turning the cards), decided at its start,
+    /// so scrolling a card's page up and down doesn't nudge it along.
+    @State private var dragIsSideways: Bool?
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.liquidNavigator) private var navigator
 
@@ -90,6 +95,9 @@ struct LiquidCardDeckView<Content: View>: View {
     private static var expandsAt: CGFloat { 60 }
     /// Pulled this far down from its top, the deck closes.
     private static var closesAt: CGFloat { -110 }
+    /// Either side of the card in front, where the next ones peek in.
+    private static var margin: CGFloat { 18 }
+    private static var gap: CGFloat { 10 }
 
     init(deck: LiquidDeck, onClose: @escaping () -> Void, @ViewBuilder content: @escaping (LiquidDeckItem) -> Content) {
         self.deck = deck
@@ -102,6 +110,8 @@ struct LiquidCardDeckView<Content: View>: View {
         GeometryReader { geometry in
             let top = isExpanded ? 0 : max(safeArea.top, 6) + 40
             let cardHeight = geometry.size.height - top
+            // Clear of a camera at the side (an iPhone Duo closed), as the pages are.
+            let width = geometry.size.width - safeArea.leading - safeArea.trailing
             ZStack(alignment: .top) {
                 Color.black.opacity(isExpanded ? 1 : 0.55)
                 Text(deck.title.lowercasedKeepingAppleMusic)
@@ -112,49 +122,90 @@ struct LiquidCardDeckView<Content: View>: View {
                     .padding(.top, max(safeArea.top, 6) + 10)
                     .opacity(isExpanded ? 0 : 1)
                     .accessibilityIdentifier("liquid.deck.title")
-                ScrollView(.horizontal) {
-                    LazyHStack(alignment: .top, spacing: isExpanded ? 0 : 10) {
-                        ForEach(deck.items.indices, id: \.self) { index in
-                            card(deck.items[index], index: index, height: cardHeight)
-                                .containerRelativeFrame(.horizontal) { width, _ in isExpanded ? width : width - 36 }
-                                .id(index)
-                        }
+                // The card in front and the one either side, each placed by how far it is
+                // from the front: nothing else is drawn, and the card in front, filling
+                // the screen, is lined up with it wherever it is in the list.
+                ZStack(alignment: .topLeading) {
+                    ForEach(shown, id: \.self) { index in
+                        card(deck.items[index], index: index, width: width, height: cardHeight)
                     }
-                    .scrollTargetLayout()
                 }
-                .scrollTargetBehavior(.viewAligned)
-                .scrollPosition(id: $current)
-                .contentMargins(.horizontal, isExpanded ? 0 : 18, for: .scrollContent)
-                .scrollDisabled(isExpanded)
-                .scrollIndicators(.hidden)
-                .frame(height: cardHeight)
-                // The next card peeks in only as far as the deck's edge.
+                .frame(width: width, height: cardHeight, alignment: .topLeading)
                 .clipped()
+                .contentShape(Rectangle())
+                .simultaneousGesture(turning(width: width))
                 .padding(.top, top)
-                // Clear of a camera at the side (an iPhone Duo closed), as the pages are.
                 .padding(.leading, safeArea.leading)
-                .padding(.trailing, safeArea.trailing)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .ignoresSafeArea()
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("liquid.deck")
         .accessibilityAction(.escape, onClose)
+        .accessibilityScrollAction { edge in
+            switch edge {
+            case .leading: turn(to: current - 1)
+            case .trailing: turn(to: current + 1)
+            default: break
+            }
+        }
     }
 
-    private func card(_ item: LiquidDeckItem, index: Int, height: CGFloat) -> some View {
-        content(item)
+    /// The card in front and its neighbours; filling the screen, it's the only card.
+    private var shown: [Int] {
+        isExpanded ? [current] : Array(max(0, current - 1)...min(deck.items.count - 1, current + 1))
+    }
+
+    /// A card's place: across from the front by its distance from it, plus the drag.
+    /// The one in front, filling the screen, takes the whole width.
+    private func card(_ item: LiquidDeckItem, index: Int, width: CGFloat, height: CGFloat) -> some View {
+        let fills = isExpanded && current == index
+        let cardWidth = width - 2 * Self.margin
+        let x = fills ? 0 : Self.margin + CGFloat(index - current) * (cardWidth + Self.gap) + drag
+        return content(item)
             .environment(\.liquidCard, LiquidCardContext(close: onClose) { y in scrolled(y, on: index) })
             .environment(\.liquidNavigator, cardNavigator)
-            .frame(height: height)
+            .frame(width: fills ? width : cardWidth, height: height)
             // It runs to the bottom edge, so only its top corners are rounded.
             .clipShape(UnevenRoundedRectangle(topLeadingRadius: isExpanded ? 0 : 30, topTrailingRadius: isExpanded ? 0 : 30,
                                               style: .continuous))
             .overlay(alignment: .top) {
-                if isExpanded, current == index { bar(item) }
+                if fills { bar(item) }
             }
+            .offset(x: x)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("liquid.deck.card.\(index)")
+    }
+
+    /// A sideways drag turns to the next card or the one before; past either end it
+    /// gives, and comes back. Up and down is the card's own page scrolling.
+    private func turning(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { value in
+                guard !isExpanded else { return }
+                if dragIsSideways == nil {
+                    dragIsSideways = abs(value.translation.width) > abs(value.translation.height)
+                }
+                guard dragIsSideways == true else { return }
+                let atEnd = (value.translation.width > 0 && current == 0)
+                    || (value.translation.width < 0 && current == deck.items.count - 1)
+                drag = atEnd ? value.translation.width / 3 : value.translation.width
+            }
+            .onEnded { value in
+                defer { dragIsSideways = nil }
+                guard !isExpanded, dragIsSideways == true else { return }
+                let travel = value.predictedEndTranslation.width
+                let turnAt = width / 4
+                turn(to: travel < -turnAt ? current + 1 : travel > turnAt ? current - 1 : current)
+            }
+    }
+
+    private func turn(to index: Int) {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+            current = min(max(index, 0), deck.items.count - 1)
+            drag = 0
+        }
     }
 
     /// The library's moves, from a card: back closes the deck, and a page opened from
