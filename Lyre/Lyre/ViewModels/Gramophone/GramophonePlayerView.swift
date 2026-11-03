@@ -1099,6 +1099,20 @@ struct GramophonePlayerView: View {
     /// The records on the shelf in the drawer: those that match, while searching.
     private var crateItems: [AppAlbum] { crateMatches?.items(on: shelf) ?? library.items(on: shelf) }
 
+    /// The Songs shelf's list: every song, or those matching the search.
+    private var crateSongs: [AppTrack] { crateMatches?.songs ?? library.songs }
+
+    /// A song from the Songs shelf: a record of the list goes on from it, as Shuffle's
+    /// does (the record holds the next few dozen; the rest follow in Up Next).
+    private func playSong(_ index: Int, of songs: [AppTrack]) {
+        guard songs.indices.contains(index) else { return }
+        put(nil, title: String(localized: "spool.shelf.songs"),
+            tracks: Array(songs[index...].prefix(Self.recordLength)), startingAt: 0,
+            addToQueue: { queue([songs[index]], placement: .last, name: songs[index].title) }) {
+            await musicService.play(tracks: songs, startingAt: index)
+        }
+    }
+
     private var crate: some View {
         let albums = crateItems
         let front = albums.first { $0.id == frontID.wrappedValue } ?? albums.first
@@ -1111,7 +1125,9 @@ struct GramophonePlayerView: View {
                 BackOutArea(action: closeCrate)
                     .frame(width: bounds.width, height: max(0, bounds.height - below))
                     .position(x: bounds.width / 2, y: below + max(0, bounds.height - below) / 2)
-                if albums.isEmpty {
+                if shelf == .songs {
+                    // The jukebox's strips, over the drawer (see below).
+                } else if albums.isEmpty {
                     emptyShelf
                         .frame(width: frame.width)
                         .position(x: frame.midX - proxy.frame(in: .global).minX,
@@ -1149,8 +1165,21 @@ struct GramophonePlayerView: View {
                     )
                     // Discover is asked for the first time it's shown.
                     .task(id: shelf) { if shelf == .discover { await Discover.shared.load(in: musicService) } }
+                    if shelf == .songs {
+                        // Every song, on a jukebox's title strips rather than records.
+                        ShelfSongList(tracks: crateSongs, style: .jukebox,
+                                      emptyText: crateMatches == nil ? Self.emptyText(on: shelf) : String(localized: "search.noResults"),
+                                      playingID: musicService.currentTrack?.id,
+                                      onPlay: { index in playSong(index, of: crateSongs) },
+                                      onQueue: { tracks, placement in queue(tracks, placement: placement, name: tracks.first?.title ?? "") })
+                            .transition(.opacity)
+                            .simultaneousGesture(DragGesture(minimumDistance: 12).onChanged { _ in
+                                isCrateSearchFocused = false
+                            })
+                    } else {
                     crateHeader(front)
                     Spacer()
+                    }
                     if !albums.isEmpty {
                         Text(String(localized: "gramophone.stack.instructions"))
                             .font(.system(size: 13, weight: .medium, design: .serif))
@@ -1294,8 +1323,8 @@ struct GramophonePlayerView: View {
         case .artists:    return String(localized: "spool.shelf.artists")
         case .mixtapes:   return String(localized: "gramophone.shelf.recordings")
         case .podcasts:   return String(localized: "gramophone.shelf.broadcasts")
-        case .discover:   return String(localized: "discover.title")
-        case .appleMusic: return String(localized: "catalog.search.title")
+        case .songs:      return String(localized: "spool.shelf.songs")
+        case .discover:   return String(localized: "catalog.search.title")
         }
     }
 
@@ -1304,8 +1333,8 @@ struct GramophonePlayerView: View {
         case .albums, .artists: return String(localized: "spool.shelf.empty")
         case .mixtapes:   return String(localized: "gramophone.shelf.recordings.empty")
         case .podcasts:   return String(localized: "spool.shelf.podcasts.empty")
+        case .songs:      return String(localized: "liquid.songs.empty")
         case .discover:   return Discover.emptyText
-        case .appleMusic: return String(localized: "search.noResults")
         }
     }
 
@@ -1315,8 +1344,10 @@ struct GramophonePlayerView: View {
         case .artists:    return $artistFrontID
         case .mixtapes:   return $recordingFrontID
         case .podcasts:   return $broadcastFrontID
-        case .discover:   return $discoverFrontID
-        case .appleMusic: return $appleMusicFrontID
+        // The Apple Music shelf: Discover, or a search's results, each where it was left.
+        case .discover:   return crateMatches == nil ? $discoverFrontID : $appleMusicFrontID
+        // A list, not a rack of cases.
+        case .songs:      return .constant(nil)
         }
     }
 

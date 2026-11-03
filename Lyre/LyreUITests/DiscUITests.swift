@@ -28,6 +28,24 @@ final class DiscUITests: XCTestCase {
         attachScreenshot(app, named: "disc-player")
     }
 
+    /// The Songs divider opens every song as a CD booklet's listing.
+    @MainActor
+    func testTheSongsShelfListsEverySongInABooklet() throws {
+        let app = launchDisc()
+        let open = element(app, "disc.open")
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        open.tap()
+        let songs = element(app, "spool.shelf.songs")
+        XCTAssertTrue(songs.waitForExistence(timeout: 5), "The shelf has no Songs divider")
+        XCTAssertTrue(element(app, "spool.shelf.discover").exists, "The shelf has no Apple Music divider")
+        sleep(1)
+        attachScreenshot(app, named: "disc-dividers")
+        songs.tap()
+        XCTAssertTrue(element(app, "shelf.song.0").waitForExistence(timeout: 3), "The booklet lists no songs")
+        sleep(1)
+        attachScreenshot(app, named: "disc-songs")
+    }
+
     @MainActor
     func testChoosingASongFromACasePutsTheDiscOnAndShutsTheLid() throws {
         let app = launchDisc()

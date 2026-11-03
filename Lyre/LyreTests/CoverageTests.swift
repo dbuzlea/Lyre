@@ -991,21 +991,44 @@ struct StreamingQueueTests {
 struct AppleMusicShelfTests {
     private func album(_ id: String) -> AppAlbum { AppAlbum(id: id, title: id, artistName: "A") }
 
+    /// Six shelves: the library's (with Songs), then one Apple Music shelf for Discover
+    /// and a search's results alike, shown while searching only with results.
     @Test func theAppleMusicShelfShowsOnlyWithResults() {
-        #expect(SpoolShelf.allCases == [.albums, .artists, .mixtapes, .podcasts, .discover])
+        #expect(SpoolShelf.allCases == [.albums, .artists, .songs, .mixtapes, .podcasts, .discover])
         var matches = ShelfSearchMatches(query: "x", albums: [album("a")])
-        #expect(matches.shelves == [.albums, .artists, .mixtapes, .podcasts])
+        #expect(matches.shelves == [.albums, .artists, .songs, .mixtapes, .podcasts])
         matches.appleMusic = [album("1440934248")]
-        #expect(matches.shelves == [.albums, .artists, .mixtapes, .podcasts, .appleMusic])
-        #expect(matches.items(on: .appleMusic).count == 1)
+        #expect(matches.shelves == [.albums, .artists, .songs, .mixtapes, .podcasts, .discover])
+        #expect(matches.items(on: .discover).count == 1)
+        #expect(SpoolShelf.discover.title == "Apple Music")
     }
 
     @Test func theRackTurnsToAppleMusicOnlyWhenTheLibraryHasNothing() {
         var matches = ShelfSearchMatches(query: "x", appleMusic: [album("1")])
-        #expect(matches.shelfWithMatches(preferring: .albums) == .appleMusic)
+        #expect(matches.shelfWithMatches(preferring: .albums) == .discover)
         matches.mixtapes = [album("m")]
         #expect(matches.shelfWithMatches(preferring: .albums) == .mixtapes)
-        #expect(matches.shelfWithMatches(preferring: .appleMusic) == nil)
+        #expect(matches.shelfWithMatches(preferring: .discover) == nil)
+    }
+
+    /// The Songs shelf counts its songs (it has no cases), and a search that finds only
+    /// songs turns to it.
+    @Test func theSongsShelfCountsItsSongs() {
+        let song = AppTrack(id: "s", title: "Song", artistName: "A", albumTitle: "B", duration: 1)
+        let matches = ShelfSearchMatches(query: "song", songs: [song])
+        #expect(matches.items(on: .songs).isEmpty)
+        #expect(matches.count(on: .songs) == 1)
+        #expect(ShelfSearchMatches.dividerTitle("Songs", on: .songs, matches: matches) == "Songs 1")
+        #expect(matches.shelfWithMatches(preferring: .albums) == .songs)
+    }
+
+    /// The Songs list's letters: each run of titles headed once, by the letter the A–Z
+    /// index files it under (accents folded), so a heading is where the index jumps.
+    @Test func theSongListHeadsEachLetterOnce() {
+        func track(_ title: String) -> AppTrack { AppTrack(id: title, title: title, artistName: "A", albumTitle: "", duration: 1) }
+        let tracks = ["Alpha", "Always", "Ébène", "Echo", "9 Lives"].map(track)
+        #expect(ShelfSongList.headings(for: tracks) == [0: "A", 2: "E", 4: LiquidLetterEntry.filingLetter(of: "9 Lives")])
+        #expect(ShelfSongList.letter(of: "Ébène") == LiquidLetterEntry.filingLetter(of: "Ébène"))
     }
 
     @Test func classicSearchMarksAStreamedSong() {

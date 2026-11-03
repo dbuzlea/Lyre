@@ -678,17 +678,19 @@ private struct TapeCard: View, Equatable {
 enum SpoolShelf: String, CaseIterable, Identifiable {
     case albums
     case artists
+    /// Every song, as a list in the player's own style (ShelfSongList), not a rack.
+    case songs
     case mixtapes
     case podcasts
+    /// Apple Music: Discover, or while searching, Apple Music's results for the search
+    /// (one shelf for both, so the dividers don't grow one mid-search).
     case discover
-    case appleMusic
 
-    /// The shelves always there: the library's, then Discover. Apple Music's search
-    /// shelf appears only with results.
+    /// The shelves always there: the library's, then Apple Music.
     static var allCases: [SpoolShelf] { library + [.discover] }
 
     /// The library's shelves, the ones a search looks through.
-    static var library: [SpoolShelf] { [.albums, .artists, .mixtapes, .podcasts] }
+    static var library: [SpoolShelf] { [.albums, .artists, .songs, .mixtapes, .podcasts] }
 
     var id: String { rawValue }
 
@@ -696,16 +698,19 @@ enum SpoolShelf: String, CaseIterable, Identifiable {
         switch self {
         case .albums:     return String(localized: "spool.shelf.albums")
         case .artists:    return String(localized: "spool.shelf.artists")
+        case .songs:      return String(localized: "spool.shelf.songs")
         case .mixtapes:   return String(localized: "spool.shelf.mixtapes")
         case .podcasts:   return String(localized: "spool.shelf.podcasts")
-        case .discover:   return String(localized: "discover.title")
-        case .appleMusic: return String(localized: "catalog.search.title")
+        case .discover:   return String(localized: "catalog.search.title")
         }
     }
 }
 
-/// The dividers along the top of the tape drawer, one per shelf. The shelf in use stands
-/// up in front, lit; the others sit back behind it.
+/// The dividers along the top of the tape drawer, one per shelf, cut as a filing
+/// drawer's are: in two staggered rows, each tab half a tab along from the one before
+/// it, so with six shelves every name still fits whole. They read across and back,
+/// front to back: Albums, Artists, Songs, Playlists, Podcasts, Apple Music. The shelf
+/// in use stands up lit; the others sit back.
 struct ShelfDividers: View {
     @Binding var shelf: SpoolShelf
     /// The dividers shown: the library's shelves, and Apple Music's while it has results.
@@ -715,64 +720,41 @@ struct ShelfDividers: View {
     /// Opens podcast search; offered beside the dividers on the podcast shelf.
     var onFindShows: () -> Void = {}
     @Environment(\.spoolTheme) private var theme
+    @State private var width: CGFloat = 0
+
+    private static let gap: CGFloat = 4
+    /// How far the front row's tabs come up over the back row's.
+    private static let overlap: CGFloat = 5
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 4) {
-            ForEach(shelves) { option in
-                let isSelected = option == shelf
-                Button {
-                    guard !isSelected else { return }
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    withAnimation(.easeInOut(duration: 0.22)) { shelf = option }
-                } label: {
-                    Text(title(option).uppercasedKeepingAppleMusic)
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .tracking(0.5)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .foregroundStyle(theme.keySymbol.opacity(isSelected ? 1 : 0.6))
-                        // The dividers share the drawer's width.
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 3)
-                        .padding(.top, isSelected ? 9 : 6)
-                        .padding(.bottom, 6)
-                        .background(
-                            UnevenRoundedRectangle(topLeadingRadius: 8, topTrailingRadius: 8)
-                                .fill(theme.keyLight.opacity(isSelected ? 0.95 : 0.45))
-                                .shadow(color: .black.opacity(isSelected ? 0.25 : 0), radius: 2, x: 0, y: -1)
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .accessibilityIdentifier("spool.shelf.\(option.rawValue)")
+        // The back row: the first, third and fifth shelves; the front row, half a tab
+        // along, the rest. The room left at the back row's end holds the shelf's button.
+        let back = shelves.enumerated().filter { $0.offset % 2 == 0 }
+        let front = shelves.enumerated().filter { $0.offset % 2 == 1 }
+        // Worked out to fit the width exactly, rounded down: the rows never come out
+        // wider than the room they're given, which would feed back into the width.
+        let columns = CGFloat(max(back.count, 1))
+        let tabWidth = max(0, ((width - Self.gap * columns) / (columns + 0.5)).rounded(.down))
+        let half = (tabWidth / 2).rounded(.down)
+        VStack(alignment: .leading, spacing: -Self.overlap) {
+            HStack(alignment: .bottom, spacing: Self.gap) {
+                ForEach(back, id: \.element) { tab($0.element, order: $0.offset, width: tabWidth) }
+                accessory
+                    .frame(width: half)
             }
-            // A new, empty playlist, beside the playlists.
-            if shelf == .mixtapes {
-                Button { PlaylistAdder.shared.promptNewPlaylist() } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(theme.keySymbol)
-                        .frame(width: 30, height: 26)
-                        .background(theme.keyLight.opacity(0.75), in: Capsule())
-                        .padding(.bottom, 4)
-                }
-                .accessibilityLabel(String(localized: "playlist.new.action"))
-                .accessibilityIdentifier("spool.shelf.newPlaylist")
-                .transition(.opacity)
+            .zIndex(0)
+            HStack(alignment: .bottom, spacing: Self.gap) {
+                Color.clear.frame(width: half, height: 1)
+                ForEach(front, id: \.element) { tab($0.element, order: $0.offset, width: tabWidth) }
             }
-            if shelf == .podcasts {
-                Button(action: onFindShows) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(theme.keySymbol)
-                        .frame(width: 30, height: 26)
-                        .background(theme.keyLight.opacity(0.75), in: Capsule())
-                        .padding(.bottom, 4)
-                }
-                .accessibilityLabel(String(localized: "podcasts.search"))
-                .accessibilityIdentifier("spool.shelf.findShows")
-                .transition(.opacity)
+            .zIndex(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            // The room there is, measured apart from the tabs in it.
+            GeometryReader { proxy in
+                Color.clear.onAppear { width = proxy.size.width }
+                    .onChange(of: proxy.size.width) { width = proxy.size.width }
             }
         }
         .overlay(alignment: .bottom) {
@@ -781,6 +763,66 @@ struct ShelfDividers: View {
                 .fill(theme.keyLight.opacity(0.95))
                 .frame(height: 2)
         }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func tab(_ option: SpoolShelf, order: Int, width: CGFloat) -> some View {
+        let isSelected = option == shelf
+        return Button {
+            guard !isSelected else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            withAnimation(.easeInOut(duration: 0.22)) { shelf = option }
+        } label: {
+            Text(title(option).uppercasedKeepingAppleMusic)
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .tracking(0.3)
+                .lineLimit(1)
+                // The longest names (the Gramophone's Home Recordings) shrink a little.
+                .minimumScaleFactor(0.6)
+                .foregroundStyle(theme.keySymbol.opacity(isSelected ? 1 : 0.6))
+                .padding(.horizontal, 4)
+                .frame(width: width)
+                .padding(.top, isSelected ? 8 : 6)
+                .padding(.bottom, 6 + Self.overlap)
+                .background(
+                    UnevenRoundedRectangle(topLeadingRadius: 8, topTrailingRadius: 8)
+                        .fill(theme.keyLight.opacity(isSelected ? 0.95 : 0.45))
+                        .shadow(color: .black.opacity(isSelected ? 0.25 : 0.12), radius: 2, x: 0, y: -1)
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        // Read in the order they're filed, across and back, not row by row.
+        .accessibilitySortPriority(Double(shelves.count - order))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier("spool.shelf.\(option.rawValue)")
+    }
+
+    /// The shelf's own button, at the end of the back row: a new playlist beside the
+    /// playlists, finding shows beside the podcasts.
+    @ViewBuilder private var accessory: some View {
+        if shelf == .mixtapes {
+            Button { PlaylistAdder.shared.promptNewPlaylist() } label: { accessoryLabel("plus") }
+                .accessibilityLabel(String(localized: "playlist.new.action"))
+                .accessibilityIdentifier("spool.shelf.newPlaylist")
+                .transition(.opacity)
+        } else if shelf == .podcasts {
+            Button(action: onFindShows) { accessoryLabel("magnifyingglass") }
+                .accessibilityLabel(String(localized: "podcasts.search"))
+                .accessibilityIdentifier("spool.shelf.findShows")
+                .transition(.opacity)
+        } else {
+            Color.clear.frame(height: 1)
+        }
+    }
+
+    private func accessoryLabel(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(theme.keySymbol)
+            .frame(width: 30, height: 26)
+            .background(theme.keyLight.opacity(0.75), in: Capsule())
+            .padding(.bottom, Self.overlap + 2)
     }
 }
 

@@ -333,6 +333,27 @@
     },
 
     {
+      "key": "LIB-16", "suite": "Music Access & Library", "title": "Spool, Disc and Gramophone have a Songs shelf, with all six dividers readable",
+      "priority": "medium", "severity": "major", "type": "functional", "behavior": "positive",
+      "preconditions": "A library with songs from several albums; an Apple Music subscription for the Apple Music shelf's search results. Check on a closed iPhone Duo as well as a regular phone.",
+      "steps": [
+        ["Open the rack (Spool), the shelf (Disc) and the drawer (Gramophone).", "Six dividers in two staggered rows: Albums, Songs, Podcasts behind; Artists, Playlists, Apple Music in front. Every name readable, none cut off."],
+        ["Tap Songs in each player.", "Every song A to Z: on a J-card (Spool), in a booklet (Disc), on jukebox title strips (Gramophone), with letter headings and an A-Z index."],
+        ["Tap a song.", "It plays, and the songs after it follow in Up Next (Disc spins up a Songs disc; Gramophone puts on a Songs record)."],
+        ["Hold a song.", "Play Next, Add to Queue and Add to Playlist."],
+        ["Search for a song title.", "The Songs divider shows its count; the list is the matching songs."],
+        ["Tap Apple Music with nothing typed, then search for something you don't have.", "Discover with nothing typed; Apple Music's results for the search while searching. Clearing the search shows Discover again."],
+        ["On Playlists, then Podcasts.", "The + (new playlist) and find-shows buttons sit at the end of the back row."]
+      ],
+      "automated_by": [
+        "LyreTests/AppleMusicShelfTests",
+        "LyreUITests/SpoolUITests/testTheSongsShelfListsEverySongOnAJCard()",
+        "LyreUITests/DiscUITests/testTheSongsShelfListsEverySongInABooklet()",
+        "LyreUITests/GramophoneUITests/testTheSongsShelfListsEverySongOnJukeboxStrips()"
+      ]
+    },
+
+    {
       "key": "PLY-01", "suite": "Playback & Queue", "title": "Play, pause, next and previous work in every player",
       "priority": "high", "severity": "blocker", "type": "smoke", "behavior": "positive", "tags": ["smoke"],
       "preconditions": "Library with an album of 3+ songs.",

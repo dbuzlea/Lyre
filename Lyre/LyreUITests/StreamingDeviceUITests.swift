@@ -141,7 +141,7 @@ final class StreamingDeviceUITests: XCTestCase {
         field.tap()
         app.typeText("taylor swift 1989")
 
-        let shelf = any("spool.shelf.appleMusic")
+        let shelf = any("spool.shelf.discover")
         XCTAssertTrue(shelf.waitForExistence(timeout: 20), "No Apple Music shelf for the search")
         shelf.tap()
         let tape = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'spool.tape.'")).firstMatch

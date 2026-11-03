@@ -95,32 +95,40 @@ struct ShelfSearchMatches: Equatable {
     var artists: [AppAlbum] = []
     var mixtapes: [AppAlbum] = []
     var podcasts: [AppAlbum] = []
-    /// Apple Music's albums for the query that the library hasn't, streamed when played.
+    /// The songs whose title, artist or album has every word (the Songs shelf's list).
+    var songs: [AppTrack] = []
+    /// Apple Music's albums for the query that the library hasn't, streamed when played:
+    /// what the Apple Music shelf shows while searching, in place of Discover.
     var appleMusic: [AppAlbum] = []
 
+    /// What's on a shelf of cases; the Songs shelf is a list (`songs`), not cases.
     func items(on shelf: SpoolShelf) -> [AppAlbum] {
         switch shelf {
         case .albums:     return albums
         case .artists:    return artists
+        case .songs:      return []
         case .mixtapes:   return mixtapes
         case .podcasts:   return podcasts
-        case .appleMusic: return appleMusic
-        // A search looks through the library, not Discover.
-        case .discover:   return []
+        case .discover:   return appleMusic
         }
+    }
+
+    /// How many matches a shelf has, for its divider.
+    func count(on shelf: SpoolShelf) -> Int {
+        shelf == .songs ? songs.count : items(on: shelf).count
     }
 
     /// The dividers to show: the library's shelves, and Apple Music's when it has any.
     var shelves: [SpoolShelf] {
-        appleMusic.isEmpty ? SpoolShelf.library : SpoolShelf.library + [.appleMusic]
+        appleMusic.isEmpty ? SpoolShelf.library : SpoolShelf.library + [.discover]
     }
 
     /// The first shelf with anything on it, when `shelf` has nothing: where the rack
     /// should turn to so a search never lands on an empty shelf while another has hits.
     /// The library's shelves come first.
     func shelfWithMatches(preferring shelf: SpoolShelf) -> SpoolShelf? {
-        guard items(on: shelf).isEmpty else { return nil }
-        return shelves.first { !items(on: $0).isEmpty }
+        guard count(on: shelf) == 0 else { return nil }
+        return shelves.first { count(on: $0) > 0 }
     }
 }
 
@@ -226,7 +234,8 @@ nonisolated enum LibrarySearch {
             // An artist by name.
             artists: library.artists.filter { self.matches(terms, $0.title) },
             mixtapes: library.mixtapes.filter(matches),
-            podcasts: library.podcasts.filter(matches)
+            podcasts: library.podcasts.filter(matches),
+            songs: library.songs.filter { self.matches(terms, $0.title, $0.artistName, $0.albumTitle) }
         )
     }
 
