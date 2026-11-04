@@ -376,7 +376,8 @@ struct LiquidLibraryView: View {
             },
             onOpenSettings: onOpenSettings,
             bottomInset: bottomInset,
-            pull: lavaPull
+            pull: lavaPull,
+            isShowing: path.isEmpty
         )
         .toolbar(.hidden, for: .navigationBar)
     }

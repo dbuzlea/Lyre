@@ -1625,3 +1625,16 @@ struct SoapBubbleLoopTests {
         #expect(abs(midway.width - a.width) > 0.5 || abs(midway.height - a.height) > 0.5)
     }
 }
+
+/// The lava lamp moves only while the menu is what's showing. Woken on another page (the
+/// app active again, a page pushed over the menu), it used to start, drawing its wax on
+/// the main thread unseen: a CPU-usage report, and covers that didn't load.
+struct LavaLampIdleTests {
+    @Test func theLampRunsOnlyWhileTheMenuIsSeen() {
+        #expect(LiquidLavaMenu.lampRuns(isOnScreen: true, isShowing: true, isActive: true))
+        // Back from the background on the playlists page.
+        #expect(!LiquidLavaMenu.lampRuns(isOnScreen: true, isShowing: false, isActive: true))
+        #expect(!LiquidLavaMenu.lampRuns(isOnScreen: false, isShowing: true, isActive: true))
+        #expect(!LiquidLavaMenu.lampRuns(isOnScreen: true, isShowing: true, isActive: false))
+    }
+}
