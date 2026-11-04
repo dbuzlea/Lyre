@@ -5,6 +5,9 @@
 
 import SwiftUI
 import MediaPlayer
+import OSLog
+
+private let artworkLog = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "Artwork")
 
 // MARK: - LocalArtworkCache
 //
@@ -50,7 +53,10 @@ nonisolated final class LocalArtworkCache: @unchecked Sendable {
     @concurrent
     func image(for artwork: MPMediaItemArtwork, key: NSString, size: CGFloat) async -> UIImage? {
         if let hit = images.object(forKey: key) { return hit }
-        guard let image = artwork.image(at: CGSize(width: size, height: size)) else { return nil }
+        guard let image = artwork.image(at: CGSize(width: size, height: size)) else {
+            artworkLog.notice("No image from the library for \(key as String, privacy: .private)")
+            return nil
+        }
         // `image(at:)` can hand back an image that still decodes lazily on first draw,
         // which would put the work back on the main thread. Force it here instead.
         let decoded = image.preparingForDisplay() ?? image
@@ -62,7 +68,10 @@ nonisolated final class LocalArtworkCache: @unchecked Sendable {
     @concurrent
     func image(from url: URL, key: NSString, size: CGFloat) async -> UIImage? {
         if let hit = images.object(forKey: key) { return hit }
-        guard let data = await data(from: url), let image = UIImage(data: data) else { return nil }
+        guard let data = await data(from: url), let image = UIImage(data: data) else {
+            artworkLog.notice("No cover downloaded for \(key as String, privacy: .private)")
+            return nil
+        }
         // Feed artwork is often 3000pt square; keep only what the screen can show.
         let pixels = size * 3
         let target = image.size.width > pixels ? CGSize(width: pixels, height: pixels * image.size.height / image.size.width) : image.size
@@ -127,6 +136,9 @@ struct LocalArtworkImage<Content: View, Placeholder: View>: View {
         self.placeholder = placeholder
     }
 
+    /// Between tries for a cover the library didn't give; nil after the last.
+    private static var retryPauses: [Duration?] { [.milliseconds(500), .milliseconds(1500), .seconds(4), nil] }
+
     private var image: UIImage? {
         if let loaded, loaded.key == cacheKey { return loaded.image }
         return LocalArtworkCache.shared.cachedImage(for: cacheKey)
@@ -143,15 +155,32 @@ struct LocalArtworkImage<Content: View, Placeholder: View>: View {
         .task(id: cacheKey) {
             guard image == nil else { return }
             let key = cacheKey
-            let decoded: UIImage?
-            if let artwork = artwork() {
-                decoded = await LocalArtworkCache.shared.image(for: artwork, key: key, size: size)
-            } else if let remoteURL {
-                decoded = await LocalArtworkCache.shared.image(from: remoteURL, key: key, size: size)
-            } else {
-                return
+            // The library can come up with nothing for a cover for a moment (just woken,
+            // reloading after a change), and every cover on screen used to keep its
+            // placeholder for good. Tried again a few times, further apart each time.
+            for (attempt, pause) in Self.retryPauses.enumerated() {
+                let decoded: UIImage?
+                if let artwork = artwork() {
+                    decoded = await LocalArtworkCache.shared.image(for: artwork, key: key, size: size)
+                } else if let remoteURL {
+                    decoded = await LocalArtworkCache.shared.image(from: remoteURL, key: key, size: size)
+                } else {
+                    return
+                }
+                if let decoded {
+                    if attempt > 0 {
+                        artworkLog.info("Cover \(key as String, privacy: .private) loaded on try \(attempt + 1)")
+                    }
+                    loaded = (key, decoded)
+                    return
+                }
+                guard let pause else {
+                    artworkLog.error("Cover \(key as String, privacy: .private) gave up after \(attempt + 1) tries")
+                    return
+                }
+                try? await Task.sleep(for: pause)
+                if Task.isCancelled { return }
             }
-            if let decoded { loaded = (key, decoded) }
         }
     }
 }

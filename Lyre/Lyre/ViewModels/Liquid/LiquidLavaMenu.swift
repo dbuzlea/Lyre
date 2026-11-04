@@ -6,6 +6,9 @@
 import SwiftUI
 import UIKit
 import CoreMotion
+import OSLog
+
+private let lampLog = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "LavaLamp")
 
 // MARK: - Lava Menu
 //
@@ -39,8 +42,13 @@ struct LiquidLavaMenu: View {
     /// iPhone Duo, partly open: the way the fold is, and how strongly the lava runs
     /// toward it (each from -1 to 1). The hinge as gravity.
     var pull: CGVector = .zero
+    /// Whether the menu is the page showing: false while a page is pushed over it. The
+    /// lamp only moves while it's seen (its wax is drawn on the CPU, every frame).
+    var isShowing = true
 
     @State private var lamp = LavaLamp()
+    /// Between onAppear and onDisappear.
+    @State private var isOnScreen = false
     @State private var source: Color?
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -77,21 +85,41 @@ struct LiquidLavaMenu: View {
             .onAppear {
                 lamp.configure(items: items, size: geometry.size,
                                top: safeArea.top + 76, bottom: geometry.size.height - bottomInset - 8)
-                isStill ? lamp.settle() : lamp.start()
+                isOnScreen = true
+                isStill ? lamp.settle() : runLamp("appeared")
             }
-            .onDisappear { lamp.stop() }
+            .onDisappear {
+                isOnScreen = false
+                runLamp("disappeared")
+            }
             .onChange(of: pull, initial: true) { lamp.pull = pull }
             // Nothing to see while Lyre's in the background (a podcast can keep it
-            // running there), so the lamp and the tilt sensor stop until it's back.
-            .onChange(of: scenePhase) { _, phase in
-                guard !isStill else { return }
-                phase == .active ? lamp.start() : lamp.stop()
-            }
+            // running there), so the lamp and the tilt sensor stop until it's back; and
+            // coming back, it starts only if the menu's what's showing. (It used to start
+            // on every return: woken on another page, the hidden lamp ran on, drawing
+            // its wax 30 times a second on the main thread — a CPU warning, and covers
+            // that wouldn't load.)
+            .onChange(of: scenePhase) { _, _ in runLamp("scene phase") }
+            .onChange(of: isShowing) { _, _ in runLamp(isShowing ? "uncovered" : "covered") }
             .onChange(of: geometry.size) { _, size in
                 lamp.configure(items: items, size: size,
                                top: safeArea.top + 76, bottom: size.height - bottomInset - 8)
             }
         }
+    }
+
+    /// Starts the lamp when the menu is seen (on screen, not covered, Lyre active) and
+    /// stops it otherwise.
+    private func runLamp(_ reason: String) {
+        guard !isStill else { return }
+        let runs = Self.lampRuns(isOnScreen: isOnScreen, isShowing: isShowing, isActive: scenePhase == .active)
+        lampLog.debug("\(runs ? "Run" : "Stop", privacy: .public) (\(reason, privacy: .public))")
+        runs ? lamp.start() : lamp.stop()
+    }
+
+    /// Whether the lamp should be moving: only while the menu is seen.
+    static func lampRuns(isOnScreen: Bool, isShowing: Bool, isActive: Bool) -> Bool {
+        isOnScreen && isShowing && isActive
     }
 
     private var isStill: Bool {

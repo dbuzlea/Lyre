@@ -362,4 +362,34 @@ final class StreamingDeviceUITests: XCTestCase {
         similarShot.lifetime = .keepAlways
         add(similarShot)
     }
+
+    /// Back from the background on a page over Liquid's menu (Playlists): the lava lamp
+    /// stays still (it used to start unseen, a CPU-usage report), and the covers load.
+    /// Profiled while it idles on the page (see the device-profiling notes).
+    @MainActor
+    func testReturningOnAPageLeavesTheLampStillAndCoversLoad() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-LyrePlayerStyle", "liquid"]
+        app.launch()
+        func any(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id].firstMatch }
+        let playlists = any("liquid.menu.playlists")
+        if !playlists.waitForExistence(timeout: 10) {
+            XCTAssertTrue(any("liquid.library").waitForExistence(timeout: 10), "Liquid didn't open")
+            any("liquid.library").tap()
+            XCTAssertTrue(playlists.waitForExistence(timeout: 10), "The menu has no playlists")
+        }
+        playlists.tap()
+        XCTAssertTrue(any("liquid.search.field").waitForExistence(timeout: 10), "Playlists didn't open")
+        sleep(2)
+        XCUIDevice.shared.press(.home)
+        sleep(4)
+        app.activate()
+        XCTAssertTrue(any("liquid.search.field").waitForExistence(timeout: 10), "Lyre didn't come back to Playlists")
+        // The profiling window: idle on the page.
+        sleep(45)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "playlists-after-return"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
 }
