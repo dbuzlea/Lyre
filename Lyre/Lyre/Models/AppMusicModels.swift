@@ -141,8 +141,21 @@ nonisolated struct AppTrack: Identifiable, Hashable {
         item.queueKeys.contains(where: keys.contains)
     }
 
-    static func == (lhs: AppTrack, rhs: AppTrack) -> Bool { lhs.id == rhs.id }
+    /// The same song, and with the same artwork to show. The artwork counts: SwiftUI
+    /// leaves a view be when its inputs are equal, and a song from the launch cache
+    /// (no artwork yet) was equal to its live copy, so a cover drawn before the live
+    /// load kept its placeholder (the covers that "didn't load", 2026-11-04). Hashed by
+    /// `id` alone, which equal songs still share.
+    static func == (lhs: AppTrack, rhs: AppTrack) -> Bool {
+        lhs.id == rhs.id && lhs.artworkSources == rhs.artworkSources
+    }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
+    /// Which of its artwork sources a song carries: its device item, its MusicKit song,
+    /// its MusicKit track.
+    var artworkSources: Int {
+        (mpItem != nil ? 1 : 0) | (musicKitSong != nil ? 2 : 0) | (musicKitTrack != nil ? 4 : 0)
+    }
 }
 
 // MARK: - AppAlbum
@@ -196,8 +209,23 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
         self.parts = parts
     }
 
-    static func == (lhs: AppAlbum, rhs: AppAlbum) -> Bool { lhs.id == rhs.id }
+    /// The same album, with the same artwork to show (see AppTrack's ==): its own
+    /// cover's sources, and the first of its songs, whose covers a playlist's collage
+    /// is made of (a smart list keeps its id as its songs change). Hashed by `id`.
+    static func == (lhs: AppAlbum, rhs: AppAlbum) -> Bool {
+        lhs.id == rhs.id && lhs.artworkSources == rhs.artworkSources
+            && lhs.preloadedTracks.count == rhs.preloadedTracks.count
+            && lhs.preloadedTracks.prefix(Self.collageSongs).elementsEqual(rhs.preloadedTracks.prefix(Self.collageSongs))
+    }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
+    /// Songs looked at for a collage's covers: enough to find four albums, usually.
+    private static let collageSongs = 12
+
+    /// Which of its own cover's sources an album carries.
+    var artworkSources: Int {
+        (mpArtwork != nil ? 1 : 0) | (musicKitAlbum != nil ? 2 : 0) | (mixtape?.musicKitPlaylist != nil ? 4 : 0)
+    }
 }
 
 // MARK: - Duplicate Albums

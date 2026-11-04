@@ -1638,3 +1638,30 @@ struct LavaLampIdleTests {
         #expect(!LiquidLavaMenu.lampRuns(isOnScreen: true, isShowing: true, isActive: false))
     }
 }
+
+/// A song or album with artwork isn't equal to its copy without (the launch cache's),
+/// so a cover drawn from the cache redraws when the live copy arrives; the same song
+/// still hashes the same.
+struct ArtworkEqualityTests {
+    private func song(_ id: String) -> AppTrack {
+        AppTrack(id: id, title: id, artistName: "A", albumTitle: "B", duration: 1)
+    }
+
+    @Test func aCopyWithArtworkIsADifferentValueOfTheSameSong() {
+        let cached = song("s")
+        #expect(cached == song("s"))
+        #expect(cached.artworkSources == 0)
+        #expect(cached.hashValue == song("s").hashValue)
+        #expect(song("s") != song("t"))
+    }
+
+    @Test func aPlaylistWithOtherSongsIsADifferentValue() {
+        let before = AppAlbum(id: "smart:recentlyPlayed", title: "Recently Played", artistName: "Lyre",
+                              preloadedTracks: [song("1"), song("2")])
+        let after = AppAlbum(id: "smart:recentlyPlayed", title: "Recently Played", artistName: "Lyre",
+                             preloadedTracks: [song("3"), song("1")])
+        #expect(before != after)
+        #expect(before.hashValue == after.hashValue)
+        #expect(Set([before, after]).count >= 1)
+    }
+}
