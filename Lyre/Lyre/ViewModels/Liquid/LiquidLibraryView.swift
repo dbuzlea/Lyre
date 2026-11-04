@@ -792,15 +792,10 @@ struct LiquidPageTitle: View {
             .accessibilityLabel(String(localized: card == nil ? "liquid.back" : "liquid.card.close"))
             .accessibilityIdentifier("liquid.back")
             if let artist {
-                // Their photo, large, lit from behind by its own colours.
-                ArtistPhoto(name: artist.name, fallback: artist.fallback, size: 220)
-                    .background {
-                        ArtistPhoto(name: artist.name, fallback: artist.fallback, size: 220)
-                            .blur(radius: 40)
-                            .opacity(0.55)
-                            .scaleEffect(1.1)
-                    }
-                    .shadow(color: .black.opacity(0.4), radius: 18, y: 10)
+                // Their photo, large, in a slowly drifting soap bubble (LiquidSoapBubble).
+                LiquidSoapBubble(diameter: 240, wobbles: true) {
+                    ArtistPhoto(name: artist.name, fallback: artist.fallback, size: 240)
+                }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .accessibilityElement(children: .ignore)
@@ -1036,7 +1031,9 @@ struct LiquidArtistsPage: View {
                                 navigator.openDeck(shown.map { .artist($0.name) }, index, String(localized: "liquid.menu.artists"))
                             } label: {
                                 HStack(alignment: .center, spacing: 14) {
-                                    ArtistPhoto(name: artist.name, fallback: artist.album, size: 52)
+                                    LiquidSoapBubble(diameter: 56) {
+                                        ArtistPhoto(name: artist.name, fallback: artist.album, size: 56)
+                                    }
                                     Text(artist.name)
                                         .font(.system(size: 30, weight: .medium))
                                         .tracking(-0.8)

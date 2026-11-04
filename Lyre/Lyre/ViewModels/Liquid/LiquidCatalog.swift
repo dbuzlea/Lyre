@@ -116,6 +116,8 @@ struct LiquidCatalogSongRow: View {
     var rank: Int?
     var list: [Song] = []
     var listName = ""
+    /// Its cover in a soap bubble (LiquidSoapBubble), as on an artist's page.
+    var inBubble = false
     /// Being added, and added: the tick shows at once, before the library has it.
     @State private var isAdding = false
     @State private var isAdded = false
@@ -200,7 +202,15 @@ struct LiquidCatalogSongRow: View {
     }
 
     @ViewBuilder private var artwork: some View {
-        if let art = song.artwork {
+        if inBubble {
+            LiquidSoapBubble(diameter: 54) {
+                if let art = song.artwork {
+                    ArtworkImage(art, width: 54, height: 54)
+                } else {
+                    Color.white.opacity(0.1)
+                }
+            }
+        } else if let art = song.artwork {
             ArtworkImage(art, width: 48, height: 48)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         } else {
@@ -266,7 +276,7 @@ struct LiquidArtistIntro: View {
                     SectionTitle(text: String(localized: "catalog.topSongs"))
                     ForEach(Array(songs.prefix(showsAll ? 10 : 5).enumerated()), id: \.element.id) { index, song in
                         LiquidCatalogSongRow(song: song, rank: index + 1, list: songs,
-                                             listName: String(localized: "catalog.topSongs"))
+                                             listName: String(localized: "catalog.topSongs"), inBubble: true)
                     }
                     if songs.count > 5 {
                         Button(String(localized: showsAll ? "catalog.showFewer" : "catalog.showAll")) {
@@ -327,15 +337,14 @@ struct LiquidCatalogArtistStrip: View {
                         navigator.openDeck(artists.map { .artist($0.name) }, index, title)
                     } label: {
                         VStack(spacing: 6) {
-                            Group {
+                            // In a soap bubble, as Liquid's artists are (LiquidSoapBubble).
+                            LiquidSoapBubble(diameter: 100) {
                                 if let art = artist.artwork {
-                                    ArtworkImage(art, width: 96, height: 96)
+                                    ArtworkImage(art, width: 100, height: 100)
                                 } else {
                                     Color.white.opacity(0.1)
                                 }
                             }
-                            .frame(width: 96, height: 96)
-                            .clipShape(RoundedRectangle(cornerRadius: ArtistPhoto.cornerRadius(for: 96), style: .continuous))
                             Text(artist.name)
                                 .font(.system(size: 13, weight: .medium))
                                 .lineLimit(2)
