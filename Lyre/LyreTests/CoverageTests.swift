@@ -1609,3 +1609,19 @@ struct MusicAccessSettingsTests {
         #expect(deck.items[deck.index] == .artist("Lady Gaga"))
     }
 }
+
+/// The soap bubble's drift loops without a jump: the outline at the end of the loop is
+/// the one it began with (it snapped back when one ripple turned 0.7 times a loop).
+struct SoapBubbleLoopTests {
+    @Test func theOutlineAtTheEndOfTheLoopIsTheOneItBeganWith() {
+        let rect = CGRect(x: 0, y: 0, width: 240, height: 240)
+        let start = SoapBubbleShape(phase: 0, wobble: 0.04).path(in: rect)
+        let end = SoapBubbleShape(phase: 2 * .pi, wobble: 0.04).path(in: rect)
+        let a = start.boundingRect, b = end.boundingRect
+        #expect(abs(a.minX - b.minX) < 0.01 && abs(a.minY - b.minY) < 0.01)
+        #expect(abs(a.width - b.width) < 0.01 && abs(a.height - b.height) < 0.01)
+        // And on the way round, it does move.
+        let midway = SoapBubbleShape(phase: .pi / 2, wobble: 0.04).path(in: rect).boundingRect
+        #expect(abs(midway.width - a.width) > 0.5 || abs(midway.height - a.height) > 0.5)
+    }
+}
