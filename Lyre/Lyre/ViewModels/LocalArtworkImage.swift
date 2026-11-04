@@ -49,20 +49,37 @@ nonisolated final class LocalArtworkCache: @unchecked Sendable {
         images.object(forKey: key)
     }
 
-    /// Decodes `artwork` at `size` and caches it. Runs off the main thread.
-    @concurrent
+    /// Decodes `artwork` at `size` and caches it, on `decodeQueue`.
+    ///
+    /// `image(at:)` blocks, and the media library can do work of its own behind it.
+    /// Called on Swift's shared concurrency threads (as it was), a screenful of covers
+    /// asking at once took every one of those threads, leaving none for the library's
+    /// work or for Lyre's MusicKit load to run on: everything waited on everything
+    /// else, for good. Every list kept its placeholders, and the MusicKit library
+    /// never arrived (seen on EDITH: 11 of 13 covers asked for 2.6 seconds after
+    /// launch never came back). On a queue of its own, one at a time (about 10 ms
+    /// each), it holds none of them.
     func image(for artwork: MPMediaItemArtwork, key: NSString, size: CGFloat) async -> UIImage? {
         if let hit = images.object(forKey: key) { return hit }
-        guard let image = artwork.image(at: CGSize(width: size, height: size)) else {
-            artworkLog.notice("No image from the library for \(key as String, privacy: .private)")
-            return nil
+        return await withCheckedContinuation { continuation in
+            Self.decodeQueue.async {
+                if let hit = self.images.object(forKey: key) { return continuation.resume(returning: hit) }
+                guard let image = artwork.image(at: CGSize(width: size, height: size)) else {
+                    artworkLog.notice("No image from the library for \(key as String, privacy: .private)")
+                    return continuation.resume(returning: nil)
+                }
+                // `image(at:)` can hand back an image that still decodes lazily on first
+                // draw, which would put the work back on the main thread. Force it here.
+                let decoded = image.preparingForDisplay() ?? image
+                self.images.setObject(decoded, forKey: key)
+                continuation.resume(returning: decoded)
+            }
         }
-        // `image(at:)` can hand back an image that still decodes lazily on first draw,
-        // which would put the work back on the main thread. Force it here instead.
-        let decoded = image.preparingForDisplay() ?? image
-        images.setObject(decoded, forKey: key)
-        return decoded
     }
+
+    /// Where device covers are decoded: one at a time, off Swift's shared threads.
+    private static let decodeQueue = DispatchQueue(label: "com.pinkhatcreations.lyreapp.artwork-decode",
+                                                   qos: .userInitiated)
 
     /// Downloads artwork for a streamed podcast, scales it to `size` and caches it.
     @concurrent
