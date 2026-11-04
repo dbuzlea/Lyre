@@ -141,7 +141,11 @@ struct SoapBubbleShape: Shape {
         let count = 36
         let points: [CGPoint] = (0..<count).map { index in
             let angle = Double(index) / Double(count) * 2 * .pi
-            let give = wobble * (sin(2 * angle + phase) + 0.6 * sin(3 * angle - phase * 0.7 + 1.3))
+            // Both ripples turn a whole number of times as `phase` goes once round, so
+            // the outline at the end of the loop is the one it started with and the
+            // drift carries on without a jump. (The second turned 0.7 times, and the
+            // bubble snapped back each time the loop began again.)
+            let give = wobble * (sin(2 * angle + phase) + 0.6 * sin(3 * angle - phase + 1.3))
             let r = radius * (1 + give)
             return CGPoint(x: centre.x + r * cos(angle), y: centre.y + r * sin(angle))
         }
