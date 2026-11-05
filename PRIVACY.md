@@ -1,28 +1,45 @@
 # Privacy Policy
 
-**Last updated: October 25, 2026**
+**Last updated: November 4, 2026**
 
 Lyre ("the app") is developed by Daniel Buzlea / Pink Hat Creations. This policy explains what data the app does and does not handle.
 
 ## Summary
 
-Lyre does not collect, store, transmit, or sell any personal data. There are no analytics, advertising, or tracking services built into the app. To find songs' tempos, the Liquid player sends song identifiers (never anything about you) to Deezer's public API, which you can turn off; see Third-Party Services.
+Lyre does not collect or sell personal data, and has no analytics, advertising, or tracking. Two things can leave your device:
+
+- **Problem reports, only if you send them or allow them.** If you use Report a Problem, or turn on Send Diagnostics Automatically (off unless you turn it on), Lyre sends a report about the problem to its developer so it can be fixed. Reports contain technical information about Lyre and your device and never your music library's contents; see Problem Reports and Diagnostics.
+- **Song identifiers, for tempos.** To find songs' tempos, the Liquid player sends song identifiers (never anything about you) to Deezer's public API, which you can turn off; see Third-Party Services.
 
 ## What Lyre Accesses
 
-**Your Apple Music library.** Lyre uses Apple's own MusicKit and MediaPlayer frameworks to read and play songs, albums, artists, playlists, and podcasts from your Apple Music library, with your permission. This data is read directly from Apple's services onto your device to power playback — it is never sent to us, stored on our servers, or shared with any third party. We do not have our own servers; Lyre has no backend at all.
+**Your Apple Music library.** Lyre uses Apple's own MusicKit and MediaPlayer frameworks to read and play songs, albums, artists, playlists, and podcasts from your Apple Music library, with your permission. This data is read directly from Apple's services onto your device to power playback — it is never sent to us, stored on our servers, or shared with any third party. Lyre's only server is the problem-report service described below, which receives only the reports you send or allow, never your library.
 
 ## What Stays on Your Device
 
 Your app preferences — theme, screen size, highlight color, scroll sensitivity, backlight duration, and whether you've completed onboarding — are stored locally on your device using Apple's standard `UserDefaults` storage. This information never leaves your device.
 
-## Crash and Performance Diagnostics
+Lyre also keeps a diagnostics log on your device: a record of what the app did (for example, that it launched, which player and screen were open, how long loading your library took, and whether anything froze or failed), plus the crash and performance reports iOS gives it. The log never contains the names of your songs, albums, artists, or playlists. It stays on your device, keeping roughly the last few days, unless you choose to share it (Share Diagnostics, in settings) or send it with a problem report.
 
-Lyre uses Apple's MetricKit framework, which may collect on-device crash and performance diagnostics and send them directly to Apple as part of the standard iOS diagnostics system. This is handled entirely by Apple's operating system — Lyre's developer does not receive, store, or have access to this data. See [Apple's own privacy policy](https://www.apple.com/legal/privacy/) for how Apple handles this information.
+## Problem Reports and Diagnostics
+
+Lyre uses Apple's MetricKit framework, through which iOS gives the app reports of crashes, freezes, and heavy CPU or storage use. These, and the diagnostics log above, are sent to Lyre's developer only in these cases:
+
+- **Report a Problem** (in settings): when you send a report, it includes what you write, a screenshot of the screen you were on if you leave that option on, and the technical details below. A screenshot shows whatever was on screen, which may include song or album names; you can see it before sending and switch it off.
+- **Send Diagnostics Automatically** (in settings): off unless you turn it on. Lyre asks you once whether to turn it on. When it's on, a report is sent automatically when iOS reports a crash, freeze, or excessive CPU or storage use. Turning it off stops this.
+- **Share Diagnostics** (in settings): opens the share sheet with the diagnostics log and reports, for you to send wherever you choose. Nothing is sent unless you share it.
+
+**What a report contains:** Lyre's version and build, an identifier for the exact app binary, your iPhone model, the iOS version, which of Lyre's players you were using, the last lines of the diagnostics log, the crash or freeze details (including the program's call stack) if it's an automatic report, and, for reports you send yourself, your words and optional screenshot. It never contains your name, email address, Apple Account, location, contacts, or the contents of your music library. Each report also carries a random identifier Lyre creates for itself on your device, used only to limit how many reports one device can send; it isn't linked to you. Reports are signed using Apple's App Attest, which lets the report service check that a report came from a genuine copy of Lyre; App Attest doesn't identify you.
+
+**Where reports go:** reports are sent to Lyre's report service, which runs on Cloudflare, and are filed in Jira, an issue tracker run by Atlassian, where only Lyre's developer reviews them. Screenshots and attached files are stored with Cloudflare. The report service doesn't record your IP address; Cloudflare handles network traffic under [its own privacy policy](https://www.cloudflare.com/privacypolicy/), and Atlassian holds the filed reports under [its privacy policy](https://www.atlassian.com/legal/privacy-policy). Reports are kept only as long as needed to investigate and fix problems. To have a report you sent deleted, contact us (see Contact) with roughly when you sent it and what it was about.
+
+Separately, iOS may also send crash and performance information to Apple if you've allowed it in your device's settings; that's handled by Apple, under [Apple's privacy policy](https://www.apple.com/legal/privacy/).
+
+**TestFlight testers:** feedback, screenshots, and crash reports you send through TestFlight go to Apple, who makes them available to Lyre's developer, as described in Apple's TestFlight terms. Lyre's report service copies them, with the email address shown to the developer, into the same Jira tracker so they can be reviewed with other reports.
 
 ## Third-Party Services
 
-Lyre does not integrate any third-party analytics, advertising, or data-collection SDKs.
+Lyre does not integrate any third-party analytics, advertising, or data-collection SDKs. Problem reports go through Cloudflare and Atlassian, as described in Problem Reports and Diagnostics, and are signed using Apple's App Attest.
 
 **Deezer (song tempos).** So that the Liquid player can move to the beat, Lyre asks Deezer's public API (api.deezer.com) for the tempo of the songs in your library. Each request carries only the song's ISRC (the code that identifies a recording) or, where a song has none, its title and artist. No account, device identifier, location, or anything else about you is sent, and Lyre's developer receives nothing. The tempos found are kept on your device. This is on by default and can be turned off in Liquid's settings ("Look Up Tempos"); turned off, nothing is sent. Deezer's handling of these requests is covered by [Deezer's privacy policy](https://www.deezer.com/legal/personal-datas).
 
@@ -30,7 +47,7 @@ Lyre does not integrate any third-party analytics, advertising, or data-collecti
 
 ## Children's Privacy
 
-Lyre does not knowingly collect any information from anyone, including children, because it does not collect information from anyone.
+Lyre does not knowingly collect personal information from anyone, including children. Problem reports contain only the technical information described above, and anything a person chooses to write or include in a report they send themselves.
 
 ## Changes to This Policy
 

@@ -27,6 +27,9 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 nonisolated final class ProblemReporter: @unchecked Sendable {
     static let shared = ProblemReporter(attestor: .shared)
 
+    /// Lyre's privacy policy (PRIVACY.md in the repository), which says what reports carry.
+    static let privacyPolicyURL = URL(string: "https://github.com/dbuzlea/Lyre/blob/main/PRIVACY.md")!
+
     /// The listener's choice to send what Lyre catches itself (phase 2): off until they
     /// turn it on.
     static let automaticKey = "SendDiagnosticsAutomatically"
