@@ -5,7 +5,7 @@
 
 import XCTest
 
-/// Every player's settings say which version and build this is, as "Version 2.6.1 (9)",
+/// Every player's settings say which version and build this is, as "Version 2.6.1 (10)",
 /// read from the app's own Info.plist, so a TestFlight tester can say what they're on.
 final class VersionUITests: XCTestCase {
 
