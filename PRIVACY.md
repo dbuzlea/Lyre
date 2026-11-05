@@ -1,19 +1,20 @@
 # Privacy Policy
 
-**Last updated: November 4, 2026**
+**Last updated: November 5, 2026**
 
 Lyre ("the app") is developed by Daniel Buzlea / Pink Hat Creations. This policy explains what data the app does and does not handle.
 
 ## Summary
 
-Lyre does not collect or sell personal data, and has no analytics, advertising, or tracking. Two things can leave your device:
+Lyre does not collect or sell personal data, and has no advertising or tracking. Three things can leave your device:
 
 - **Problem reports, only if you send them or allow them.** If you use Report a Problem, or turn on Send Diagnostics Automatically (off unless you turn it on), Lyre sends a report about the problem to its developer so it can be fixed. Reports contain technical information about Lyre and your device and never your music library's contents; see Problem Reports and Diagnostics.
+- **Usage statistics, only if you allow them.** If you turn on Share Usage Statistics (off unless you turn it on), Lyre sends counts of how the app is used, such as which players and features are used and how long it takes to start music, so it can be made easier to use. They never name your music or anything you search for, and aren't linked to you; see Usage Statistics.
 - **Song identifiers, for tempos.** To find songs' tempos, the Liquid player sends song identifiers (never anything about you) to Deezer's public API, which you can turn off; see Third-Party Services.
 
 ## What Lyre Accesses
 
-**Your Apple Music library.** Lyre uses Apple's own MusicKit and MediaPlayer frameworks to read and play songs, albums, artists, playlists, and podcasts from your Apple Music library, with your permission. This data is read directly from Apple's services onto your device to power playback — it is never sent to us, stored on our servers, or shared with any third party. Lyre's only server is the problem-report service described below, which receives only the reports you send or allow, never your library.
+**Your Apple Music library.** Lyre uses Apple's own MusicKit and MediaPlayer frameworks to read and play songs, albums, artists, playlists, and podcasts from your Apple Music library, with your permission. This data is read directly from Apple's services onto your device to power playback — it is never sent to us, stored on our servers, or shared with any third party. Lyre's only server is the report service described below, which receives only the problem reports and usage statistics you send or allow, never your library.
 
 ## What Stays on Your Device
 
@@ -37,9 +38,26 @@ Separately, iOS may also send crash and performance information to Apple if you'
 
 **TestFlight testers:** feedback, screenshots, and crash reports you send through TestFlight go to Apple, who makes them available to Lyre's developer, as described in Apple's TestFlight terms. Lyre's report service copies them, with the email address shown to the developer, into the same Jira tracker so they can be reviewed with other reports.
 
+## Usage Statistics
+
+**Share Usage Statistics** (in settings) is off unless you turn it on. Lyre asks you once, alongside Send Diagnostics Automatically, and you can change it in any player's settings at any time.
+
+When it's on, Lyre counts how it's used, so its developer can see where it's easy or hard to get around and improve it:
+
+- which of Lyre's players you use, and when you switch between them;
+- how long it takes from opening Lyre to starting music, and from which kind of screen (for example a shelf, a card, a search, or the queue);
+- which kinds of screens are opened, and which are left again within a couple of seconds;
+- whether a search found anything in your library (never the words you searched for);
+- moments the app froze, and on which kind of screen, and errors shown;
+- the first time, and how often, features such as Shuffle, the Songs shelf, card decks, swiping to queue, or Add to Playlist are used.
+
+Each count carries Lyre's version and build, whether the device is an iPhone or iPad (not the model), the major iOS version, the player in use, the date, which week Lyre was installed and how many days ago. It never contains the names of songs, albums, artists, playlists, podcasts or anything else in your library, anything you type or search for, screenshots, your name, email address, Apple Account, location, or contacts, and it carries no identifier for you or your device, so counts from one device can't be linked together or to you.
+
+Most of the working-out happens on your device (for example, Lyre sends "the first song started 6 seconds after opening, from a card", not each tap). Counts wait on your device and are sent about once a day, signed using Apple's App Attest like problem reports. They go to Lyre's report service on Cloudflare and are kept in Cloudflare's Workers Analytics Engine, where only Lyre's developer can see them, as totals, for up to three months. To limit how often a device can send, the service briefly keeps a one-way scrambled form of the sending key or network address, deleted within two days and never stored with the counts. Turning Share Usage Statistics off stops it and deletes any counts still waiting on your device.
+
 ## Third-Party Services
 
-Lyre does not integrate any third-party analytics, advertising, or data-collection SDKs. Problem reports go through Cloudflare and Atlassian, as described in Problem Reports and Diagnostics, and are signed using Apple's App Attest.
+Lyre does not integrate any third-party analytics, advertising, or data-collection SDKs. Problem reports go through Cloudflare and Atlassian, as described in Problem Reports and Diagnostics; usage statistics, if you allow them, go only to Cloudflare, as described in Usage Statistics. Both are signed using Apple's App Attest.
 
 **Deezer (song tempos).** So that the Liquid player can move to the beat, Lyre asks Deezer's public API (api.deezer.com) for the tempo of the songs in your library. Each request carries only the song's ISRC (the code that identifies a recording) or, where a song has none, its title and artist. No account, device identifier, location, or anything else about you is sent, and Lyre's developer receives nothing. The tempos found are kept on your device. This is on by default and can be turned off in Liquid's settings ("Look Up Tempos"); turned off, nothing is sent. Deezer's handling of these requests is covered by [Deezer's privacy policy](https://www.deezer.com/legal/personal-datas).
 
