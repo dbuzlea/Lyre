@@ -88,9 +88,12 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
         let files: [File]?
     }
 
-    /// Makes a report with what every report carries, and the log's last lines.
+    /// Makes a report with what every report carries, and the log's last lines. `build`
+    /// is the build it happened in, when that's known and may not be this one (a
+    /// MetricKit report arrives on a later launch, perhaps after an update).
     func makeReport(kind: Kind, title: String, description: String? = nil, signature: String? = nil,
-                    stack: String? = nil, files: [Report.File] = [], player: String? = nil) -> Report {
+                    stack: String? = nil, files: [Report.File] = [], player: String? = nil,
+                    build: String? = nil) -> Report {
         let info = Bundle.main.infoDictionary
         return Report(
             kind: kind.rawValue,
@@ -99,7 +102,7 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
             signature: signature,
             stack: stack,
             app: .init(version: info?["CFBundleShortVersionString"] as? String ?? "?",
-                       build: info?["CFBundleVersion"] as? String ?? "?",
+                       build: build ?? info?["CFBundleVersion"] as? String ?? "?",
                        binaryUUID: Diagnostics.binaryUUID(),
                        player: player ?? UserDefaults.standard.string(forKey: "LyrePlayerStyle")),
             device: .init(model: Diagnostics.hardwareModel(),
@@ -180,5 +183,52 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
         Diagnostics.shared.flush()
         guard let text = try? String(contentsOf: Diagnostics.shared.logURL, encoding: .utf8) else { return nil }
         return text.split(separator: "\n").suffix(lines).joined(separator: "\n")
+    }
+}
+
+// MARK: - Asking Once
+
+/// Asks the listener, once, whether Lyre may send its own reports of crashes and freezes
+/// (ProblemReporter.sendsAutomatically): on a launch after the one that set Lyre up, a
+/// few seconds in, so it isn't one more thing to answer while setting up. Either answer
+/// counts as asked; Settings change it after.
+enum DiagnosticsConsent {
+    static let askedKey = "DiagnosticsConsentAsked"
+    static let launchesKey = "DiagnosticsConsentLaunches"
+
+    /// Counted at each launch (AppDelegate).
+    static func countLaunch() {
+        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: launchesKey) + 1, forKey: launchesKey)
+    }
+
+    /// Whether to ask now: set up, not asked, past the first launch, not a UI test.
+    static func isDue(onboarded: Bool, defaults: UserDefaults = .standard,
+                      isUITesting: Bool = AppEnvironment.isUITesting) -> Bool {
+        onboarded && !isUITesting && !defaults.bool(forKey: askedKey) && defaults.integer(forKey: launchesKey) >= 2
+    }
+
+    @MainActor
+    static func askIfDue(onboarded: Bool) async {
+        guard isDue(onboarded: onboarded) else { return }
+        try? await Task.sleep(for: .seconds(4))
+        guard isDue(onboarded: onboarded),
+              let window = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first,
+              var top = window.rootViewController else { return }
+        while let presented = top.presentedViewController { top = presented }
+        let alert = UIAlertController(title: String(localized: "diagnostics.ask.title"),
+                                      message: String(localized: "diagnostics.ask.message"), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: String(localized: "diagnostics.ask.notNow"), style: .cancel) { _ in
+            answer(false)
+        })
+        let allow = UIAlertAction(title: String(localized: "diagnostics.ask.allow"), style: .default) { _ in answer(true) }
+        alert.addAction(allow)
+        alert.preferredAction = allow
+        top.present(alert, animated: true)
+    }
+
+    private static func answer(_ sends: Bool) {
+        UserDefaults.standard.set(true, forKey: askedKey)
+        ProblemReporter.sendsAutomatically = sends
+        Diagnostics.shared.record(.app, "Automatic diagnostics \(sends ? "allowed" : "declined")")
     }
 }

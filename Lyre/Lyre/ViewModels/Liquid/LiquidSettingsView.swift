@@ -17,6 +17,9 @@ struct LiquidSettingsView: View {
     let foldMonitor: FoldPostureMonitor
     let onDone: () -> Void
 
+    /// Send Diagnostics Automatically (ProblemReporter): off until the listener turns it on.
+    @AppStorage(ProblemReporter.automaticKey) private var sendsDiagnosticsAutomatically = false
+
     var body: some View {
         NavigationStack {
             Form {
@@ -103,6 +106,9 @@ struct LiquidSettingsView: View {
 
                 // Lyre's logs and iOS's reports, to help find a problem (Diagnostics).
                 Section {
+                    // Lyre's own reports of crashes and freezes, sent only if this is on.
+                    Toggle(String(localized: "settings.sendDiagnostics"), isOn: $sendsDiagnosticsAutomatically)
+                        .accessibilityIdentifier("settings.sendDiagnostics")
                     ReportProblemButton {
                         Label(String(localized: "settings.reportProblem"), systemImage: "exclamationmark.bubble")
                     }
@@ -110,7 +116,8 @@ struct LiquidSettingsView: View {
                         Label(String(localized: "settings.shareDiagnostics"), systemImage: "doc.text.magnifyingglass")
                     }
                 } footer: {
-                    Text(String(localized: "settings.reportProblem.detail"))
+                    Text(String(localized: "settings.sendDiagnostics.detail") + " "
+                         + String(localized: "settings.reportProblem.detail"))
                 }
 
                 Section {

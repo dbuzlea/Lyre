@@ -98,6 +98,8 @@ struct ContentView: View {
         .onChange(of: hasCompletedOnboarding) { _, completed in
             if completed { logger.info("Onboarding completed") }
         }
+        // Whether Lyre may send its own reports of crashes and freezes, asked once.
+        .task(id: hasCompletedOnboarding) { await DiagnosticsConsent.askIfDue(onboarded: hasCompletedOnboarding) }
         .onChange(of: scenePhase) { _, phase in
             Diagnostics.shared.record(.app, "Scene \(phase == .active ? "active" : phase == .background ? "background" : "inactive")",
                                       level: .info)

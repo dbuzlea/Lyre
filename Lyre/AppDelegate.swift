@@ -24,6 +24,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Which Lyre this is, first in the log, so a report can be matched to its
         // debug symbols; then the watch on the main thread (Diagnostics).
         Diagnostics.shared.record(.app, "Launched: \(Diagnostics.buildSummary())")
+        DiagnosticsConsent.countLaunch()
         HangWatcher.shared.start()
         AppMetrics.shared.start()
         logger.info("App launched")
