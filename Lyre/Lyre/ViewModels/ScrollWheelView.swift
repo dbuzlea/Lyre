@@ -1574,6 +1574,10 @@ struct ScrollWheelView: View {
                 _ = navigationStack.popLast()
                 DiagnosticsSharing.share()
                 return
+            case SettingsView.reportProblemRow:
+                _ = navigationStack.popLast()
+                ProblemReporting.present()
+                return
             default:
                 _ = navigationStack.popLast()
                 return
