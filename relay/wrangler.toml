@@ -1,0 +1,23 @@
+# Lyre's problem-report relay (see README.md). No secrets here: the Jira token and the
+# App Store Connect key are set with `npx wrangler secret put …`.
+name = "lyre-relay"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+
+[vars]
+JIRA_BASE_URL = "https://lyre-app.atlassian.net"
+JIRA_PROJECT = "LYRE"
+# Reports a phone may send in an hour before the relay turns it away.
+REPORTS_PER_HOUR = "10"
+
+# Which issue each fingerprint became, and each phone's count this hour.
+# Created at deploy time: npx wrangler kv namespace create LYRE_REPORTS
+[[kv_namespaces]]
+binding = "REPORTS"
+id = "REPLACE_AT_DEPLOY"
+
+# The full diagnostics each report carried. Created at deploy time:
+# npx wrangler r2 bucket create lyre-reports
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "lyre-reports"
