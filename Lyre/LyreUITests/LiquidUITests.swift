@@ -430,11 +430,16 @@ final class LiquidUITests: XCTestCase {
         for _ in 0..<6 where !share.exists || !share.isHittable { app.swipeUp() }
         XCTAssertTrue(share.waitForExistence(timeout: 5), "Settings have no Share Diagnostics")
         share.tap()
+        // While the files are gathered, a panel says so; it goes as the sheet comes up.
+        let preparing = element(app, "diagnostics.preparing")
+        XCTAssertTrue(preparing.waitForExistence(timeout: 3), "Nothing showed while diagnostics were prepared")
+        attachScreenshot(app, named: "liquid-share-diagnostics-preparing")
         let sheet = app.otherElements["ActivityListView"].firstMatch
         // Gathering this session's system log for it can take a little while.
         XCTAssertTrue(sheet.waitForExistence(timeout: 25) || app.buttons["Copy"].waitForExistence(timeout: 2),
                       "Share Diagnostics didn't open the share sheet")
         sleep(1)
+        XCTAssertFalse(preparing.exists, "The preparing panel stayed up over the share sheet")
         attachScreenshot(app, named: "liquid-share-diagnostics")
     }
 

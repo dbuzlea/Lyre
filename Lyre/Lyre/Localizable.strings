@@ -922,6 +922,7 @@
 "report.thanks.detail" = "Your report has been sent.";
 "report.thanks.later" = "Your report is saved and will be sent when Lyre can reach its reporting service.";
 "report.done" = "Done";
+"diagnostics.preparing" = "Preparing diagnostics…";
 "settings.shareDiagnostics" = "Share Diagnostics";
 "settings.shareDiagnostics.detail" = "Send Lyre's logs and iOS's reports, to help find a problem. Nothing personal is included.";
 "settings.allowMusicAccess" = "Allow Access to Apple Music Library";
