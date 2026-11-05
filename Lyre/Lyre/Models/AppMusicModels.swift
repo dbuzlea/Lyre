@@ -141,14 +141,10 @@ nonisolated struct AppTrack: Identifiable, Hashable {
         item.queueKeys.contains(where: keys.contains)
     }
 
-    /// The same song, and with the same artwork to show. The artwork counts: SwiftUI
-    /// leaves a view be when its inputs are equal, and a song from the launch cache
-    /// (no artwork yet) was equal to its live copy, so a cover drawn before the live
-    /// load kept its placeholder (the covers that "didn't load", 2026-11-04). Hashed by
-    /// `id` alone, which equal songs still share.
-    static func == (lhs: AppTrack, rhs: AppTrack) -> Bool {
-        lhs.id == rhs.id && lhs.artworkSources == rhs.artworkSources
-    }
+    /// The same song, by `id`: playback and the queue find a song again this way, in
+    /// copies that carry different handles (a resolved window's, the cache's), so its
+    /// artwork doesn't count here. Albums compare their songs' artwork themselves.
+    static func == (lhs: AppTrack, rhs: AppTrack) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
     /// Which of its artwork sources a song carries: its device item, its MusicKit song,
@@ -209,13 +205,18 @@ nonisolated struct AppAlbum: Identifiable, Hashable {
         self.parts = parts
     }
 
-    /// The same album, with the same artwork to show (see AppTrack's ==): its own
-    /// cover's sources, and the first of its songs, whose covers a playlist's collage
-    /// is made of (a smart list keeps its id as its songs change). Hashed by `id`.
+    /// The same album, with the same artwork to show: its own cover's sources, and its
+    /// first songs and their artwork, which a playlist's collage is made of (a smart
+    /// list keeps its id as its songs change). The artwork counts: SwiftUI leaves a view
+    /// be when its inputs are equal, and an album from the launch cache (no artwork yet)
+    /// was equal to its live copy, so a cover drawn before the live load kept its
+    /// placeholder. Hashed by `id`, which equal albums still share.
     static func == (lhs: AppAlbum, rhs: AppAlbum) -> Bool {
         lhs.id == rhs.id && lhs.artworkSources == rhs.artworkSources
             && lhs.preloadedTracks.count == rhs.preloadedTracks.count
-            && lhs.preloadedTracks.prefix(Self.collageSongs).elementsEqual(rhs.preloadedTracks.prefix(Self.collageSongs))
+            && lhs.preloadedTracks.prefix(Self.collageSongs).elementsEqual(rhs.preloadedTracks.prefix(Self.collageSongs)) {
+                $0.id == $1.id && $0.artworkSources == $1.artworkSources
+            }
     }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
