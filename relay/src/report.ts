@@ -94,7 +94,7 @@ const code = (value: string): ADFNode => ({ type: "codeBlock", attrs: {}, conten
  * the triage that follows): what happened, on what, the stack, the log's last lines,
  * and where the full files are.
  */
-export function description(report: Report, fileLinks: string[], reportURL: string): ADFNode {
+export function description(report: Report, fileLinks: string[], reportURL: string, attested = false): ADFNode {
   const content: ADFNode[] = [];
   if (report.description) {
     content.push(heading("What the listener said"), paragraph(report.description));
@@ -107,7 +107,8 @@ export function description(report: Report, fileLinks: string[], reportURL: stri
         (report.app.player ? `, ${report.app.player} player` : "") +
         `; ${report.device.model}, ${report.device.os}`
     ),
-    paragraph(`Report kind: ${report.kind}` + (report.signature ? `; signature: ${report.signature}` : ""))
+    paragraph(`Report kind: ${report.kind}` + (report.signature ? `; signature: ${report.signature}` : "")),
+    paragraph(attested ? "Sent by an attested copy of Lyre (App Attest)." : "Not attested (sent with the app's key alone).")
   );
   if (report.stack) content.push(heading("Stack"), code(report.stack.slice(0, 12_000)));
   if (report.logTail) content.push(heading("Diagnostics log (last lines)"), code(report.logTail.slice(-12_000)));

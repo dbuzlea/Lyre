@@ -25,7 +25,7 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 // which isn't committed. Without it, reports wait in the outbox.
 
 nonisolated final class ProblemReporter: @unchecked Sendable {
-    static let shared = ProblemReporter()
+    static let shared = ProblemReporter(attestor: .shared)
 
     /// The listener's choice to send what Lyre catches itself (phase 2): off until they
     /// turn it on.
@@ -43,6 +43,8 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
     let outbox: URL
     private let configuration: Configuration?
     private let session: URLSession
+    /// Signs reports with the App Attest key (AppAttest.swift); nil in tests.
+    private let attestor: AppAttestor?
     private let queue = DispatchQueue(label: "com.pinkhatcreations.lyreapp.problem-reporter", qos: .utility)
     private var isSending = false
 
@@ -50,10 +52,11 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
     static let maxWaiting = 30
 
     init(outbox: URL? = nil, configuration: Configuration? = ProblemReporter.bundledConfiguration(),
-         session: URLSession = .shared) {
+         session: URLSession = .shared, attestor: AppAttestor? = nil) {
         self.outbox = outbox ?? Diagnostics.shared.directory.appendingPathComponent("Outbox", isDirectory: true)
         self.configuration = configuration
         self.session = session
+        self.attestor = attestor
         try? FileManager.default.createDirectory(at: self.outbox, withIntermediateDirectories: true)
     }
 
@@ -66,6 +69,17 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
     }
 
     var isConfigured: Bool { configuration != nil }
+
+    /// Enrols the App Attest key ahead of the first report, and sends anything waiting:
+    /// at launch, once Lyre's settled (AppDelegate).
+    func prepare() {
+        guard let configuration, let attestor, !AppEnvironment.isUITesting else { return }
+        Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .seconds(8))
+            await attestor.enrol(with: configuration, session: self.session)
+            self.sendWaiting()
+        }
+    }
 
     // MARK: Reports
 
@@ -150,6 +164,14 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
                     request.httpMethod = "POST"
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue(configuration.appKey, forHTTPHeaderField: "X-Lyre-Key")
+                    // Signed with the attested key, so the relay knows it's from Lyre.
+                    if let attestor = self.attestor {
+                        await attestor.enrol(with: configuration, session: self.session)
+                        if let signed = await attestor.sign(body) {
+                            request.setValue(signed.keyID, forHTTPHeaderField: "X-Lyre-Key-ID")
+                            request.setValue(signed.assertion, forHTTPHeaderField: "X-Lyre-Assertion")
+                        }
+                    }
                     request.httpBody = body
                     let status = (try? await self.session.data(for: request))
                         .flatMap { ($0.1 as? HTTPURLResponse)?.statusCode } ?? 0

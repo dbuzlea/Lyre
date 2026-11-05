@@ -2,7 +2,12 @@
 // keeps its files, and files it in Jira, or, for a problem already filed, notes that it
 // happened again. The Jira credentials live here, as Worker secrets, never in the app.
 //
-//   POST /v1/reports         a report (report.ts) → { issue, repeat }
+//   GET  /v1/attest/challenge          a one-time challenge for App Attest (5 minutes)
+//   POST /v1/attest                    { keyID, attestation, challenge }: Apple's
+//                                      attestation of the app's key, checked and kept
+//   POST /v1/reports         a report (report.ts) → { issue, repeat }; signed with the
+//                            attested key (X-Lyre-Key-ID, X-Lyre-Assertion), or, while
+//                            REQUIRE_ATTEST is off, with the app's key alone
 //   GET  /v1/files/<key>     a report's file, with ?sig=… (that file's own signature,
 //                            as the issue links it) or ?token=FILES_TOKEN
 //
@@ -12,11 +17,18 @@
 import {
   type Report, MAX_BODY_BYTES, validate, fingerprint, priority, labels, summary, description, repeatComment,
 } from "./report";
+import { type AttestedKey, verifyAttestation, verifyAssertion, base64ToBytes, bytesToBase64 } from "./attest";
 
 export interface Env {
   JIRA_BASE_URL: string;
   JIRA_PROJECT: string;
   REPORTS_PER_HOUR: string;
+  /** Lyre's app ID for App Attest: TEAMID.bundle.id. */
+  APP_ID: string;
+  /** "true" once every Lyre in use attests: then a report without an assertion is turned away. */
+  REQUIRE_ATTEST: string;
+  /** Tests' own App Attestation roots, in place of Apple's. */
+  ATTEST_ROOTS?: string[];
   /** Secrets (wrangler secret put). */
   JIRA_EMAIL: string;
   JIRA_TOKEN: string;
@@ -44,6 +56,8 @@ export default {
 
 export async function handle(request: Request, env: Env, deps: Deps): Promise<Response> {
   const url = new URL(request.url);
+  if (request.method === "GET" && url.pathname === "/v1/attest/challenge") return challenge(env);
+  if (request.method === "POST" && url.pathname === "/v1/attest") return attest(request, env, deps);
   if (request.method === "POST" && url.pathname === "/v1/reports") return receive(request, env, deps);
   if (request.method === "GET" && url.pathname.startsWith("/v1/files/")) return file(url, env);
   return json({ error: "not found" }, 404);
@@ -65,6 +79,11 @@ async function receive(request: Request, env: Env, deps: Deps): Promise<Response
   const checked = validate(body);
   if ("error" in checked) return json({ error: checked.error }, 400);
   const report = checked.report;
+
+  // From a genuine Lyre? Its signature over these exact bytes, with a key Apple vouched for.
+  const attested = await checkAssertion(request, raw, env);
+  if (attested === "invalid") return json({ error: "assertion invalid" }, 401);
+  if (attested === "absent" && env.REQUIRE_ATTEST === "true") return json({ error: "attestation required" }, 401);
 
   // A phone sending more than its share this hour is turned away.
   const hour = deps.now().toISOString().slice(0, 13);
@@ -99,7 +118,7 @@ async function receive(request: Request, env: Env, deps: Deps): Promise<Response
     project: { key: env.JIRA_PROJECT },
     issuetype: { name: "Bug" },
     summary: summary(report),
-    description: description(report, fileLinks, filesURL),
+    description: description(report, fileLinks, filesURL, attested === "valid"),
     labels: labels(report),
     priority: { name: priority(report) },
   };
@@ -117,6 +136,49 @@ async function receive(request: Request, env: Env, deps: Deps): Promise<Response
   // the links are in its text.
   await attach(issue, report, env, deps);
   return json({ issue, repeat: false }, 201);
+}
+
+// MARK: App Attest
+
+async function challenge(env: Env): Promise<Response> {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const value = bytesToBase64(bytes);
+  await env.REPORTS.put(`challenge:${value}`, "1", { expirationTtl: 300 });
+  return json({ challenge: value });
+}
+
+async function attest(request: Request, env: Env, deps: Deps): Promise<Response> {
+  if (request.headers.get("X-Lyre-Key") !== env.APP_KEY) return json({ error: "unauthorised" }, 401);
+  let body: { keyID?: string; attestation?: string; challenge?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "not JSON" }, 400);
+  }
+  if (!body.keyID || !body.attestation || !body.challenge) return json({ error: "incomplete" }, 400);
+  // Each challenge answers once.
+  if (!(await env.REPORTS.get(`challenge:${body.challenge}`))) return json({ error: "unknown or used challenge" }, 400);
+  await env.REPORTS.delete(`challenge:${body.challenge}`);
+  const result = await verifyAttestation({
+    attestation: body.attestation, keyID: body.keyID, challenge: base64ToBytes(body.challenge),
+    appID: env.APP_ID, roots: env.ATTEST_ROOTS, now: deps.now(),
+  });
+  if ("error" in result) return json({ error: result.error }, 400);
+  await env.REPORTS.put(`attest:${body.keyID}`, JSON.stringify(result.key));
+  return json({ environment: result.key.environment }, 201);
+}
+
+/** "valid", "invalid", or "absent" (no assertion sent). */
+async function checkAssertion(request: Request, raw: string, env: Env): Promise<"valid" | "invalid" | "absent"> {
+  const keyID = request.headers.get("X-Lyre-Key-ID");
+  const assertion = request.headers.get("X-Lyre-Assertion");
+  if (!keyID || !assertion) return "absent";
+  const key = await env.REPORTS.get(`attest:${keyID}`, "json") as AttestedKey | null;
+  if (!key) return "invalid";
+  const result = await verifyAssertion({ assertion, clientData: new TextEncoder().encode(raw), key, appID: env.APP_ID });
+  if ("error" in result) return "invalid";
+  await env.REPORTS.put(`attest:${keyID}`, JSON.stringify({ ...key, counter: result.counter }));
+  return "valid";
 }
 
 /** Adds the report's files to the issue as attachments. */

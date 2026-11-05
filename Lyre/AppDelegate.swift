@@ -25,6 +25,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // debug symbols; then the watch on the main thread (Diagnostics).
         Diagnostics.shared.record(.app, "Launched: \(Diagnostics.buildSummary())")
         DiagnosticsConsent.countLaunch()
+        // The App Attest key, enrolled ahead of the first report; and anything waiting sent.
+        ProblemReporter.shared.prepare()
         HangWatcher.shared.start()
         AppMetrics.shared.start()
         logger.info("App launched")
