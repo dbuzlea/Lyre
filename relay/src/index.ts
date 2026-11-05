@@ -3,7 +3,11 @@
 // happened again. The Jira credentials live here, as Worker secrets, never in the app.
 //
 //   POST /v1/reports         a report (report.ts) → { issue, repeat }
-//   GET  /v1/files/<key>     a report's file, with ?token=FILES_TOKEN
+//   GET  /v1/files/<key>     a report's file, with ?sig=… (that file's own signature,
+//                            as the issue links it) or ?token=FILES_TOKEN
+//
+// A new issue also gets the report's files as Jira attachments, so a screenshot shows in
+// Jira itself.
 
 import {
   type Report, MAX_BODY_BYTES, validate, fingerprint, priority, labels, summary, description, repeatComment,
@@ -71,6 +75,10 @@ async function receive(request: Request, env: Env, deps: Deps): Promise<Response
 
   const id = `${deps.now().toISOString().replace(/[:.]/g, "-")}-${crypto.randomUUID().slice(0, 8)}`;
   const fileKeys = await keepFiles(report, id, env);
+  // Each file's link carries its own signature, so it opens from the issue in a browser
+  // without giving away the token that would open every file.
+  const fileLinks = await Promise.all(fileKeys.map(async (key) =>
+    `${key}?sig=${await signature(key, env.FILES_TOKEN)}`));
   const filesURL = `${url(request)}/v1/files`;
 
   // Already filed: a comment, and the count goes up.
@@ -91,7 +99,7 @@ async function receive(request: Request, env: Env, deps: Deps): Promise<Response
     project: { key: env.JIRA_PROJECT },
     issuetype: { name: "Bug" },
     summary: summary(report),
-    description: description(report, fileKeys, filesURL),
+    description: description(report, fileLinks, filesURL),
     labels: labels(report),
     priority: { name: priority(report) },
   };
@@ -105,7 +113,42 @@ async function receive(request: Request, env: Env, deps: Deps): Promise<Response
   if (!created.ok) return json({ error: "jira create failed", status: created.status }, 502);
   const issue = ((await created.json()) as { key: string }).key;
   if (print) await env.REPORTS.put(`fp:${print}`, JSON.stringify({ issue, count: 1 }));
+  // The files on the issue too, to see in Jira. The issue stands if this doesn't work:
+  // the links are in its text.
+  await attach(issue, report, env, deps);
   return json({ issue, repeat: false }, 201);
+}
+
+/** Adds the report's files to the issue as attachments. */
+async function attach(issue: string, report: Report, env: Env, deps: Deps): Promise<void> {
+  if (!report.files?.length) return;
+  const form = new FormData();
+  for (const f of report.files) {
+    const bytes = Uint8Array.from(atob(f.base64), (c) => c.charCodeAt(0));
+    form.append("file", new Blob([bytes], { type: f.contentType }), f.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 80));
+  }
+  try {
+    await deps.fetch(`${env.JIRA_BASE_URL}/rest/api/3/issue/${issue}/attachments`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${env.JIRA_EMAIL}:${env.JIRA_TOKEN}`)}`,
+        "X-Atlassian-Token": "no-check",
+        Accept: "application/json",
+      },
+      body: form,
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    // Jira out of reach for the attachment: the issue's links still lead to the files.
+  }
+}
+
+/** A file's own signature: an HMAC of its key under FILES_TOKEN. Opens that file only. */
+export async function signature(key: string, secret: string): Promise<string> {
+  const hmacKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret),
+                                                { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", hmacKey, new TextEncoder().encode(key));
+  return [...new Uint8Array(mac)].slice(0, 16).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** The report's files, in R2 under the report's id; their keys, for the issue. */
@@ -123,8 +166,11 @@ async function keepFiles(report: Report, id: string, env: Env): Promise<string[]
 }
 
 async function file(url: URL, env: Env): Promise<Response> {
-  if (!env.FILES_TOKEN || url.searchParams.get("token") !== env.FILES_TOKEN) return json({ error: "unauthorised" }, 401);
   const key = decodeURIComponent(url.pathname.slice("/v1/files/".length));
+  const sig = url.searchParams.get("sig");
+  const allowed = !!env.FILES_TOKEN && (url.searchParams.get("token") === env.FILES_TOKEN
+    || (sig !== null && sig === await signature(key, env.FILES_TOKEN)));
+  if (!allowed) return json({ error: "unauthorised" }, 401);
   const object = await env.FILES?.get(key);
   if (!object) return json({ error: "not found" }, 404);
   return new Response(object.body, {

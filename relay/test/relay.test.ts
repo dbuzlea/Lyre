@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { handle, type Env, type Deps } from "../src/index";
+import { handle, signature, type Env, type Deps } from "../src/index";
 import { fingerprint, priority, labels, validate, type Report } from "../src/report";
 
 // Fakes for the Worker's world: KV and R2 in memory, and a Jira that records what it's
@@ -33,6 +33,12 @@ function fakeJira(options: { rejectPriority?: boolean } = {}) {
   let next = 100;
   const fakeFetch: typeof fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    if (url.endsWith("/attachments")) {
+      const form = init?.body as FormData;
+      calls.push({ url, body: { files: form.getAll("file").map((f) => (f as File).name) },
+                   auth: new Headers(init?.headers).get("X-Atlassian-Token") });
+      return new Response("[]", { status: 200 });
+    }
     const body = JSON.parse(String(init?.body));
     calls.push({ url, body, auth: new Headers(init?.headers).get("Authorization") });
     if (url.endsWith("/rest/api/3/issue")) {
@@ -132,14 +138,27 @@ describe("receiving a report", () => {
     expect(JSON.stringify(jira.calls[0].body.fields.description)).toContain("No artwork anywhere");
   });
 
-  it("keeps the report's files in R2 and links them from the issue", async () => {
+  it("keeps the report's files in R2 and links each from the issue with its own signature", async () => {
     const jira = fakeJira();
     const withFile = report({ files: [{ name: "lyre.log", contentType: "text/plain", base64: btoa("log lines") }] });
     await handle(post(withFile), env, deps(jira));
     const [key] = [...r2.data.keys()];
     expect(key).toMatch(/\/lyre\.log$/);
     expect(new TextDecoder().decode(r2.data.get(key)!.bytes)).toBe("log lines");
-    expect(JSON.stringify(jira.calls[0].body.fields.description)).toContain(`https://relay.example/v1/files/${key}`);
+    const sig = await signature(key, "files-token");
+    const text = JSON.stringify(jira.calls[0].body.fields.description);
+    expect(text).toContain(`https://relay.example/v1/files/${key}?sig=${sig}`);
+    expect(text).not.toContain("files-token");
+  });
+
+  it("attaches the report's files to the new issue, to see in Jira", async () => {
+    const jira = fakeJira();
+    const withShot = report({ kind: "user", title: "Look", stack: undefined,
+                              files: [{ name: "screenshot.jpg", contentType: "image/jpeg", base64: btoa("jpeg") }] });
+    await handle(post(withShot), env, deps(jira));
+    const attachment = jira.calls.find((c) => c.url.endsWith("/rest/api/3/issue/LYRE-100/attachments"));
+    expect(attachment?.body.files).toEqual(["screenshot.jpg"]);
+    expect(attachment?.auth).toBe("no-check");
   });
 
   it("files it without a priority when the project won't take one", async () => {
@@ -196,7 +215,19 @@ describe("turning reports away", () => {
 });
 
 describe("reading a file back", () => {
-  it("only with the files token", async () => {
+  it("with its own signature, which opens no other file", async () => {
+    await r2.put("abc/shot.jpg", new TextEncoder().encode("jpeg"), { httpMetadata: { contentType: "image/jpeg" } });
+    await r2.put("xyz/other.log", new TextEncoder().encode("other"));
+    const jira = fakeJira();
+    const sig = await signature("abc/shot.jpg", "files-token");
+    const own = await handle(new Request(`https://relay.example/v1/files/abc/shot.jpg?sig=${sig}`), env, deps(jira));
+    expect(own.status).toBe(200);
+    expect(own.headers.get("Content-Type")).toBe("image/jpeg");
+    const other = await handle(new Request(`https://relay.example/v1/files/xyz/other.log?sig=${sig}`), env, deps(jira));
+    expect(other.status).toBe(401);
+  });
+
+  it("or with the files token", async () => {
     await r2.put("abc/lyre.log", new TextEncoder().encode("hello"), { httpMetadata: { contentType: "text/plain" } });
     const jira = fakeJira();
     const denied = await handle(new Request("https://relay.example/v1/files/abc/lyre.log"), env, deps(jira));
