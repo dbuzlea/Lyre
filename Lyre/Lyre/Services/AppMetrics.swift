@@ -50,6 +50,8 @@ final class AppMetrics: NSObject, MXMetricManagerSubscriber {
 
             // Kept whole: its call stacks are what find the cause (Diagnostics).
             Diagnostics.shared.saveReport(payload.jsonRepresentation(), kind: "diagnostic")
+            // And to Jira, if the listener has allowed it (ProblemReporter).
+            MetricKitReports.report(payload)
             Diagnostics.shared.record(.metrics, "MetricKit diagnostics: \(crashCount) crash, \(hangCount) hang, "
                                       + "\(cpuCount) CPU, \(diskCount) disk write",
                                       level: crashCount + hangCount + cpuCount + diskCount > 0 ? .error : .info)
@@ -77,6 +79,102 @@ final class AppMetrics: NSObject, MXMetricManagerSubscriber {
 
             Diagnostics.shared.saveReport(payload.jsonRepresentation(), kind: "metrics")
             Diagnostics.shared.record(.metrics, "MetricKit daily metrics saved", level: .info)
+        }
+    }
+}
+
+// MARK: - Automatic Reports
+
+/// iOS's diagnostics, as problem reports (ProblemReporter), sent only if the listener has
+/// turned on Send Diagnostics Automatically: a crash, a hang, a CPU or disk-write
+/// exception, each with its kind, the build it happened in, Lyre's top frames as a
+/// signature (so the relay groups the same problem, and only it), the call stack as text,
+/// and the whole diagnostic attached.
+enum MetricKitReports {
+    struct Problem {
+        let title: String
+        let signature: String
+        let stack: String
+        let build: String?
+        let json: Data
+    }
+
+    static func problems(in payload: MXDiagnosticPayload) -> [Problem] {
+        var problems: [Problem] = []
+        for crash in payload.crashDiagnostics ?? [] {
+            let exception = [crash.exceptionType.map { "exception \($0)" }, crash.signal.map { "signal \($0)" }]
+                .compactMap { $0 }.joined(separator: ", ")
+            let reason = crash.terminationReason.map { ": \($0.prefix(80))" } ?? ""
+            problems.append(problem("Crash (\(exception.isEmpty ? "unknown" : exception))\(reason)",
+                                    kind: "crash \(exception)", tree: crash.callStackTree,
+                                    build: crash.metaData.applicationBuildVersion, json: crash.jsonRepresentation()))
+        }
+        for hang in payload.hangDiagnostics ?? [] {
+            let seconds = hang.hangDuration.converted(to: .seconds).value
+            problems.append(problem(String(format: "Hang %.1f s", seconds), kind: "hang", tree: hang.callStackTree,
+                                    build: hang.metaData.applicationBuildVersion, json: hang.jsonRepresentation()))
+        }
+        for cpu in payload.cpuExceptionDiagnostics ?? [] {
+            let used = cpu.totalCPUTime.converted(to: .seconds).value
+            let over = cpu.totalSampledTime.converted(to: .seconds).value
+            problems.append(problem(String(format: "CPU exception: %.0f s of CPU over %.0f s", used, over), kind: "cpu",
+                                    tree: cpu.callStackTree, build: cpu.metaData.applicationBuildVersion,
+                                    json: cpu.jsonRepresentation()))
+        }
+        for disk in payload.diskWriteExceptionDiagnostics ?? [] {
+            let megabytes = disk.totalWritesCaused.converted(to: .megabytes).value
+            problems.append(problem(String(format: "Disk writes exception: %.0f MB", megabytes), kind: "disk",
+                                    tree: disk.callStackTree, build: disk.metaData.applicationBuildVersion,
+                                    json: disk.jsonRepresentation()))
+        }
+        return problems
+    }
+
+    private static func problem(_ title: String, kind: String, tree: MXCallStackTree, build: String?, json: Data) -> Problem {
+        problem(title, kind: kind, treeJSON: tree.jsonRepresentation(), build: build, json: json)
+    }
+
+    static func problem(_ title: String, kind: String, treeJSON: Data, build: String?, json: Data) -> Problem {
+        let frames = frames(fromCallStackTree: treeJSON)
+        let lyre = frames.filter { $0.binary == "Lyre" }.prefix(3).map { "+\($0.offset)" }
+        return Problem(title: title, signature: ([kind] + lyre).joined(separator: " "),
+                       stack: frames.prefix(40).enumerated()
+                           .map { "\($0.offset) \($0.element.binary) +\($0.element.offset) (\($0.element.uuid))" }
+                           .joined(separator: "\n"),
+                       build: build, json: json)
+    }
+
+    struct Frame: Equatable {
+        let binary: String
+        let offset: Int
+        let uuid: String
+    }
+
+    /// The frames of the thread MetricKit names as the culprit (else the first), from the
+    /// top of the stack down: MetricKit nests each frame's caller in its `subFrames`.
+    static func frames(fromCallStackTree data: Data) -> [Frame] {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let stacks = root["callStacks"] as? [[String: Any]], !stacks.isEmpty else { return [] }
+        let stack = stacks.first { ($0["threadAttributed"] as? Bool) == true } ?? stacks[0]
+        var frames: [Frame] = []
+        var next = (stack["callStackRootFrames"] as? [[String: Any]])?.first
+        while let frame = next, frames.count < 200 {
+            frames.append(Frame(binary: frame["binaryName"] as? String ?? "?",
+                                offset: frame["offsetIntoBinaryTextSegment"] as? Int ?? 0,
+                                uuid: frame["binaryUUID"] as? String ?? "?"))
+            next = (frame["subFrames"] as? [[String: Any]])?.first
+        }
+        return frames
+    }
+
+    /// Sends each problem in the payload, if the listener allows it.
+    static func report(_ payload: MXDiagnosticPayload, reporter: ProblemReporter = .shared) {
+        guard ProblemReporter.sendsAutomatically else { return }
+        for problem in problems(in: payload) {
+            let file = ProblemReporter.Report.File(name: "metrickit.json", contentType: "application/json",
+                                                   base64: problem.json.base64EncodedString())
+            reporter.submit(reporter.makeReport(kind: .metrickit, title: problem.title, signature: problem.signature,
+                                                stack: problem.stack, files: [file], build: problem.build))
         }
     }
 }

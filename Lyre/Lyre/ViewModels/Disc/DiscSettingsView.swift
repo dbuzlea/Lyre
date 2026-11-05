@@ -25,6 +25,9 @@ struct DiscSettingsView: View {
 
     private var theme: DiscTheme { themeSettings.discFinish.theme }
 
+    /// Send Diagnostics Automatically (ProblemReporter): off until the listener turns it on.
+    @AppStorage(ProblemReporter.automaticKey) private var sendsDiagnosticsAutomatically = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
@@ -254,9 +257,24 @@ struct DiscSettingsView: View {
         .accessibilityIdentifier("disc.settings.finish.\(finish.rawValue)")
     }
 
-    /// Report a Problem and Share Diagnostics (Diagnostics), then the version.
+    /// Send Diagnostics Automatically, Report a Problem and Share Diagnostics
+    /// (Diagnostics), then the version.
     private var footer: some View {
         VStack(spacing: 18) {
+            // Lyre's own reports of crashes and freezes, sent only if this is on
+            // (ProblemReporter).
+            Toggle(isOn: $sendsDiagnosticsAutomatically) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(localized: "settings.sendDiagnostics"))
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(String(localized: "settings.sendDiagnostics.detail"))
+                        .font(.system(size: 12))
+                        .opacity(0.7)
+                }
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
+            .accessibilityIdentifier("settings.sendDiagnostics")
             ReportProblemButton {
                 HStack(spacing: 12) {
                     Image(systemName: "exclamationmark.bubble")

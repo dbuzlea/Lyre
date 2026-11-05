@@ -25,7 +25,7 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 // which isn't committed. Without it, reports wait in the outbox.
 
 nonisolated final class ProblemReporter: @unchecked Sendable {
-    static let shared = ProblemReporter()
+    static let shared = ProblemReporter(attestor: .shared)
 
     /// The listener's choice to send what Lyre catches itself (phase 2): off until they
     /// turn it on.
@@ -43,6 +43,8 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
     let outbox: URL
     private let configuration: Configuration?
     private let session: URLSession
+    /// Signs reports with the App Attest key (AppAttest.swift); nil in tests.
+    private let attestor: AppAttestor?
     private let queue = DispatchQueue(label: "com.pinkhatcreations.lyreapp.problem-reporter", qos: .utility)
     private var isSending = false
 
@@ -50,10 +52,11 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
     static let maxWaiting = 30
 
     init(outbox: URL? = nil, configuration: Configuration? = ProblemReporter.bundledConfiguration(),
-         session: URLSession = .shared) {
+         session: URLSession = .shared, attestor: AppAttestor? = nil) {
         self.outbox = outbox ?? Diagnostics.shared.directory.appendingPathComponent("Outbox", isDirectory: true)
         self.configuration = configuration
         self.session = session
+        self.attestor = attestor
         try? FileManager.default.createDirectory(at: self.outbox, withIntermediateDirectories: true)
     }
 
@@ -66,6 +69,17 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
     }
 
     var isConfigured: Bool { configuration != nil }
+
+    /// Enrols the App Attest key ahead of the first report, and sends anything waiting:
+    /// at launch, once Lyre's settled (AppDelegate).
+    func prepare() {
+        guard let configuration, let attestor, !AppEnvironment.isUITesting else { return }
+        Task.detached(priority: .utility) {
+            try? await Task.sleep(for: .seconds(8))
+            await attestor.enrol(with: configuration, session: self.session)
+            self.sendWaiting()
+        }
+    }
 
     // MARK: Reports
 
@@ -88,9 +102,12 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
         let files: [File]?
     }
 
-    /// Makes a report with what every report carries, and the log's last lines.
+    /// Makes a report with what every report carries, and the log's last lines. `build`
+    /// is the build it happened in, when that's known and may not be this one (a
+    /// MetricKit report arrives on a later launch, perhaps after an update).
     func makeReport(kind: Kind, title: String, description: String? = nil, signature: String? = nil,
-                    stack: String? = nil, files: [Report.File] = [], player: String? = nil) -> Report {
+                    stack: String? = nil, files: [Report.File] = [], player: String? = nil,
+                    build: String? = nil) -> Report {
         let info = Bundle.main.infoDictionary
         return Report(
             kind: kind.rawValue,
@@ -99,7 +116,7 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
             signature: signature,
             stack: stack,
             app: .init(version: info?["CFBundleShortVersionString"] as? String ?? "?",
-                       build: info?["CFBundleVersion"] as? String ?? "?",
+                       build: build ?? info?["CFBundleVersion"] as? String ?? "?",
                        binaryUUID: Diagnostics.binaryUUID(),
                        player: player ?? UserDefaults.standard.string(forKey: "LyrePlayerStyle")),
             device: .init(model: Diagnostics.hardwareModel(),
@@ -147,6 +164,14 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
                     request.httpMethod = "POST"
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue(configuration.appKey, forHTTPHeaderField: "X-Lyre-Key")
+                    // Signed with the attested key, so the relay knows it's from Lyre.
+                    if let attestor = self.attestor {
+                        await attestor.enrol(with: configuration, session: self.session)
+                        if let signed = await attestor.sign(body) {
+                            request.setValue(signed.keyID, forHTTPHeaderField: "X-Lyre-Key-ID")
+                            request.setValue(signed.assertion, forHTTPHeaderField: "X-Lyre-Assertion")
+                        }
+                    }
                     request.httpBody = body
                     let status = (try? await self.session.data(for: request))
                         .flatMap { ($0.1 as? HTTPURLResponse)?.statusCode } ?? 0
@@ -180,5 +205,52 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
         Diagnostics.shared.flush()
         guard let text = try? String(contentsOf: Diagnostics.shared.logURL, encoding: .utf8) else { return nil }
         return text.split(separator: "\n").suffix(lines).joined(separator: "\n")
+    }
+}
+
+// MARK: - Asking Once
+
+/// Asks the listener, once, whether Lyre may send its own reports of crashes and freezes
+/// (ProblemReporter.sendsAutomatically): on a launch after the one that set Lyre up, a
+/// few seconds in, so it isn't one more thing to answer while setting up. Either answer
+/// counts as asked; Settings change it after.
+enum DiagnosticsConsent {
+    static let askedKey = "DiagnosticsConsentAsked"
+    static let launchesKey = "DiagnosticsConsentLaunches"
+
+    /// Counted at each launch (AppDelegate).
+    static func countLaunch() {
+        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: launchesKey) + 1, forKey: launchesKey)
+    }
+
+    /// Whether to ask now: set up, not asked, past the first launch, not a UI test.
+    static func isDue(onboarded: Bool, defaults: UserDefaults = .standard,
+                      isUITesting: Bool = AppEnvironment.isUITesting) -> Bool {
+        onboarded && !isUITesting && !defaults.bool(forKey: askedKey) && defaults.integer(forKey: launchesKey) >= 2
+    }
+
+    @MainActor
+    static func askIfDue(onboarded: Bool) async {
+        guard isDue(onboarded: onboarded) else { return }
+        try? await Task.sleep(for: .seconds(4))
+        guard isDue(onboarded: onboarded),
+              let window = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first,
+              var top = window.rootViewController else { return }
+        while let presented = top.presentedViewController { top = presented }
+        let alert = UIAlertController(title: String(localized: "diagnostics.ask.title"),
+                                      message: String(localized: "diagnostics.ask.message"), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: String(localized: "diagnostics.ask.notNow"), style: .cancel) { _ in
+            answer(false)
+        })
+        let allow = UIAlertAction(title: String(localized: "diagnostics.ask.allow"), style: .default) { _ in answer(true) }
+        alert.addAction(allow)
+        alert.preferredAction = allow
+        top.present(alert, animated: true)
+    }
+
+    private static func answer(_ sends: Bool) {
+        UserDefaults.standard.set(true, forKey: askedKey)
+        ProblemReporter.sendsAutomatically = sends
+        Diagnostics.shared.record(.app, "Automatic diagnostics \(sends ? "allowed" : "declined")")
     }
 }

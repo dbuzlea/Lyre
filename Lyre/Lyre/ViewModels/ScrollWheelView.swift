@@ -1578,6 +1578,11 @@ struct ScrollWheelView: View {
                 _ = navigationStack.popLast()
                 ProblemReporting.present()
                 return
+            case SettingsView.sendDiagnosticsRow:
+                // Turned on or off in place.
+                _ = navigationStack.popLast()
+                ProblemReporter.sendsAutomatically.toggle()
+                return
             default:
                 _ = navigationStack.popLast()
                 return

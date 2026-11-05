@@ -9,6 +9,18 @@ JIRA_BASE_URL = "https://lyre-app.atlassian.net"
 JIRA_PROJECT = "LYRE"
 # Reports a phone may send in an hour before the relay turns it away.
 REPORTS_PER_HOUR = "10"
+# Lyre's app ID, for App Attest (team ID and bundle ID).
+APP_ID = "28FC3LTQ82.com.pinkhatcreations.lyreapp"
+# "true" once every Lyre in use attests its reports; until then, the app's key alone does.
+REQUIRE_ATTEST = "false"
+# The TestFlight bridge (src/testflight.ts): submissions from this date on are filed.
+# Its API key is set as secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY, ASC_APP_ID.
+TESTFLIGHT_SINCE = "2026-11-05T00:00:00Z"
+RELAY_URL = "https://lyre-relay.themanbuzlea.workers.dev"
+
+# TestFlight's new submissions into Jira, every half hour.
+[triggers]
+crons = ["*/30 * * * *"]
 
 # Which issue each fingerprint became, and each phone's count this hour.
 # Created at deploy time: npx wrangler kv namespace create LYRE_REPORTS

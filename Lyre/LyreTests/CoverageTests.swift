@@ -1490,8 +1490,8 @@ struct MusicKitIntegrationTests {
 
     @Test func theClassicSettingsTurnCleanVersionsOnAndOff() {
         #expect(SettingsView.settingsItems[SettingsView.cleanVersionsRow] == String(localized: "settings.cleanVersions"))
-        #expect(SettingsView.items.dropLast(2).last == String(localized: "settings.about"))
-        #expect(SettingsView.items.last == String(localized: "settings.reportProblem"))
+        #expect(SettingsView.items.dropLast(3).last == String(localized: "settings.about"))
+        #expect(SettingsView.items.dropLast().last == String(localized: "settings.reportProblem"))
         #expect(SettingsView.settingsItems[SettingsView.shareDiagnosticsRow] == String(localized: "settings.shareDiagnostics"))
         #expect(ScrollWheelView.mainMenuDestination(at: 7) == .discover)
     }
@@ -1829,5 +1829,71 @@ struct ProblemReporterTests {
         reporter.submit(reporter.makeReport(kind: .user, title: "Malformed"))
         try await waitForOutbox(reporter, toHold: 0)
         #expect(reporter.waiting().isEmpty)
+    }
+}
+
+/// Phase 2 of problem reporting: asked once whether Lyre may send its own reports, and
+/// MetricKit's diagnostics made into reports grouped by Lyre's own frames.
+struct AutomaticReportTests {
+    private func defaults() -> UserDefaults {
+        let name = "consent-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        return defaults
+    }
+
+    @Test func theQuestionIsAskedOnceAfterSetUpNotDuringIt() {
+        let d = defaults()
+        d.set(1, forKey: DiagnosticsConsent.launchesKey)
+        #expect(!DiagnosticsConsent.isDue(onboarded: true, defaults: d, isUITesting: false))  // the launch that set it up
+        d.set(2, forKey: DiagnosticsConsent.launchesKey)
+        #expect(!DiagnosticsConsent.isDue(onboarded: false, defaults: d, isUITesting: false))
+        #expect(DiagnosticsConsent.isDue(onboarded: true, defaults: d, isUITesting: false))
+        #expect(!DiagnosticsConsent.isDue(onboarded: true, defaults: d, isUITesting: true))
+        d.set(true, forKey: DiagnosticsConsent.askedKey)
+        #expect(!DiagnosticsConsent.isDue(onboarded: true, defaults: d, isUITesting: false))
+    }
+
+    @Test func sendingAutomaticallyIsOffUntilTurnedOn() {
+        let key = ProblemReporter.automaticKey
+        let saved = UserDefaults.standard.object(forKey: key)
+        defer { UserDefaults.standard.set(saved, forKey: key) }
+        UserDefaults.standard.removeObject(forKey: key)
+        #expect(!ProblemReporter.sendsAutomatically)
+    }
+
+    private let tree = Data("""
+        {"callStackTree":"x","callStacks":[
+          {"threadAttributed":false,"callStackRootFrames":[{"binaryName":"libsystem_kernel.dylib","offsetIntoBinaryTextSegment":10,"binaryUUID":"K"}]},
+          {"threadAttributed":true,"callStackRootFrames":[
+            {"binaryName":"CoreGraphics","offsetIntoBinaryTextSegment":4846692,"binaryUUID":"CG","subFrames":[
+              {"binaryName":"Lyre","offsetIntoBinaryTextSegment":1075924,"binaryUUID":"L","subFrames":[
+                {"binaryName":"Lyre","offsetIntoBinaryTextSegment":73316,"binaryUUID":"L","subFrames":[
+                  {"binaryName":"SwiftUI","offsetIntoBinaryTextSegment":268816,"binaryUUID":"S"}]}]}]}]}]}
+        """.utf8)
+
+    @Test func theCulpritThreadsFramesAreReadTopDown() {
+        let frames = MetricKitReports.frames(fromCallStackTree: tree)
+        #expect(frames.map(\.binary) == ["CoreGraphics", "Lyre", "Lyre", "SwiftUI"])
+        #expect(frames[1] == .init(binary: "Lyre", offset: 1075924, uuid: "L"))
+    }
+
+    @Test func aProblemIsSignedByItsKindAndLyresTopFrames() {
+        let problem = MetricKitReports.problem("Hang 2.4 s", kind: "hang", treeJSON: tree, build: "8", json: Data())
+        #expect(problem.signature == "hang +1075924 +73316")
+        #expect(problem.stack.hasPrefix("0 CoreGraphics +4846692 (CG)\n1 Lyre +1075924 (L)"))
+        #expect(problem.build == "8")
+        // A report made from it carries the build it happened in.
+        let report = ProblemReporter(outbox: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString),
+                                     configuration: nil)
+            .makeReport(kind: .metrickit, title: problem.title, signature: problem.signature, stack: problem.stack,
+                        build: problem.build)
+        #expect(report.app.build == "8")
+        #expect(report.kind == "metrickit")
+    }
+
+    @Test func classicOffersSendingAutomaticallyLast() {
+        #expect(SettingsView.items.last == String(localized: "settings.sendDiagnostics"))
+        #expect(SettingsView.settingsItems[SettingsView.sendDiagnosticsRow] == String(localized: "settings.sendDiagnostics"))
     }
 }
