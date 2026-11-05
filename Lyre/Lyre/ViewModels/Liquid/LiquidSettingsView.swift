@@ -19,6 +19,8 @@ struct LiquidSettingsView: View {
 
     /// Send Diagnostics Automatically (ProblemReporter): off until the listener turns it on.
     @AppStorage(ProblemReporter.automaticKey) private var sendsDiagnosticsAutomatically = false
+    /// Share Usage Statistics (UsageStats): off until the listener turns it on.
+    @AppStorage(UsageStats.enabledKey) private var sharesUsageStatistics = false
 
     var body: some View {
         NavigationStack {
@@ -109,6 +111,9 @@ struct LiquidSettingsView: View {
                     // Lyre's own reports of crashes and freezes, sent only if this is on.
                     Toggle(String(localized: "settings.sendDiagnostics"), isOn: $sendsDiagnosticsAutomatically)
                         .accessibilityIdentifier("settings.sendDiagnostics")
+                    // How Lyre's used, counted without names, only if this is on (UsageStats).
+                    Toggle(String(localized: "settings.shareUsage"), isOn: $sharesUsageStatistics)
+                        .accessibilityIdentifier("settings.shareUsage")
                     ReportProblemButton {
                         Label(String(localized: "settings.reportProblem"), systemImage: "exclamationmark.bubble")
                     }
@@ -117,6 +122,7 @@ struct LiquidSettingsView: View {
                     }
                 } footer: {
                     Text(String(localized: "settings.sendDiagnostics.detail") + " "
+                         + String(localized: "settings.shareUsage.detail") + " "
                          + String(localized: "settings.reportProblem.detail"))
                 }
 

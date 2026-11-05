@@ -28,6 +28,7 @@ enum ProblemReporting {
             top.dismiss(animated: true)
         })
         Diagnostics.shared.record(.app, "Report a Problem opened", level: .info)
+        UsageStats.shared.used(.reportProblem)
         top.present(controller, animated: true)
     }
 }

@@ -202,6 +202,7 @@ struct LiquidCardDeckView<Content: View>: View {
     }
 
     private func turn(to index: Int) {
+        if min(max(index, 0), deck.items.count - 1) != current { UsageStats.shared.used(.cardSwipe) }
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
             current = min(max(index, 0), deck.items.count - 1)
             drag = 0
@@ -226,6 +227,7 @@ struct LiquidCardDeckView<Content: View>: View {
     private func scrolled(_ y: CGFloat, on index: Int) {
         guard index == current else { return }
         if !isExpanded, y > Self.expandsAt {
+            UsageStats.shared.used(.cardFullScreen)
             withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) { isExpanded = true }
         } else if isExpanded, y <= 2 {
             withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) { isExpanded = false }

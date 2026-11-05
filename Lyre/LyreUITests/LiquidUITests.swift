@@ -433,6 +433,10 @@ final class LiquidUITests: XCTestCase {
         let automatic = app.switches["settings.sendDiagnostics"].firstMatch
         XCTAssertTrue(automatic.exists, "Settings have no Send Diagnostics Automatically")
         XCTAssertEqual(automatic.value as? String, "0", "Send Diagnostics Automatically starts on")
+        // And Share Usage Statistics, off too until it's turned on.
+        let usage = app.switches["settings.shareUsage"].firstMatch
+        XCTAssertTrue(usage.exists, "Settings have no Share Usage Statistics")
+        XCTAssertEqual(usage.value as? String, "0", "Share Usage Statistics starts on")
         share.tap()
         // While the files are gathered, a panel says so; it goes as the sheet comes up.
         let preparing = element(app, "diagnostics.preparing")

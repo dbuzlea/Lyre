@@ -32,9 +32,9 @@ struct RowSwipeAction: Identifiable {
     /// Play Next and Add to Queue: what a swiped song offers.
     static func queue(_ onQueue: @escaping (QueuePlacement) -> Void) -> [RowSwipeAction] {
         [RowSwipeAction(title: String(localized: "queue.action.playNext"), symbol: "text.insert",
-                        tint: playNextTint) { onQueue(.next) },
+                        tint: playNextTint) { UsageStats.shared.used(.swipeToQueue); onQueue(.next) },
          RowSwipeAction(title: String(localized: "queue.action.addToQueue"), symbol: "text.append",
-                        tint: addToQueueTint) { onQueue(.last) }]
+                        tint: addToQueueTint) { UsageStats.shared.used(.swipeToQueue); onQueue(.last) }]
     }
 
     /// Download, Cancel or Remove Download: what a swiped episode offers.

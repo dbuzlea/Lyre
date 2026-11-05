@@ -1197,6 +1197,7 @@ struct LiquidSearchPage: View {
                 guard !Task.isCancelled else { return }
             }
             matches = LibrarySearch.shelfMatches(for: query, in: library)
+            if let matches { UsageStats.shared.searched(found: !matches.isEmpty) }
         }
         .task(id: query) {
             // Suggestions as typing pauses; none once one is what's typed.

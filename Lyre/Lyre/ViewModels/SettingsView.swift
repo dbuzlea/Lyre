@@ -34,7 +34,8 @@ struct SettingsView: View {
         String(localized: "settings.about"),
         String(localized: "settings.shareDiagnostics"),
         String(localized: "settings.reportProblem"),
-        String(localized: "settings.sendDiagnostics")
+        String(localized: "settings.sendDiagnostics"),
+        String(localized: "settings.shareUsage")
     ]
 
     /// The Share Diagnostics row: pressed, it opens the share sheet (Diagnostics).
@@ -43,8 +44,11 @@ struct SettingsView: View {
     static let reportProblemRow = 10
     /// The Send Diagnostics Automatically row: pressed, it turns on or off in place.
     static let sendDiagnosticsRow = 11
+    /// The Share Usage Statistics row: the same, for UsageStats.
+    static let shareUsageRow = 12
 
     @AppStorage(ProblemReporter.automaticKey) private var sendsDiagnosticsAutomatically = false
+    @AppStorage(UsageStats.enabledKey) private var sharesUsageStatistics = false
 
     /// The Clean Versions row: pressed, it turns clean versions on or off in place.
     static let cleanVersionsRow = 7
@@ -123,12 +127,13 @@ struct SettingsView: View {
         }
     }
 
-    /// What a row's set to, shown beside it: Clean Versions' and Send Diagnostics' On or Off.
+    /// What a row's set to, shown beside it: Clean Versions', Send Diagnostics' and Share Usage's On or Off.
     private func value(at index: Int) -> String? {
         let isOn: Bool
         switch index - Self.accessRows {
         case Self.cleanVersionsRow: isOn = themeSettings.cleanVersions
         case Self.sendDiagnosticsRow: isOn = sendsDiagnosticsAutomatically
+        case Self.shareUsageRow: isOn = sharesUsageStatistics
         default: return nil
         }
         return isOn ? String(localized: "settings.clickSound.on") : String(localized: "settings.clickSound.off")

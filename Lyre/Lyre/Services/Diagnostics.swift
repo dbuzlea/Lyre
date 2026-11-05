@@ -101,6 +101,7 @@ nonisolated final class Diagnostics: @unchecked Sendable {
     func show(_ screen: String) {
         self.screen = screen
         record(.navigation, screen, level: .info)
+        if self === Diagnostics.shared { UsageStats.shared.screenShown(screen) }
     }
 
     /// Waits for the lines written so far to reach the file (sharing, tests).
@@ -285,6 +286,7 @@ nonisolated final class HangWatcher: @unchecked Sendable {
             let ms = Int(Date().timeIntervalSince(asked) * 1000)
             diagnostics.record(.hang, "Main thread blocked \(ms) ms on \(screen)",
                                level: ms >= 2000 ? .error : .notice)
+            if diagnostics === Diagnostics.shared { UsageStats.shared.hang(milliseconds: ms, screen: screen) }
         }
     }
 }

@@ -57,7 +57,10 @@ final class PlaylistAdder {
     /// What's waiting for a playlist to be chosen.
     var pending: Item?
 
-    func offer(_ item: Item) { pending = item }
+    func offer(_ item: Item) {
+        UsageStats.shared.used(.addToPlaylist)
+        pending = item
+    }
 
     /// A new playlist waiting to be named (NewPlaylistPrompt), from a player's New
     /// Playlist button.
