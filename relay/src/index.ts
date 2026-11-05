@@ -21,7 +21,9 @@ export interface Env {
   /** For reading files back from GET /v1/files. */
   FILES_TOKEN: string;
   REPORTS: KVNamespace;
-  FILES: R2Bucket;
+  /** Where reports' files are kept. Optional: without R2 turned on for the account,
+   *  reports are still filed, with everything but their files. */
+  FILES?: R2Bucket;
 }
 
 /** The outside world, swapped for fakes in the tests. */
@@ -109,6 +111,7 @@ async function receive(request: Request, env: Env, deps: Deps): Promise<Response
 /** The report's files, in R2 under the report's id; their keys, for the issue. */
 async function keepFiles(report: Report, id: string, env: Env): Promise<string[]> {
   const keys: string[] = [];
+  if (!env.FILES) return keys;
   for (const f of report.files ?? []) {
     const name = f.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 80);
     const key = `${id}/${name}`;
@@ -122,7 +125,7 @@ async function keepFiles(report: Report, id: string, env: Env): Promise<string[]
 async function file(url: URL, env: Env): Promise<Response> {
   if (!env.FILES_TOKEN || url.searchParams.get("token") !== env.FILES_TOKEN) return json({ error: "unauthorised" }, 401);
   const key = decodeURIComponent(url.pathname.slice("/v1/files/".length));
-  const object = await env.FILES.get(key);
+  const object = await env.FILES?.get(key);
   if (!object) return json({ error: "not found" }, 404);
   return new Response(object.body, {
     headers: { "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream" },
