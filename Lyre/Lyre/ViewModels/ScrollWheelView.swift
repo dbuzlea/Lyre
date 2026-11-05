@@ -1570,6 +1570,10 @@ struct ScrollWheelView: View {
                 themeSettings.cleanVersions.toggle()
                 return
             case 8: settingsTarget = .about
+            case SettingsView.shareDiagnosticsRow:
+                _ = navigationStack.popLast()
+                DiagnosticsSharing.share()
+                return
             default:
                 _ = navigationStack.popLast()
                 return

@@ -31,8 +31,12 @@ struct SettingsView: View {
         String(localized: "settings.backlight"),
         String(localized: "settings.playerStyle"),
         String(localized: "settings.cleanVersions"),
-        String(localized: "settings.about")
+        String(localized: "settings.about"),
+        String(localized: "settings.shareDiagnostics")
     ]
+
+    /// The Share Diagnostics row: pressed, it opens the share sheet (Diagnostics).
+    static let shareDiagnosticsRow = 9
 
     /// The Clean Versions row: pressed, it turns clean versions on or off in place.
     static let cleanVersionsRow = 7

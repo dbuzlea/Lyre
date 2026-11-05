@@ -419,6 +419,25 @@ final class LiquidUITests: XCTestCase {
         }
     }
 
+    /// Settings offer Share Diagnostics, which opens the share sheet with Lyre's logs.
+    @MainActor
+    func testSettingsShareDiagnostics() throws {
+        let app = launchLiquid(["-LiquidShot", "library"])
+        let settings = element(app, "liquid.settings")
+        XCTAssertTrue(settings.waitForExistence(timeout: 10), "No settings button")
+        settings.tap()
+        let share = element(app, "settings.shareDiagnostics")
+        for _ in 0..<6 where !share.exists || !share.isHittable { app.swipeUp() }
+        XCTAssertTrue(share.waitForExistence(timeout: 5), "Settings have no Share Diagnostics")
+        share.tap()
+        let sheet = app.otherElements["ActivityListView"].firstMatch
+        // Gathering this session's system log for it can take a little while.
+        XCTAssertTrue(sheet.waitForExistence(timeout: 25) || app.buttons["Copy"].waitForExistence(timeout: 2),
+                      "Share Diagnostics didn't open the share sheet")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-share-diagnostics")
+    }
+
     /// A cover among the search's matches opens as a card, paging through the matches.
     @MainActor
     func testASearchMatchOpensAsACard() throws {

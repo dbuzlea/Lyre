@@ -1490,7 +1490,9 @@ struct MusicKitIntegrationTests {
 
     @Test func theClassicSettingsTurnCleanVersionsOnAndOff() {
         #expect(SettingsView.settingsItems[SettingsView.cleanVersionsRow] == String(localized: "settings.cleanVersions"))
-        #expect(SettingsView.items.last == String(localized: "settings.about"))
+        #expect(SettingsView.items.dropLast().last == String(localized: "settings.about"))
+        #expect(SettingsView.items.last == String(localized: "settings.shareDiagnostics"))
+        #expect(SettingsView.settingsItems[SettingsView.shareDiagnosticsRow] == String(localized: "settings.shareDiagnostics"))
         #expect(ScrollWheelView.mainMenuDestination(at: 7) == .discover)
     }
 }
@@ -1639,15 +1641,15 @@ struct LavaLampIdleTests {
     }
 }
 
-/// A song or album with artwork isn't equal to its copy without (the launch cache's),
-/// so a cover drawn from the cache redraws when the live copy arrives; the same song
-/// still hashes the same.
+/// An album whose artwork changes isn't equal to its copy without (the launch cache's),
+/// so a cover drawn from the cache redraws when the live copy arrives. A song is still
+/// the same song by id, as playback and the queue find it again.
 struct ArtworkEqualityTests {
     private func song(_ id: String) -> AppTrack {
         AppTrack(id: id, title: id, artistName: "A", albumTitle: "B", duration: 1)
     }
 
-    @Test func aCopyWithArtworkIsADifferentValueOfTheSameSong() {
+    @Test func aSongIsTheSameSongByID() {
         let cached = song("s")
         #expect(cached == song("s"))
         #expect(cached.artworkSources == 0)
@@ -1663,5 +1665,69 @@ struct ArtworkEqualityTests {
         #expect(before != after)
         #expect(before.hashValue == after.hashValue)
         #expect(Set([before, after]).count >= 1)
+    }
+}
+
+/// Lyre's diagnostics (Diagnostics): the log file gets its lines and rolls over, the
+/// newest MetricKit reports are kept, the build is named, and a blocked main thread is
+/// logged as a hang.
+struct DiagnosticsTests {
+    private func scratch() -> Diagnostics {
+        Diagnostics(directory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("diagnostics-\(UUID().uuidString)", isDirectory: true))
+    }
+
+    @Test func aLineGoesIntoTheLogFile() throws {
+        let diagnostics = scratch()
+        diagnostics.record(.library, "Library load finished in 12 ms")
+        diagnostics.flush()
+        let text = try String(contentsOf: diagnostics.logURL, encoding: .utf8)
+        #expect(text.contains("[notice] [library] Library load finished in 12 ms"))
+    }
+
+    @Test func theLogRollsOverPastItsSize() throws {
+        let diagnostics = scratch()
+        let line = String(repeating: "x", count: 1000)
+        for _ in 0..<(Diagnostics.maxLogBytes / 1000 + 50) { diagnostics.record(.app, line, level: .info) }
+        diagnostics.flush()
+        #expect(FileManager.default.fileExists(atPath: diagnostics.previousLogURL.path))
+        let size = try FileManager.default.attributesOfItem(atPath: diagnostics.logURL.path)[.size] as? Int ?? 0
+        #expect(size <= Diagnostics.maxLogBytes)
+    }
+
+    @Test func theNewestReportsAreKept() {
+        let diagnostics = scratch()
+        let start = Date()
+        for index in 0..<(Diagnostics.maxReports + 5) {
+            diagnostics.saveReport(Data("{}".utf8), kind: "diagnostic", date: start.addingTimeInterval(Double(index)))
+        }
+        diagnostics.flush()
+        let reports = diagnostics.savedReports()
+        #expect(reports.count == Diagnostics.maxReports)
+        #expect(reports.first?.lastPathComponent == "diagnostic-\(Diagnostics.fileTimestamp(start.addingTimeInterval(Double(Diagnostics.maxReports + 4)))).json")
+    }
+
+    @Test func theBuildIsNamed() {
+        let summary = Diagnostics.buildSummary()
+        #expect(summary.hasPrefix("Lyre "))
+        #expect(Diagnostics.binaryUUID()?.count == 36)
+        #expect(!Diagnostics.hardwareModel().isEmpty)
+    }
+
+    @MainActor
+    @Test func aBlockedMainThreadIsLoggedAsAHang() async throws {
+        // The test host runs in the background, so this watcher doesn't wait for Lyre to
+        // be active, as the app's does.
+        let diagnostics = scratch()
+        let watcher = HangWatcher(diagnostics: diagnostics, requiresActive: false)
+        watcher.start()
+        diagnostics.show("Tests: hang")
+        try await Task.sleep(for: .milliseconds(700))
+        Thread.sleep(forTimeInterval: 0.9)
+        try await Task.sleep(for: .milliseconds(1500))
+        diagnostics.flush()
+        let text = (try? String(contentsOf: diagnostics.logURL, encoding: .utf8)) ?? ""
+        #expect(text.contains("Main thread blocked") && text.contains("on Tests: hang"))
+        withExtendedLifetime(watcher) {}
     }
 }

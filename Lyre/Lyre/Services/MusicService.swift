@@ -1111,7 +1111,15 @@ class MusicService: ObservableObject {
         let task = await MainActor.run { () -> Task<Void, Never> in
             if let inFlight = loadTask { return inFlight }
             let task = Task { [weak self] () -> Void in
+                let started = Date()
+                Diagnostics.shared.record(.library, "Library load started", level: .info)
                 await self?.loadLibraryAttempt(attempt: 0)
+                guard let self else { return }
+                let ms = Int(Date().timeIntervalSince(started) * 1000)
+                Diagnostics.shared.record(.library, "Library load finished in \(ms) ms: \(self.songs.count) songs, "
+                    + "\(self.albums.count) albums, \(self.playlists.count) playlists, \(self.podcastShows.count) shows, "
+                    + "source \(self.librarySource)\(self.lastError.map { ", error \($0.alertTitle)" } ?? "")",
+                    level: self.lastError == nil ? .notice : .error)
             }
             loadTask = task
             return task
@@ -1236,6 +1244,7 @@ class MusicService: ObservableObject {
             if let musicKitError {
                 let loadError = MusicLoadError.from(musicKitError)
                 logger.error("Library load attempt \(attempt + 1)/\(Self.maxRetryAttempts) failed [\(loadError.alertTitle)]: \(musicKitError)")
+                Diagnostics.shared.record(.library, "Load attempt \(attempt + 1) failed: \(loadError.alertTitle)", level: .error)
 
                 if loadError.isRetryable && attempt + 1 < Self.maxRetryAttempts {
                     await loadLibraryAttempt(attempt: attempt + 1)
@@ -1479,6 +1488,7 @@ class MusicService: ObservableObject {
                                                    streaming: canStream)
         guard !window.entries.isEmpty else {
             logger.warning("No MPMediaItems resolved for playback queue")
+            Diagnostics.shared.record(.playback, "Nothing playable in \(tracks.count) songs", level: .error)
             return .nothingPlayable
         }
 
@@ -1487,6 +1497,7 @@ class MusicService: ObservableObject {
         // the user did not pick, so this reports the failure instead.
         guard let startIndex = window.tracks.firstIndex(of: tracks[index]) else {
             logger.warning("Cannot play '\(tracks[index].title)' — no media item backs it")
+            Diagnostics.shared.record(.playback, "Chosen song has no media item (index \(index) of \(tracks.count))", level: .error)
             return .trackUnavailable
         }
 
@@ -1503,6 +1514,8 @@ class MusicService: ObservableObject {
             currentPodcastShowTitle = nil
             logger.info("Queued \(window.entries.count) of \(tracks.count) track(s); now playing: \(window.tracks[startIndex].title)")
         }
+        Diagnostics.shared.record(.playback, "Playing: \(window.entries.count) of \(tracks.count) songs queued, "
+                                  + "\(window.tracks[startIndex].isStreamOnly ? "streamed" : "library") song first")
         return .started
     }
 

@@ -193,6 +193,7 @@ struct LocalArtworkImage<Content: View, Placeholder: View>: View {
                 }
                 guard let pause else {
                     artworkLog.error("Cover \(key as String, privacy: .private) gave up after \(attempt + 1) tries")
+                    Diagnostics.shared.record(.artwork, "A cover gave up after \(attempt + 1) tries", level: .error)
                     return
                 }
                 try? await Task.sleep(for: pause)

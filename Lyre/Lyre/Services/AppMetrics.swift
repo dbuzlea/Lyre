@@ -48,9 +48,11 @@ final class AppMetrics: NSObject, MXMetricManagerSubscriber {
                 logger.info("Diagnostic payload received (no issues)")
             }
 
-            if let json = String(data: payload.jsonRepresentation(), encoding: .utf8) {
-                logger.debug("Diagnostic payload JSON: \(json)")
-            }
+            // Kept whole: its call stacks are what find the cause (Diagnostics).
+            Diagnostics.shared.saveReport(payload.jsonRepresentation(), kind: "diagnostic")
+            Diagnostics.shared.record(.metrics, "MetricKit diagnostics: \(crashCount) crash, \(hangCount) hang, "
+                                      + "\(cpuCount) CPU, \(diskCount) disk write",
+                                      level: crashCount + hangCount + cpuCount + diskCount > 0 ? .error : .info)
         }
     }
 
@@ -73,9 +75,8 @@ final class AppMetrics: NSObject, MXMetricManagerSubscriber {
                 logger.info("Responsiveness — hang time histogram: \(responsiveness.histogrammedApplicationHangTime)")
             }
 
-            if let json = String(data: payload.jsonRepresentation(), encoding: .utf8) {
-                logger.debug("Metric payload JSON: \(json)")
-            }
+            Diagnostics.shared.saveReport(payload.jsonRepresentation(), kind: "metrics")
+            Diagnostics.shared.record(.metrics, "MetricKit daily metrics saved", level: .info)
         }
     }
 }
