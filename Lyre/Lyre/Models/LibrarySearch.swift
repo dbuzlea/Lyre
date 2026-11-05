@@ -126,6 +126,9 @@ struct ShelfSearchMatches: Equatable {
     /// The first shelf with anything on it, when `shelf` has nothing: where the rack
     /// should turn to so a search never lands on an empty shelf while another has hits.
     /// The library's shelves come first.
+    /// Nothing in the library matched.
+    var isEmpty: Bool { SpoolShelf.library.allSatisfy { count(on: $0) == 0 } }
+
     func shelfWithMatches(preferring shelf: SpoolShelf) -> SpoolShelf? {
         guard count(on: shelf) == 0 else { return nil }
         return shelves.first { count(on: $0) > 0 }

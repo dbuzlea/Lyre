@@ -116,6 +116,7 @@ struct ContentView: View {
             if let error {
                 logger.error("Music service error presented: \(error.alertTitle)")
                 Diagnostics.shared.record(.error, "Library error shown: \(error.alertTitle)", level: .error)
+                UsageStats.shared.error("library-\(error)")
             }
             presentLibraryError(error)
         }

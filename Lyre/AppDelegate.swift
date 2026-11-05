@@ -29,6 +29,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         ProblemReporter.shared.prepare()
         HangWatcher.shared.start()
         AppMetrics.shared.start()
+        // How Lyre's used, if they've said it may count (UsageStats).
+        UsageStats.shared.start()
         logger.info("App launched")
         return true
     }

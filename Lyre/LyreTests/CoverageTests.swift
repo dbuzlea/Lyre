@@ -1490,8 +1490,8 @@ struct MusicKitIntegrationTests {
 
     @Test func theClassicSettingsTurnCleanVersionsOnAndOff() {
         #expect(SettingsView.settingsItems[SettingsView.cleanVersionsRow] == String(localized: "settings.cleanVersions"))
-        #expect(SettingsView.items.dropLast(3).last == String(localized: "settings.about"))
-        #expect(SettingsView.items.dropLast().last == String(localized: "settings.reportProblem"))
+        #expect(SettingsView.items.dropLast(4).last == String(localized: "settings.about"))
+        #expect(SettingsView.items.dropLast(2).last == String(localized: "settings.reportProblem"))
         #expect(SettingsView.settingsItems[SettingsView.shareDiagnosticsRow] == String(localized: "settings.shareDiagnostics"))
         #expect(ScrollWheelView.mainMenuDestination(at: 7) == .discover)
     }
@@ -1793,6 +1793,40 @@ struct ProblemReporterTests {
         #expect(keys.isSuperset(of: ["kind", "title", "description", "app", "device", "installID", "logTail"]))
     }
 
+    /// Usage statistics go once a day, to /v1/usage, and wait again if the relay can't take them.
+    @Test func usageStatisticsAreSentOnceADay() async throws {
+        let name = "usage-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.set(true, forKey: UsageStats.enabledKey)
+        let stats = UsageStats(defaults: defaults,
+                               fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("usage-\(UUID().uuidString).json"))
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubRelayProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let relay = ProblemReporter.Configuration(relayURL: URL(string: "https://relay.example")!, appKey: "app-key")
+        StubRelayProtocol.requests = []
+        StubRelayProtocol.status = 503
+        stats.used(.shuffle)
+        stats.sendIfDue(configuration: relay, attestor: nil, session: session)
+        for _ in 0..<50 where stats.waiting().isEmpty { try await Task.sleep(for: .milliseconds(100)) }
+        #expect(stats.waiting().count == 2)   // not taken: waiting again
+        StubRelayProtocol.status = 202
+        stats.sendIfDue(configuration: relay, attestor: nil, session: session)
+        for _ in 0..<50 where defaults.object(forKey: "UsageStatsLastSent") == nil { try await Task.sleep(for: .milliseconds(100)) }
+        let request = try #require(StubRelayProtocol.requests.last)
+        #expect(request.url?.path == "/v1/usage")
+        #expect(request.value(forHTTPHeaderField: "X-Lyre-Key") == "app-key")
+        let body = try #require(request.httpBody.flatMap { try JSONSerialization.jsonObject(with: $0) as? [String: [[String: Any]]] })
+        #expect(body["events"]?.contains { $0["name"] as? String == "feature_first" } == true)
+        // Sent today: not again until tomorrow.
+        stats.used(.love)
+        let sent = StubRelayProtocol.requests.count
+        stats.sendIfDue(configuration: relay, attestor: nil, session: session)
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(StubRelayProtocol.requests.count == sent)
+        #expect(!stats.waiting().isEmpty)
+    }
+
     @Test func withNoRelayAReportWaits() async throws {
         let reporter = reporter(configured: false)
         reporter.submit(reporter.makeReport(kind: .user, title: "Waits"))
@@ -1806,6 +1840,8 @@ struct ProblemReporterTests {
         StubRelayProtocol.requests = []
         let reporter = reporter(configured: true)
         reporter.submit(reporter.makeReport(kind: .user, title: "Sent"))
+        // The outbox is empty before the report reaches it too: wait for the relay to be asked.
+        for _ in 0..<50 where StubRelayProtocol.requests.isEmpty { try await Task.sleep(for: .milliseconds(100)) }
         try await waitForOutbox(reporter, toHold: 0)
         #expect(reporter.waiting().isEmpty)
         let request = try #require(StubRelayProtocol.requests.last)
@@ -1850,8 +1886,13 @@ struct AutomaticReportTests {
         #expect(!DiagnosticsConsent.isDue(onboarded: false, defaults: d, isUITesting: false))
         #expect(DiagnosticsConsent.isDue(onboarded: true, defaults: d, isUITesting: false))
         #expect(!DiagnosticsConsent.isDue(onboarded: true, defaults: d, isUITesting: true))
+        // Asked before usage statistics were: asked again, once, about both.
         d.set(true, forKey: DiagnosticsConsent.askedKey)
+        #expect(DiagnosticsConsent.isDue(onboarded: true, defaults: d, isUITesting: false))
+        DiagnosticsConsent.answer(diagnostics: false, usage: true, defaults: d)
         #expect(!DiagnosticsConsent.isDue(onboarded: true, defaults: d, isUITesting: false))
+        #expect(d.bool(forKey: UsageStats.enabledKey))
+        #expect(!d.bool(forKey: ProblemReporter.automaticKey))
     }
 
     @Test func sendingAutomaticallyIsOffUntilTurnedOn() {
@@ -1892,8 +1933,9 @@ struct AutomaticReportTests {
         #expect(report.kind == "metrickit")
     }
 
-    @Test func classicOffersSendingAutomaticallyLast() {
-        #expect(SettingsView.items.last == String(localized: "settings.sendDiagnostics"))
+    @Test func classicOffersSendingAutomaticallyAndUsageLast() {
+        #expect(SettingsView.items.last == String(localized: "settings.shareUsage"))
+        #expect(SettingsView.settingsItems[SettingsView.shareUsageRow] == String(localized: "settings.shareUsage"))
         #expect(SettingsView.settingsItems[SettingsView.sendDiagnosticsRow] == String(localized: "settings.sendDiagnostics"))
     }
 }

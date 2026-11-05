@@ -278,7 +278,7 @@ struct ShelfSongList: View {
     }
 
     private func shuffleButton<Label: View>(@ViewBuilder label: () -> Label) -> some View {
-        Button(action: onShuffle, label: label)
+        Button(action: { UsageStats.shared.used(.shuffle); onShuffle() }, label: label)
             .buttonStyle(.plain)
             .accessibilityLabel(String(localized: "detail.shuffle"))
             .accessibilityIdentifier("shelf.songs.shuffle")

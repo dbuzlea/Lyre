@@ -910,10 +910,12 @@
 /* Settings in every player (LYRE-28): set up without access to the music library, it can be given here. */
 "settings.sendDiagnostics" = "Send Diagnostics Automatically";
 "settings.sendDiagnostics.detail" = "When Lyre crashes or freezes, send a report to help fix it: Lyre's version, your iPhone model and Lyre's diagnostics log. Nothing personal.";
-"diagnostics.ask.title" = "Help Improve Lyre?";
-"diagnostics.ask.message" = "When Lyre crashes or freezes, it can send a report to help fix it: Lyre's version, your iPhone model and Lyre's diagnostics log, which names no songs, albums or playlists. You can change this in Settings. Lyre's privacy policy has the details.";
-"diagnostics.ask.allow" = "Send Automatically";
-"diagnostics.ask.notNow" = "Not Now";
+"settings.shareUsage" = "Share Usage Statistics";
+"settings.shareUsage.detail" = "Count how Lyre is used, such as which players and features, how long it takes to start music, and where it's hard to get around, to make it easier. Never what you play or search for.";
+"diagnostics.ask.title" = "Help Improve Lyre";
+"diagnostics.ask.message" = "Choose what Lyre may send to help make it better. Neither names your songs, albums, artists or playlists, nor anything you search for, and neither is ever used to identify you. You can change both in Settings.";
+"diagnostics.ask.done" = "Done";
+"diagnostics.ask.privacyPolicy" = "Privacy Policy";
 "settings.reportProblem" = "Report a Problem";
 "settings.reportProblem.detail" = "Tell us what went wrong. Lyre's diagnostics go with it; nothing personal.";
 "report.title" = "Report a Problem";

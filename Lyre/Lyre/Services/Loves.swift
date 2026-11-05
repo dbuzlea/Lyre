@@ -102,6 +102,7 @@ final class Loves {
     /// Loves the song, or takes the love back.
     func toggle(_ track: AppTrack?) async {
         guard let track, canLove(track), let path = path(for: track) else { return }
+        UsageStats.shared.used(.love)
         let was = loved[path] ?? false
         loved[path] = !was
         guard !Self.usesSamples else { return }

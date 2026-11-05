@@ -27,6 +27,8 @@ struct DiscSettingsView: View {
 
     /// Send Diagnostics Automatically (ProblemReporter): off until the listener turns it on.
     @AppStorage(ProblemReporter.automaticKey) private var sendsDiagnosticsAutomatically = false
+    /// Share Usage Statistics (UsageStats): off until the listener turns it on.
+    @AppStorage(UsageStats.enabledKey) private var sharesUsageStatistics = false
 
     var body: some View {
         ScrollView {
@@ -275,6 +277,18 @@ struct DiscSettingsView: View {
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
             .accessibilityIdentifier("settings.sendDiagnostics")
+            Toggle(isOn: $sharesUsageStatistics) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(localized: "settings.shareUsage"))
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(String(localized: "settings.shareUsage.detail"))
+                        .font(.system(size: 12))
+                        .opacity(0.7)
+                }
+            }
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
+            .accessibilityIdentifier("settings.shareUsage")
             ReportProblemButton {
                 HStack(spacing: 12) {
                     Image(systemName: "exclamationmark.bubble")

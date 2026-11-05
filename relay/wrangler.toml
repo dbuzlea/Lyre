@@ -17,6 +17,10 @@ REQUIRE_ATTEST = "false"
 # Its API key is set as secrets: ASC_KEY_ID, ASC_ISSUER_ID, ASC_PRIVATE_KEY, ASC_APP_ID.
 TESTFLIGHT_SINCE = "2026-11-05T00:00:00Z"
 RELAY_URL = "https://lyre-relay.themanbuzlea.workers.dev"
+# Usage statistics: batches a sender may send in a day, and the account the dashboard's
+# questions go to (its token is a secret: CF_API_TOKEN, "Account Analytics: Read").
+USAGE_PER_DAY = "4"
+CF_ACCOUNT_ID = "f6cfe21e25ff1ec9a061206de8ee8a65"
 
 # TestFlight's new submissions into Jira, every half hour.
 [triggers]
@@ -33,3 +37,8 @@ id = "3ca563be6e7b4952b6f7c03ae25474fc"
 [[r2_buckets]]
 binding = "FILES"
 bucket_name = "lyre-reports"
+
+# Usage statistics (src/usage.ts), for the dashboard. Created on first deploy.
+[[analytics_engine_datasets]]
+binding = "USAGE"
+dataset = "lyre_usage"

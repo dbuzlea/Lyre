@@ -5,6 +5,7 @@
 
 import Foundation
 import UIKit
+import SwiftUI
 import OSLog
 
 private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "ProblemReporter")
@@ -214,11 +215,13 @@ nonisolated final class ProblemReporter: @unchecked Sendable {
 // MARK: - Asking Once
 
 /// Asks the listener, once, whether Lyre may send its own reports of crashes and freezes
-/// (ProblemReporter.sendsAutomatically): on a launch after the one that set Lyre up, a
-/// few seconds in, so it isn't one more thing to answer while setting up. Either answer
-/// counts as asked; Settings change it after.
+/// (ProblemReporter.sendsAutomatically) and count how it's used (UsageStats): on a launch
+/// after the one that set Lyre up, a few seconds in, so it isn't one more thing to answer
+/// while setting up. Done counts as asked, whatever's chosen; Settings change it after.
 enum DiagnosticsConsent {
     static let askedKey = "DiagnosticsConsentAsked"
+    /// Asked about usage statistics too: those asked before it existed are asked again, once.
+    static let usageAskedKey = "UsageStatsConsentAsked"
     static let launchesKey = "DiagnosticsConsentLaunches"
 
     /// Counted at each launch (AppDelegate).
@@ -226,12 +229,15 @@ enum DiagnosticsConsent {
         UserDefaults.standard.set(UserDefaults.standard.integer(forKey: launchesKey) + 1, forKey: launchesKey)
     }
 
-    /// Whether to ask now: set up, not asked, past the first launch, not a UI test.
+    /// Whether to ask now: set up, not asked both, past the first launch, not a UI test.
     static func isDue(onboarded: Bool, defaults: UserDefaults = .standard,
                       isUITesting: Bool = AppEnvironment.isUITesting) -> Bool {
-        onboarded && !isUITesting && !defaults.bool(forKey: askedKey) && defaults.integer(forKey: launchesKey) >= 2
+        onboarded && !isUITesting && defaults.integer(forKey: launchesKey) >= 2
+            && !(defaults.bool(forKey: askedKey) && defaults.bool(forKey: usageAskedKey))
     }
 
+    /// The Help Improve Lyre card (HelpImproveLyreView): both switches, off unless they
+    /// were already on, and nothing sent until one's turned on.
     @MainActor
     static func askIfDue(onboarded: Bool) async {
         guard isDue(onboarded: onboarded) else { return }
@@ -240,20 +246,24 @@ enum DiagnosticsConsent {
               let window = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow }).first,
               var top = window.rootViewController else { return }
         while let presented = top.presentedViewController { top = presented }
-        let alert = UIAlertController(title: String(localized: "diagnostics.ask.title"),
-                                      message: String(localized: "diagnostics.ask.message"), preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: String(localized: "diagnostics.ask.notNow"), style: .cancel) { _ in
-            answer(false)
+        let controller = UIHostingController(rootView: HelpImproveLyreView { diagnostics, usage in
+            answer(diagnostics: diagnostics, usage: usage)
+            top.dismiss(animated: true)
         })
-        let allow = UIAlertAction(title: String(localized: "diagnostics.ask.allow"), style: .default) { _ in answer(true) }
-        alert.addAction(allow)
-        alert.preferredAction = allow
-        top.present(alert, animated: true)
+        controller.isModalInPresentation = true
+        if let sheet = controller.sheetPresentationController {
+            sheet.detents = [.large()]
+            sheet.prefersGrabberVisible = false
+        }
+        top.present(controller, animated: true)
     }
 
-    private static func answer(_ sends: Bool) {
-        UserDefaults.standard.set(true, forKey: askedKey)
-        ProblemReporter.sendsAutomatically = sends
-        Diagnostics.shared.record(.app, "Automatic diagnostics \(sends ? "allowed" : "declined")")
+    static func answer(diagnostics: Bool, usage: Bool, defaults: UserDefaults = .standard) {
+        defaults.set(true, forKey: askedKey)
+        defaults.set(true, forKey: usageAskedKey)
+        defaults.set(diagnostics, forKey: ProblemReporter.automaticKey)
+        defaults.set(usage, forKey: UsageStats.enabledKey)
+        Diagnostics.shared.record(.app, "Automatic diagnostics \(diagnostics ? "allowed" : "declined"), "
+                                  + "usage statistics \(usage ? "allowed" : "declined")")
     }
 }

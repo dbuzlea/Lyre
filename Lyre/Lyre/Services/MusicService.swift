@@ -1516,6 +1516,7 @@ class MusicService: ObservableObject {
         }
         Diagnostics.shared.record(.playback, "Playing: \(window.entries.count) of \(tracks.count) songs queued, "
                                   + "\(window.tracks[startIndex].isStreamOnly ? "streamed" : "library") song first")
+        UsageStats.shared.played()
         return .started
     }
 
@@ -1623,6 +1624,7 @@ class MusicService: ObservableObject {
     /// ones through the stream engine.
     func playPodcastEpisodes(_ episodes: [PodcastEpisode], startingAt index: Int = 0, podcastShowTitle: String? = nil) async {
         guard episodes.indices.contains(index) else { return }
+        UsageStats.shared.played()
         // A show's episodes take over Up Next; nothing in it is queued by hand any more.
         await MainActor.run { listenerQueued = [:] }
         guard episodes[index].streamURL != nil else {
@@ -1839,6 +1841,7 @@ class MusicService: ObservableObject {
     /// Plays an item from `upcoming`: an Up Next track, or a later episode of the show
     /// streaming. Main thread only.
     func playUpcoming(at offset: Int) {
+        UsageStats.shared.played(from: "queue")
         guard activeEngine == .stream else { return playUpNext(at: offset) }
         let upcoming = streamPlayer.upcoming
         guard upcoming.indices.contains(upcoming.startIndex + offset) else { return }

@@ -1583,6 +1583,10 @@ struct ScrollWheelView: View {
                 _ = navigationStack.popLast()
                 ProblemReporter.sendsAutomatically.toggle()
                 return
+            case SettingsView.shareUsageRow:
+                _ = navigationStack.popLast()
+                UsageStats.isEnabled.toggle()
+                return
             default:
                 _ = navigationStack.popLast()
                 return

@@ -9,7 +9,8 @@
 	<array/>
 
 	<!-- Problem reports (ProblemReporter, PRIVACY.md): only those the listener sends, or
-	     allows with Send Diagnostics Automatically; none linked to them or used for tracking. -->
+	     allows with Send Diagnostics Automatically; and usage statistics (UsageStats), only
+	     with Share Usage Statistics on. None linked to them or used for tracking. -->
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
 		<!-- Crash reports (MetricKit), in problem reports: sent if the listener allows it, or with a report they send -->
@@ -25,7 +26,7 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- Hangs and CPU/disk exceptions (MetricKit), and load times and freezes in the diagnostics log -->
+		<!-- Hangs and CPU/disk exceptions (MetricKit), and load times and freezes in the diagnostics log; freezes counted in usage statistics -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypePerformanceData</string>
@@ -36,6 +37,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<!-- The diagnostics log's last lines, app version and build, device model, iOS version -->
@@ -49,6 +51,7 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 		<!-- Report a Problem: what the listener writes, and the screenshot if they include it -->
@@ -64,7 +67,7 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- A random identifier Lyre makes for itself, for the report service's per-device limit; and App Attest -->
+		<!-- A random identifier Lyre makes for itself, for the report service's per-device limit; and App Attest, which signs usage statistics too -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeDeviceID</string>
@@ -75,6 +78,20 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<!-- Usage statistics (UsageStats): players, screens and features used, time to first song; never names -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 	</array>

@@ -10,6 +10,10 @@
 //                            REQUIRE_ATTEST is off, with the app's key alone
 //   GET  /v1/files/<key>     a report's file, with ?sig=… (that file's own signature,
 //                            as the issue links it) or ?token=FILES_TOKEN
+//   POST /v1/usage           a day's usage statistics (usage.ts) → { kept }; signed as
+//                            reports are; into Analytics Engine
+//   GET  /dashboard          the usage dashboard (dashboard.ts); it asks for the files
+//                            token, and with it reads GET /v1/usage/summary?days=N
 //
 // A new issue also gets the report's files as Jira attachments, so a screenshot shows in
 // Jira itself.
@@ -19,6 +23,8 @@ import {
 } from "./report";
 import { type AttestedKey, verifyAttestation, verifyAssertion, base64ToBytes, bytesToBase64 } from "./attest";
 import { type Submission, ascToken, listSubmissions, crashLog, testflightSummary, testflightDescription } from "./testflight";
+import { MAX_USAGE_BYTES, validateUsage, dataPoint, summary as usageSummary } from "./usage";
+import { dashboardHTML } from "./dashboard";
 
 export interface Env {
   JIRA_BASE_URL: string;
@@ -50,6 +56,14 @@ export interface Env {
   /** Where reports' files are kept. Optional: without R2 turned on for the account,
    *  reports are still filed, with everything but their files. */
   FILES?: R2Bucket;
+  /** Usage statistics (usage.ts), in Workers Analytics Engine. */
+  USAGE?: AnalyticsEngineDataset;
+  /** Batches a sender may send in a day. */
+  USAGE_PER_DAY?: string;
+  /** For the dashboard's questions: the account, and a token that may read its analytics
+   *  (secret: CF_API_TOKEN, "Account Analytics: Read"). */
+  CF_ACCOUNT_ID?: string;
+  CF_API_TOKEN?: string;
 }
 
 /** The outside world, swapped for fakes in the tests. */
@@ -81,6 +95,13 @@ export async function handle(request: Request, env: Env, deps: Deps): Promise<Re
     return json(await syncTestFlight(env, deps));
   }
   if (request.method === "GET" && url.pathname.startsWith("/v1/files/")) return file(url, env);
+  if (request.method === "POST" && url.pathname === "/v1/usage") return receiveUsage(request, env, deps);
+  if (request.method === "GET" && url.pathname === "/dashboard") {
+    return new Response(dashboardHTML, { headers: { "Content-Type": "text/html; charset=utf-8",
+      "Content-Security-Policy": "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'",
+      "X-Robots-Tag": "noindex" } });
+  }
+  if (request.method === "GET" && url.pathname === "/v1/usage/summary") return readUsage(request, url, env, deps);
   return json({ error: "not found" }, 404);
 }
 
@@ -157,6 +178,53 @@ async function receive(request: Request, env: Env, deps: Deps): Promise<Response
   // the links are in its text.
   await attach(issue, report, env, deps);
   return json({ issue, repeat: false }, 201);
+}
+
+// MARK: Usage Statistics
+
+async function receiveUsage(request: Request, env: Env, deps: Deps): Promise<Response> {
+  if (request.headers.get("X-Lyre-Key") !== env.APP_KEY) return json({ error: "unauthorised" }, 401);
+  const raw = await request.text();
+  if (raw.length > MAX_USAGE_BYTES) return json({ error: "too large" }, 413);
+  let body: unknown;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return json({ error: "not JSON" }, 400);
+  }
+  const checked = validateUsage(body);
+  if ("error" in checked) return json({ error: checked.error }, 400);
+
+  const attested = await checkAssertion(request, raw, env);
+  if (attested === "invalid") return json({ error: "assertion invalid" }, 401);
+  if (attested === "absent" && env.REQUIRE_ATTEST === "true") return json({ error: "attestation required" }, 401);
+
+  // A few batches a day from a sender, by its attested key or else its address; the key
+  // lives in KV a day for the count alone, never with the events.
+  const sender = request.headers.get("X-Lyre-Key-ID") ?? request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const rateKey = `usage-rate:${await sha256(sender)}:${deps.now().toISOString().slice(0, 10)}`;
+  const sent = Number((await env.REPORTS.get(rateKey)) ?? "0");
+  if (sent >= Number(env.USAGE_PER_DAY ?? "4")) return json({ error: "rate limited" }, 429);
+  await env.REPORTS.put(rateKey, String(sent + 1), { expirationTtl: 172_800 });
+
+  if (!env.USAGE) return json({ error: "usage statistics not set up" }, 503);
+  for (const event of checked.events) env.USAGE.writeDataPoint(dataPoint(event));
+  return json({ kept: checked.events.length }, 202);
+}
+
+/** The dashboard's figures: every question asked of Analytics Engine (files token). */
+async function readUsage(request: Request, url: URL, env: Env, deps: Deps): Promise<Response> {
+  const token = request.headers.get("Authorization")?.replace(/^Bearer /, "");
+  if (!env.FILES_TOKEN || token !== env.FILES_TOKEN) return json({ error: "unauthorised" }, 401);
+  if (!env.CF_ACCOUNT_ID || !env.CF_API_TOKEN) return json({ error: "CF_ACCOUNT_ID or CF_API_TOKEN not set" }, 503);
+  const days = Number(url.searchParams.get("days") ?? "30") || 30;
+  return json({ days, generated: deps.now().toISOString(),
+                ...(await usageSummary(days, env.CF_ACCOUNT_ID, env.CF_API_TOKEN, deps.fetch)) });
+}
+
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
 
 // MARK: The TestFlight Bridge

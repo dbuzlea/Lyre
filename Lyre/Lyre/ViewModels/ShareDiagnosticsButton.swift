@@ -25,6 +25,7 @@ enum DiagnosticsSharing {
         guard !isPreparing, let window = keyWindow else { return }
         isPreparing = true
         Diagnostics.shared.record(.app, "Diagnostics shared", level: .info)
+        UsageStats.shared.used(.shareDiagnostics)
         let panel = PreparingPanel.show(in: window)
         Task {
             let files = await Task.detached(priority: .userInitiated) { await Diagnostics.shared.exportFiles() }.value
