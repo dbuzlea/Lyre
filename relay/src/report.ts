@@ -94,7 +94,7 @@ const code = (value: string): ADFNode => ({ type: "codeBlock", attrs: {}, conten
  * the triage that follows): what happened, on what, the stack, the log's last lines,
  * and where the full files are.
  */
-export function description(report: Report, fileKeys: string[], reportURL: string): ADFNode {
+export function description(report: Report, fileLinks: string[], reportURL: string): ADFNode {
   const content: ADFNode[] = [];
   if (report.description) {
     content.push(heading("What the listener said"), paragraph(report.description));
@@ -111,8 +111,8 @@ export function description(report: Report, fileKeys: string[], reportURL: strin
   );
   if (report.stack) content.push(heading("Stack"), code(report.stack.slice(0, 12_000)));
   if (report.logTail) content.push(heading("Diagnostics log (last lines)"), code(report.logTail.slice(-12_000)));
-  if (fileKeys.length > 0) {
-    content.push(heading("Full files"), paragraph(fileKeys.map((key) => `${reportURL}/${key}`).join("\n")));
+  if (fileLinks.length > 0) {
+    content.push(heading("Full files"), paragraph(fileLinks.map((link) => `${reportURL}/${link}`).join("\n")));
   }
   content.push(
     paragraph("Filed by Lyre's problem-report relay. Add the claude label to have it picked up by /jira-triage.")
