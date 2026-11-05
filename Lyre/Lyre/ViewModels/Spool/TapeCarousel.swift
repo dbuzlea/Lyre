@@ -771,6 +771,7 @@ struct ShelfDividers: View {
         return Button {
             guard !isSelected else { return }
             UISelectionFeedbackGenerator().selectionChanged()
+            Diagnostics.shared.show("Shelf: \(option.rawValue)")
             withAnimation(.easeInOut(duration: 0.22)) { shelf = option }
         } label: {
             Text(title(option).uppercasedKeepingAppleMusic)

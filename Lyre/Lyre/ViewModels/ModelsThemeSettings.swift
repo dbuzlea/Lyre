@@ -108,6 +108,7 @@ class ThemeSettings {
     var playerStyle: PlayerStyle {
         didSet {
             UserDefaults.standard.set(playerStyle.rawValue, forKey: "LyrePlayerStyle")
+            if playerStyle != oldValue { Diagnostics.shared.show("Player: \(playerStyle.rawValue)") }
         }
     }
 

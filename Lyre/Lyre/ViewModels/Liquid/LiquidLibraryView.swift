@@ -89,6 +89,14 @@ struct LiquidLibraryView: View {
                 }
         }
         .tint(.white)
+        // Where Liquid is, for the diagnostics log (no names: a page's kind, a count).
+        .onChange(of: path) { _, path in
+            Diagnostics.shared.show("Liquid: \(path.last.map(Self.diagnosticName) ?? "menu")")
+        }
+        .onChange(of: deck?.id) { _, _ in
+            Diagnostics.shared.show(deck.map { "Liquid: card deck, \($0.items.count) cards" }
+                                    ?? "Liquid: \(path.last.map(Self.diagnosticName) ?? "menu")")
+        }
         // Behind a card, the list is dimmed, out of VoiceOver's way too.
         .accessibilityHidden(deck != nil)
         // A cover swung open from a stack, over everything.
@@ -215,6 +223,15 @@ struct LiquidLibraryView: View {
                 }
             }
         )
+    }
+
+    /// A page's kind, with nothing of what's on it.
+    private static func diagnosticName(_ route: LiquidRoute) -> String {
+        switch route {
+        case .album(let album): album.isPodcast ? "show" : album.isMixtape ? "playlist" : "album"
+        case .artist: "artist"
+        default: String(describing: route)
+        }
     }
 
     private func closeDeck() {

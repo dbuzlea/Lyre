@@ -99,6 +99,8 @@ struct ContentView: View {
             if completed { logger.info("Onboarding completed") }
         }
         .onChange(of: scenePhase) { _, phase in
+            Diagnostics.shared.record(.app, "Scene \(phase == .active ? "active" : phase == .background ? "background" : "inactive")",
+                                      level: .info)
             // Picks up access granted in Settings while the app was backgrounded, and
             // any music added to the device since the last load.
             guard phase == .active else { return }
@@ -109,7 +111,10 @@ struct ContentView: View {
             }
         }
         .onChange(of: musicService.lastError) { _, error in
-            if let error { logger.error("Music service error presented: \(error.alertTitle)") }
+            if let error {
+                logger.error("Music service error presented: \(error.alertTitle)")
+                Diagnostics.shared.record(.error, "Library error shown: \(error.alertTitle)", level: .error)
+            }
             presentLibraryError(error)
         }
     }

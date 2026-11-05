@@ -101,6 +101,15 @@ struct LiquidSettingsView: View {
                 }
                 #endif
 
+                // Lyre's logs and iOS's reports, to help find a problem (Diagnostics).
+                Section {
+                    ShareDiagnosticsButton {
+                        Label(String(localized: "settings.shareDiagnostics"), systemImage: "doc.text.magnifyingglass")
+                    }
+                } footer: {
+                    Text(String(localized: "settings.shareDiagnostics.detail"))
+                }
+
                 Section {
                     Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
                         .font(.footnote)

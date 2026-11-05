@@ -151,7 +151,30 @@ struct GramophoneSettingsView: View {
                 }
                 #endif
 
-                // The version, as at the foot of every player's settings.
+                // Share Diagnostics (Diagnostics), then the version, as at the foot of
+                // every player's settings.
+                ShareDiagnosticsButton {
+                    HStack(spacing: 12) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .font(.system(size: 18, weight: .semibold))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(String(localized: "settings.shareDiagnostics"))
+                                .font(.system(size: 15, weight: .semibold))
+                            Text(String(localized: "settings.shareDiagnostics.detail"))
+                                .font(.system(size: 12))
+                                .opacity(0.7)
+                        }
+                        .multilineTextAlignment(.leading)
+                        Spacer(minLength: 8)
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 14, weight: .bold))
+                            .opacity(0.6)
+                    }
+                    .padding(14)
+                    .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
+                    .contentShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
                 Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
                     .font(.system(size: 11))
                     .opacity(0.5)
