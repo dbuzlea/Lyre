@@ -30,6 +30,23 @@ npx wrangler secret put FILES_TOKEN             # another, for reading files bac
 npx wrangler deploy
 ```
 
+## Usage statistics and the dashboard
+
+Lyre's opt-in usage statistics (the app's `UsageStats.swift`) arrive at `POST /v1/usage`
+and are kept in Workers Analytics Engine (dataset `lyre_usage`, binding `USAGE`, created on
+first deploy). No install ID comes with them; the sender's key or address is only hashed
+into a KV key for the daily limit (`USAGE_PER_DAY`), which expires in two days.
+
+The dashboard is at `/dashboard`. It asks for the files token (`~/.lyre-relay/files-token`)
+and keeps it in that browser. Its figures come from Analytics Engine's SQL API, which needs
+an API token that may read the account's analytics, set once:
+
+    # dash.cloudflare.com → My Profile → API Tokens → Create Token → Custom:
+    # Permissions: Account · Account Analytics · Read
+    npx wrangler secret put CF_API_TOKEN
+
+Analytics Engine keeps data points for three months.
+
 ## Working on it
 
 ```sh
