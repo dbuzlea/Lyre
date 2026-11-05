@@ -16,9 +16,8 @@ REPORTS_PER_HOUR = "10"
 binding = "REPORTS"
 id = "3ca563be6e7b4952b6f7c03ae25474fc"
 
-# The full diagnostics each report carried (screenshots, logs). Off until R2 is turned on
-# for the account (Cloudflare dashboard → R2); then create the bucket and uncomment:
+# The full diagnostics each report carried (screenshots, logs). Created with:
 # npx wrangler r2 bucket create lyre-reports
-# [[r2_buckets]]
-# binding = "FILES"
-# bucket_name = "lyre-reports"
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "lyre-reports"
