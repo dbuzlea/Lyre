@@ -151,6 +151,17 @@ describe("receiving a report", () => {
   });
 });
 
+describe("without R2", () => {
+  it("still files the report, without its files", async () => {
+    const jira = fakeJira();
+    const { FILES: _unused, ...withoutFiles } = env;
+    const withFile = report({ files: [{ name: "lyre.log", contentType: "text/plain", base64: btoa("log lines") }] });
+    const response = await handle(post(withFile), withoutFiles as Env, deps(jira));
+    expect(response.status).toBe(201);
+    expect(JSON.stringify(jira.calls[0].body.fields.description)).not.toContain("/v1/files/");
+  });
+});
+
 describe("when Jira is out of reach", () => {
   it("tells the app to try later instead of crashing", async () => {
     const unreachable: Deps = { fetch: (async () => { throw new TypeError("connect ECONNREFUSED"); }) as typeof fetch,

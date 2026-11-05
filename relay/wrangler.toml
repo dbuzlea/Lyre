@@ -14,10 +14,11 @@ REPORTS_PER_HOUR = "10"
 # Created at deploy time: npx wrangler kv namespace create LYRE_REPORTS
 [[kv_namespaces]]
 binding = "REPORTS"
-id = "REPLACE_AT_DEPLOY"
+id = "3ca563be6e7b4952b6f7c03ae25474fc"
 
-# The full diagnostics each report carried. Created at deploy time:
+# The full diagnostics each report carried (screenshots, logs). Off until R2 is turned on
+# for the account (Cloudflare dashboard → R2); then create the bucket and uncomment:
 # npx wrangler r2 bucket create lyre-reports
-[[r2_buckets]]
-binding = "FILES"
-bucket_name = "lyre-reports"
+# [[r2_buckets]]
+# binding = "FILES"
+# bucket_name = "lyre-reports"
