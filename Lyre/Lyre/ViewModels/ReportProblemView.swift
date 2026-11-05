@@ -70,6 +70,9 @@ struct ReportProblemView: View {
                     Text(String(localized: "report.whatsSent"))
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                    Link(String(localized: "report.privacyPolicy"), destination: ProblemReporter.privacyPolicyURL)
+                        .font(.footnote)
+                        .accessibilityIdentifier("report.privacyPolicy")
                 }
             }
             .navigationTitle(String(localized: "report.title"))

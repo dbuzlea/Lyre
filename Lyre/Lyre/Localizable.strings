@@ -911,7 +911,7 @@
 "settings.sendDiagnostics" = "Send Diagnostics Automatically";
 "settings.sendDiagnostics.detail" = "When Lyre crashes or freezes, send a report to help fix it: Lyre's version, your iPhone model and Lyre's diagnostics log. Nothing personal.";
 "diagnostics.ask.title" = "Help Improve Lyre?";
-"diagnostics.ask.message" = "When Lyre crashes or freezes, it can send a report to help fix it: Lyre's version, your iPhone model and Lyre's diagnostics log, which names no songs, albums or playlists. You can change this in Settings.";
+"diagnostics.ask.message" = "When Lyre crashes or freezes, it can send a report to help fix it: Lyre's version, your iPhone model and Lyre's diagnostics log, which names no songs, albums or playlists. You can change this in Settings. Lyre's privacy policy has the details.";
 "diagnostics.ask.allow" = "Send Automatically";
 "diagnostics.ask.notNow" = "Not Now";
 "settings.reportProblem" = "Report a Problem";
@@ -922,6 +922,7 @@
 "report.includeScreenshot" = "Include a screenshot of the screen behind";
 "report.screenshot" = "Screenshot of the screen behind";
 "report.whatsSent" = "Sent with your words: Lyre's version, your iPhone model and iOS version, and Lyre's diagnostics log, which names no songs, albums or playlists.";
+"report.privacyPolicy" = "Privacy Policy";
 "report.send" = "Send";
 "report.cancel" = "Cancel";
 "report.thanks" = "Thank You";
