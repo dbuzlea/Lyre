@@ -4,3 +4,6 @@ __pycache__/
 
 # Claude Code: personal permissions (the project skills in .claude/skills are shared)
 .claude/settings.local.json
+
+# Lyre: the problem-report relay's address and key (ProblemReporter), not committed
+Lyre/Lyre/Relay.plist

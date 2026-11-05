@@ -908,6 +908,20 @@
 "playlist.edit.done" = "Done";
 
 /* Settings in every player (LYRE-28): set up without access to the music library, it can be given here. */
+"settings.reportProblem" = "Report a Problem";
+"settings.reportProblem.detail" = "Tell us what went wrong. Lyre's diagnostics go with it; nothing personal.";
+"report.title" = "Report a Problem";
+"report.what" = "What happened?";
+"report.placeholder" = "What you were doing, and what went wrong";
+"report.includeScreenshot" = "Include a screenshot of the screen behind";
+"report.screenshot" = "Screenshot of the screen behind";
+"report.whatsSent" = "Sent with your words: Lyre's version, your iPhone model and iOS version, and Lyre's diagnostics log, which names no songs, albums or playlists.";
+"report.send" = "Send";
+"report.cancel" = "Cancel";
+"report.thanks" = "Thank You";
+"report.thanks.detail" = "Your report has been sent.";
+"report.thanks.later" = "Your report is saved and will be sent when Lyre can reach its reporting service.";
+"report.done" = "Done";
 "settings.shareDiagnostics" = "Share Diagnostics";
 "settings.shareDiagnostics.detail" = "Send Lyre's logs and iOS's reports, to help find a problem. Nothing personal is included.";
 "settings.allowMusicAccess" = "Allow Access to Apple Music Library";

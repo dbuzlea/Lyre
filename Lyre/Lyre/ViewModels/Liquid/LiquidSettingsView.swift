@@ -103,11 +103,14 @@ struct LiquidSettingsView: View {
 
                 // Lyre's logs and iOS's reports, to help find a problem (Diagnostics).
                 Section {
+                    ReportProblemButton {
+                        Label(String(localized: "settings.reportProblem"), systemImage: "exclamationmark.bubble")
+                    }
                     ShareDiagnosticsButton {
                         Label(String(localized: "settings.shareDiagnostics"), systemImage: "doc.text.magnifyingglass")
                     }
                 } footer: {
-                    Text(String(localized: "settings.shareDiagnostics.detail"))
+                    Text(String(localized: "settings.reportProblem.detail"))
                 }
 
                 Section {

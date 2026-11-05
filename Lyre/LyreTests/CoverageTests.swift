@@ -1490,8 +1490,8 @@ struct MusicKitIntegrationTests {
 
     @Test func theClassicSettingsTurnCleanVersionsOnAndOff() {
         #expect(SettingsView.settingsItems[SettingsView.cleanVersionsRow] == String(localized: "settings.cleanVersions"))
-        #expect(SettingsView.items.dropLast().last == String(localized: "settings.about"))
-        #expect(SettingsView.items.last == String(localized: "settings.shareDiagnostics"))
+        #expect(SettingsView.items.dropLast(2).last == String(localized: "settings.about"))
+        #expect(SettingsView.items.last == String(localized: "settings.reportProblem"))
         #expect(SettingsView.settingsItems[SettingsView.shareDiagnosticsRow] == String(localized: "settings.shareDiagnostics"))
         #expect(ScrollWheelView.mainMenuDestination(at: 7) == .discover)
     }
@@ -1729,5 +1729,105 @@ struct DiagnosticsTests {
         let text = (try? String(contentsOf: diagnostics.logURL, encoding: .utf8)) ?? ""
         #expect(text.contains("Main thread blocked") && text.contains("on Tests: hang"))
         withExtendedLifetime(watcher) {}
+    }
+}
+
+/// Answers every request with the status the test sets, and keeps the requests.
+final class StubRelayProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var status = 201
+    nonisolated(unsafe) static var requests: [URLRequest] = []
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        var kept = request
+        if kept.httpBody == nil, let stream = request.httpBodyStream {
+            stream.open()
+            var data = Data()
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                if count <= 0 { break }
+                data.append(buffer, count: count)
+            }
+            stream.close()
+            kept.httpBody = data
+        }
+        Self.requests.append(kept)
+        let response = HTTPURLResponse(url: request.url!, statusCode: Self.status, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("{}".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+/// Problem reports (ProblemReporter): what they carry, and the outbox they wait in until
+/// the relay takes them.
+@Suite(.serialized)
+struct ProblemReporterTests {
+    private func reporter(configured: Bool) -> ProblemReporter {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubRelayProtocol.self]
+        return ProblemReporter(
+            outbox: FileManager.default.temporaryDirectory.appendingPathComponent("outbox-\(UUID().uuidString)"),
+            configuration: configured ? .init(relayURL: URL(string: "https://relay.example")!, appKey: "app-key") : nil,
+            session: URLSession(configuration: configuration))
+    }
+
+    private func waitForOutbox(_ reporter: ProblemReporter, toHold count: Int) async throws {
+        for _ in 0..<50 where reporter.waiting().count != count { try await Task.sleep(for: .milliseconds(100)) }
+    }
+
+    @Test func aReportCarriesTheBuildAndTheLogNothingPersonal() throws {
+        Diagnostics.shared.record(.app, "A line for the report")
+        let report = reporter(configured: false).makeReport(kind: .user, title: "Covers missing", description: "None load")
+        #expect(report.kind == "user")
+        #expect(report.app.binaryUUID == Diagnostics.binaryUUID())
+        #expect(report.device.model == Diagnostics.hardwareModel())
+        #expect(report.installID.count == 36)
+        #expect(report.installID == ProblemReporter.installID())
+        #expect(report.logTail?.contains("A line for the report") == true)
+        // The relay's field names.
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(report)) as? [String: Any]
+        let keys = Set((json ?? [:]).keys)
+        #expect(keys.isSuperset(of: ["kind", "title", "description", "app", "device", "installID", "logTail"]))
+    }
+
+    @Test func withNoRelayAReportWaits() async throws {
+        let reporter = reporter(configured: false)
+        reporter.submit(reporter.makeReport(kind: .user, title: "Waits"))
+        try await waitForOutbox(reporter, toHold: 1)
+        #expect(reporter.waiting().count == 1)
+        #expect(!reporter.isConfigured)
+    }
+
+    @Test func aReportTheRelayTakesLeavesTheOutbox() async throws {
+        StubRelayProtocol.status = 201
+        StubRelayProtocol.requests = []
+        let reporter = reporter(configured: true)
+        reporter.submit(reporter.makeReport(kind: .user, title: "Sent"))
+        try await waitForOutbox(reporter, toHold: 0)
+        #expect(reporter.waiting().isEmpty)
+        let request = try #require(StubRelayProtocol.requests.last)
+        #expect(request.url?.absoluteString == "https://relay.example/v1/reports")
+        #expect(request.value(forHTTPHeaderField: "X-Lyre-Key") == "app-key")
+        let body = try JSONSerialization.jsonObject(with: try #require(request.httpBody)) as? [String: Any]
+        #expect(body?["title"] as? String == "Sent")
+    }
+
+    @Test func aReportTheRelayCantTakeYetStaysForLater() async throws {
+        StubRelayProtocol.status = 503
+        let reporter = reporter(configured: true)
+        reporter.submit(reporter.makeReport(kind: .user, title: "Later"))
+        try await Task.sleep(for: .milliseconds(800))
+        #expect(reporter.waiting().count == 1)
+    }
+
+    @Test func aMalformedReportIsDroppedNotRetriedForEver() async throws {
+        StubRelayProtocol.status = 400
+        let reporter = reporter(configured: true)
+        reporter.submit(reporter.makeReport(kind: .user, title: "Malformed"))
+        try await waitForOutbox(reporter, toHold: 0)
+        #expect(reporter.waiting().isEmpty)
     }
 }

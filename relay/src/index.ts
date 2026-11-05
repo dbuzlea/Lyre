@@ -129,16 +129,23 @@ async function file(url: URL, env: Env): Promise<Response> {
   });
 }
 
-function jira(env: Env, deps: Deps, path: string, body: unknown): Promise<Response> {
-  return deps.fetch(`${env.JIRA_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${btoa(`${env.JIRA_EMAIL}:${env.JIRA_TOKEN}`)}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+/** A call to Jira. Jira out of reach comes back as a 503 rather than throwing, so the
+ *  app is told to try later (and keeps the report) instead of getting a crash. */
+async function jira(env: Env, deps: Deps, path: string, body: unknown): Promise<Response> {
+  try {
+    return await deps.fetch(`${env.JIRA_BASE_URL}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${env.JIRA_EMAIL}:${env.JIRA_TOKEN}`)}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return new Response("{}", { status: 503 });
+  }
 }
 
 function url(request: Request): string {

@@ -151,6 +151,16 @@ describe("receiving a report", () => {
   });
 });
 
+describe("when Jira is out of reach", () => {
+  it("tells the app to try later instead of crashing", async () => {
+    const unreachable: Deps = { fetch: (async () => { throw new TypeError("connect ECONNREFUSED"); }) as typeof fetch,
+                                now: () => new Date("2026-11-04T20:00:00Z") };
+    const response = await handle(post(report()), env, unreachable);
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "jira create failed", status: 503 });
+  });
+});
+
 describe("turning reports away", () => {
   it("without the app's key", async () => {
     const jira = fakeJira();
