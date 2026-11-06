@@ -182,6 +182,8 @@ struct OnboardingView: View {
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .easeInOut(duration: 0.32), value: step)
         .task(id: backlightDemoKey) { await runBacklightDemo() }
         .onAppear {
+            // Onboarding's start, for its steps' times (UsageStats), unless it's resuming.
+            if storedStep == 0 { UsageStats.shared.onboardingStep(String(describing: OnboardingStep.welcome)) }
             // Resuming lands on the saved step directly, without sliding past the welcome.
             var resume = Transaction()
             resume.disablesAnimations = true
@@ -195,6 +197,7 @@ struct OnboardingView: View {
         .onChange(of: step) { _, new in
             storedStep = new.rawValue
             logger.info("Onboarding step: \(String(describing: new))")
+            UsageStats.shared.onboardingStep(String(describing: new))
             UISelectionFeedbackGenerator().selectionChanged()
             if new == .done {
                 Task { await powerOnPreview() }
@@ -341,6 +344,7 @@ struct OnboardingView: View {
     /// over from it — so the last thing onboarding shows is the player itself.
     private func finish() {
         storedStep = 0
+        UsageStats.shared.onboardingFinished(player: themeSettings.playerStyle.rawValue)
         guard !reduceMotion else {
             hasCompletedOnboarding = true
             return
@@ -940,6 +944,7 @@ private struct MusicAccessStep: View {
         withAnimation {
             authState = musicService.isAuthorized ? .authorized : .denied
         }
+        UsageStats.shared.onboardingMusicAccess(granted: musicService.isAuthorized)
         logger.notice("Auth page state after request: \(String(describing: self.authState))")
     }
 

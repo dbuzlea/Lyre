@@ -351,6 +351,7 @@ final class AppleMusicCatalog {
             throw AddError.needsSubscription
         }
         try await MusicLibrary.shared.add(item)
+        UsageStats.shared.used(.addToLibrary)
     }
 
     // MARK: Text

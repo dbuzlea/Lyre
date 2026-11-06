@@ -328,6 +328,7 @@ struct LyreView: View {
                 guard !Task.isCancelled else { return }
             }
             searchResults = LibrarySearch.results(for: searchQuery, in: musicService)
+            if !searchQuery.isEmpty { UsageStats.shared.searched(found: !searchResults.isEmpty, length: searchQuery.count) }
             if currentScreen == .search { menuSelection = 0 }
             // Then Apple Music's, once the typing has paused a little longer.
             guard AppleMusicCatalog.searchTerm(searchQuery) != nil else { return }
@@ -340,6 +341,10 @@ struct LyreView: View {
         .onChange(of: searchQuery) {
             // Typing is using the player, as much as turning the wheel is.
             resetBacklightTimer()
+        }
+        .onChange(of: currentScreen) { _, newScreen in
+            // The classic player's screen, by its kind, never what's on it (Diagnostics).
+            Diagnostics.shared.show("Classic: \(newScreen.diagnosticName)")
         }
         .onChange(of: currentScreen) { oldScreen, newScreen in
             // Search opened from the main menu starts afresh; returning to it from a
@@ -758,6 +763,7 @@ struct LyreView: View {
     }
 
     private func openArtworkCarousel() {
+        UsageStats.shared.used(.artworkCarousel)
         if themeSettings.playerStyle == .liquid, let shelf = LiquidLocation.shared.shelf {
             // Liquid's page: its shelf's covers, turned to the album open, if one is.
             switch shelf {

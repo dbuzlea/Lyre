@@ -1335,6 +1335,7 @@ struct SpoolPlayerView: View {
     private func insertTape(_ album: AppAlbum, from frame: CGRect,
                             startingAt index: Int = 0, tracks preloaded: [AppTrack]? = nil) {
         guard flight == nil else { return }
+        UsageStats.shared.used(.spoolTape)
         // A new tape replaces Up Next: ask first if it holds songs queued by hand, before
         // the old tape comes out.
         // Queued instead: the song picked from its case, or a tape swiped in whole.

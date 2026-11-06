@@ -542,6 +542,7 @@ struct ScrollWheelView: View {
                 bumpFeedback()
                 break
             }
+            UsageStats.shared.searchChosen(rank: menuSelection)
             switch searchResults[menuSelection] {
             case .song:
                 queueSong(from: searchResults.compactMap(\.song),
@@ -904,6 +905,7 @@ struct ScrollWheelView: View {
             didScroll = false
         }
         
+        if didScroll, currentScreen != .nowPlaying { UsageStats.shared.wheelStepped(down: false) }
         if didScroll {
             if themeSettings.clickSoundEnabled {
                 AudioServicesPlaySystemSound(1104)
@@ -1099,6 +1101,7 @@ struct ScrollWheelView: View {
             didScroll = false
         }
 
+        if didScroll, currentScreen != .nowPlaying { UsageStats.shared.wheelStepped(down: true) }
         if didScroll {
             if themeSettings.clickSoundEnabled {
                 AudioServicesPlaySystemSound(1104)
@@ -1326,6 +1329,8 @@ struct ScrollWheelView: View {
     private func handleSelect() {
         if isHoldEnabled { return }
         onInteraction()
+        UsageStats.shared.wheelPressed(screen: currentScreen.diagnosticName,
+                                       sensitivity: themeSettings.scrollSensitivity.rawValue.lowercased())
         
         let generator = UIImpactFeedbackGenerator(style: .heavy)
         generator.prepare()

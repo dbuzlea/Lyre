@@ -79,6 +79,7 @@ final class AppMetrics: NSObject, MXMetricManagerSubscriber {
 
             Diagnostics.shared.saveReport(payload.jsonRepresentation(), kind: "metrics")
             Diagnostics.shared.record(.metrics, "MetricKit daily metrics saved", level: .info)
+            for (name, value) in MetricKitReports.dailyFigures(payload) { UsageStats.shared.dailyMetric(name, value: value) }
         }
     }
 }
@@ -176,5 +177,44 @@ enum MetricKitReports {
             reporter.submit(reporter.makeReport(kind: .metrickit, title: problem.title, signature: problem.signature,
                                                 stack: problem.stack, files: [file], build: problem.build))
         }
+    }
+
+    /// The day's figures usage statistics count: average launch (to first frame) and
+    /// resume times and hang time in ms, scroll hitches in ms per second scrolled, peak
+    /// memory in MB, and exits in the foreground that weren't asked for.
+    static func dailyFigures(_ payload: MXMetricPayload) -> [(String, Double)] {
+        var figures: [(String, Double)] = []
+        if let launch = payload.applicationLaunchMetrics {
+            if let ms = mean(launch.histogrammedTimeToFirstDraw) { figures.append(("launch-ms", ms)) }
+            if let ms = mean(launch.histogrammedApplicationResumeTime) { figures.append(("resume-ms", ms)) }
+        }
+        if let responsiveness = payload.applicationResponsivenessMetrics,
+           let ms = mean(responsiveness.histogrammedApplicationHangTime) {
+            figures.append(("hang-ms", ms))
+        }
+        if let animation = payload.animationMetrics {
+            figures.append(("hitch-ms-per-s", animation.scrollHitchTimeRatio.value))
+        }
+        if let memory = payload.memoryMetrics {
+            figures.append(("peak-memory-mb", memory.peakMemoryUsage.converted(to: .megabytes).value))
+        }
+        if let exits = payload.applicationExitMetrics {
+            let foreground = exits.foregroundExitData
+            figures.append(("foreground-exits-abnormal", Double(foreground.cumulativeAbnormalExitCount
+                + foreground.cumulativeMemoryResourceLimitExitCount + foreground.cumulativeAppWatchdogExitCount)))
+        }
+        return figures
+    }
+
+    /// A histogram's average, in milliseconds, from each bucket's middle.
+    static func mean(_ histogram: MXHistogram<UnitDuration>) -> Double? {
+        var total = 0.0, count = 0.0
+        for case let bucket as MXHistogramBucket<UnitDuration> in histogram.bucketEnumerator {
+            let middle = (bucket.bucketStart.converted(to: .milliseconds).value
+                          + bucket.bucketEnd.converted(to: .milliseconds).value) / 2
+            total += middle * Double(bucket.bucketCount)
+            count += Double(bucket.bucketCount)
+        }
+        return count > 0 ? total / count : nil
     }
 }
