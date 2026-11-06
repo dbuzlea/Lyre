@@ -113,6 +113,8 @@ final class PodcastDownloads: NSObject, ObservableObject {
     /// the user didn't ask to spend.
     func download(_ episode: PodcastEpisode, onlyOnWiFi: Bool = false) {
         guard let url = episode.streamURL, states[episode.id] == nil else { return }
+        // Asked for, not the automatic downloads of new episodes (Wi-Fi only).
+        if !onlyOnWiFi { UsageStats.shared.used(.podcastDownload) }
         var request = URLRequest(url: url)
         if onlyOnWiFi {
             request.allowsExpensiveNetworkAccess = false

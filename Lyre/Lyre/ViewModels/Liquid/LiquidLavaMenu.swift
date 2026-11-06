@@ -256,6 +256,7 @@ struct LiquidLavaMenu: View {
         guard lamp.chosen == nil, lamp.blobs.indices.contains(index) else { return }
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         let blob = lamp.blobs[index]
+        UsageStats.shared.used(.lavaMenu)
         lamp.swell(index)
         onChoose(blob.route, CGPoint(x: frame.minX + blob.position.x, y: frame.minY + blob.position.y), lava.main)
     }

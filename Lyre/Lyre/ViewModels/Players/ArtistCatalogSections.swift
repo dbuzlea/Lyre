@@ -163,6 +163,7 @@ struct ArtistCatalogFooter: View {
 
     /// One the shelf has opens their case; one it hasn't, Apple Music.
     private func open(_ artist: Artist) {
+        UsageStats.shared.used(.similarArtist)
         let key = artist.name.lowercased()
         if let mine = musicService.shelfArtists.first(where: { $0.title.lowercased() == key }) {
             onOpen(mine)

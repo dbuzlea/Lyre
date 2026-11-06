@@ -48,3 +48,11 @@ enum LyreScreen: Equatable, Hashable {
     case discoverSection(DiscoverSection)
     case about
 }
+
+extension LyreScreen {
+    /// The screen's kind ("albumDetail"), without what it shows: the case's name, read
+    /// without describing its album or playlist (which would be slow, and a name).
+    var diagnosticName: String {
+        Mirror(reflecting: self).children.first?.label ?? String(describing: self)
+    }
+}

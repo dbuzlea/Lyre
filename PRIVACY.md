@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: November 5, 2026**
+**Last updated: November 6, 2026**
 
 Lyre ("the app") is developed by Daniel Buzlea / Pink Hat Creations. This policy explains what data the app does and does not handle.
 
@@ -49,9 +49,18 @@ When it's on, Lyre counts how it's used, so its developer can see where it's eas
 - which kinds of screens are opened, and which are left again within a couple of seconds;
 - whether a search found anything in your library (never the words you searched for);
 - moments the app froze, and on which kind of screen, and errors shown;
-- the first time, and how often, features such as Shuffle, the Songs shelf, card decks, swiping to queue, or Add to Playlist are used.
+- the first time, and how often, features such as Shuffle, the Songs shelf, card decks, swiping to queue, or Add to Playlist are used;
+- whether each song was skipped in its first 30 seconds, heard in part, or heard to the end, and from which kind of screen the music was started; and how long music played without stopping, and whether it carried on with Lyre in the background;
+- how many screens were opened before the first song, and screens opened and quickly backed out of;
+- whether a search led to music, how quickly, how long the search was in letters (never the words), and, in the classic player, the place in the list of the result chosen;
+- in the classic player, how far the click wheel was turned for each choice and how often it was turned back;
+- four or more quick taps in one spot, and on which kind of screen;
+- iOS's daily performance figures for Lyre (average launch and resume times, freezes, scrolling smoothness, peak memory, and unexpected exits);
+- once a day: your library's size in broad bands (for example "500 to 2,000 songs"), whether you have an Apple Music subscription, the width of the screen in points, which of Lyre's settings you've changed from their defaults and to what, and whether VoiceOver, Reduce Motion, Bold Text or a larger text size is on.
 
-Each count carries Lyre's version and build, whether the device is an iPhone or iPad (not the model), the major iOS version, the player in use, the date, which week Lyre was installed and how many days ago. It never contains the names of songs, albums, artists, playlists, podcasts or anything else in your library, anything you type or search for, screenshots, your name, email address, Apple Account, location, or contacts, and it carries no identifier for you or your device, so counts from one device can't be linked together or to you.
+**Setting up Lyre.** Lyre's setup happens before it can ask about usage statistics, so it keeps a short note on your device of the setup steps you went through, how long each took, whether you allowed music access, and the player you chose. That note is sent only if you later turn on Share Usage Statistics, and is deleted after 30 days if you don't. A week after setup, Lyre also counts whether the player you chose is still the one you use.
+
+Each count carries Lyre's version and build, whether the device is an iPhone or iPad (not the model), the major iOS version, the player in use, the date, which week Lyre was installed and how many days ago. It never contains the names of songs, albums, artists, playlists, podcasts or anything else in your library, anything you type or search for, where you tap, screenshots, your name, email address, Apple Account, location, or contacts, and it carries no identifier for you or your device, so counts from one device can't be linked together or to you.
 
 Most of the working-out happens on your device (for example, Lyre sends "the first song started 6 seconds after opening, from a card", not each tap). Counts wait on your device and are sent about once a day, signed using Apple's App Attest like problem reports. They go to Lyre's report service on Cloudflare and are kept in Cloudflare's Workers Analytics Engine, where only Lyre's developer can see them, as totals, for up to three months. To limit how often a device can send, the service briefly keeps a one-way scrambled form of the sending key or network address, deleted within two days and never stored with the counts. Turning Share Usage Statistics off stops it and deletes any counts still waiting on your device.
 

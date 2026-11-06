@@ -82,7 +82,7 @@ struct ShelfSearching: ViewModifier {
                 guard !Task.isCancelled else { return }
             }
             let found = LibrarySearch.shelfMatches(for: query, in: library)
-            if let found { UsageStats.shared.searched(found: !found.isEmpty) }
+            if let found { UsageStats.shared.searched(found: !found.isEmpty, length: query.count) }
             withAnimation(.easeInOut(duration: 0.2)) {
                 matches = found
                 if let other = found?.shelfWithMatches(preferring: shelf) { shelf = other }

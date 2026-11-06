@@ -7,6 +7,11 @@
 export const EVENT_NAMES = [
   "install", "launch", "active", "screen", "bounce", "player_switch", "first_play", "play",
   "search", "hang", "error", "feature", "feature_first",
+  // Round 2: listening, paths, search outcomes, the wheel, taps, onboarding, iOS's
+  // daily figures, and the daily snapshot of library size, settings and accessibility.
+  "song_end", "listen", "loop", "first_play_path", "search_play", "search_no_play", "search_rank",
+  "wheel", "repeated_taps", "onboarding_step", "onboarding_done", "music_access", "onboarding_kept",
+  "metric", "context", "setting", "a11y",
 ] as const;
 
 export type EventName = typeof EVENT_NAMES[number];
@@ -107,6 +112,21 @@ export function queries(days: number): Record<string, string> {
     featuresFound: `SELECT blob5 AS feature, ${count} AS n ${of("feature_first")} GROUP BY feature ORDER BY n DESC`,
     featureUse: `SELECT blob5 AS feature, blob2 AS player, ${count} AS n ${of("feature")} GROUP BY feature, player ORDER BY n DESC`,
     versions: `SELECT blob6 AS version, blob7 AS build, ${count} AS n ${of("launch")} GROUP BY version, build ORDER BY version DESC, build DESC`,
+    songEnds: `SELECT blob4 AS source, blob5 AS outcome, ${count} AS n ${of("song_end")} GROUP BY source, outcome`,
+    listens: `SELECT blob5 AS place, ${count} AS n, ${mean} AS seconds ${of("listen")} GROUP BY place`,
+    loops: `SELECT blob3 AS screen, ${count} AS n ${of("loop")} GROUP BY screen ORDER BY n DESC`,
+    firstPlayPath: `SELECT blob4 AS source, ${count} AS n, ${mean} AS screens ${of("first_play_path")} GROUP BY source ORDER BY n DESC`,
+    searchPlays: `SELECT blob5 AS kind, ${count} AS n, ${mean} AS seconds ${of("search_play")} GROUP BY kind`,
+    searchNoPlays: `SELECT ${count} AS n ${of("search_no_play")}`,
+    searchRanks: `SELECT double1 AS rank, ${count} AS n ${of("search_rank")} GROUP BY rank ORDER BY rank`,
+    wheel: `SELECT blob4 AS sensitivity, blob5 AS reversals, ${count} AS n, ${mean} AS steps ${of("wheel")} GROUP BY sensitivity, reversals`,
+    repeatedTaps: `SELECT blob3 AS screen, blob2 AS player, ${count} AS n ${of("repeated_taps")} GROUP BY screen, player ORDER BY n DESC`,
+    onboardingSteps: `SELECT blob5 AS step, blob4 AS player, ${count} AS n, ${mean} AS seconds ${of("onboarding_step")} GROUP BY step, player`,
+    onboardingDone: `SELECT blob5 AS player, ${count} AS n, ${mean} AS seconds ${of("onboarding_done")} GROUP BY player`,
+    musicAccess: `SELECT blob5 AS answer, ${count} AS n ${of("music_access")} GROUP BY answer`,
+    onboardingKept: `SELECT blob5 AS chosen, blob4 AS now, ${count} AS n ${of("onboarding_kept")} GROUP BY chosen, now`,
+    metrics: `SELECT blob5 AS metric, blob6 AS version, blob8 AS device, ${count} AS n, ${mean} AS value ${of("metric")} GROUP BY metric, version, device ORDER BY version DESC`,
+    snapshot: `SELECT blob1 AS kind, blob5 AS item, ${count} AS n FROM ${DATASET} WHERE blob1 IN ('context', 'setting', 'a11y') AND ${since} GROUP BY kind, item ORDER BY n DESC`,
   };
 }
 

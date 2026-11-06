@@ -719,6 +719,7 @@ struct GramophonePlayerView: View {
         vantage = .moving
         if (target == .drawer) != stage.isDrawerOpen {
             (target == .drawer ? GramophoneSound.drawerOpen : .drawerClose).play()
+            if target == .drawer { UsageStats.shared.used(.gramophoneDrawer) }
         }
         stage.setDrawer(open: target == .drawer, animated: !reduceMotion)
         guard await stage.move(to: target, duration: reduceMotion ? 0 : 1.4) else { return false }

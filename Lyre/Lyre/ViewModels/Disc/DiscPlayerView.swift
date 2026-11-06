@@ -1322,6 +1322,7 @@ struct DiscPlayerView: View {
     /// A case swiped left: its whole disc goes in. Asks first if that would clear songs
     /// the listener queued.
     private func insertDisc(_ album: AppAlbum, from frame: CGRect) {
+        UsageStats.shared.used(.discInsert)
         guard flight == nil else { return }
         musicService.play(asking: { pendingPlay = $0 },
                           addToQueue: album.isPodcast ? nil : { queue(album, placement: .last) }) {

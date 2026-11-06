@@ -425,6 +425,7 @@ class MusicService: ObservableObject {
         didSet {
             guard isPlaying != oldValue else { return }
             syncPlaybackTimeTicker()
+            UsageStats.shared.playbackChanged(isPlaying: isPlaying)
         }
     }
     /// Playback position, published separately so its twice-a-second updates only
@@ -1120,6 +1121,10 @@ class MusicService: ObservableObject {
                     + "\(self.albums.count) albums, \(self.playlists.count) playlists, \(self.podcastShows.count) shows, "
                     + "source \(self.librarySource)\(self.lastError.map { ", error \($0.alertTitle)" } ?? "")",
                     level: self.lastError == nil ? .notice : .error)
+                if self.lastError == nil {
+                    UsageStats.shared.libraryLoaded(songs: self.songs.count, subscribed: self.subscriptionState == .unknown
+                                                    ? nil : self.subscriptionState == .subscribed)
+                }
             }
             loadTask = task
             return task
@@ -1516,7 +1521,7 @@ class MusicService: ObservableObject {
         }
         Diagnostics.shared.record(.playback, "Playing: \(window.entries.count) of \(tracks.count) songs queued, "
                                   + "\(window.tracks[startIndex].isStreamOnly ? "streamed" : "library") song first")
-        UsageStats.shared.played()
+        UsageStats.shared.played(kind: window.tracks[startIndex].isStreamOnly ? "streamed" : "library")
         return .started
     }
 
@@ -1624,7 +1629,8 @@ class MusicService: ObservableObject {
     /// ones through the stream engine.
     func playPodcastEpisodes(_ episodes: [PodcastEpisode], startingAt index: Int = 0, podcastShowTitle: String? = nil) async {
         guard episodes.indices.contains(index) else { return }
-        UsageStats.shared.played()
+        UsageStats.shared.played(kind: "episode")
+        UsageStats.shared.used(.podcastEpisode)
         // A show's episodes take over Up Next; nothing in it is queued by hand any more.
         await MainActor.run { listenerQueued = [:] }
         guard episodes[index].streamURL != nil else {
@@ -2153,6 +2159,7 @@ class MusicService: ObservableObject {
 
     func skipToNext() async {
         logger.info("Skipping to next track")
+        UsageStats.shared.skipped(back: false)
         await MainActor.run {
             if activeEngine == .stream { streamPlayer.skipToNext() } else { player.skipToNextItem() }
         }
@@ -2160,6 +2167,7 @@ class MusicService: ObservableObject {
 
     func skipToPrevious() async {
         logger.info("Skipping to previous track")
+        UsageStats.shared.skipped(back: true)
         await MainActor.run {
             if activeEngine == .stream { streamPlayer.skipToPrevious() } else { player.skipToPreviousItem() }
         }
@@ -2572,6 +2580,9 @@ class MusicService: ObservableObject {
         // was heard, for the lists' played marks.
         if let previous = currentMediaItem, previous.queueKey != player.nowPlayingItem?.queueKey {
             recordLibraryEpisode(previous, time: clock.time)
+            // How the song went, for usage statistics: only seen as it happens in the
+            // foreground, where the clock still holds how far it got.
+            if !isInBackground { UsageStats.shared.songChanged(heard: clock.time, duration: duration) }
         }
         // Compared by what the queue knows it by, not with `==`: MediaPlayer's own
         // isEqual can crash on a streamed item (EXC_BAD_ACCESS in
