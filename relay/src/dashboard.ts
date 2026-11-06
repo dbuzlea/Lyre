@@ -118,6 +118,18 @@ td.r, th.r { text-align: right; }
       <section class="card"><h2>Feature use</h2><p class="sub">Each use, all players.</p><div id="featureUse"></div></section>
       <section class="card"><h2>Errors shown</h2><div id="errors"></div></section>
       <section class="card"><h2>Versions</h2><p class="sub">Launches by version and build.</p><div id="versions"></div></section>
+      <section class="card"><h2>Songs skipped or heard</h2><p class="sub">Share of songs skipped in their first 30 s, by where the music was started.</p><div id="songEnds"></div></section>
+      <section class="card"><h2>Listening</h2><p class="sub">Average unbroken stretch of music, and whether it carried on with Lyre in the background.</p><div id="listens"></div></section>
+      <section class="card"><h2>Screens before the first song</h2><p class="sub">Average screens opened each session before music starts, by where it starts.</p><div id="firstPlayPath"></div></section>
+      <section class="card"><h2>Loops</h2><p class="sub">Screens opened and backed out of to where people just were (within 15 s).</p><div id="loops"></div></section>
+      <section class="card"><h2>Search to song</h2><p class="sub">Searches that led to music within 2 minutes, and how quickly.</p><div id="searchOutcome"></div></section>
+      <section class="card"><h2>Repeated taps</h2><p class="sub">Four taps in one spot within a second: something that looks tappable and isn’t, or is slow.</p><div id="repeatedTaps"></div></section>
+      <section class="card"><h2>Classic wheel</h2><p class="sub">Steps turned per press, and how often the wheel had to turn back, by sensitivity.</p><div id="wheel"></div></section>
+      <section class="card wide"><h2>Onboarding</h2><p class="sub">From phones that later turned on usage statistics: time on each step, and the player chosen against the one in use a week on.</p><div id="onboarding"></div></section>
+      <section class="card wide"><h2>Performance (iOS daily figures)</h2><p class="sub">MetricKit’s daily averages, by version and device.</p><div id="metrics"></div></section>
+      <section class="card"><h2>Libraries</h2><p class="sub">Phone-days by library size, subscription and display width.</p><div id="context"></div></section>
+      <section class="card"><h2>Settings changed</h2><p class="sub">Phone-days with each setting away from Lyre’s own.</p><div id="settings"></div></section>
+      <section class="card"><h2>Accessibility</h2><p class="sub">Phone-days with each feature on.</p><div id="a11y"></div></section>
     </div>
   </div>
 </main>
@@ -293,6 +305,92 @@ td.r, th.r { text-align: right; }
     $("versions").innerHTML = ve ? table([{ t: "Version" }, { t: "Build", r: 1 }, { t: "Launches", r: 1 }], ve.map(function (r) { return [r.version, r.build, fmt.format(num(r.n))]; })) : failed(data, "versions");
   }
 
+  function renderMore(data) {
+    var sum = function (list, f) { return (list || []).reduce(function (a, r) { return a + (f ? f(r) : num(r.n)); }, 0); };
+    var pct = function (a, b) { return b ? Math.round(100 * a / b) + "%" : "—"; };
+
+    var se = rows(data, "songEnds");
+    if (se && se.length) {
+      var bySource = {};
+      se.forEach(function (r) { var s = bySource[r.source] = bySource[r.source] || { all: 0, skip: 0, done: 0 };
+        if (r.outcome === "back") return;
+        s.all += num(r.n); if (r.outcome === "skip" || r.outcome === "skip-elsewhere") s.skip += num(r.n); if (r.outcome === "complete") s.done += num(r.n); });
+      $("songEnds").innerHTML = bars(Object.keys(bySource).filter(function (k) { return bySource[k].all; }).map(function (k) { var s = bySource[k];
+        return { label: k, value: s.skip / s.all, shown: pct(s.skip, s.all) + " of " + fmt.format(s.all),
+          tip: k + ": " + pct(s.skip, s.all) + " skipped, " + pct(s.done, s.all) + " heard to the end, of " + fmt.format(s.all) + " songs" }; })
+        .sort(function (a, b) { return b.value - a.value; }));
+    } else $("songEnds").innerHTML = failed(data, "songEnds");
+
+    var li = rows(data, "listens");
+    $("listens").innerHTML = li ? table([{ t: "Lyre was" }, { t: "Stretches", r: 1 }, { t: "Average", r: 1 }],
+      li.map(function (r) { return [r.place === "background" ? "In the background" : "Open", fmt.format(num(r.n)), duration(num(r.seconds))]; })) : failed(data, "listens");
+
+    var fp = rows(data, "firstPlayPath");
+    $("firstPlayPath").innerHTML = fp ? bars(fp.map(function (r) { return { label: r.source, value: num(r.screens), shown: num(r.screens).toFixed(1),
+      tip: r.source + ": " + num(r.screens).toFixed(1) + " screens on average, " + fmt.format(num(r.n)) + " sessions" }; })) : failed(data, "firstPlayPath");
+
+    var lo = rows(data, "loops");
+    $("loops").innerHTML = lo ? bars(lo.slice(0, 12).map(function (r) { return { label: r.screen, value: num(r.n), shown: fmt.format(num(r.n)) }; })) : failed(data, "loops");
+
+    var sp = rows(data, "searchPlays"), sn = rows(data, "searchNoPlays"), sr = rows(data, "searchRanks");
+    if (sp && sn) {
+      var played = sum(sp), none = sum(sn), secs = played ? sum(sp, function (r) { return num(r.n) * num(r.seconds); }) / played : 0;
+      var ranked = sum(sr), rankAvg = ranked ? sum(sr, function (r) { return num(r.n) * num(r.rank); }) / ranked : null;
+      var html = '<div class="tiles" style="margin-bottom:12px">' +
+        '<div class="tile"><div class="k">Led to music</div><div class="v">' + pct(played, played + none) + '</div><div class="h">of ' + fmt.format(played + none) + ' searches</div></div>' +
+        '<div class="tile"><div class="k">Time to song</div><div class="v">' + (played ? secs.toFixed(1) + " s" : "—") + '</div><div class="h">after results</div></div>' +
+        '<div class="tile"><div class="k">Result chosen</div><div class="v">' + (rankAvg == null ? "—" : "#" + rankAvg.toFixed(1)) + '</div><div class="h">average place (Classic)</div></div></div>';
+      html += bars(sp.map(function (r) { return { label: r.kind || "other", value: num(r.n), shown: fmt.format(num(r.n)) }; }));
+      $("searchOutcome").innerHTML = html;
+    } else $("searchOutcome").innerHTML = failed(data, sp ? "searchNoPlays" : "searchPlays");
+
+    var rt = rows(data, "repeatedTaps");
+    $("repeatedTaps").innerHTML = rt ? bars(rt.slice(0, 12).map(function (r) { return { label: r.screen || "unknown", value: num(r.n), shown: fmt.format(num(r.n)),
+      tip: (r.screen || "unknown") + " (" + player(r.player) + "): " + fmt.format(num(r.n)) }; })) : failed(data, "repeatedTaps");
+
+    var wh = rows(data, "wheel");
+    if (wh) {
+      var bySens = {};
+      wh.forEach(function (r) { var s = bySens[r.sensitivity] = bySens[r.sensitivity] || { n: 0, steps: 0, over: 0 };
+        s.n += num(r.n); s.steps += num(r.n) * num(r.steps); if (r.reversals !== "reversals 0") s.over += num(r.n); });
+      $("wheel").innerHTML = table([{ t: "Sensitivity" }, { t: "Presses", r: 1 }, { t: "Steps each", r: 1 }, { t: "Turned back", r: 1 }],
+        Object.keys(bySens).map(function (k) { var s = bySens[k]; return [k, fmt.format(s.n), (s.steps / s.n).toFixed(1), pct(s.over, s.n)]; }));
+    } else $("wheel").innerHTML = failed(data, "wheel");
+
+    var os = rows(data, "onboardingSteps"), od = rows(data, "onboardingDone"), ma = rows(data, "musicAccess"), ok = rows(data, "onboardingKept");
+    if (os) {
+      var steps = {}, order = [];
+      os.forEach(function (r) { if (!steps[r.step]) { steps[r.step] = { n: 0, t: 0 }; order.push(r.step); } steps[r.step].n += num(r.n); steps[r.step].t += num(r.n) * num(r.seconds); });
+      var granted = (ma || []).filter(function (r) { return r.answer === "granted"; }).reduce(function (a, r) { return a + num(r.n); }, 0);
+      var kept = (ok || []).filter(function (r) { return r.chosen === r.now; }).reduce(function (a, r) { return a + num(r.n); }, 0);
+      var doneN = sum(od), doneT = doneN ? sum(od, function (r) { return num(r.n) * num(r.seconds); }) / doneN : 0;
+      var html2 = '<div class="tiles" style="margin-bottom:12px">' +
+        '<div class="tile"><div class="k">Finished</div><div class="v">' + fmt.format(doneN) + '</div><div class="h">' + (doneN ? duration(doneT) + " on average" : "") + '</div></div>' +
+        '<div class="tile"><div class="k">Music access</div><div class="v">' + pct(granted, sum(ma)) + '</div><div class="h">allowed</div></div>' +
+        '<div class="tile"><div class="k">Kept their player</div><div class="v">' + pct(kept, sum(ok)) + '</div><div class="h">a week on</div></div></div>';
+      html2 += bars(order.map(function (k) { var st = steps[k], avg = st.t / st.n;
+        return { label: k, value: avg, shown: duration(avg), tip: k + ": " + duration(avg) + " on average, reached " + fmt.format(st.n) + " times" }; }));
+      if (od && od.length) html2 += '<p class="sub" style="margin-top:12px">Chosen: ' + od.map(function (r) { return esc(player(r.player)) + " " + fmt.format(num(r.n)); }).join(" · ") + '</p>';
+      $("onboarding").innerHTML = html2;
+    } else $("onboarding").innerHTML = failed(data, "onboardingSteps");
+
+    var me = rows(data, "metrics");
+    if (me) {
+      var NAMES2 = { "launch-ms": "Launch (ms)", "resume-ms": "Resume (ms)", "hang-ms": "Hang (ms)", "hitch-ms-per-s": "Scroll hitches (ms/s)",
+        "peak-memory-mb": "Peak memory (MB)", "foreground-exits-abnormal": "Unasked-for exits" };
+      $("metrics").innerHTML = table([{ t: "Figure" }, { t: "Version" }, { t: "Device" }, { t: "Days", r: 1 }, { t: "Average", r: 1 }],
+        me.map(function (r) { return [NAMES2[r.metric] || r.metric, r.version, r.device, fmt.format(num(r.n)), num(r.value).toFixed(num(r.value) < 10 ? 2 : 0)]; }));
+    } else $("metrics").innerHTML = failed(data, "metrics");
+
+    var sn2 = rows(data, "snapshot");
+    ["context", "setting", "a11y"].forEach(function (kind) {
+      var id = kind === "setting" ? "settings" : kind;
+      if (!sn2) { $(id).innerHTML = failed(data, "snapshot"); return; }
+      var list = sn2.filter(function (r) { return r.kind === kind && (kind !== "a11y" || !/:off$/.test(r.item)); });
+      $(id).innerHTML = bars(list.slice(0, 16).map(function (r) { return { label: r.item, value: num(r.n), shown: fmt.format(num(r.n)) }; }));
+    });
+  }
+
   function duration(s) {
     if (s < 90) return Math.round(s) + " s";
     if (s < 5400) return Math.round(s / 60) + " min";
@@ -311,7 +409,7 @@ td.r, th.r { text-align: right; }
         if (r.status === 401) { store.set("lyreUsageToken", null); $("gateErr").textContent = "That token wasn’t accepted."; load(); throw null; }
         return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j; });
       })
-      .then(render)
+      .then(function (data) { render(data); renderMore(data); })
       .catch(function (e) { if (e) $("generated").innerHTML = '<span class="err">' + esc(e.message || e) + '</span>'; });
   }
 

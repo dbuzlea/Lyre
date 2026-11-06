@@ -60,6 +60,23 @@ describe("receiving usage statistics", () => {
     expect(validateUsage({})).toEqual({ error: "events missing" });
   });
 
+  it("takes round 2's kinds: listening, paths, the wheel, onboarding, iOS's figures, the snapshot", () => {
+    const checked = validateUsage({ events: [
+      event({ name: "song_end", source: "shuffle", detail: "skip-elsewhere", value: 8 }),
+      event({ name: "wheel", screen: "Classic: albums", source: "medium", detail: "reversals 5+", value: 14 }),
+      event({ name: "onboarding_step", source: "liquid", detail: "musicAccess", value: 12 }),
+      event({ name: "metric", detail: "hitch-ms-per-s", value: 3.25 }),
+      event({ name: "context", detail: "library:under 500" }),
+      event({ name: "setting", detail: "theme:Midnight" }),
+      event({ name: "a11y", detail: "text-size:accessibility" }),
+    ] });
+    expect("events" in checked && checked.events.length).toBe(7);
+    const asked = Object.keys(queries(30));
+    for (const key of ["songEnds", "listens", "loops", "firstPlayPath", "searchPlays", "searchNoPlays", "searchRanks",
+                       "wheel", "repeatedTaps", "onboardingSteps", "onboardingDone", "musicAccess", "onboardingKept",
+                       "metrics", "snapshot"]) expect(asked).toContain(key);
+  });
+
   it("turns away a batch without the app's key", async () => {
     expect((await handle(post([event()], { "X-Lyre-Key": "wrong" }), env, deps)).status).toBe(401);
     expect(usage.points).toHaveLength(0);
