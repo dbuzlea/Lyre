@@ -22,6 +22,8 @@ Your app preferences — theme, screen size, highlight color, scroll sensitivity
 
 Lyre also keeps a diagnostics log on your device: a record of what the app did (for example, that it launched, which player and screen were open, how long loading your library took, and whether anything froze or failed), plus the crash and performance reports iOS gives it. The log never contains the names of your songs, albums, artists, or playlists. It stays on your device, keeping roughly the last few days, unless you choose to share it (Share Diagnostics, in settings) or send it with a problem report.
 
+If Share Usage Statistics is on, the counts described in Usage Statistics wait on your device until they're sent, about once a day. The short note about setting up Lyre, described there too, is kept on your device until it's sent or deleted.
+
 ## Problem Reports and Diagnostics
 
 Lyre uses Apple's MetricKit framework, through which iOS gives the app reports of crashes, freezes, and heavy CPU or storage use. These, and the diagnostics log above, are sent to Lyre's developer only in these cases:
@@ -64,6 +66,8 @@ Each count carries Lyre's version and build, whether the device is an iPhone or 
 
 Most of the working-out happens on your device (for example, Lyre sends "the first song started 6 seconds after opening, from a card", not each tap). Counts wait on your device and are sent about once a day, signed using Apple's App Attest like problem reports. They go to Lyre's report service on Cloudflare and are kept in Cloudflare's Workers Analytics Engine, where only Lyre's developer can see them, as totals, for up to three months. To limit how often a device can send, the service briefly keeps a one-way scrambled form of the sending key or network address, deleted within two days and never stored with the counts. Turning Share Usage Statistics off stops it and deletes any counts still waiting on your device.
 
+**As Lyre changes.** Lyre's developer may add new counts over time to keep improving it. Any new count will follow the same rules: it's sent only with Share Usage Statistics on, it's a count or a kind of thing rather than anything you've written or anything in your library, it carries no identifier and isn't linked to you, and it isn't used for tracking or advertising or shared with anyone else. Each new kind of count is added to the list above, with this policy's date updated, before the version of Lyre that collects it is released. Anything that would break those rules would only happen if Lyre asks you again first.
+
 ## Third-Party Services
 
 Lyre does not integrate any third-party analytics, advertising, or data-collection SDKs. Problem reports go through Cloudflare and Atlassian, as described in Problem Reports and Diagnostics; usage statistics, if you allow them, go only to Cloudflare, as described in Usage Statistics. Both are signed using Apple's App Attest.
@@ -78,7 +82,7 @@ Lyre does not knowingly collect personal information from anyone, including chil
 
 ## Changes to This Policy
 
-If this policy changes, the updated version will be posted at this same URL with a revised "Last updated" date.
+If this policy changes, the updated version will be posted at this same URL with a revised "Last updated" date, before the version of Lyre the change applies to is released. Lyre never starts collecting a new kind of data without it being described here first, and never collects anything beyond what this policy describes without asking you first.
 
 ## Contact
 
