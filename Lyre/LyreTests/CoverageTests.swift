@@ -1939,3 +1939,26 @@ struct AutomaticReportTests {
         #expect(SettingsView.settingsItems[SettingsView.sendDiagnosticsRow] == String(localized: "settings.sendDiagnostics"))
     }
 }
+
+/// LYRE-29: the classic player's Recently Added and Recently Played open the Artwork
+/// Carousel on their own songs' albums, not all the library's.
+struct CarouselCoversTests {
+    private func track(_ title: String, album: String, artist: String) -> AppTrack {
+        AppTrack(id: title, title: title, artistName: artist, albumTitle: album, duration: 200)
+    }
+
+    @Test func aSongListsCoversAreItsAlbumsOnceInOrder() {
+        let library = [AppAlbum(id: "a", title: "Abbey Road", artistName: "The Beatles"),
+                       AppAlbum(id: "b", title: "Blue", artistName: "Joni Mitchell"),
+                       AppAlbum(id: "c", title: "Currents", artistName: "Tame Impala")]
+        let recent = [track("River", album: "BLUE", artist: "joni mitchell"),
+                      track("Let It Happen", album: "Currents", artist: "Tame Impala"),
+                      track("A Case of You", album: "Blue", artist: "Joni Mitchell"),
+                      track("Streamed", album: "Not Mine", artist: "Someone")]
+        let covers = CarouselCovers.albums(of: recent, in: library)
+        #expect(covers.map(\.id) == ["b", "c"])
+        #expect(CarouselCovers.index(of: recent[1], in: covers) == 1)
+        #expect(CarouselCovers.index(of: recent[3], in: covers) == nil)
+        #expect(CarouselCovers.albums(of: [], in: library).isEmpty)
+    }
+}

@@ -110,6 +110,7 @@ enum ArtworkCarouselContent {
         case .albums(let items):
             guard index < items.count else { return true }
             return items[index].musicKitAlbum?.artwork == nil && items[index].mpArtwork == nil
+                && items[index].mixtape?.musicKitPlaylist?.artwork == nil
         case .playlists(let items):
             guard index < items.count else { return true }
             return items[index].musicKitPlaylist?.artwork == nil && items[index].mpArtwork == nil
@@ -117,6 +118,35 @@ enum ArtworkCarouselContent {
             guard index < items.count else { return true }
             return !items[index].hasArtwork
         }
+    }
+}
+
+// MARK: - A List's Own Covers
+
+/// The covers for a list that isn't the library's albums (LYRE-29): the albums of a
+/// list of songs, each once, in the order the songs first name them.
+nonisolated enum CarouselCovers {
+    /// Each song's album from the library, matched by title and artist; a song whose
+    /// album isn't in the library (streamed) has no cover here.
+    static func albums(of tracks: [AppTrack], in library: [AppAlbum]) -> [AppAlbum] {
+        guard !tracks.isEmpty else { return [] }
+        var byKey: [String: AppAlbum] = [:]
+        for album in library { byKey[key(album.title, album.artistName)] = byKey[key(album.title, album.artistName)] ?? album }
+        var seen = Set<String>()
+        return tracks.compactMap { track in
+            guard let album = byKey[key(track.albumTitle, track.artistName)], seen.insert(album.id).inserted else { return nil }
+            return album
+        }
+    }
+
+    /// Where `track`'s album is among `albums`, if it's there.
+    static func index(of track: AppTrack?, in albums: [AppAlbum]) -> Int? {
+        guard let track else { return nil }
+        return albums.firstIndex { key($0.title, $0.artistName) == key(track.albumTitle, track.artistName) }
+    }
+
+    private static func key(_ title: String, _ artist: String) -> String {
+        title.lowercased() + "\u{1F}" + artist.lowercased()
     }
 }
 
@@ -131,6 +161,9 @@ struct ArtworkCarouselView: View {
     /// inner display is wide however it's held, so the carousel is the open phone's own
     /// view and closing the phone is the way back. An open album's own back button stays.
     var showsBackButton = true
+    /// What an open record's Back says, when the covers are a list's own (LYRE-29:
+    /// Recently Added, a Discover section) rather than all the library's albums.
+    var backTitle: String? = nil
 
     @State private var position: CGFloat = 0
     /// A play waiting to be confirmed, as it would clear songs queued by hand.
@@ -396,7 +429,7 @@ struct ArtworkCarouselView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 13, weight: .semibold))
-                        Text(isOpen ? content.backLabel : "Back")
+                        Text(isOpen ? backTitle ?? content.backLabel : "Back")
                             .font(.system(size: 14))
                     }
                     .foregroundColor(.white)
@@ -1005,7 +1038,7 @@ struct ArtworkCarouselView: View {
         case .albums(let items):
             if index < items.count {
                 let album = items[index]
-                if let artwork = album.musicKitAlbum?.artwork {
+                if let artwork = album.musicKitAlbum?.artwork ?? album.mixtape?.musicKitPlaylist?.artwork {
                     ArtworkImage(artwork, width: size)
                 } else if album.mpArtwork != nil {
                     // Decoded once in the background, not on every redraw of a drag.
@@ -1300,7 +1333,7 @@ struct ArtworkCarouselView: View {
         switch content {
         case .albums(let items):
             guard index < items.count else { return nil }
-            if let background = items[index].musicKitAlbum?.artwork?.backgroundColor {
+            if let background = (items[index].musicKitAlbum?.artwork ?? items[index].mixtape?.musicKitPlaylist?.artwork)?.backgroundColor {
                 return Color(cgColor: background)
             }
             guard let image = items[index].mpArtwork?.image(at: thumb) else { return nil }
