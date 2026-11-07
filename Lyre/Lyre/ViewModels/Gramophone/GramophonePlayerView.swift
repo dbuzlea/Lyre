@@ -1420,7 +1420,7 @@ struct GramophonePlayerView: View {
         if let episode = musicService.currentEpisode {
             return RecordOnPlatter(kind: .transcription, title: episode.showTitle, label: .plain,
                                    grooves: GrooveMap(durations: [episode.duration]), currentIndex: 0,
-                                   id: "episode:\(episode.id)")
+                                   id: "episode:\(episode.id)", songTitles: [episode.title])
         }
         guard let current = musicService.currentTrack else { return seated.map(platter(for:)) }
         let queue = musicService.playbackQueue
@@ -1428,7 +1428,8 @@ struct GramophonePlayerView: View {
         let index = tracks.firstIndex { $0.id == current.id } ?? 0
         return RecordOnPlatter(kind: .album, title: TapeFormat.displayTitle(current.albumTitle),
                                label: .track(current), grooves: GrooveMap(durations: tracks.map(\.duration)),
-                               currentIndex: index, id: "queue:\(tracks.first?.id ?? current.id)")
+                               currentIndex: index, id: "queue:\(tracks.first?.id ?? current.id)",
+                               songTitles: tracks.map(\.title))
     }
 
     private func isSeatedShufflePlaying(_ seated: SeatedRecord) -> Bool {
@@ -1442,7 +1443,7 @@ struct GramophonePlayerView: View {
         return RecordOnPlatter(kind: RecordKind(seated.album), title: seated.title,
                                label: seated.label ?? seated.album.map(RecordLabel.album) ?? .plain,
                                grooves: GrooveMap(durations: seated.tracks.map(\.duration)),
-                               currentIndex: index, id: seated.id)
+                               currentIndex: index, id: seated.id, songTitles: seated.tracks.map(\.title))
     }
 
     /// Puts a record on the turntable and drops the needle on song `index`: the camera

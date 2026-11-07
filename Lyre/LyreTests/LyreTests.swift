@@ -1675,3 +1675,28 @@ struct EpisodeHistoryTests {
         #expect(history.state(for: saved) == .played)
     }
 }
+
+/// LYRE-34: carrying the Gramophone's needle says which song it's over, and from when.
+struct NeedleReadoutTests {
+    private let record = RecordOnPlatter(kind: .album, title: "Record", label: .plain,
+                                         grooves: GrooveMap(durations: [60, 120, 60]), currentIndex: 0,
+                                         id: "r", songTitles: ["One", "Two", "Three"])
+
+    @Test func theReadoutNamesTheSongUnderTheNeedleAndTheTimeItWouldPlayFrom() throws {
+        let middle = try #require(NeedleReadout(record: record, fraction: 0.5))   // 120 s in: a minute into Two
+        #expect(middle.number == 2)
+        #expect(middle.count == 3)
+        #expect(middle.title == "Two")
+        #expect(middle.time == 60)
+        #expect(middle.duration == 120)
+        #expect(NeedleReadout(record: record, fraction: 1)?.title == "Three")
+        #expect(NeedleReadout(record: record, fraction: 0)?.number == 1)
+    }
+
+    @Test func offTheRecordThereIsNoSongAndAMissingTitleIsLeftOut() {
+        #expect(NeedleReadout(record: record, fraction: nil) == nil)
+        let untitled = RecordOnPlatter(kind: .album, title: "Record", label: .plain,
+                                       grooves: GrooveMap(durations: [60]), currentIndex: 0, id: "u")
+        #expect(NeedleReadout(record: untitled, fraction: 0.5)?.title == nil)
+    }
+}
