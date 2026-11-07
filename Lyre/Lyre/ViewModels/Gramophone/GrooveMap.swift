@@ -136,3 +136,26 @@ struct TonearmGeometry: Equatable {
         return min(max(raw, restAngle), innerAngle)
     }
 }
+
+// MARK: - The Needle's Song
+
+/// The song under the needle at a place on the record (LYRE-34): its band, of how many,
+/// its title where the record knows it, and how far in the needle would play from.
+/// Nil off the record, where letting go stops it.
+struct NeedleReadout: Equatable {
+    let number: Int
+    let count: Int
+    let title: String?
+    let time: TimeInterval
+    let duration: TimeInterval
+
+    init?(record: RecordOnPlatter, fraction: Double?) {
+        guard let fraction, !record.grooves.durations.isEmpty else { return nil }
+        let position = record.grooves.position(at: fraction)
+        number = position.index + 1
+        count = record.grooves.durations.count
+        title = record.songTitles.indices.contains(position.index) ? record.songTitles[position.index] : nil
+        time = position.time
+        duration = record.grooves.durations[position.index]
+    }
+}

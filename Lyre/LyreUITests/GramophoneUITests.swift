@@ -116,6 +116,10 @@ final class GramophoneUITests: XCTestCase {
         let lowered = NSPredicate(format: "value BEGINSWITH 'On band'")
         XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: lowered, object: arm)], timeout: 6),
                        .completed, "The needle didn't go down: \(arm.value ?? "")")
+        // LYRE-34: the turntable says which band's playing, and how to change songs.
+        let hint = element(app, "gramophone.needle.hint")
+        XCTAssertTrue(hint.waitForExistence(timeout: 3), "The turntable doesn't say how to change songs")
+        XCTAssertTrue(hint.label.contains("Drag the needle"), "Hint was \(hint.label)")
         sleep(1)
         attachScreenshot(app, named: "gramophone-playing")
     }

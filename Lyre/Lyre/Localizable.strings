@@ -131,6 +131,13 @@
 "gramophone.tonearm.noRecord" = "No record";
 "gramophone.tonearm.lift" = "Lift the needle";
 "gramophone.tonearm.lower" = "Lower the needle";
+/* LYRE-34: the song under the needle as it's carried, and how to change songs. */
+"gramophone.needle.band" = "Band %d of %d";
+"gramophone.needle.time" = "From %@ of %@";
+"gramophone.needle.letGo" = "Let go to play from here";
+"gramophone.needle.stop" = "Let go here to stop the record";
+"gramophone.needle.hint" = "Band %d of %d · Drag the needle to change songs";
+"gramophone.needle.hintParked" = "Drag the needle onto the record to play";
 "gramophone.crank" = "Crank";
 "gramophone.crank.hint" = "Wind it a full turn to shuffle all your songs.";
 "gramophone.brake.start" = "START";

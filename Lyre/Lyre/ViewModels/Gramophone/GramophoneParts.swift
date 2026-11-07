@@ -264,6 +264,8 @@ struct RecordOnPlatter: Equatable {
     let currentIndex: Int
     /// Identity, so a new record animates on.
     let id: String
+    /// Each band's song, for the readout as the needle's carried over them (LYRE-34).
+    var songTitles: [String] = []
 
     static func == (lhs: RecordOnPlatter, rhs: RecordOnPlatter) -> Bool {
         lhs.id == rhs.id && lhs.currentIndex == rhs.currentIndex && lhs.grooves == rhs.grooves
@@ -291,6 +293,8 @@ struct TurntableView: View {
 
     /// The arm's angle while a finger carries it.
     @State private var carriedAngle: Double?
+    /// The band under the carried needle, for a tick as it crosses into the next.
+    @State private var carriedBand: Int?
     @State private var dragBegan = false
     @State private var anchor: (time: TimeInterval, date: Date) = (0, .now)
 
@@ -315,6 +319,11 @@ struct TurntableView: View {
             // elements inside it into one, which would leave the arm as big as the
             // whole turntable to VoiceOver.
             .overlay(alignment: .topLeading) { armAccessibility(arm) }
+            // Which song the needle's on, and how to change it; large while the arm's
+            // carried, following the needle band by band (LYRE-34).
+            .overlay(alignment: .top) {
+                needleReadout(arm).animation(.easeOut(duration: 0.18), value: carriedAngle == nil)
+            }
         }
         .onAppear { anchor = (clock.time, .now) }
         .onReceive(clock.$time) { anchor = ($0, .now) }
@@ -471,6 +480,77 @@ struct TurntableView: View {
         .offset(x: radius * 0.13)
     }
 
+    // MARK: The Needle's Song
+
+    /// While the arm's carried: the song under the needle (its band, title and the
+    /// time it would play from), or that letting go there stops the record. At rest: a
+    /// quiet line with the band playing and how to change songs.
+    @ViewBuilder
+    private func needleReadout(_ arm: TonearmGeometry) -> some View {
+        if let record {
+            if let carriedAngle {
+                let readout = NeedleReadout(record: record, fraction: arm.fraction(at: carriedAngle))
+                VStack(spacing: 3) {
+                    if let readout {
+                        Text(String(format: String(localized: "gramophone.needle.band"), readout.number, readout.count).uppercased())
+                            .font(.system(size: 11, weight: .heavy, design: .serif))
+                            .tracking(2)
+                            .foregroundStyle(theme.plateInk.opacity(0.7))
+                        if let title = readout.title {
+                            Text(title)
+                                .font(.system(size: 17, weight: .bold, design: .serif))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                        }
+                        Text(String(format: String(localized: "gramophone.needle.time"),
+                                    AppHelpers.formatTime(readout.time), AppHelpers.formatTime(readout.duration)))
+                            .font(.system(size: 12, design: .serif).monospacedDigit())
+                            .opacity(0.75)
+                        Text(String(localized: "gramophone.needle.letGo"))
+                            .font(.system(size: 11, design: .serif))
+                            .italic()
+                            .opacity(0.65)
+                    } else {
+                        Text(String(localized: "gramophone.needle.stop"))
+                            .font(.system(size: 14, weight: .semibold, design: .serif))
+                    }
+                }
+                .foregroundStyle(SpoolPalette.labelInk)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+                .frame(maxWidth: 300)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(theme.paper)
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.metalDark, lineWidth: 1.5))
+                        .shadow(color: .black.opacity(0.4), radius: 6, y: 3)
+                )
+                .padding(.top, 6)
+                .padding(.horizontal, 16)
+                .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .top)))
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("gramophone.needle.readout")
+                .allowsHitTesting(false)
+            } else {
+                Text(isArmParked ? String(localized: "gramophone.needle.hintParked")
+                     : String(format: String(localized: "gramophone.needle.hint"),
+                              record.currentIndex + 1, record.grooves.durations.count))
+                    .font(.system(size: 11, design: .serif))
+                    .italic()
+                    .foregroundStyle(theme.ink.opacity(0.8))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(.black.opacity(0.28)))
+                    .padding(.top, 6)
+                    .transition(.opacity)
+                    .accessibilityIdentifier("gramophone.needle.hint")
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
     // MARK: Moving the Arm
 
     /// A finger on the arm lifts it and carries it; letting go drops it where it is —
@@ -492,6 +572,12 @@ struct TurntableView: View {
                 }
                 guard carriedAngle != nil else { return }
                 carriedAngle = arm.angle(toward: value.location)
+                // A tick as the needle crosses from one song's band to the next.
+                let band = record.flatMap { record in arm.fraction(at: carriedAngle ?? 0).map { record.grooves.position(at: $0).index } }
+                if band != carriedBand {
+                    if carriedBand != nil || band != nil { UISelectionFeedbackGenerator().selectionChanged() }
+                    carriedBand = band
+                }
             }
             .onEnded { _ in
                 defer { dragBegan = false }
@@ -500,6 +586,7 @@ struct TurntableView: View {
                 // Settle where it was let go, then hand over: the arm then follows the
                 // groove, or goes to its rest.
                 carriedAngle = nil
+                carriedBand = nil
                 onDrop(fraction)
             }
     }
