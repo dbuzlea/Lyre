@@ -225,6 +225,7 @@ struct LyreView: View {
     @State private var artworkCarouselIndex: Int = 0
     @State private var playlistArtworkCarouselIndex: Int = 0
     @State private var podcastArtworkCarouselIndex: Int = 0
+    @State private var listArtworkCarouselIndex: Int = 0
     @State private var showPodcastSearch = false
     /// A play waiting to be confirmed, as it would clear songs queued by hand: a song
     /// chosen with the wheel, or a shake's shuffle.
@@ -403,6 +404,15 @@ struct LyreView: View {
                     selectedIndex: $podcastArtworkCarouselIndex,
                     onDismiss: { dismissArtworkCarousel() },
                     showsBackButton: carouselShowsBack
+                )
+            case .list(let title, let albums):
+                ArtworkCarouselView(
+                    content: .albums(albums),
+                    musicService: musicService,
+                    selectedIndex: $listArtworkCarouselIndex,
+                    onDismiss: { dismissArtworkCarousel() },
+                    showsBackButton: carouselShowsBack,
+                    backTitle: title
                 )
             }
             }
@@ -789,7 +799,8 @@ struct LyreView: View {
         pointCarouselAtNowPlaying()
     }
 
-    /// The classic player opens the carousel for the screen it's on.
+    /// The classic player opens the carousel for the screen it's on: a list of its own
+    /// shows its own covers (LYRE-29), turned to the row that's highlighted.
     private func classicCarouselMode() {
         switch currentScreen {
         case .playlists, .playlistDetail:
@@ -798,6 +809,22 @@ struct LyreView: View {
             artworkCarouselMode = .podcasts
         case .nowPlaying:
             break // preserve last artworkCarouselMode when returning from artwork carousel
+        case .recentlyAdded, .recentlyPlayed:
+            let tracks = currentScreen == .recentlyAdded ? musicService.recentlyAdded : musicService.recentlyPlayed
+            let albums = CarouselCovers.albums(of: tracks, in: musicService.albums)
+            let title = currentScreen == .recentlyAdded
+                ? String(localized: "menu.recentlyAdded") : String(localized: "menu.recentlyPlayed")
+            artworkCarouselMode = .list(title: title, albums: albums)
+            listArtworkCarouselIndex = CarouselCovers.index(of: tracks.indices.contains(songSelection) ? tracks[songSelection] : nil,
+                                                            in: albums) ?? 0
+        case .discover:
+            let sections = Discover.shared.sections
+            guard sections.indices.contains(menuSelection) else { artworkCarouselMode = .albums; return }
+            artworkCarouselMode = .list(title: sections[menuSelection].title, albums: sections[menuSelection].items)
+            listArtworkCarouselIndex = 0
+        case .discoverSection(let section):
+            artworkCarouselMode = .list(title: section.title, albums: section.items)
+            listArtworkCarouselIndex = section.items.indices.contains(detailSelection) ? detailSelection : 0
         default:
             artworkCarouselMode = .albums
         }
@@ -818,6 +845,8 @@ struct LyreView: View {
             if let index = musicService.mergedPodcastShows().firstIndex(where: { $0.title == album.title }) {
                 podcastArtworkCarouselIndex = index
             }
+        case .list(_, let albums):
+            if let index = albums.firstIndex(where: { $0.id == album.id }) { listArtworkCarouselIndex = index }
         }
     }
 
@@ -839,8 +868,10 @@ struct LyreView: View {
                let idx = musicService.mergedPodcastShows().firstIndex(where: { $0.title == showTitle }) {
                 podcastArtworkCarouselIndex = idx
             }
+        case .list:
+            break // turned to the list's highlighted row (classicCarouselMode)
         }
-        logger.info("Artwork Carousel opened: \(String(describing: artworkCarouselMode))")
+        logger.info("Artwork Carousel opened: \(artworkCarouselMode.name)")
         showArtworkCarousel = true
     }
 
@@ -977,6 +1008,18 @@ struct LyreView: View {
 
 private enum ArtworkCarouselMode {
     case albums, playlists, podcasts
+    /// A classic list's own covers (LYRE-29): Recently Added or Played, or a Discover section.
+    case list(title: String, albums: [AppAlbum])
+
+    /// For the log: the kind, without the list's albums.
+    var name: String {
+        switch self {
+        case .albums: "albums"
+        case .playlists: "playlists"
+        case .podcasts: "podcasts"
+        case .list(let title, let albums): "list \(title), \(albums.count) covers"
+        }
+    }
 }
 
 // MARK: - Preview

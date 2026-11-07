@@ -502,6 +502,20 @@
       ],
       "automated_by": ["LyreUITests/GatefoldControlsUITests/testGatefoldLeftPanelControlsRespondToTaps()", "LyreUITests/GatefoldControlsUITests/testGatefoldLeftPanelControlsAreHittable()", "LyreUITests/GatefoldControlsUITests/testLongPressOnClosedCoverQueuesTheRecord()"]
     },
+    {
+      "key": "CLS-08", "suite": "Classic Player", "title": "The Artwork Carousel shows the covers of the list it's opened from (LYRE-29)",
+      "priority": "medium", "severity": "normal", "type": "functional", "behavior": "positive",
+      "preconditions": "Classic player; a library with recently added and played music; an Apple Music subscription for Discover.",
+      "steps": [
+        ["Open Recently Added, highlight a song, and turn the phone to landscape.", "The carousel shows the albums of Recently Added's songs, turned to the highlighted song's album, not all albums."],
+        ["Open an album there and look at its Back button.", "It says Recently Added."],
+        ["Turn upright, open Recently Played, and turn to landscape.", "The carousel shows Recently Played's albums."],
+        ["Turn upright, open Discover, highlight a section, and turn to landscape.", "The carousel shows that section's covers."],
+        ["Turn upright, open the section, highlight its third item, and turn to landscape.", "The carousel shows the section's covers, turned to the third."],
+        ["Turn upright on Albums and turn to landscape.", "The carousel shows all albums, as before."]
+      ],
+      "automated_by": ["LyreTests/CarouselCoversTests/aSongListsCoversAreItsAlbumsOnceInOrder()"]
+    },
 
     {
       "key": "SPL-01", "suite": "Spool Player", "title": "A tape swiped into the deck loads and plays",
