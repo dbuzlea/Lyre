@@ -165,6 +165,24 @@ struct LiquidCatalogSongRow: View {
             Button { PlaylistAdder.shared.offer(.song(song)) } label: {
                 Label(String(localized: "playlist.add.action"), systemImage: "music.note.list")
             }
+            if !isAdded, navigator.librarySong(song) == nil {
+                Button { addSong() } label: {
+                    Label(String(localized: "catalog.offer.add"), systemImage: "plus.circle")
+                }
+            }
+        }
+        // Swiped left, Add to Library, as a streamed song offers in every list.
+        .rowSwipeActions([], trailing: isAdded || navigator.librarySong(song) != nil ? [] : [
+            RowSwipeAction(title: String(localized: "catalog.offer.add"), symbol: "plus.circle",
+                           tint: RowSwipeAction.libraryTint) { addSong() }
+        ])
+    }
+
+    private func addSong() {
+        isAdding = true
+        Task {
+            isAdded = await navigator.addSong(song)
+            isAdding = false
         }
     }
 
@@ -182,13 +200,7 @@ struct LiquidCatalogSongRow: View {
                 .tint(.white)
                 .frame(width: 44, height: 44)
         } else {
-            Button {
-                isAdding = true
-                Task {
-                    isAdded = await navigator.addSong(song)
-                    isAdding = false
-                }
-            } label: {
+            Button { addSong() } label: {
                 Image(systemName: "plus.circle")
                     .font(.system(size: 18))
                     .foregroundStyle(.white.opacity(0.8))

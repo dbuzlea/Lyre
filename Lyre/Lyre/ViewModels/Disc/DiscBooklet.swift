@@ -120,6 +120,7 @@ struct DiscBooklet: View {
         .buttonStyle(.plain)
         .rowSwipeActions(album.isPodcast ? episode.map(RowSwipeAction.download) ?? []
                                          : RowSwipeAction.queue { onQueue([track], $0) },
+                         trailing: album.isPodcast ? [] : RowSwipeAction.library(track),
                          captionColor: SpoolPalette.labelInk.opacity(0.65))
         .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track, episode: episode,
                             onQueue: { tracks, placement in onQueue(tracks, placement) },

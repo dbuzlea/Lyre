@@ -533,6 +533,8 @@ struct LinerRow: Identifiable {
     var download: LinerDownloadMark? = nil
     /// The episode, for a show's rows: marked once it's been heard.
     var episode: PodcastEpisode? = nil
+    /// The song, for a record's rows: one streamed from Apple Music can be added to the library.
+    var track: AppTrack? = nil
 }
 
 /// Where a streamed episode's download stands, as the liner shows it.
@@ -693,7 +695,8 @@ struct LinerPanel: View {
         .buttonStyle(LinerRowButtonStyle(ink: theme.ink))
         // Swiped right, a song offers Play Next and Add to Queue, as every list in Lyre
         // does (a long swipe plays it next); an episode, its download.
-        .rowSwipeActions(swipeActions(for: row), captionColor: theme.ink.opacity(0.6))
+        .rowSwipeActions(swipeActions(for: row), trailing: row.track.map(RowSwipeAction.library) ?? [],
+                         captionColor: theme.ink.opacity(0.6))
         // Touch and hold offers the same. Holding still cannot be mistaken for the
         // list's scroll, the swipe, or a tap.
         .contextMenu {
@@ -713,6 +716,11 @@ struct LinerPanel: View {
                     queue(row, placement: .last)
                 } label: {
                     Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
+                }
+                if let track = row.track, LibraryAdder.shared.canAdd(track) {
+                    Button { LibraryAdder.shared.add(track) } label: {
+                        Label(String(localized: "catalog.offer.add"), systemImage: "plus.circle")
+                    }
                 }
             }
         }

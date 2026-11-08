@@ -365,7 +365,9 @@ struct ArtworkCarouselView: View {
         .background {
             GeometryReader { proxy in
                 Color.clear
-                    .onAppear { screenSize = proxy.size }
+                    // A song added to the library from the liner (LibraryAdder), said over the carousel.
+        .onReceive(LibraryAdder.shared.$notice) { if let notice = $0 { showToast(notice.text) } }
+        .onAppear { screenSize = proxy.size }
                     .onChange(of: proxy.size) { _, newValue in screenSize = newValue }
             }
         }
@@ -1299,7 +1301,8 @@ struct ArtworkCarouselView: View {
                     title: track.title,
                     duration: track.duration,
                     // Matching on identity, not bare title: two albums can share a song name.
-                    isCurrent: isCurrentTrack(track)
+                    isCurrent: isCurrentTrack(track),
+                    track: track
                 )
             }
         }

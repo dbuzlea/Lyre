@@ -463,7 +463,8 @@ struct CassetteCaseView: View {
             .accessibilityValue(matches.contains(index) ? String(localized: "spool.case.searchMatch") : "")
             // Swiped right, a song offers Play Next and Add to Queue, as every list in
             // Lyre does; an episode, its download.
-            .rowSwipeActions(swipeActions(for: track), captionColor: SpoolPalette.labelInk.opacity(0.65))
+            .rowSwipeActions(swipeActions(for: track), trailing: album.isPodcast ? [] : RowSwipeAction.library(track),
+                             captionColor: SpoolPalette.labelInk.opacity(0.65))
             // Holding a song queues it rather than playing it; holding an episode, which
             // plays from the case, offers its download.
             .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track,
@@ -658,6 +659,8 @@ struct QueueMenu: ViewModifier {
     /// Takes the song out of the playlist showing, where it can be (PlaylistAdder).
     var onRemove: (() -> Void)? = nil
     @ObservedObject private var downloads = PodcastDownloads.shared
+    /// So a song just added stops offering to be.
+    @ObservedObject private var libraryAdder = LibraryAdder.shared
 
     func body(content: Content) -> some View {
         if isEnabled {
@@ -670,6 +673,12 @@ struct QueueMenu: ViewModifier {
                 }
                 Button { PlaylistAdder.shared.offer(.track(track)) } label: {
                     Label(String(localized: "playlist.add.action"), systemImage: "music.note.list")
+                }
+                // A song streamed from Apple Music the library hasn't (LibraryAdder).
+                if libraryAdder.canAdd(track) {
+                    Button { libraryAdder.add(track) } label: {
+                        Label(String(localized: "catalog.offer.add"), systemImage: "plus.circle")
+                    }
                 }
                 if let onRemove {
                     Button(role: .destructive, action: onRemove) {

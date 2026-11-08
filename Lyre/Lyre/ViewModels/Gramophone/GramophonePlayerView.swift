@@ -333,6 +333,8 @@ struct GramophonePlayerView: View {
             await showNowPlayingLabel()
         }
         .onChange(of: isArmParked) { syncArm(animated: true) }
+        // A song added to the library from a list, or why it couldn't be (LibraryAdder).
+        .onReceive(LibraryAdder.shared.$notice) { if let notice = $0 { showNotice(notice.text) } }
         .onReceive(musicService.clock.$time) { _ in syncArm(animated: true) }
         .onChange(of: musicService.isPlaying && !reduceMotion, initial: true) { _, spinning in
             stage.setSpinning(spinning)

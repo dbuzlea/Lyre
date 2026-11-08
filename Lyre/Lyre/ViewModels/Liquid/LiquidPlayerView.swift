@@ -191,6 +191,8 @@ struct LiquidPlayerView: View {
         }
         .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
         // Where Liquid is, for the Artwork Carousel to open on when the phone turns.
+        // A song added to the library from a list, or why it couldn't be (LibraryAdder).
+        .onReceive(LibraryAdder.shared.$notice) { if let notice = $0 { showNotice(notice.text) } }
         .onChange(of: path, initial: true) { reportLocation() }
         // Left alone on a Duo stood half open, as the music plays: the visualizer.
         .task(id: foldMonitor.isPartlyOpen && musicService.isPlaying) { await watchForRest() }
