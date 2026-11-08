@@ -699,17 +699,8 @@ struct LiquidGridPage: View {
                             }
                             .padding(.top, 20)
                         } else {
-                            LazyVGrid(columns: LiquidCoverTile.columns(for: gridWidth),
-                                      spacing: 18) {
-                                ForEach(shown) { album in
-                                    Button { open(album, in: shown) } label: {
-                                        LiquidCoverTile(album: album)
-                                    }
-                                    .modifier(LiquidAlbumHoldMenu(album: album))
-                                    .buttonStyle(.plain)
-                                    .id(album.id)
-                                    .accessibilityIdentifier("liquid.cover.\(album.id)")
-                                }
+                            LiquidBubbleGrid(albums: shown, width: gridWidth) { index in
+                                open(shown[index], in: shown)
                             }
                         }
                         if isArtist, query.isEmpty {
@@ -724,6 +715,7 @@ struct LiquidGridPage: View {
                 }
                 .scrollDismissesKeyboard(.immediately)
                 .reportsLiquidCardScroll(card)
+                .modifier(StillWhileScrolling())
 
                 if showsIndex, shown.count >= 12 {
                     LiquidLetterStrip(titles: shown.map(\.title)) { index in
@@ -1171,15 +1163,9 @@ struct LiquidSearchPage: View {
                         Text(section.0.lowercasedKeepingAppleMusic)
                             .font(.system(size: 24, weight: .medium))
                             .foregroundStyle(.white)
-                        LazyVGrid(columns: LiquidCoverTile.columns(for: gridWidth), spacing: 18) {
-                            ForEach(Array(section.1.enumerated()), id: \.element.id) { index, album in
-                                Button { navigator.openDeck(section.1.map { .album($0) }, index, section.0) } label: {
-                                    LiquidCoverTile(album: album)
-                                }
-                                    .modifier(LiquidAlbumHoldMenu(album: album))
-                                    .buttonStyle(.plain)
-                                    .accessibilityIdentifier("liquid.search.cover.\(album.id)")
-                            }
+                        LiquidBubbleGrid(albums: section.1, width: gridWidth,
+                                         identifier: { "liquid.search.cover.\($0.id)" }) { index in
+                            navigator.openDeck(section.1.map { .album($0) }, index, section.0)
                         }
                     }
                 }
@@ -1198,6 +1184,7 @@ struct LiquidSearchPage: View {
             .padding(.bottom, bottomInset + 20)
         }
         .scrollDismissesKeyboard(.immediately)
+        .modifier(StillWhileScrolling())
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)
         .task(id: query) {
@@ -1856,10 +1843,11 @@ struct LiquidDroplet: View {
 /// player. A show's episodes aren't queued, so a show has no menu.
 struct LiquidAlbumHoldMenu: ViewModifier {
     let album: AppAlbum
+    var isEnabled = true
     @Environment(\.liquidNavigator) private var navigator
 
     func body(content: Content) -> some View {
-        if album.isPodcast {
+        if album.isPodcast || !isEnabled {
             content
         } else {
             content.contextMenu {

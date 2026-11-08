@@ -2080,3 +2080,25 @@ struct DiscoverBubbleTests {
         #expect(DiscoverBubbleWeights.recentlyPlayed(albums, songs: []) == [1, 1])
     }
 }
+
+/// Liquid's covers as staggered bubbles: every other column half a row lower, each
+/// bubble as wide as its column allows with room to float.
+struct LiquidBubbleGridTests {
+    @Test func everyOtherColumnIsLowered() {
+        #expect(!LiquidBubbleGrid.isLowered(0))
+        #expect(LiquidBubbleGrid.isLowered(1))
+        #expect(!LiquidBubbleGrid.isLowered(2))
+        #expect(LiquidBubbleGrid.isLowered(3))
+    }
+
+    @Test func aBubbleFitsItsColumnWithRoomToFloat() {
+        for width in [335.0, 402.0, 760.0] as [CGFloat] {
+            let columns = CGFloat(LiquidBubbleGrid.columnCount(for: width))
+            let column = (width - LiquidCoverTile.spacing * (columns - 1)) / columns
+            let side = LiquidBubbleGrid.bubbleSide(for: width)
+            #expect(side < column && side > column * 0.85, "\(width)")
+        }
+        // Before the page has been measured: still a bubble, not nothing.
+        #expect(LiquidBubbleGrid.bubbleSide(for: 0) > 0)
+    }
+}
