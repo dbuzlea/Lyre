@@ -39,6 +39,8 @@ enum LiquidRoute: Hashable {
     case podcasts
     case search
     case discover
+    /// One of Discover's sections, its bubble opened up into a grid.
+    case discoverSection(DiscoverSection)
     case album(AppAlbum)
 }
 
@@ -69,6 +71,8 @@ struct LiquidLibraryView: View {
     @State private var catalogOffer: CatalogOffer?
     /// What's open as a card over the library, if anything (LiquidCardDeck).
     @State private var deck: LiquidDeck?
+    /// For a Discover section's bubble opening into its grid (LiquidDiscover).
+    @Namespace private var discoverZoom
 
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
@@ -89,6 +93,7 @@ struct LiquidLibraryView: View {
                 }
         }
         .tint(.white)
+        .environment(\.liquidDiscoverZoom, discoverZoom)
         // Where Liquid is, for the diagnostics log (no names: a page's kind, a count).
         .onChange(of: path) { _, path in
             Diagnostics.shared.show("Liquid: \(path.last.map(Self.diagnosticName) ?? "menu")")
@@ -230,6 +235,7 @@ struct LiquidLibraryView: View {
         switch route {
         case .album(let album): album.isPodcast ? "show" : album.isMixtape ? "playlist" : "album"
         case .artist: "artist"
+        case .discoverSection: "discover section"
         default: String(describing: route)
         }
     }
@@ -482,6 +488,9 @@ struct LiquidLibraryView: View {
             LiquidSearchPage(library: library, bottomInset: bottomInset)
         case .discover:
             LiquidDiscoverPage(musicService: musicService, bottomInset: bottomInset)
+        case .discoverSection(let section):
+            LiquidDiscoverSectionPage(section: section, bottomInset: bottomInset)
+                .modifier(DiscoverZoomDestination(id: section.id, namespace: discoverZoom))
         case .album(let album):
             LiquidAlbumPage(album: album, library: library, musicService: musicService,
                             onPlay: onPlay, onQueue: onQueue, bottomInset: bottomInset)

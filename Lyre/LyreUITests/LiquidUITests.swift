@@ -776,9 +776,10 @@ final class LiquidUITests: XCTestCase {
         app.alerts["New Playlist"].buttons["Cancel"].tap()
     }
 
-    /// Discover has a blob of its own; its page lists Apple Music's suggestions (here
-    /// placeholders: the simulator has no Apple Music). A cover opens its page, and a
-    /// genre opens as a list of its songs.
+    /// Discover has a blob of its own; its page shows each of Apple Music's sections as
+    /// one bubble of covers (here placeholders: the simulator has no Apple Music). A
+    /// bubble opens into a grid of its section, where a cover opens its page, and a genre
+    /// opens as a list of its songs.
     @MainActor
     func testDiscoverOpensItsCoversAndGenres() throws {
         let app = launchLiquid(["-LiquidShot", "library", "-DiscoverSamples", "YES"])
@@ -786,18 +787,29 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(discover.waitForExistence(timeout: 10), "The lava menu has no Discover")
         attachScreenshot(app, named: "liquid-menu-discover")
         discover.tap()
-        XCTAssertTrue(element(app, "liquid.discover.discover:made:sample").waitForExistence(timeout: 5),
-                      "Discover didn't list Made for You")
-        XCTAssertTrue(element(app, "liquid.discover.discover:genres").exists, "Discover has no genres")
+        let made = element(app, "liquid.discover.discover:made:sample")
+        XCTAssertTrue(made.waitForExistence(timeout: 5), "Discover didn't show Made for You")
         sleep(1)
         attachScreenshot(app, named: "liquid-discover")
+        // Each section is one bubble; nothing else on the page to choose between.
+        XCTAssertFalse(element(app, "liquid.discover.item").exists, "Covers show outside their bubbles")
+        made.descendants(matching: .any)["liquid.discover.bubble"].firstMatch.tap()
+        XCTAssertTrue(element(app, "liquid.discover.section").waitForExistence(timeout: 5), "The bubble didn't open")
+        sleep(1)
+        attachScreenshot(app, named: "liquid-discover-section")
         element(app, "liquid.discover.item").tap()
         XCTAssertTrue(element(app, "liquid.album.track.0").waitForExistence(timeout: 5), "The cover didn't open its page")
         // It opened as a card (LiquidCardDeck), which its chevron closes.
         element(app, "liquid.deck.card.0").descendants(matching: .any)["liquid.back"].firstMatch.tap()
         XCTAssertTrue(element(app, "liquid.deck").waitForNonExistence(timeout: 4), "The card didn't close")
+        // Back to the bubbles, and down to the genres'.
+        element(app, "liquid.back").tap()
+        let genres = element(app, "liquid.discover.discover:genres")
+        for _ in 0..<8 where !genres.exists || !genres.isHittable { app.swipeUp() }
+        XCTAssertTrue(genres.waitForExistence(timeout: 5), "Discover has no genres")
+        genres.descendants(matching: .any)["liquid.discover.bubble"].firstMatch.tap()
         let genre = element(app, "liquid.discover.genre")
-        XCTAssertTrue(genre.waitForExistence(timeout: 5))
+        XCTAssertTrue(genre.waitForExistence(timeout: 5), "The genres' bubble didn't open")
         genre.tap()
         XCTAssertTrue(element(app, "liquid.album.track.0").waitForExistence(timeout: 5), "The genre didn't open its songs")
     }
