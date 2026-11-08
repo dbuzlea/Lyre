@@ -2059,6 +2059,18 @@ struct DiscoverBubbleTests {
         #expect(abs(circles[1].r / circles[0].r - 3) < 0.0001)
     }
 
+    @Test func eachBubbleDriftsItsOwnWayTheSameEachTimeAndUpward() {
+        let a = BubbleFloat.wander("discover:made:1"), b = BubbleFloat.wander("discover:recent")
+        #expect(a == BubbleFloat.wander("discover:made:1"))
+        #expect(a.duration != b.duration || a.dx != b.dx)
+        for seed in ["x", "discover:genres", "album-42"] {
+            let w = BubbleFloat.wander(seed)
+            #expect(w.dy < 0)                                   // up, as a bubble rises
+            #expect(w.duration >= 2.6 && w.duration < 4.3)      // slowly
+            #expect(abs(w.dx) <= 0.6)
+        }
+    }
+
     @Test func recentlyPlayedSizesByTheSongsPlayedFromEachAlbum() {
         let albums = [AppAlbum(id: "a", title: "25", artistName: "Adele"),
                       AppAlbum(id: "b", title: "Blue", artistName: "Joni Mitchell")]
