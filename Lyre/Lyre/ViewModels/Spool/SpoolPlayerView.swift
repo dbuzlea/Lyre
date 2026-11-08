@@ -200,6 +200,8 @@ struct SpoolPlayerView: View {
                     // On an open Duo the case opens over the rack, leaving the deck in view.
                     bounds: foldMonitor.posture == .open && openRackFrame.width > 0 ? openRackFrame : nil,
                     albums: scene.album.isArtist ? library.albums : [],
+                    // The search the tape was found by: its songs that matched are marked.
+                    searchQuery: shelfMatches?.query,
                     // From an artist's case, one of their albums: their case goes back,
                     // the album's opens from the same place.
                     onOpenAlbum: scene.album.isArtist ? { album in
@@ -2129,6 +2131,8 @@ enum SpoolPalette {
     static let keySymbol   = Color(red: 0.149, green: 0.180, blue: 0.212) // #262E36
     static let accent      = Color(red: 0.937, green: 0.525, blue: 0.098) // #EF8619
     static let accentLight = Color(red: 0.984, green: 0.659, blue: 0.259) // #FBA842
+    /// A highlighter pen's yellow, run over a song on the card (LYRE-35).
+    static let highlighter = Color(red: 1.0, green: 0.906, blue: 0.247).opacity(0.55) // #FFE73F
     static let shellTop    = Color(red: 0.165, green: 0.161, blue: 0.180) // #2A292E
     static let shellBottom = Color(red: 0.098, green: 0.094, blue: 0.110) // #19181C
     static let window      = Color(red: 0.055, green: 0.051, blue: 0.063) // #0E0D10

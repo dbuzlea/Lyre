@@ -261,6 +261,7 @@
 "spool.podcast.playLatest" = "Play Latest";
 "spool.podcast.downloaded" = "Downloaded";
 "spool.case.playing" = "Playing";
+"spool.case.searchMatch" = "Matches your search";
 "spool.skipForward" = "Skip Forward 30 Seconds";
 "spool.skipBack" = "Skip Back 15 Seconds";
 "spool.speed" = "Podcast Speed";

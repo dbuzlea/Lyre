@@ -90,6 +90,42 @@ final class SearchUITests: XCTestCase {
                       "Clearing the search did not put the rack back")
     }
 
+    /// LYRE-35: a tape found by one of its songs opens with that song marked, and the
+    /// list at it.
+    @MainActor
+    func testSpoolSearchMarksTheSongFoundInATapesCase() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--uitest", "--uitest-complete-onboarding",
+            "-LyrePlayerStyle", "spool",
+            "-SpoolSampleTapes", "YES",
+            "-LyreSpoolModel", "original",
+            "--spool-reset-rack",
+        ]
+        app.launch()
+        let door = app.descendants(matching: .any)["spool.door"].firstMatch
+        XCTAssertTrue(door.waitForExistence(timeout: 10), "Spool door never appeared")
+        door.tap()
+        let field = app.textFields["shelf.search.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 3), "Rack opened without a search field")
+        dismissLibraryAlert(in: app)
+        field.tap()
+        // Only Sample Tape 4 and 9 have a twelfth song; neither's title says "song".
+        field.typeText("Song 12\n")
+        dismissLibraryAlert(in: app)
+        let tape = app.descendants(matching: .any)["spool.tape.sample-4"].firstMatch
+        XCTAssertTrue(tape.waitForExistence(timeout: 3), "The search didn't find Sample Tape 4")
+        sleep(1)
+        tape.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        let found = app.descendants(matching: .any)["spool.jcard.track.11"].firstMatch
+        XCTAssertTrue(found.waitForExistence(timeout: 5), "The case didn't open at the song found")
+        XCTAssertEqual(found.value as? String, "Matches your search", "The song found isn't marked")
+        let other = app.descendants(matching: .any)["spool.jcard.track.10"].firstMatch
+        XCTAssertNotEqual(other.value as? String, "Matches your search", "A song the search didn't find is marked")
+        sleep(1)
+        attach(app, named: "spool-search-match")
+    }
+
     // MARK: - Gramophone
 
     @MainActor

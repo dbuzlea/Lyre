@@ -69,6 +69,9 @@ struct CassetteCaseView: View {
     /// An artist's case: the library's albums, to show theirs (ArtistAlbums), and what
     /// opens one of them.
     var albums: [AppAlbum] = []
+    /// The search the tape was found by, if any: its songs that match are marked as with
+    /// a highlighter, and the list opens at the first (LYRE-35).
+    var searchQuery: String? = nil
     var onOpenAlbum: ((AppAlbum) -> Void)? = nil
     /// An artist's case: what Apple Music knows of them (ArtistCatalogSections), and
     /// what plays their top songs.
@@ -331,15 +334,22 @@ struct CassetteCaseView: View {
                     .opacity(0.6)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else if scrolls {
-                ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        if album.isArtist, let musicService, let onOpenAlbum, let onPlaySongs {
-                            ArtistCatalogHeader(name: album.title, musicService: musicService, onPlay: onPlaySongs, onOpen: onOpenAlbum)
+                ScrollViewReader { reader in
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            if album.isArtist, let musicService, let onOpenAlbum, let onPlaySongs {
+                                ArtistCatalogHeader(name: album.title, musicService: musicService, onPlay: onPlaySongs, onOpen: onOpenAlbum)
+                            }
+                            rows(tracks, of: tracks)
+                            if album.isArtist, let musicService, let onOpenAlbum {
+                                ArtistCatalogFooter(name: album.title, musicService: musicService, onOpen: onOpenAlbum)
+                            }
                         }
-                        rows(tracks, of: tracks)
-                        if album.isArtist, let musicService, let onOpenAlbum {
-                            ArtistCatalogFooter(name: album.title, musicService: musicService, onOpen: onOpenAlbum)
-                        }
+                    }
+                    // Opens at the first song the search found, a little down from the top.
+                    .onAppear {
+                        guard let first = Self.searchMatches(in: tracks, of: album, query: searchQuery).min() else { return }
+                        reader.scrollTo(first, anchor: UnitPoint(x: 0.5, y: 0.2))
                     }
                 }
             } else {
@@ -383,6 +393,7 @@ struct CassetteCaseView: View {
         let sideB = album.isMixtape ? TapeFormat.sideBreak(in: tracks) : nil
         let episodes = album.podcast?.episodesNewestFirst
         let headings = Dictionary(uniqueKeysWithValues: artistSections(tracks).map { ($0.start, $0) })
+        let matches = Self.searchMatches(in: tracks, of: album, query: searchQuery)
         // By place, not id: a mixtape can carry the same song twice.
         return ForEach(Array(shown.enumerated()), id: \.offset) { index, track in
             if sideB != nil, index == 0 { sideHeading("spool.mixtape.sideA") }
@@ -436,9 +447,20 @@ struct CassetteCaseView: View {
                     }
                 }
                 .padding(.vertical, 9)
+                // A song the search found, marked as with a highlighter pen on the card.
+                .background {
+                    if matches.contains(index) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(SpoolPalette.highlighter)
+                            .padding(.horizontal, -6)
+                            .padding(.vertical, 3)
+                    }
+                }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .id(index)
+            .accessibilityValue(matches.contains(index) ? String(localized: "spool.case.searchMatch") : "")
             // Swiped right, a song offers Play Next and Add to Queue, as every list in
             // Lyre does; an episode, its download.
             .rowSwipeActions(swipeActions(for: track), captionColor: SpoolPalette.labelInk.opacity(0.65))
@@ -464,6 +486,16 @@ struct CassetteCaseView: View {
                 .fill(SpoolPalette.labelInk.opacity(0.12))
                 .frame(height: 1)
         }
+    }
+
+    /// The places of the songs `query` found on `album`. Only when the songs are what
+    /// matched: a tape found by its own title or artist has every song on it, so none
+    /// is marked.
+    static func searchMatches(in tracks: [AppTrack], of album: AppAlbum, query: String?) -> Set<Int> {
+        guard let query else { return [] }
+        let terms = LibrarySearch.terms(query)
+        guard !terms.isEmpty, !LibrarySearch.matches(terms, album.title, album.artistName) else { return [] }
+        return Set(tracks.indices.filter { LibrarySearch.matches(terms, tracks[$0].title, tracks[$0].artistName) })
     }
 
     private func swipeActions(for track: AppTrack) -> [RowSwipeAction] {

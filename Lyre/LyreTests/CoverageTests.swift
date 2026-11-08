@@ -2012,3 +2012,23 @@ struct SideSelectorTests {
         #expect(ABControl.segment(at: 50, segmentWidth: 34, sideCount: 0) == 0)
     }
 }
+
+/// LYRE-35: a tape found by its songs marks them in its case; one found by its own
+/// title or artist marks none, every song on it being a match.
+struct SpoolSearchMarkTests {
+    private let tracks = ["Hello", "Send My Love", "Water Under the Bridge"].enumerated().map { index, title in
+        AppTrack(id: "t\(index)", title: title, artistName: "Adele", albumTitle: "25", duration: 200)
+    }
+    private let album = AppAlbum(id: "25", title: "25", artistName: "Adele")
+
+    @Test func theSongsASearchFoundAreMarked() {
+        #expect(CassetteCaseView.searchMatches(in: tracks, of: album, query: "hello") == [0])
+        #expect(CassetteCaseView.searchMatches(in: tracks, of: album, query: "love") == [1])
+    }
+
+    @Test func aTapeFoundByItsOwnNameMarksNothing() {
+        #expect(CassetteCaseView.searchMatches(in: tracks, of: album, query: "adele").isEmpty)
+        #expect(CassetteCaseView.searchMatches(in: tracks, of: album, query: nil).isEmpty)
+        #expect(CassetteCaseView.searchMatches(in: tracks, of: album, query: "  ").isEmpty)
+    }
+}
