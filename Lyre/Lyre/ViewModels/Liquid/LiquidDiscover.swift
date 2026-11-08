@@ -148,7 +148,7 @@ struct LiquidDiscoverBubble: View {
 }
 
 /// A bubble gives a little under the finger.
-private struct BubblePressStyle: ButtonStyle {
+struct BubblePressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
@@ -258,16 +258,9 @@ struct LiquidDiscoverSectionPage: View {
                     if section.kind == .genres {
                         genres
                     } else {
-                        LazyVGrid(columns: LiquidCoverTile.columns(for: geometry.size.width - 40),
-                                  alignment: .leading, spacing: LiquidCoverTile.spacing) {
-                            ForEach(Array(section.items.enumerated()), id: \.element.id) { index, album in
-                                Button { open(index) } label: {
-                                    LiquidBubbleTile(album: album, diameter: tileSide(in: geometry.size.width - 40))
-                                }
-                                .buttonStyle(BubblePressStyle())
-                                .accessibilityIdentifier("liquid.discover.item")
-                            }
-                        }
+                        LiquidBubbleGrid(albums: section.items, width: geometry.size.width - 40,
+                                         identifier: { _ in "liquid.discover.item" }, holdMenu: false,
+                                         open: open)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -278,12 +271,6 @@ struct LiquidDiscoverSectionPage: View {
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)
         .accessibilityIdentifier("liquid.discover.section")
-    }
-
-    /// A bubble as wide as a column, less a little room round it to float in.
-    private func tileSide(in width: CGFloat) -> CGFloat {
-        let columns = CGFloat(LiquidCoverTile.columnCount(for: width))
-        return ((width - LiquidCoverTile.spacing * (columns - 1)) / columns * 0.9).rounded()
     }
 
     /// A cover opens as a card, the section's others either side of it.
