@@ -23,13 +23,16 @@ struct LiquidSoapBubble<Content: View>: View {
     let diameter: CGFloat
     /// The slow drift of a bubble's outline; for a big one shown alone.
     var wobbles = false
+    /// Drawn as a small one is, without the blurred layers, however big: for bubbles
+    /// inside a bubble, many to a page.
+    var isLight = false
     @ViewBuilder let content: () -> Content
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: Double = 0
 
     /// Under this, a bubble is in a list or a row: no blur, no glow, no wobble.
-    private var isSmall: Bool { diameter < 120 }
+    private var isSmall: Bool { isLight || diameter < 120 }
     private var shape: SoapBubbleShape { SoapBubbleShape(phase: phase, wobble: isSmall ? 0.025 : 0.04) }
 
     var body: some View {

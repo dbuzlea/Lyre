@@ -574,7 +574,7 @@ nonisolated final class UsageStats: @unchecked Sendable {
         guard let screen else { return "other" }
         if screen.contains("card deck") { return "card" }
         if screen.hasSuffix("search") { return "search" }
-        if screen.hasSuffix("discover") { return "discover" }
+        if screen.contains("discover") { return "discover" }
         if screen.hasPrefix("Shelf: ") { return "shelf" }
         if ["Liquid: album", "Liquid: playlist", "Liquid: show", "Liquid: artist"].contains(screen) { return "page" }
         if screen.hasPrefix("Liquid: ") { return screen == "Liquid: menu" ? "menu" : "list" }

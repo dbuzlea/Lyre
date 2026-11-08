@@ -2032,3 +2032,39 @@ struct SpoolSearchMarkTests {
         #expect(CassetteCaseView.searchMatches(in: tracks, of: album, query: "  ").isEmpty)
     }
 }
+
+/// Liquid's Discover as bubbles: covers packed inside a bubble without overlapping, and
+/// in Recently Played as big as the songs played from them.
+struct DiscoverBubbleTests {
+    @Test func coversArePackedInsideTheBubbleWithoutOverlapping() {
+        for count in [1, 2, 5, 9] {
+            let weights = DiscoverBubbleWeights.byPlace(count)
+            let circles = BubblePacking.layout(weights)
+            #expect(circles.count == count)
+            for (i, a) in circles.enumerated() {
+                #expect(hypot(a.x, a.y) + a.r <= BubblePacking.fill + 0.0001, "\(count): \(i) spills out")
+                for b in circles[(i + 1)...] {
+                    #expect(hypot(a.x - b.x, a.y - b.y) >= a.r + b.r - 0.0001, "\(count): overlap")
+                }
+            }
+        }
+        // One alone fills the bubble.
+        #expect(abs(BubblePacking.layout([1])[0].r - BubblePacking.fill) < 0.0001)
+    }
+
+    @Test func aHeavierCoverIsABiggerBubble() {
+        let circles = BubblePacking.layout([1, 9, 4])
+        #expect(circles[1].r > circles[2].r && circles[2].r > circles[0].r)
+        // Area, not radius, follows the weight: nine times the weight, three times across.
+        #expect(abs(circles[1].r / circles[0].r - 3) < 0.0001)
+    }
+
+    @Test func recentlyPlayedSizesByTheSongsPlayedFromEachAlbum() {
+        let albums = [AppAlbum(id: "a", title: "25", artistName: "Adele"),
+                      AppAlbum(id: "b", title: "Blue", artistName: "Joni Mitchell")]
+        let songs = (0..<4).map { AppTrack(id: "s\($0)", title: "S", artistName: "Adele", albumTitle: "25", duration: 1) }
+            + [AppTrack(id: "j", title: "River", artistName: "Joni Mitchell", albumTitle: "Blue", duration: 1)]
+        #expect(DiscoverBubbleWeights.recentlyPlayed(albums, songs: songs) == [5, 2])
+        #expect(DiscoverBubbleWeights.recentlyPlayed(albums, songs: []) == [1, 1])
+    }
+}

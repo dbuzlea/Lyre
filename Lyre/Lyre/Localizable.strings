@@ -864,6 +864,8 @@
 
 /* Discover: what Apple Music offers, in a place of its own in every player (the Liquid lava menu, the DISCOVER shelf, the classic main menu). */
 "discover.title" = "Discover";
+"discover.bubble.count" = "%d items";
+"discover.bubble.hint" = "Opens everything in it";
 "discover.madeForYou" = "Made for You";
 "discover.newReleases" = "New Releases";
 "discover.topPlaylists" = "Top Playlists";

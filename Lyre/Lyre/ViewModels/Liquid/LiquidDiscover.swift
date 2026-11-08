@@ -7,72 +7,276 @@ import SwiftUI
 
 // MARK: - Liquid Discover
 //
-// What Apple Music offers (Discover), on a page of its own from the lava menu: each of
-// Made for You's groups, New Releases and the charts as a row of covers, and the genres
-// as names to tap. A cover opens its page as any album or playlist does; one the library
-// hasn't streams. A genre opens as a playlist of its top songs. Asked for when the page
-// first opens, and filled in a section at a time.
+// What Apple Music offers (Discover), on a page of its own from the lava menu, kept
+// simple: each section (Made for You's groups, Recently Played, New Releases, Replay,
+// the charts, the genres) is one soap bubble with its covers floating inside it as
+// smaller bubbles, and nothing else to choose between. A tap on a bubble opens it up
+// into a grid of everything in the section (LiquidDiscoverSectionPage), zooming out of
+// the bubble where the OS can. In Recently Played a cover's bubble is as big as the
+// songs played from it lately: an album played through is a big one, a song off another
+// a small one. Elsewhere the first few are the biggest, as a section puts its best first.
+//
+// In the grid, a cover opens as a card, the section's others either side of it; one the
+// library hasn't streams; a genre opens as a playlist of its top songs. Asked for when
+// the page first opens, and filled in a section at a time.
 
 struct LiquidDiscoverPage: View {
     @Environment(\.liquidNavigator) private var navigator
+    @Environment(\.liquidDiscoverZoom) private var zoom
     @ObservedObject var musicService: MusicService
     let bottomInset: CGFloat
 
-    private static let coverSide: CGFloat = 140
-
     var body: some View {
         let sections = Discover.shared.sections
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                LiquidPageTitle(title: String(localized: "discover.title"))
-                if sections.isEmpty {
-                    Text(Discover.emptyText)
-                        .foregroundStyle(.white.opacity(0.7))
-                        .accessibilityIdentifier("liquid.discover.empty")
-                }
-                ForEach(sections) { section in
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(section.title.lowercasedKeepingAppleMusic)
-                            .font(.system(size: 24, weight: .medium))
-                            .tracking(-0.6)
-                            .foregroundStyle(.white)
-                            .accessibilityAddTraits(.isHeader)
-                        if section.kind == .genres {
-                            genres(section.items, in: section.title)
-                        } else {
-                            covers(section.items, in: section.title)
-                        }
+        GeometryReader { geometry in
+            let diameter = (min(geometry.size.width - 40, 360) * 0.86).rounded()
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 20) {
+                    LiquidPageTitle(title: String(localized: "discover.title"))
+                    if sections.isEmpty {
+                        Text(Discover.emptyText)
+                            .foregroundStyle(.white.opacity(0.7))
+                            .accessibilityIdentifier("liquid.discover.empty")
                     }
-                    .accessibilityIdentifier("liquid.discover.\(section.id)")
+                    ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
+                        // Left, then right, then left: bubbles drifting down the page.
+                        let side: HorizontalAlignment = index.isMultiple(of: 2) ? .leading : .trailing
+                        VStack(alignment: side, spacing: 10) {
+                            Text(section.title.lowercasedKeepingAppleMusic)
+                                .font(.system(size: 22, weight: .medium))
+                                .tracking(-0.5)
+                                .foregroundStyle(.white)
+                                .accessibilityAddTraits(.isHeader)
+                            Button { navigator.push(.discoverSection(section)) } label: {
+                                LiquidDiscoverBubble(section: section, weights: weights(for: section),
+                                                     diameter: diameter)
+                            }
+                            .buttonStyle(BubblePressStyle())
+                            .modifier(DiscoverZoomSource(id: section.id, namespace: zoom))
+                            .accessibilityLabel(section.title)
+                            .accessibilityValue(String(format: String(localized: "discover.bubble.count"), section.items.count))
+                            .accessibilityHint(String(localized: "discover.bubble.hint"))
+                            .accessibilityIdentifier("liquid.discover.bubble")
+                        }
+                        .frame(maxWidth: .infinity, alignment: index.isMultiple(of: 2) ? .leading : .trailing)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("liquid.discover.\(section.id)")
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, bottomInset + 20)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, bottomInset + 20)
         }
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)
         .task { await Discover.shared.load(in: musicService) }
     }
 
-    /// A cover opens as a card, the section's others either side of it.
-    private func covers(_ items: [AppAlbum], in title: String) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(alignment: .top, spacing: 14) {
-                ForEach(Array(items.enumerated()), id: \.element.id) { index, album in
-                    Button { navigator.openDeck(items.map { .album($0) }, index, title) } label: {
-                        LiquidCoverTile(album: album).frame(width: Self.coverSide)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("liquid.discover.item")
+    /// How big each cover's bubble is: by songs played from it, in Recently Played.
+    private func weights(for section: DiscoverSection) -> [Double] {
+        let items = Array(section.items.prefix(LiquidDiscoverBubble.shown))
+        return section.kind == .recentlyPlayed
+            ? DiscoverBubbleWeights.recentlyPlayed(items, songs: musicService.recentlyPlayed)
+            : DiscoverBubbleWeights.byPlace(items.count)
+    }
+}
+
+// MARK: - A Section's Bubble
+
+/// One soap bubble holding a section's covers as smaller bubbles, packed together.
+struct LiquidDiscoverBubble: View {
+    let section: DiscoverSection
+    let weights: [Double]
+    let diameter: CGFloat
+
+    /// The most covers a bubble holds; the grid has the rest.
+    static let shown = 9
+
+    var body: some View {
+        let items = Array(section.items.prefix(Self.shown))
+        let circles = BubblePacking.pack(Array(weights.prefix(items.count)))
+        let half = diameter / 2
+        LiquidSoapBubble(diameter: diameter) {
+            ZStack {
+                Color.white.opacity(0.05)
+                ForEach(Array(zip(items, circles).enumerated()), id: \.element.0.id) { _, pair in
+                    let (item, circle) = pair
+                    mini(item, diameter: (CGFloat(circle.r) * diameter).rounded())
+                        .position(x: half + CGFloat(circle.x) * half, y: half + CGFloat(circle.y) * half)
                 }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func mini(_ item: AppAlbum, diameter: CGFloat) -> some View {
+        LiquidSoapBubble(diameter: diameter, isLight: true) {
+            if section.kind == .genres {
+                // A genre has no cover until it's opened: its name on a colour of its own.
+                ZStack {
+                    LinearGradient(colors: [Self.colour(for: item.title), Self.colour(for: item.title).opacity(0.55)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Text(item.title)
+                        .font(.system(size: min(20, max(9, diameter * 0.15)), weight: .semibold))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.6)
+                        .padding(diameter * 0.16)
+                }
+            } else {
+                LiquidCover(source: .album(item))
             }
         }
     }
 
-    private func genres(_ items: [AppAlbum], in title: String) -> some View {
+    /// A colour that's always the same for a name.
+    static func colour(for name: String) -> Color {
+        let hash = name.unicodeScalars.reduce(UInt32(5381)) { ($0 &* 33) &+ $1.value }
+        return Color(hue: Double(hash % 360) / 360, saturation: 0.55, brightness: 0.62)
+    }
+}
+
+/// A bubble gives a little under the finger.
+private struct BubblePressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Sizes and Packing
+
+nonisolated enum DiscoverBubbleWeights {
+    /// Recently Played: each album as big as the songs played from it lately (one
+    /// played without any of its songs counted still gets a bubble).
+    static func recentlyPlayed(_ items: [AppAlbum], songs: [AppTrack]) -> [Double] {
+        var counts: [String: Int] = [:]
+        for song in songs { counts[key(song.albumTitle), default: 0] += 1 }
+        return items.map { 1 + Double(counts[key($0.title)] ?? 0) }
+    }
+
+    /// Anywhere else: the first biggest, as a section puts its best first.
+    static func byPlace(_ count: Int) -> [Double] {
+        (0..<count).map { 1 + Double(count - $0) * 0.3 }
+    }
+
+    private static func key(_ title: String) -> String { TapeFormat.displayTitle(title).lowercased() }
+}
+
+/// Circles packed inside a circle: given each one's weight (its area), where it goes and
+/// how big it is, in a unit circle (radius 1, centred on 0). The biggest goes in the
+/// middle and the rest spiral out round it, each where it first fits, then the whole is
+/// centred and scaled to fill the bubble.
+nonisolated enum BubblePacking {
+    struct Circle: Equatable {
+        let x: Double
+        let y: Double
+        let r: Double
+    }
+
+    /// The share of the bubble's radius the packed circles fill, leaving a rim of film.
+    static let fill = 0.84
+
+    @MainActor private static var cache: [[Double]: [Circle]] = [:]
+
+    /// The layout for `weights`, worked out once for each set of weights (a section
+    /// redraws as covers load, and packing is the costly part).
+    @MainActor static func pack(_ weights: [Double]) -> [Circle] {
+        if let known = cache[weights] { return known }
+        let circles = layout(weights)
+        if cache.count > 64 { cache.removeAll() }
+        cache[weights] = circles
+        return circles
+    }
+
+    static func layout(_ weights: [Double], gap: Double = 0.07) -> [Circle] {
+        guard !weights.isEmpty else { return [] }
+        let radii = weights.map { sqrt(max($0, 0.01)) }
+        let order = radii.indices.sorted { radii[$0] > radii[$1] || (radii[$0] == radii[$1] && $0 < $1) }
+        let unit = radii[order[0]]
+        var placed: [Int: Circle] = [:]
+        for index in order {
+            let r = radii[index]
+            guard !placed.isEmpty else {
+                placed[index] = Circle(x: 0, y: 0, r: r)
+                continue
+            }
+            // Out along a spiral until it touches nothing.
+            var step = 0.0
+            while true {
+                let angle = step * 0.5 + Double(index) * 1.7
+                let distance = step * 0.02 * unit
+                let x = distance * cos(angle), y = distance * sin(angle)
+                let fits = placed.values.allSatisfy { hypot($0.x - x, $0.y - y) >= $0.r + r + gap * unit }
+                if fits || step > 4000 {
+                    placed[index] = Circle(x: x, y: y, r: r)
+                    break
+                }
+                step += 1
+            }
+        }
+        // Centred on the middle of what's been packed, and scaled to fill the bubble.
+        let circles = placed.values
+        let minX = circles.map { $0.x - $0.r }.min() ?? 0, maxX = circles.map { $0.x + $0.r }.max() ?? 0
+        let minY = circles.map { $0.y - $0.r }.min() ?? 0, maxY = circles.map { $0.y + $0.r }.max() ?? 0
+        let cx = (minX + maxX) / 2, cy = (minY + maxY) / 2
+        let reach = circles.map { hypot($0.x - cx, $0.y - cy) + $0.r }.max() ?? 1
+        let scale = fill / max(reach, 0.0001)
+        return weights.indices.map { index in
+            let c = placed[index]!
+            return Circle(x: (c.x - cx) * scale, y: (c.y - cy) * scale, r: c.r * scale)
+        }
+    }
+}
+
+// MARK: - A Section, Opened
+
+/// A section's bubble opened up: everything in it, as a grid of covers (the genres as
+/// names to tap).
+struct LiquidDiscoverSectionPage: View {
+    @Environment(\.liquidNavigator) private var navigator
+    let section: DiscoverSection
+    let bottomInset: CGFloat
+
+    var body: some View {
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    LiquidPageTitle(title: section.title.lowercasedKeepingAppleMusic)
+                    if section.kind == .genres {
+                        genres
+                    } else {
+                        LazyVGrid(columns: LiquidCoverTile.columns(for: geometry.size.width - 40),
+                                  alignment: .leading, spacing: LiquidCoverTile.spacing) {
+                            ForEach(Array(section.items.enumerated()), id: \.element.id) { index, album in
+                                Button { open(index) } label: { LiquidCoverTile(album: album) }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("liquid.discover.item")
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, bottomInset + 20)
+            }
+        }
+        .background(LiquidPageGround())
+        .toolbar(.hidden, for: .navigationBar)
+        .accessibilityIdentifier("liquid.discover.section")
+    }
+
+    /// A cover opens as a card, the section's others either side of it.
+    private func open(_ index: Int) {
+        navigator.openDeck(section.items.map { .album($0) }, index, section.title)
+    }
+
+    private var genres: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], alignment: .leading, spacing: 10) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, genre in
-                Button { navigator.openDeck(items.map { .album($0) }, index, title) } label: {
+            ForEach(Array(section.items.enumerated()), id: \.element.id) { index, genre in
+                Button { open(index) } label: {
                     Text(genre.title)
                         .font(.system(size: 15, weight: .medium))
                         .lineLimit(1)
@@ -85,6 +289,47 @@ struct LiquidDiscoverPage: View {
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("liquid.discover.genre")
             }
+        }
+    }
+}
+
+// MARK: - The Zoom
+
+/// The namespace a section's bubble and its opened page share, for the zoom between
+/// them (iOS 18 on; a plain push before).
+private struct LiquidDiscoverZoomKey: EnvironmentKey {
+    static let defaultValue: Namespace.ID? = nil
+}
+
+extension EnvironmentValues {
+    var liquidDiscoverZoom: Namespace.ID? {
+        get { self[LiquidDiscoverZoomKey.self] }
+        set { self[LiquidDiscoverZoomKey.self] = newValue }
+    }
+}
+
+struct DiscoverZoomSource: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), let namespace {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
+    }
+}
+
+struct DiscoverZoomDestination: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), let namespace {
+            content.navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            content
         }
     }
 }

@@ -205,7 +205,7 @@ final class LiquidLocation {
         case .album(let opened):
             shelf = opened.isPodcast ? .podcasts : opened.isMixtape ? .playlists : .albums
             album = opened
-        case .search, .discover:
+        case .search, .discover, .discoverSection:
             shelf = nil
             album = nil
         }
