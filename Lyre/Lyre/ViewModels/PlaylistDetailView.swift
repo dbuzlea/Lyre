@@ -162,21 +162,20 @@ struct PlaylistDetailView: View {
         .accessibilityIdentifier("playlist.edit.row")
     }
 
-    @ViewBuilder
+    /// The playlist, with its songs once they've loaded, for the collage.
+    private var coverPlaylist: AppPlaylist {
+        guard playlist.preloadedTracks.isEmpty, !tracks.isEmpty else { return playlist }
+        var copy = playlist
+        copy.preloadedTracks = tracks
+        return copy
+    }
+
+    /// The playlist's cover as every other player shows it (LYRE-36): a collage of its
+    /// songs' covers, which a playlist without artwork of its own still has.
     private var artworkView: some View {
-        if let artwork = playlist.musicKitPlaylist?.artwork {
-            ArtworkImage(artwork, width: 50).cornerRadius(4)
-        } else {
-            LocalArtworkImage(cacheKey: playlist.id, size: 50, artwork: playlist.mpArtwork) { image in
-                image.resizable().frame(width: 50, height: 50).cornerRadius(4)
-            } placeholder: {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(themeSettings.currentTheme.highlightColor.opacity(0.3))
-                    .frame(width: 50, height: 50)
-                    .overlay { Image(systemName: "music.note.list").font(.system(size: 20))
-                        .foregroundStyle(themeSettings.currentTheme.highlightTextColor) }
-            }
-        }
+        LiquidCover(source: .album(AppAlbum(mixtape: coverPlaylist)))
+            .frame(width: 50, height: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
     private func loadTracks() async {
