@@ -26,9 +26,15 @@ struct LiquidSoapBubble<Content: View>: View {
     /// Drawn as a small one is, without the blurred layers, however big: for bubbles
     /// inside a bubble, many to a page.
     var isLight = false
+    /// Drawn as one picture, all its layers in a single GPU pass, rather than each of its
+    /// blends, masks and blurs an offscreen pass of its own: for bubbles many to a page,
+    /// floating, where the passes otherwise run to hundreds a frame.
+    var flattens = false
     @ViewBuilder let content: () -> Content
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Held still a while (a page scrolling): the wobble settles, and starts again after.
+    @Environment(\.liquidBubblesStill) private var isHeldStill
     @State private var phase: Double = 0
 
     /// Under this, a bubble is in a list or a row: no blur, no glow, no wobble.
@@ -89,7 +95,7 @@ struct LiquidSoapBubble<Content: View>: View {
                 .blendMode(.screen)
         }
         .frame(width: diameter, height: diameter)
-        .compositingGroup()
+        .modifier(BubbleFlattening(flattens: flattens))
         // A faint glow on the page round it, and its shadow.
         .background {
             if !isSmall {
@@ -100,10 +106,20 @@ struct LiquidSoapBubble<Content: View>: View {
             }
         }
         .shadow(color: .black.opacity(0.45), radius: diameter / 14, y: diameter / 28)
-        .onAppear {
-            guard wobbles, !isSmall, !reduceMotion else { return }
-            withAnimation(.linear(duration: 9).repeatForever(autoreverses: false)) { phase = 2 * .pi }
-        }
+        .onAppear { if !isHeldStill { wobble() } }
+        .onChange(of: isHeldStill) { _, still in still ? settle() : wobble() }
+    }
+
+    private func wobble() {
+        guard wobbles, !isSmall, !reduceMotion else { return }
+        // From round each time, so starting again after a pause doesn't jump.
+        withTransaction(Transaction(animation: nil)) { phase = 0 }
+        withAnimation(.linear(duration: 9).repeatForever(autoreverses: false)) { phase = 2 * .pi }
+    }
+
+    private func settle() {
+        guard wobbles, !isSmall else { return }
+        withAnimation(.easeOut(duration: 0.25)) { phase = 0 }
     }
 
     /// A band of rainbow colour on the film round the top, fading out down the sides.
@@ -164,5 +180,19 @@ struct SoapBubbleShape: Shape {
         }
         path.closeSubpath()
         return path
+    }
+}
+
+/// One picture (drawingGroup: rendered once, then moved as a whole while it floats), or
+/// the usual compositing group.
+private struct BubbleFlattening: ViewModifier {
+    let flattens: Bool
+
+    func body(content: Content) -> some View {
+        if flattens {
+            content.drawingGroup()
+        } else {
+            content.compositingGroup()
+        }
     }
 }
