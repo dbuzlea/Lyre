@@ -36,6 +36,8 @@ struct LyreScreenView: View {
     /// What's typed on the Search screen, and what it found (see LibrarySearch).
     var searchQuery: Binding<String> = .constant("")
     var searchResults: [LibrarySearchResult] = []
+    /// Now Playing held: opens what's playing, as holding it does in every player.
+    var onHoldNowPlaying: () -> Void = {}
 
     private var showNowPlayingFooter: Bool {
         switch currentScreen {
@@ -71,6 +73,8 @@ struct LyreScreenView: View {
                         MainMenuView(selection: $menuSelection, themeSettings: themeSettings)
                     case .nowPlaying:
                         NowPlayingView(musicService: musicService, themeSettings: themeSettings, selection: $menuSelection)
+                            .contentShape(Rectangle())
+                            .onLongPressGesture(minimumDuration: 0.5) { onHoldNowPlaying() }
                     case .queue:
                         QueueView(
                             musicService: musicService,

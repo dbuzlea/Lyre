@@ -197,6 +197,26 @@ struct ShelfLibrary {
         return await musicService.play(tracks: tracks, startingAt: index, playlistID: album.mixtape?.id)
     }
 
+    /// What's playing, as a record of the library's to open on a hold, the same in every
+    /// player: the show playing, else the playlist it was started from (the library's,
+    /// or one of Discover's), else the song's own album. A song started from a list the
+    /// library doesn't keep (Songs, a search, a smart list) opens its album, not nothing.
+    var playingAlbum: AppAlbum? {
+        if let show = musicService.currentPodcastShowTitle, let podcast = podcasts.first(where: { $0.title == show }) {
+            return podcast
+        }
+        if let playlist = musicService.currentPlaylistID {
+            if let mixtape = mixtapes.first(where: { $0.mixtape?.id == playlist }) { return mixtape }
+            if let mixtape = Discover.shared.sections.lazy.flatMap(\.items).first(where: { $0.mixtape?.id == playlist }) {
+                return mixtape
+            }
+        }
+        guard let track = musicService.nowPlayingTrack else { return nil }
+        let title = TapeFormat.displayTitle(track.albumTitle)
+        let matches = albums.filter { $0.tapeTitle == title }
+        return matches.first { $0.artistName == track.artistName } ?? matches.first
+    }
+
     /// Whether `track`, playing now, came off `album`: a mixtape by the playlist that's
     /// playing, a show by its title, an album by the song's album.
     func isPlaying(_ track: AppTrack, from album: AppAlbum) -> Bool {

@@ -1962,3 +1962,23 @@ struct CarouselCoversTests {
         #expect(CarouselCovers.albums(of: [], in: library).isEmpty)
     }
 }
+
+/// Holding what's playing opens it, the same in every player: the playlist it came
+/// from where the library has it, else the song's own album.
+@MainActor
+struct PlayingAlbumTests {
+    @Test func aSongFromAListTheLibraryDoesntKeepOpensItsAlbum() {
+        let service = MusicService()
+        let nineteen = AppAlbum(id: "a19", title: "19", artistName: "Adele")
+        service.albums = [AppAlbum(id: "a21", title: "21", artistName: "Adele"), nineteen]
+        service.currentTrack = AppTrack(id: "t", title: "Make You Feel My Love", artistName: "Adele",
+                                        albumTitle: "19", duration: 212)
+        // Started from Songs (a smart list the library doesn't keep): the album, not nothing.
+        service.currentPlaylistID = "smart:songs"
+        #expect(ShelfLibrary(musicService: service).playingAlbum?.id == "a19")
+        service.currentPlaylistID = nil
+        #expect(ShelfLibrary(musicService: service).playingAlbum?.id == "a19")
+        service.currentTrack = nil
+        #expect(ShelfLibrary(musicService: service).playingAlbum == nil)
+    }
+}

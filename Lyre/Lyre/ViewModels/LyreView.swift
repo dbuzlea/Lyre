@@ -504,7 +504,8 @@ struct LyreView: View {
                     queueMoveOffset: queueMoveOffset,
                     banner: banner,
                     searchQuery: $searchQuery,
-                    searchResults: searchResults
+                    searchResults: searchResults,
+                    onHoldNowPlaying: openPlayingAlbum
                 )
                 .frame(width: displayedLayout(in: containerSize).dimensions.width,
                        height: displayedLayout(in: containerSize).dimensions.height)
@@ -913,6 +914,23 @@ struct LyreView: View {
             menuSelection = 0
             songSelection = 0
             detailSelection = 0
+        }
+    }
+
+    /// Now Playing held: the album, playlist or show playing, as holding what's playing
+    /// opens it in every player.
+    private func openPlayingAlbum() {
+        guard let album = ShelfLibrary(musicService: musicService).playingAlbum else {
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.4)
+            return
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        if let show = album.podcast {
+            navigateTo(.podcastDetail(show))
+        } else if let playlist = album.mixtape, let mine = musicService.playlists.first(where: { $0.id == playlist.id }) {
+            navigateTo(.playlistDetail(mine))
+        } else {
+            navigateTo(.albumDetail(album))
         }
     }
 

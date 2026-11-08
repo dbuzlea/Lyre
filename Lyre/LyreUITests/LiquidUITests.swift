@@ -88,6 +88,22 @@ final class LiquidUITests: XCTestCase {
         XCTAssertFalse(nowPlaying.exists)
     }
 
+    /// Holding the middle of Now Playing opens the album playing, as holding what's
+    /// playing does in every player.
+    @MainActor
+    func testHoldingNowPlayingOpensTheAlbumPlaying() throws {
+        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let nowPlaying = element(app, "liquid.nowPlaying")
+        XCTAssertTrue(nowPlaying.waitForExistence(timeout: 10))
+        let dismiss = app.alerts.buttons["Dismiss"]
+        if dismiss.waitForExistence(timeout: 5) { dismiss.tap() }
+        sleep(1)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).press(forDuration: 1.2)
+        XCTAssertTrue(element(app, "liquid.album.play").waitForExistence(timeout: 5),
+                      "Holding Now Playing didn't open the album playing")
+        attachScreenshot(app, named: "liquid-hold-opens-album")
+    }
+
     @MainActor
     func testPullingUpNextUpRaisesItLikeASheet() throws {
         let app = launchLiquid(["-LiquidShot", "nowPlaying"])
