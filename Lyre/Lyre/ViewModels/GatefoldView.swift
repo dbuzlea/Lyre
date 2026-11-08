@@ -811,6 +811,8 @@ struct ABControl: View {
     @State private var dragSegment: CGFloat?
 
     private let trackHeight: CGFloat = 28
+    /// Touches are measured along the track, wherever on the control they land.
+    private static let trackSpace = "ABControl.track"
 
     private var segmentWidth: CGFloat {
         guard sideCount > 0 else { return 34 }
@@ -845,6 +847,7 @@ struct ABControl: View {
                 }
             }
             .frame(width: trackWidth, height: trackHeight)
+            .coordinateSpace(.named(Self.trackSpace))
             // Only the settled position animates. Drag updates move the knob straight
             // to the finger, which is the whole point of dragging it.
             .animation(reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.86),
@@ -856,12 +859,19 @@ struct ABControl: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
         }
-        .frame(height: 44)
-        .contentShape(Rectangle())
+        // LYRE-37: the whole foot of the liner takes the touch, not just the track (68
+        // points wide on a two-sided record), and a finger above or below it still counts.
+        .frame(width: max(trackWidth, maxWidth), height: 44)
+        // Ten points more above and below than it's drawn, without taking that room
+        // from the track list over it.
+        .contentShape(Rectangle().inset(by: -10))
         // One gesture covers both jobs: a touch that never moves commits the segment it
-        // landed on, and a drag carries the knob and commits wherever it is let go.
+        // landed on, and a drag carries the knob and commits wherever it is let go. The
+        // touch is measured along the track itself: the control is wider than the track
+        // (its hint, and now the touch area), so measuring from the control's own edge
+        // put the knob segments away from the finger.
         .gesture(
-            DragGesture(minimumDistance: 0)
+            DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.trackSpace))
                 .onChanged { value in
                     dragSegment = segment(at: value.location.x)
                 }
@@ -886,6 +896,12 @@ struct ABControl: View {
 
     /// Converts a touch position along the track into a segment, clamped to the ends.
     private func segment(at x: CGFloat) -> CGFloat {
+        Self.segment(at: x, segmentWidth: segmentWidth, sideCount: sideCount)
+    }
+
+    /// A touch `x` points along the track, as a segment: past either end, the end one.
+    static func segment(at x: CGFloat, segmentWidth: CGFloat, sideCount: Int) -> CGFloat {
+        guard sideCount > 0, segmentWidth > 0 else { return 0 }
         let raw = (x - segmentWidth / 2) / segmentWidth
         return min(max(0, raw), CGFloat(sideCount - 1))
     }

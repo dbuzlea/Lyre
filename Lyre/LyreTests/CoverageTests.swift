@@ -1998,3 +1998,17 @@ struct ClassicCoverTests {
         #expect(AlbumDetailView.coverAlbum(mix, tracks: []).preloadedTracks.isEmpty)
     }
 }
+
+/// LYRE-37: the gatefold's side selector takes a touch anywhere along its foot, each
+/// place along the track meaning the side under it, and past either end the end side.
+struct SideSelectorTests {
+    @Test func aTouchAlongTheTrackChoosesTheSideUnderIt() {
+        // Two sides of 34 points: A from 0 to 34, B from 34 to 68.
+        #expect(ABControl.segment(at: 10, segmentWidth: 34, sideCount: 2).rounded() == 0)
+        #expect(ABControl.segment(at: 55, segmentWidth: 34, sideCount: 2).rounded() == 1)
+        // Out past the ends of the track, in the wider touch area: the end sides.
+        #expect(ABControl.segment(at: -60, segmentWidth: 34, sideCount: 2) == 0)
+        #expect(ABControl.segment(at: 200, segmentWidth: 34, sideCount: 2) == 1)
+        #expect(ABControl.segment(at: 50, segmentWidth: 34, sideCount: 0) == 0)
+    }
+}
