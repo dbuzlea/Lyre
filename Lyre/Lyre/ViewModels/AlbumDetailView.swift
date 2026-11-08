@@ -142,21 +142,22 @@ struct AlbumDetailView: View {
         }
     }
 
-    @ViewBuilder
+    /// The album, with its songs once they've loaded, for a mix whose collage needs them.
+    private var coverAlbum: AppAlbum { Self.coverAlbum(album, tracks: tracks) }
+
+    static func coverAlbum(_ album: AppAlbum, tracks: [AppTrack]) -> AppAlbum {
+        guard var mixtape = album.mixtape, album.preloadedTracks.isEmpty, !tracks.isEmpty else { return album }
+        mixtape.preloadedTracks = tracks
+        return AppAlbum(mixtape: mixtape)
+    }
+
+    /// The cover, found wherever the album keeps one, as every other player finds it
+    /// (LYRE-36): its own, a Discover playlist's, or a collage of its songs' covers for
+    /// a mix, chart, genre or Replay, which have no cover of their own.
     private var artworkView: some View {
-        if let artwork = album.musicKitAlbum?.artwork {
-            ArtworkImage(artwork, width: 50).cornerRadius(4)
-        } else {
-            LocalArtworkImage(cacheKey: album.id, size: 50, artwork: album.mpArtwork) { image in
-                image.resizable().frame(width: 50, height: 50).cornerRadius(4)
-            } placeholder: {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(themeSettings.currentTheme.screenTextColor.opacity(0.1))
-                    .frame(width: 50, height: 50)
-                    .overlay { Image(systemName: "music.note").font(.system(size: 20))
-                        .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.3)) }
-            }
-        }
+        LiquidCover(source: .album(coverAlbum))
+            .frame(width: 50, height: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
     private func loadTracks() async {

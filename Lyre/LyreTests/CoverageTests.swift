@@ -1982,3 +1982,19 @@ struct PlayingAlbumTests {
         #expect(ShelfLibrary(musicService: service).playingAlbum == nil)
     }
 }
+
+/// LYRE-36: the classic player's album and playlist pages find a cover where the album
+/// keeps one; a mix (Discover's charts, genres, Replay) gets its songs for a collage.
+struct ClassicCoverTests {
+    @Test func aMixWithoutItsSongsGetsThemForItsCollage() {
+        let song = AppTrack(id: "s", title: "Song", artistName: "A", albumTitle: "Album", duration: 200)
+        let mix = AppAlbum(mixtape: AppPlaylist(id: "discover:genre:21", name: "Rock"))
+        #expect(mix.preloadedTracks.isEmpty)
+        let cover = AlbumDetailView.coverAlbum(mix, tracks: [song])
+        #expect(cover.preloadedTracks.map(\.id) == ["s"])
+        #expect(cover.isMixtape)
+        let album = AppAlbum(id: "a", title: "Album", artistName: "A")
+        #expect(AlbumDetailView.coverAlbum(album, tracks: [song]).id == "a")
+        #expect(AlbumDetailView.coverAlbum(mix, tracks: []).preloadedTracks.isEmpty)
+    }
+}
