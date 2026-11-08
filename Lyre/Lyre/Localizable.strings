@@ -892,8 +892,6 @@
 "playlist.remove.done" = "Removed “%@” from the playlist.";
 "playlist.remove.notLyres" = "Apple only lets Lyre change playlists made in Lyre.";
 "playlist.remove.changed" = "The playlist has changed since it was opened. Open it again and try once more.";
-/* Discover: a station (made for the listener, or played lately), as its card says who made it. */
-"discover.station" = "Apple Music Radio";
 /* Discover: the listener's Apple Music Replay. %d: the year. */
 "discover.replay" = "Replay";
 "discover.replay.year" = "Replay %d";

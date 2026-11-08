@@ -18,7 +18,7 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   Made for You     Apple Music's recommendations for the listener, a section per
 //                    group; they learn from what's played and favourited (Loves) in
 //                    Lyre too, since Lyre plays through Apple Music
-//   Recently Played  the albums, playlists and stations played lately, on any device
+//   Recently Played  the albums and playlists played lately, on any device
 //   New Releases     the latest releases of the artists played most (those the library
 //                    has most of, before anything's been played), from the past year,
 //                    newest first
@@ -29,8 +29,8 @@ private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category:
 //   Genres           each of Apple Music's genres as a mixtape of its top songs, filled
 //                    in when it's opened (`tracks(forGenre:in:)`)
 //
-// A station is a mixtape of one: the station itself, which streams by its ID as any
-// Apple Music song does, so every player plays it as it plays a playlist.
+// Apple Music's radio stations are left out, wherever it offers them: Lyre plays
+// records, and a station has no songs of its own to show or queue.
 //
 // Everything is an AppAlbum, as the shelves hold: an album (the library's copy where it
 // has one, else the catalogue's, which streams), or a playlist as a mixtape. Asked for
@@ -187,7 +187,7 @@ final class Discover {
                     switch item {
                     case .album(let album): return Self.album(album, library: library)
                     case .playlist(let playlist): return Self.mixtape(playlist)
-                    case .station(let station): return Self.station(station)
+                    case .station: return nil
                     @unknown default: return nil
                     }
                 }
@@ -204,7 +204,7 @@ final class Discover {
 
     // MARK: Recently Played
 
-    /// The albums, playlists and stations played lately, on any of the listener's devices.
+    /// The albums and playlists played lately, on any of the listener's devices.
     private func recentlyPlayed(library: [String: AppAlbum]) async -> [DiscoverSection] {
         do {
             var request = MusicRecentlyPlayedContainerRequest()
@@ -213,7 +213,7 @@ final class Discover {
                 switch item {
                 case .album(let album): return Self.album(album, library: library)
                 case .playlist(let playlist): return Self.mixtape(playlist)
-                case .station(let station): return Self.station(station)
+                case .station: return nil
                 @unknown default: return nil
                 }
             }
@@ -427,19 +427,6 @@ final class Discover {
     nonisolated static func mixtape(_ playlist: Playlist) -> AppAlbum {
         AppAlbum(mixtape: AppPlaylist(from: playlist))
     }
-
-    /// A station, as a mixtape of one: the station, which streams by its ID.
-    nonisolated static func station(_ station: Station) -> AppAlbum {
-        let id = station.id.rawValue
-        let track = AppTrack(id: stationPlaylistID(id), title: station.name,
-                             artistName: station.stationProviderName ?? String(localized: "discover.station"),
-                             albumTitle: "", duration: 0, storeID: id)
-        return AppAlbum(mixtape: AppPlaylist(id: stationPlaylistID(id), name: station.name,
-                                             curatorName: String(localized: "discover.station"),
-                                             preloadedTracks: [track]))
-    }
-
-    nonisolated static func stationPlaylistID(_ id: String) -> String { "station:" + id }
 
     /// A catalogue song: the library's copy, else streamed.
     private static func track(_ song: Song, in musicService: MusicService) -> AppTrack {

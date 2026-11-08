@@ -1432,7 +1432,7 @@ struct PlaylistEditingTests {
 }
 
 /// What the MusicKit review asked of Lyre: Apple Music's name as Apple writes it, a
-/// favourite rather than a love, Apple Music's own history, stations, Replay and clean
+/// favourite rather than a love, Apple Music's own history, Replay and clean
 /// versions.
 @MainActor
 struct MusicKitIntegrationTests {
@@ -1470,7 +1470,7 @@ struct MusicKitIntegrationTests {
 
     @Test func lyresOwnPlaylistsArentTheLibrarys() {
         #expect(AppPlaylist(id: "p.123", name: "Mine").isLibrary)
-        for id in ["pl.abc", "smart:mostPlayed", "discover:genre:21", "discover:replay:songs", "station:ra.1"] {
+        for id in ["pl.abc", "smart:mostPlayed", "discover:genre:21", "discover:replay:songs"] {
             #expect(!AppPlaylist(id: id, name: id).isLibrary, "\(id)")
         }
     }
