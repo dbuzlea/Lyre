@@ -190,6 +190,8 @@ struct DiscPlayerView: View {
         }
         .replaceQueuePrompt($pendingPlay, count: musicService.listenerQueuedCount)
         // A new song, or a new episode streaming: the disc going on is now playing.
+        // A song added to the library from a list, or why it couldn't be (LibraryAdder).
+        .onReceive(LibraryAdder.shared.$notice) { if let notice = $0 { showNotice(notice.text) } }
         .onChange(of: musicService.currentTrack?.id ?? musicService.currentEpisode?.id) {
             pendingDisc = nil
         }

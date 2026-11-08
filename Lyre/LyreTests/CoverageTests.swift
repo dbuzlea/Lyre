@@ -2102,3 +2102,20 @@ struct LiquidBubbleGridTests {
         #expect(LiquidBubbleGrid.bubbleSide(for: 0) > 0)
     }
 }
+
+/// A song streamed from Apple Music that the library hasn't can be added to it, from its
+/// hold menu or a swipe left, in every player; a library song offers nothing.
+@MainActor
+struct LibraryAdderTests {
+    @Test func onlyAStreamedSongOffersAddToLibrary() {
+        let streamed = AppTrack(id: "s", title: "Streamed", artistName: "A", albumTitle: "B", duration: 200,
+                                storeID: "1440857781")
+        let mine = AppTrack(id: "m", title: "Mine", artistName: "A", albumTitle: "B", duration: 200,
+                            mpPersistentID: 42)
+        #expect(LibraryAdder.shared.canAdd(streamed))
+        #expect(!LibraryAdder.shared.canAdd(mine))
+        let swipe = RowSwipeAction.library(streamed)
+        #expect(swipe.map(\.title) == [String(localized: "catalog.offer.add")])
+        #expect(RowSwipeAction.library(mine).isEmpty)
+    }
+}

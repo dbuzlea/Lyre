@@ -28,6 +28,16 @@ struct RowSwipeAction: Identifiable {
     static let playNextTint = Color(red: 0.42, green: 0.32, blue: 0.86)
     static let addToQueueTint = Color(red: 0.93, green: 0.52, blue: 0.2)
     static let downloadTint = Color(red: 0.2, green: 0.5, blue: 0.95)
+    static let libraryTint = Color(red: 0.98, green: 0.24, blue: 0.33)
+
+    /// Add to Library: what a swiped-left song streamed from Apple Music offers, if the
+    /// library hasn't it (LibraryAdder); nothing for one it has.
+    @MainActor
+    static func library(_ track: AppTrack) -> [RowSwipeAction] {
+        guard LibraryAdder.shared.canAdd(track) else { return [] }
+        return [RowSwipeAction(title: String(localized: "catalog.offer.add"), symbol: "plus.circle",
+                               tint: libraryTint) { LibraryAdder.shared.add(track) }]
+    }
 
     /// Play Next and Add to Queue: what a swiped song offers.
     static func queue(_ onQueue: @escaping (QueuePlacement) -> Void) -> [RowSwipeAction] {
@@ -60,19 +70,23 @@ final class RowSwipeCoordinator {
 }
 
 extension View {
-    /// Swiping the row right reveals `actions`; a long swipe does the first. `captionColor`
-    /// names the buttons legibly on the list's own ground.
-    func rowSwipeActions(_ actions: [RowSwipeAction], captionColor: Color = .white.opacity(0.7)) -> some View {
-        modifier(RowSwipeActions(actions: actions, captionColor: captionColor))
+    /// Swiping the row right reveals `actions`, and left reveals `trailing`; a long swipe
+    /// either way does that side's first. `captionColor` names the buttons legibly on the
+    /// list's own ground.
+    func rowSwipeActions(_ actions: [RowSwipeAction], trailing: [RowSwipeAction] = [],
+                         captionColor: Color = .white.opacity(0.7)) -> some View {
+        modifier(RowSwipeActions(actions: actions, trailing: trailing, captionColor: captionColor))
     }
 }
 
 private struct RowSwipeActions: ViewModifier {
     let actions: [RowSwipeAction]
+    let trailing: [RowSwipeAction]
     let captionColor: Color
 
     @State private var id = UUID()
-    /// How far the row is slid right.
+    /// How far the row is slid: right (positive) to show `actions`, left (negative) to
+    /// show `trailing`.
     @State private var offset: CGFloat = 0
     /// Where it was slid to when the drag began.
     @State private var start: CGFloat = 0
@@ -84,15 +98,17 @@ private struct RowSwipeActions: ViewModifier {
     /// the name goes inside, beside the symbol.
     private var showsCaption: Bool { size.height >= 50 }
 
-    private var buttonWidth: CGFloat {
-        guard !actions.isEmpty, size.width > 0 else { return 80 }
-        return min(showsCaption ? 80 : 118, (size.width - 48) / CGFloat(actions.count) - 8)
+    private func buttonWidth(_ count: Int) -> CGFloat {
+        guard count > 0, size.width > 0 else { return 80 }
+        return min(showsCaption ? 80 : 118, (size.width - 48) / CGFloat(count) - 8)
     }
-    private var revealWidth: CGFloat { CGFloat(actions.count) * (buttonWidth + 8) + 8 }
-    private var isOpen: Bool { offset > 0 }
+    private func revealWidth(_ count: Int) -> CGFloat { CGFloat(count) * (buttonWidth(count) + 8) + 8 }
+    private var leadingWidth: CGFloat { revealWidth(actions.count) }
+    private var trailingWidth: CGFloat { revealWidth(trailing.count) }
+    private var isOpen: Bool { offset != 0 }
 
     func body(content: Content) -> some View {
-        if actions.isEmpty {
+        if actions.isEmpty && trailing.isEmpty {
             content
         } else {
             content
@@ -107,10 +123,14 @@ private struct RowSwipeActions: ViewModifier {
                     }
                 }
                 .background(alignment: .leading) {
-                    if isOpen { buttons }
+                    if offset > 0 { buttons(actions, shown: offset / max(1, leadingWidth), edge: .leading) }
+                }
+                .background(alignment: .trailing) {
+                    if offset < 0 { buttons(trailing, shown: -offset / max(1, trailingWidth), edge: .trailing) }
                 }
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
-                .modifier(RowSwipeGesture(isOpen: isOpen, onChange: slide, onEnd: settle))
+                .modifier(RowSwipeGesture(isOpen: isOpen, allowsRight: !actions.isEmpty, allowsLeft: !trailing.isEmpty,
+                                          onChange: slide, onEnd: settle))
                 .onChange(of: coordinator.openRow) {
                     if coordinator.openRow != id, isOpen { close() }
                 }
@@ -120,9 +140,10 @@ private struct RowSwipeActions: ViewModifier {
 
     // MARK: Buttons
 
-    private var buttons: some View {
+    private func buttons(_ actions: [RowSwipeAction], shown: CGFloat, edge: HorizontalEdge) -> some View {
         let pill = showsCaption ? min(36, size.height - 26) : max(18, min(32, size.height - 6))
-        let shown = min(1, offset / max(1, revealWidth))
+        let width = buttonWidth(actions.count)
+        let shown = min(1, shown)
         return HStack(spacing: 8) {
             ForEach(actions) { action in
                 Button {
@@ -134,7 +155,7 @@ private struct RowSwipeActions: ViewModifier {
                             Image(systemName: action.symbol)
                                 .font(.system(size: min(17, pill * 0.5), weight: .semibold))
                             // Named inside only where the name fits whole.
-                            if !showsCaption, buttonWidth >= 112 {
+                            if !showsCaption, width >= 112 {
                                 Text(action.title)
                                     .font(.system(size: 12, weight: .semibold))
                                     .lineLimit(1)
@@ -143,7 +164,7 @@ private struct RowSwipeActions: ViewModifier {
                         }
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
-                        .frame(width: buttonWidth, height: pill)
+                        .frame(width: width, height: pill)
                         .background(action.tint, in: Capsule())
                         if showsCaption {
                             Text(action.title)
@@ -151,7 +172,7 @@ private struct RowSwipeActions: ViewModifier {
                                 .foregroundStyle(captionColor)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
-                                .frame(width: buttonWidth + 8)
+                                .frame(width: width + 8)
                         }
                     }
                     .frame(maxHeight: .infinity)
@@ -162,8 +183,8 @@ private struct RowSwipeActions: ViewModifier {
                 .accessibilityIdentifier("swipe." + action.symbol)
             }
         }
-        .padding(.leading, 8)
-        .scaleEffect(0.85 + 0.15 * shown, anchor: .leading)
+        .padding(edge == .leading ? .leading : .trailing, 8)
+        .scaleEffect(0.85 + 0.15 * shown, anchor: edge == .leading ? .leading : .trailing)
         .opacity(Double(shown))
     }
 
@@ -175,29 +196,50 @@ private struct RowSwipeActions: ViewModifier {
             start = offset
         }
         let target = start + dx
-        // Past the buttons it gives, then gives way to the long swipe.
-        offset = target <= revealWidth ? max(0, target) : revealWidth + (target - revealWidth) * 0.85
+        // Past the buttons it gives, then gives way to the long swipe; only towards a
+        // side that has buttons.
+        if target >= 0 {
+            guard !actions.isEmpty else { offset = 0; return }
+            offset = target <= leadingWidth ? target : leadingWidth + (target - leadingWidth) * 0.85
+        } else {
+            guard !trailing.isEmpty else { offset = 0; return }
+            offset = -target <= trailingWidth ? target : -(trailingWidth + (-target - trailingWidth) * 0.85)
+        }
     }
 
     private func settle(_ dx: CGFloat, velocity: CGFloat) {
         coordinator.isSwiping = false
         let heading = offset + velocity * 0.15
-        if offset > max(revealWidth + 60, size.width * 0.62) {
-            // The long swipe: the first action, at once.
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            close()
-            actions[0].action()
-        } else if offset > revealWidth * 0.45 && heading > revealWidth * 0.3 {
-            open()
+        if offset > 0 {
+            if offset > max(leadingWidth + 60, size.width * 0.62) {
+                // The long swipe: the first action, at once.
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                close()
+                actions[0].action()
+            } else if offset > leadingWidth * 0.45 && heading > leadingWidth * 0.3 {
+                open(leadingWidth)
+            } else {
+                close()
+            }
+        } else if offset < 0 {
+            if -offset > max(trailingWidth + 60, size.width * 0.62) {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                close()
+                trailing[0].action()
+            } else if -offset > trailingWidth * 0.45 && -heading > trailingWidth * 0.3 {
+                open(-trailingWidth)
+            } else {
+                close()
+            }
         } else {
             close()
         }
     }
 
-    private func open() {
+    private func open(_ to: CGFloat) {
         coordinator.openRow = id
         withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.32, dampingFraction: 0.82)) {
-            offset = revealWidth
+            offset = to
         }
     }
 
@@ -215,6 +257,8 @@ private struct RowSwipeActions: ViewModifier {
 @available(iOS 18.0, *)
 private struct RowSwipePan: UIGestureRecognizerRepresentable {
     let isOpen: Bool
+    let allowsRight: Bool
+    let allowsLeft: Bool
     let onChange: (CGFloat) -> Void
     let onEnd: (CGFloat, CGFloat) -> Void
 
@@ -224,11 +268,15 @@ private struct RowSwipePan: UIGestureRecognizerRepresentable {
         let pan = UIPanGestureRecognizer()
         pan.delegate = context.coordinator
         context.coordinator.isOpen = isOpen
+        context.coordinator.allowsRight = allowsRight
+        context.coordinator.allowsLeft = allowsLeft
         return pan
     }
 
     func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context: Context) {
         context.coordinator.isOpen = isOpen
+        context.coordinator.allowsRight = allowsRight
+        context.coordinator.allowsLeft = allowsLeft
     }
 
     func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
@@ -243,11 +291,14 @@ private struct RowSwipePan: UIGestureRecognizerRepresentable {
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var isOpen = false
+        var allowsRight = true
+        var allowsLeft = false
 
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
             guard let pan = recognizer as? UIPanGestureRecognizer else { return false }
             let velocity = pan.velocity(in: pan.view)
-            return abs(velocity.x) > abs(velocity.y) * 1.2 && (velocity.x > 0 || isOpen)
+            return abs(velocity.x) > abs(velocity.y) * 1.2
+                && ((velocity.x > 0 && allowsRight) || (velocity.x < 0 && allowsLeft) || isOpen)
         }
     }
 }
@@ -256,20 +307,24 @@ private struct RowSwipePan: UIGestureRecognizerRepresentable {
 /// row's own touch.
 private struct RowSwipeGesture: ViewModifier {
     let isOpen: Bool
+    let allowsRight: Bool
+    let allowsLeft: Bool
     let onChange: (CGFloat) -> Void
     let onEnd: (CGFloat, CGFloat) -> Void
     @State private var isSideways: Bool?
 
     func body(content: Content) -> some View {
         if #available(iOS 18.0, *) {
-            content.gesture(RowSwipePan(isOpen: isOpen, onChange: onChange, onEnd: onEnd))
+            content.gesture(RowSwipePan(isOpen: isOpen, allowsRight: allowsRight, allowsLeft: allowsLeft,
+                                        onChange: onChange, onEnd: onEnd))
         } else {
             content.simultaneousGesture(
                 DragGesture(minimumDistance: 12)
                     .onChanged { value in
                         let dx = value.translation.width
                         if isSideways == nil {
-                            isSideways = abs(dx) > abs(value.translation.height) * 1.2 && (dx > 0 || isOpen)
+                            isSideways = abs(dx) > abs(value.translation.height) * 1.2
+                                && ((dx > 0 && allowsRight) || (dx < 0 && allowsLeft) || isOpen)
                         }
                         if isSideways == true { onChange(dx) }
                     }

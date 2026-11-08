@@ -283,6 +283,8 @@ struct SpoolPlayerView: View {
             .presentationDetents([.medium, .large])
         }
         // A new song, or a new episode streaming: the tape going in is now playing.
+        // A song added to the library from a list, or why it couldn't be (LibraryAdder).
+        .onReceive(LibraryAdder.shared.$notice) { if let notice = $0 { showNotice(notice.text) } }
         .onChange(of: musicService.currentTrack?.id ?? musicService.currentEpisode?.id) {
             pendingTape = nil
             pendingTrack = nil

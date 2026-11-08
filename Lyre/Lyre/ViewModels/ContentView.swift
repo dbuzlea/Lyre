@@ -100,6 +100,8 @@ struct ContentView: View {
         }
         // Whether Lyre may send its own reports of crashes and freezes, asked once.
         .task(id: hasCompletedOnboarding) { await DiagnosticsConsent.askIfDue(onboarded: hasCompletedOnboarding) }
+        // Adding streamed songs to the library, from any player's lists (LibraryAdder).
+        .onAppear { LibraryAdder.shared.musicService = musicService }
         .onChange(of: scenePhase) { _, phase in
             Diagnostics.shared.record(.app, "Scene \(phase == .active ? "active" : phase == .background ? "background" : "inactive")",
                                       level: .info)

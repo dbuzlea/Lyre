@@ -319,6 +319,8 @@ struct LyreView: View {
             UIDevice.current.endGeneratingDeviceOrientationNotifications()
             bannerTask?.cancel()
         }
+        // A song added to the library from the carousel's liner (LibraryAdder).
+        .onReceive(LibraryAdder.shared.$notice) { if let notice = $0 { showBanner(notice.text) } }
         .onChange(of: musicService.playbackNotice) { _, notice in
             if let notice { showBanner(notice.text) }
         }

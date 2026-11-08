@@ -786,6 +786,7 @@
 "catalog.offer.open" = "Listen on Apple Music";
 "catalog.offer.cancel" = "Cancel";
 "catalog.added" = "Added “%@” to your library.";
+"catalog.add.failed" = "Couldn't add “%@” to your library.";
 "catalog.added.later" = "Added “%@”. It'll appear once Apple Music has synced it.";
 "catalog.add.needsSubscription" = "Adding to your library needs an Apple Music subscription.";
 "catalog.search.title" = "Apple Music";

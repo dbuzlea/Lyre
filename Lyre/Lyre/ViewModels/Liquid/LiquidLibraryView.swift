@@ -1348,6 +1348,7 @@ struct LiquidSongsPage: View {
                             }
                             .modifier(QueueMenu(isEnabled: true, track: track,
                                                 onQueue: { onQueue($0, $1, track.title) }))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) { LiquidLibrarySwipe(track: track) }
                             .accessibilityIdentifier("liquid.songs.track.\(index)")
                             .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: hasIndex ? 40 : 20))
                             .listRowBackground(Color.clear)
@@ -1748,6 +1749,10 @@ struct LiquidAlbumPage: View {
                     }
                 }
             }
+            // Swiped left, a song streamed from Apple Music offers Add to Library.
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                if !album.isPodcast { LiquidLibrarySwipe(track: track) }
+            }
             .accessibilityIdentifier("liquid.album.track.\(index)")
             .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 24))
             .listRowBackground(Color.clear)
@@ -1886,5 +1891,21 @@ struct LiquidRememberedLayout<Content: View>: View {
     var body: some View {
         content($layout)
             .environment(\.liquidListKey, list)
+    }
+}
+
+/// Add to Library, as a List row's swipe-left button, for a song streamed from Apple Music
+/// the library hasn't (LibraryAdder); nothing for one it has.
+struct LiquidLibrarySwipe: View {
+    let track: AppTrack
+    @ObservedObject private var adder = LibraryAdder.shared
+
+    var body: some View {
+        if adder.canAdd(track) {
+            Button { adder.add(track) } label: {
+                Label(String(localized: "catalog.offer.add"), systemImage: "plus.circle")
+            }
+            .tint(RowSwipeAction.libraryTint)
+        }
     }
 }

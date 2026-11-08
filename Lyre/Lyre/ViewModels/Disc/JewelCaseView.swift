@@ -518,6 +518,7 @@ struct JewelCaseView: View {
         // does; an episode, its download.
         .rowSwipeActions(album.isPodcast ? episode.map(RowSwipeAction.download) ?? []
                                          : RowSwipeAction.queue { onQueue([track], $0) },
+                         trailing: album.isPodcast ? [] : RowSwipeAction.library(track),
                          captionColor: SpoolPalette.labelInk.opacity(0.65))
         // Holding a song offers to queue it; holding an episode, its download.
         .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track, episode: episode, onQueue: onQueue,

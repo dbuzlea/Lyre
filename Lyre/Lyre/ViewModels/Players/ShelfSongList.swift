@@ -109,7 +109,7 @@ struct ShelfSongList: View {
         // Swiped right onto Play Next and Add to Queue, as the albums' songs are. (The
         // row isn't one combined element, or the pills it reveals couldn't be reached.)
         .rowSwipeActions(RowSwipeAction.queue { placement in onQueue([track], placement) },
-                         captionColor: ink.opacity(0.6))
+                         trailing: RowSwipeAction.library(track), captionColor: ink.opacity(0.6))
         .modifier(QueueMenu(isEnabled: true, track: track, onQueue: onQueue))
     }
 

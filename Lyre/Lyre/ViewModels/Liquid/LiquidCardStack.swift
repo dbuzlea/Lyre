@@ -812,6 +812,9 @@ struct LiquidFoldView: View {
                                 }
                             }
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            if !isPodcast { LiquidLibrarySwipe(track: track) }
+                        }
                         .listRowBackground(track.id == marked ? Color.white.opacity(0.12) : Color.clear)
                         .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 10))
                         .listRowSeparatorTint(.white.opacity(0.1))
