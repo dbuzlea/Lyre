@@ -70,6 +70,7 @@ struct LiquidDiscoverPage: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, bottomInset + 20)
             }
+            .modifier(StillWhileScrolling())
         }
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)
@@ -100,7 +101,7 @@ struct LiquidDiscoverBubble: View {
         let items = Array(section.items.prefix(Self.shown))
         let circles = BubblePacking.pack(Array(weights.prefix(items.count)))
         let half = diameter / 2
-        LiquidSoapBubble(diameter: diameter, wobbles: true) {
+        LiquidSoapBubble(diameter: diameter, wobbles: true, flattens: true) {
             ZStack {
                 Color.white.opacity(0.05)
                 ForEach(Array(zip(items, circles).enumerated()), id: \.element.0.id) { _, pair in
@@ -272,6 +273,7 @@ struct LiquidDiscoverSectionPage: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, bottomInset + 20)
             }
+            .modifier(StillWhileScrolling())
         }
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)
@@ -318,7 +320,7 @@ struct LiquidBubbleTile: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            LiquidSoapBubble(diameter: diameter, isLight: true) {
+            LiquidSoapBubble(diameter: diameter, isLight: true, flattens: true) {
                 LiquidCover(source: .album(album))
             }
             .modifier(BubbleFloat(seed: album.id, reach: 3))
@@ -354,19 +356,31 @@ struct BubbleFloat: ViewModifier {
     let reach: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.liquidBubblesStill) private var isHeldStill
     @State private var isAway = false
 
     func body(content: Content) -> some View {
         let wander = Self.wander(seed)
         content
             .offset(x: isAway ? reach * wander.dx : 0, y: isAway ? reach * wander.dy : 0)
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: wander.duration).repeatForever(autoreverses: true)
-                                .delay(wander.delay)) {
-                    isAway = true
+            .onAppear { if !isHeldStill { drift(wander) } }
+            // While the page scrolls, the bubbles settle where they are and the scroll
+            // moves still pictures; they drift again once it stops.
+            .onChange(of: isHeldStill) { _, still in
+                if still {
+                    withAnimation(.easeOut(duration: 0.25)) { isAway = false }
+                } else {
+                    drift(wander)
                 }
             }
+    }
+
+    private func drift(_ wander: (dx: CGFloat, dy: CGFloat, duration: Double, delay: Double)) {
+        guard !reduceMotion else { return }
+        withTransaction(Transaction(animation: nil)) { isAway = false }
+        withAnimation(.easeInOut(duration: wander.duration).repeatForever(autoreverses: true).delay(wander.delay)) {
+            isAway = true
+        }
     }
 
     /// Which way and how slowly a bubble drifts, the same each time for a seed.
@@ -375,6 +389,39 @@ struct BubbleFloat: ViewModifier {
         let angle = Double(hash % 360) * .pi / 180
         return (CGFloat(cos(angle)) * 0.6, -abs(CGFloat(sin(angle))) - 0.4,
                 2.6 + Double(hash % 17) / 10, Double(hash % 9) / 10)
+    }
+}
+
+// MARK: - Still While Scrolling
+
+private struct LiquidBubblesStillKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Bubbles hold still (a page of them scrolling): no drift, no wobble, until it's false.
+    var liquidBubblesStill: Bool {
+        get { self[LiquidBubblesStillKey.self] }
+        set { self[LiquidBubblesStillKey.self] = newValue }
+    }
+}
+
+/// Holds a scroll view's bubbles still while it moves (iOS 18 on, which reports a scroll's
+/// phase; before, they float on).
+struct StillWhileScrolling: ViewModifier {
+    @State private var isScrolling = false
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content
+                .onScrollPhaseChange { _, phase in
+                    let moving = phase != .idle
+                    if moving != isScrolling { isScrolling = moving }
+                }
+                .environment(\.liquidBubblesStill, isScrolling)
+        } else {
+            content
+        }
     }
 }
 

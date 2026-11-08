@@ -392,4 +392,43 @@ final class StreamingDeviceUITests: XCTestCase {
         shot.lifetime = .keepAlways
         add(shot)
     }
+
+    /// Scrolling Liquid's Discover bubbles up and down, for profiling: the workload a
+    /// scroll-hitch recording attaches to (xctrace, Animation Hitches).
+    @MainActor
+    func testScrollingTheDiscoverBubbles() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-LyrePlayerStyle", "liquid"]
+        app.launch()
+        func any(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id].firstMatch }
+        let discover = any("liquid.menu.discover")
+        if !discover.waitForExistence(timeout: 10) {
+            XCTAssertTrue(any("liquid.library").waitForExistence(timeout: 10), "Liquid didn't open")
+            any("liquid.library").tap()
+            XCTAssertTrue(discover.waitForExistence(timeout: 10), "The menu has no Discover")
+        }
+        discover.tap()
+        XCTAssertTrue(any("liquid.discover.bubble").waitForExistence(timeout: 20), "Discover showed no bubbles")
+        // Every section in, and the profiler attached.
+        sleep(12)
+        let top = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+        let bottom = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8))
+        for _ in 0..<6 {
+            for _ in 0..<3 { bottom.press(forDuration: 0.02, thenDragTo: top, withVelocity: 900, thenHoldForDuration: 0); usleep(600_000) }
+            for _ in 0..<3 { top.press(forDuration: 0.02, thenDragTo: bottom, withVelocity: 900, thenHoldForDuration: 0); usleep(600_000) }
+        }
+        sleep(3)
+        // To check the covers still draw inside the bubbles.
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "discover-bubbles-device"
+        shot.lifetime = .keepAlways
+        add(shot)
+        any("liquid.discover.bubble").tap()
+        XCTAssertTrue(any("liquid.discover.section").waitForExistence(timeout: 10), "The bubble didn't open")
+        sleep(3)
+        let grid = XCTAttachment(screenshot: app.screenshot())
+        grid.name = "discover-grid-device"
+        grid.lifetime = .keepAlways
+        add(grid)
+    }
 }
