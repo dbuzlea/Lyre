@@ -16,7 +16,11 @@ import SwiftUI
 // songs played from it lately: an album played through is a big one, a song off another
 // a small one. Elsewhere the first few are the biggest, as a section puts its best first.
 //
-// In the grid, a cover opens as a card, the section's others either side of it; one the
+// The bubbles float: each drifts a few points and back, slowly and out of step with
+// the others, and the big ones' outlines wobble as a bubble's does in the air. With
+// Reduce Motion on, they keep still.
+//
+// In the grid, each cover is a bubble too. A cover opens as a card, the section's others either side of it; one the
 // library hasn't streams; a genre opens as a playlist of its top songs. Asked for when
 // the page first opens, and filled in a section at a time.
 
@@ -96,16 +100,20 @@ struct LiquidDiscoverBubble: View {
         let items = Array(section.items.prefix(Self.shown))
         let circles = BubblePacking.pack(Array(weights.prefix(items.count)))
         let half = diameter / 2
-        LiquidSoapBubble(diameter: diameter) {
+        LiquidSoapBubble(diameter: diameter, wobbles: true) {
             ZStack {
                 Color.white.opacity(0.05)
                 ForEach(Array(zip(items, circles).enumerated()), id: \.element.0.id) { _, pair in
                     let (item, circle) = pair
-                    mini(item, diameter: (CGFloat(circle.r) * diameter).rounded())
+                    let side = (CGFloat(circle.r) * diameter).rounded()
+                    mini(item, diameter: side)
+                        // Each a little adrift inside, by less than the gap round it.
+                        .modifier(BubbleFloat(seed: item.id, reach: max(1.5, side * 0.025)))
                         .position(x: half + CGFloat(circle.x) * half, y: half + CGFloat(circle.y) * half)
                 }
             }
         }
+        .modifier(BubbleFloat(seed: section.id, reach: 6))
         .accessibilityHidden(true)
     }
 
@@ -252,9 +260,11 @@ struct LiquidDiscoverSectionPage: View {
                         LazyVGrid(columns: LiquidCoverTile.columns(for: geometry.size.width - 40),
                                   alignment: .leading, spacing: LiquidCoverTile.spacing) {
                             ForEach(Array(section.items.enumerated()), id: \.element.id) { index, album in
-                                Button { open(index) } label: { LiquidCoverTile(album: album) }
-                                    .buttonStyle(.plain)
-                                    .accessibilityIdentifier("liquid.discover.item")
+                                Button { open(index) } label: {
+                                    LiquidBubbleTile(album: album, diameter: tileSide(in: geometry.size.width - 40))
+                                }
+                                .buttonStyle(BubblePressStyle())
+                                .accessibilityIdentifier("liquid.discover.item")
                             }
                         }
                     }
@@ -266,6 +276,12 @@ struct LiquidDiscoverSectionPage: View {
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)
         .accessibilityIdentifier("liquid.discover.section")
+    }
+
+    /// A bubble as wide as a column, less a little room round it to float in.
+    private func tileSide(in width: CGFloat) -> CGFloat {
+        let columns = CGFloat(LiquidCoverTile.columnCount(for: width))
+        return ((width - LiquidCoverTile.spacing * (columns - 1)) / columns * 0.9).rounded()
     }
 
     /// A cover opens as a card, the section's others either side of it.
@@ -290,6 +306,75 @@ struct LiquidDiscoverSectionPage: View {
                 .accessibilityIdentifier("liquid.discover.genre")
             }
         }
+    }
+}
+
+// MARK: - A Cover as a Bubble
+
+/// A cover in a section's grid: a soap bubble, floating a little, its name under it.
+struct LiquidBubbleTile: View {
+    let album: AppAlbum
+    let diameter: CGFloat
+
+    var body: some View {
+        VStack(spacing: 8) {
+            LiquidSoapBubble(diameter: diameter, isLight: true) {
+                LiquidCover(source: .album(album))
+            }
+            .modifier(BubbleFloat(seed: album.id, reach: 3))
+            VStack(spacing: 2) {
+                HStack(spacing: 5) {
+                    Text(album.tapeTitle)
+                        .font(.system(size: 14, weight: .semibold))
+                        .lineLimit(1)
+                    // An explicit album is marked, beside its clean version (LYRE-23).
+                    if album.isExplicit { ExplicitBadge() }
+                }
+                Text(album.caseByline ?? album.artistName)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.6))
+                    .lineLimit(1)
+            }
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .foregroundStyle(.white)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Floating
+
+/// A bubble adrift: it moves up to `reach` points away and back, and a little sideways,
+/// over a few seconds, each by its own `seed` so no two keep time. An offset only, moved
+/// by the render loop, so it costs no layout; still with Reduce Motion on.
+struct BubbleFloat: ViewModifier {
+    let seed: String
+    let reach: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isAway = false
+
+    func body(content: Content) -> some View {
+        let wander = Self.wander(seed)
+        content
+            .offset(x: isAway ? reach * wander.dx : 0, y: isAway ? reach * wander.dy : 0)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: wander.duration).repeatForever(autoreverses: true)
+                                .delay(wander.delay)) {
+                    isAway = true
+                }
+            }
+    }
+
+    /// Which way and how slowly a bubble drifts, the same each time for a seed.
+    static func wander(_ seed: String) -> (dx: CGFloat, dy: CGFloat, duration: Double, delay: Double) {
+        let hash = seed.unicodeScalars.reduce(UInt32(5381)) { ($0 &* 33) &+ $1.value }
+        let angle = Double(hash % 360) * .pi / 180
+        return (CGFloat(cos(angle)) * 0.6, -abs(CGFloat(sin(angle))) - 0.4,
+                2.6 + Double(hash % 17) / 10, Double(hash % 9) / 10)
     }
 }
 
