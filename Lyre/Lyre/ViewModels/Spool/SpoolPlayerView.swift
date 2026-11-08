@@ -526,7 +526,10 @@ struct SpoolPlayerView: View {
 
     /// Lifts the playing album's case out of the closed door and opens it on its songs.
     private func showCaseInDeck() {
-        guard let album = caseInDeck, !isDoorOpen, !isBrowsing, !isMotorRunning,
+        // The tape in the door, or, if what's playing was started elsewhere (another
+        // player, Up Next), its own album: holding what's playing opens it in every player.
+        let playing = library.playingAlbum.flatMap { $0.comesInCase ? $0 : nil }
+        guard let album = caseInDeck ?? playing, !isDoorOpen, !isBrowsing, !isMotorRunning,
               flight == nil, openCase == nil, seatFrame.width > 0 else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         // The closed case, lying flat, as big as fits over the tape in the door.

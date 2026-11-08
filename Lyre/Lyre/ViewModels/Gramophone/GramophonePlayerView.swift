@@ -1522,7 +1522,9 @@ struct GramophonePlayerView: View {
     }
 
     private func showSleeveOfRecord() {
-        guard let album = seated?.album, recordOnPlatter?.id == seated?.id else { return }
+        // The record put on, or what's playing if it was started elsewhere.
+        let onPlatter = recordOnPlatter?.id == seated?.id ? seated?.album : nil
+        guard let album = onPlatter ?? library.playingAlbum else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         openSleeve = album
     }

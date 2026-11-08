@@ -720,18 +720,7 @@ struct LiquidPlayerView: View {
     }
 
     /// The album, playlist or show playing, as the library has it.
-    private var playingAlbum: AppAlbum? {
-        if let show = musicService.currentPodcastShowTitle {
-            return library.podcasts.first { $0.title == show }
-        }
-        if let playlist = musicService.currentPlaylistID {
-            return library.mixtapes.first { $0.mixtape?.id == playlist }
-        }
-        guard let track = musicService.nowPlayingTrack else { return nil }
-        let title = TapeFormat.displayTitle(track.albumTitle)
-        let albums = library.albums.filter { $0.tapeTitle == title }
-        return albums.first { $0.artistName == track.artistName } ?? albums.first
-    }
+    private var playingAlbum: AppAlbum? { library.playingAlbum }
 
     /// Floods from Now Playing into the page of the album playing.
     private func openPlayingAlbum() {

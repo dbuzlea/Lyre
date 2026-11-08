@@ -823,7 +823,8 @@ struct DiscPlayerView: View {
     }
 
     private func showCaseOfDisc() {
-        guard let album = caseOfDisc, !isLidOpen, !isBrowsing, !isSpinningUp, flight == nil, openCase == nil else { return }
+        // The disc in the deck, or what's playing if it was started elsewhere.
+        guard let album = caseOfDisc ?? library.playingAlbum, !isLidOpen, !isBrowsing, !isSpinningUp, flight == nil, openCase == nil else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         isCaseFromDeck = true
         openCase = album
