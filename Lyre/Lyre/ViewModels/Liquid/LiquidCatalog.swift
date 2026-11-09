@@ -215,7 +215,7 @@ struct LiquidCatalogSongRow: View {
 
     @ViewBuilder private var artwork: some View {
         if inBubble {
-            LiquidSoapBubble(diameter: 54) {
+            LiquidSoapBubble(diameter: 54, flattens: true, tilts: true, seed: song.id.rawValue) {
                 if let art = song.artwork {
                     ArtworkImage(art, width: 54, height: 54)
                 } else {
@@ -432,7 +432,7 @@ struct LiquidCharts: View {
                     SectionTitle(text: String(localized: "catalog.charts.songs"))
                     ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                         LiquidCatalogSongRow(song: song, rank: index + 1, list: songs,
-                                             listName: String(localized: "catalog.charts.songs"))
+                                             listName: String(localized: "catalog.charts.songs"), inBubble: true)
                     }
                 }
                 .accessibilityIdentifier("liquid.charts.songs")
@@ -467,7 +467,7 @@ struct LiquidCatalogSearch: View {
                 .accessibilityIdentifier("liquid.search.catalog")
             if !results.songs.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(results.songs) { LiquidCatalogSongRow(song: $0, list: results.songs) }
+                    ForEach(results.songs) { LiquidCatalogSongRow(song: $0, list: results.songs, inBubble: true) }
                 }
             }
             if !results.albums.isEmpty {
