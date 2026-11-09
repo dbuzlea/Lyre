@@ -1420,9 +1420,9 @@ struct LiquidSongsPage: View {
     private func row(_ track: AppTrack, isPlaying: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                LiquidCover(source: .track(track))
-                    .frame(width: 48, height: 48)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                LiquidSoapBubble(diameter: 50, flattens: true, tilts: true, seed: track.id) {
+                    LiquidCover(source: .track(track))
+                }
                     .overlay(alignment: .center) {
                         if isPlaying {
                             Image(systemName: "waveform")
@@ -1544,14 +1544,22 @@ struct LiquidAlbumPage: View {
     /// opposite it, the album's queue menu.
     private func header(ground: Color) -> some View {
         ZStack(alignment: .topLeading) {
-            LiquidCover(source: .album(album))
-                .aspectRatio(1, contentMode: .fit)
-                .overlay(alignment: .bottom) {
-                    LiquidEdgeShape(amplitude: 0.55)
-                        .fill(ground)
-                        .frame(height: 60)
-                        .offset(y: 1)
+            // The cover as one big bubble on the page's colour, floating, wobbling and
+            // answering to the phone's tilt as every bubble in Liquid does.
+            Color.clear
+                .aspectRatio(1 / 0.9, contentMode: .fit)
+                .overlay {
+                    GeometryReader { proxy in
+                        LiquidSoapBubble(diameter: (proxy.size.width * 0.7).rounded(), wobbles: true, flattens: true,
+                                         tilts: true, seed: album.id) {
+                            LiquidCover(source: .album(album))
+                        }
+                        .modifier(BubbleFloat(seed: album.id, reach: 4))
+                        .position(x: proxy.size.width / 2, y: proxy.size.height * (card == nil ? 0.58 : 0.52))
+                    }
                 }
+                .onAppear { BubbleTilt.shared.attach() }
+                .onDisappear { BubbleTilt.shared.detach() }
             Button { navigator.back() } label: {
                 Image(systemName: card == nil ? "chevron.left" : "chevron.down")
                     .font(.system(size: 17, weight: .semibold))

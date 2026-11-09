@@ -216,17 +216,10 @@ struct LiquidCatalogSongRow: View {
     @ViewBuilder private var artwork: some View {
         if inBubble {
             LiquidSoapBubble(diameter: 54, flattens: true, tilts: true, seed: song.id.rawValue) {
-                if let art = song.artwork {
-                    ArtworkImage(art, width: 54, height: 54)
-                } else {
-                    Color.white.opacity(0.1)
-                }
+                CatalogArt(artwork: song.artwork, side: 54)
             }
-        } else if let art = song.artwork {
-            ArtworkImage(art, width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         } else {
-            RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.white.opacity(0.1)).frame(width: 48, height: 48)
+            LiquidSoapBubble(diameter: 50, flattens: true) { CatalogArt(artwork: song.artwork, side: 50) }
         }
     }
 }
@@ -249,15 +242,10 @@ struct LiquidCatalogAlbumTile: View {
             }
         } label: {
             VStack(alignment: .leading, spacing: 6) {
-                Group {
-                    if let art = album.artwork {
-                        ArtworkImage(art, width: side, height: side)
-                    } else {
-                        Color.white.opacity(0.1)
-                    }
+                LiquidSoapBubble(diameter: side, isLight: true, flattens: true, tilts: true, seed: album.id.rawValue) {
+                    CatalogArt(artwork: album.artwork, side: side)
                 }
-                .frame(width: side, height: side)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .modifier(BubbleFloat(seed: album.id.rawValue, reach: 3))
                 Text(album.title).font(.system(size: 14, weight: .medium)).lineLimit(1)
                 Text(album.artistName).font(.system(size: 12)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
             }
@@ -493,5 +481,20 @@ struct LiquidCatalogSearch: View {
                 }
             }
         }
+    }
+}
+
+/// Apple Music's artwork for a bubble, on a soft fill of its own colour, so a bubble whose
+/// picture hasn't come (or won't) still shows as a bubble rather than nothing on the page.
+struct CatalogArt: View {
+    let artwork: Artwork?
+    let side: CGFloat
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(artwork?.backgroundColor.map { Color(cgColor: $0) } ?? Color.white.opacity(0.14))
+            if let artwork { ArtworkImage(artwork, width: side, height: side) }
+        }
+        .frame(width: side, height: side)
     }
 }

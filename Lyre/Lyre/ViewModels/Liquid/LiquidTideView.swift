@@ -204,10 +204,7 @@ private struct LiquidBand: View {
         HStack(spacing: 12) {
             Button(action: onPlay) {
                 HStack(spacing: 12) {
-                    LiquidCover(source: .track(track))
-                        .frame(width: 46, height: 46)
-                        .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+                    LiquidSoapBubble(diameter: 48, flattens: true) { LiquidCover(source: .track(track)) }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(track.title)
                             .font(.system(size: 16, weight: .bold))
