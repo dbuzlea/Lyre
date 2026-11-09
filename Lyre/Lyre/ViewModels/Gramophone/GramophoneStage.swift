@@ -1208,6 +1208,10 @@ final class GramophoneStage {
     func move(to target: GramophoneShot, duration: TimeInterval) async -> Bool {
         let start = currentPose
         let startHorn = Float(horn?.opacity ?? 1)
+        // Caught on the way: the camera is already moving, so the new move goes on at
+        // speed (no easing in from a standstill) and takes a little less time.
+        let isRedirect = driver != nil
+        let duration = isRedirect ? duration * 0.75 : duration
         driver?.cancel()
         driver = nil
         shot = target
@@ -1218,7 +1222,7 @@ final class GramophoneStage {
         let path = GramophoneCameraPath(from: start, to: end)
         let endHorn = Self.hornOpacity(target)
         return await withCheckedContinuation { continuation in
-            let driver = CameraDriver(duration: duration) { [weak self] progress in
+            let driver = CameraDriver(duration: duration, easesIn: !isRedirect) { [weak self] progress in
                 guard let self else { return }
                 let t = Float(progress)
                 let pose = path.pose(at: t)
@@ -1273,22 +1277,28 @@ final class GramophoneStage {
 
 // MARK: - Camera Driver
 
-/// Runs a move once a frame, eased in and out.
+/// Runs a move once a frame, eased in and out (or only out, for a move that takes over
+/// from another and so starts at speed), at the display's full rate.
 private final class CameraDriver: NSObject {
     private let duration: CFTimeInterval
+    private let easesIn: Bool
     private let step: (Double) -> Void
     private var completion: ((Bool) -> Void)?
     private var link: CADisplayLink?
     private var startTime: CFTimeInterval?
 
-    init(duration: CFTimeInterval, step: @escaping (Double) -> Void, completion: @escaping (Bool) -> Void) {
+    init(duration: CFTimeInterval, easesIn: Bool = true, step: @escaping (Double) -> Void,
+         completion: @escaping (Bool) -> Void) {
         self.duration = duration
+        self.easesIn = easesIn
         self.step = step
         self.completion = completion
     }
 
     func start() {
         let link = CADisplayLink(target: self, selector: #selector(tick))
+        // A camera move is the whole screen moving: as smooth as the display allows.
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 80, maximum: 120, preferred: 120)
         link.add(to: .main, forMode: .common)
         self.link = link
     }
@@ -1299,7 +1309,8 @@ private final class CameraDriver: NSObject {
         let start = startTime ?? link.timestamp
         startTime = start
         let progress = min((link.timestamp - start) / max(duration, 0.001), 1)
-        let eased = progress < 0.5 ? 4 * pow(progress, 3) : 1 - pow(-2 * progress + 2, 3) / 2
+        let eased = !easesIn ? 1 - pow(1 - progress, 3)
+            : progress < 0.5 ? 4 * pow(progress, 3) : 1 - pow(-2 * progress + 2, 3) / 2
         step(eased)
         if progress >= 1 { finish(true) }
     }

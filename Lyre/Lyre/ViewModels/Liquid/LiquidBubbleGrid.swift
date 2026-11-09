@@ -26,6 +26,8 @@ struct LiquidBubbleGrid: View {
     /// Whether holding a bubble offers to queue it (LiquidAlbumHoldMenu).
     var holdMenu = true
     let open: (Int) -> Void
+    /// Shared with the page an album opens to, for the zoom out of its bubble.
+    @Environment(\.liquidDiscoverZoom) private var zoom
 
     /// Room for the name and byline under a bubble.
     static let labelHeight: CGFloat = 44
@@ -56,11 +58,15 @@ struct LiquidBubbleGrid: View {
 
     private func bubble(at index: Int, side: CGFloat, height: CGFloat) -> some View {
         let album = albums[index]
-        return Button { open(index) } label: {
+        return Button {
+            LiquidZoom.tapped(album.id)
+            open(index)
+        } label: {
             LiquidBubbleTile(album: album, diameter: side)
                 .frame(height: height, alignment: .top)
         }
         .buttonStyle(BubblePressStyle())
+        .modifier(DiscoverZoomSource(id: LiquidZoom.sourceID(album.id), namespace: zoom))
         .modifier(LiquidAlbumHoldMenu(album: album, isEnabled: holdMenu))
         .id(album.id)
         .accessibilityIdentifier(identifier(album))

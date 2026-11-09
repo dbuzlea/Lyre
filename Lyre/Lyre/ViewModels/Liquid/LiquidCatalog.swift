@@ -91,7 +91,7 @@ private struct ExpandableText: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
     }
 }
 
@@ -153,7 +153,7 @@ struct LiquidCatalogSongRow: View {
             .frame(minHeight: 60)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         .accessibilityIdentifier("liquid.catalog.song")
         .contextMenu {
             Button { navigator.queue([navigator.catalogTrack(song)], .next, song.title) } label: {
@@ -207,7 +207,7 @@ struct LiquidCatalogSongRow: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .accessibilityLabel(String(format: String(localized: "catalog.addSong"), song.title))
             .accessibilityIdentifier("liquid.catalog.add")
         }
@@ -252,7 +252,7 @@ struct LiquidCatalogAlbumTile: View {
             .frame(width: side, alignment: .leading)
             .foregroundStyle(.white)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
     }
 }
 
@@ -353,7 +353,7 @@ struct LiquidCatalogArtistStrip: View {
                         }
                         .foregroundStyle(.white)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle())
                     .accessibilityIdentifier("liquid.catalog.artist")
                 }
             }

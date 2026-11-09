@@ -263,7 +263,7 @@ struct LiquidBubbleField: View {
                         .frame(width: 44, height: 44)
                         .background(option == tab ? Color.white : Color.white.opacity(0.1), in: Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityLabel(option.title)
                 .accessibilityAddTraits(option == tab ? .isSelected : [])
                 .accessibilityIdentifier("liquid.bubbles.tab.\(option.rawValue)")

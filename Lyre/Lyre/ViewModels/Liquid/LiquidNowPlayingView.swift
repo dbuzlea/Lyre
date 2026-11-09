@@ -44,12 +44,12 @@ struct LiquidNowPlayingView: View {
     /// The bottom bulge pulled up: how far up the finger has moved, and on letting go,
     /// how far it moved and how far it was heading.
     var onQueueDrag: (CGFloat) -> Void = { _ in }
-    var onQueueDragEnd: (CGFloat, CGFloat) -> Void = { _, _ in }
+    var onQueueDragEnd: (CGFloat, CGFloat, CGFloat) -> Void = { _, _, _ in }
     /// The cover dragged down, to go back to the library: the same two.
     /// Opens the page of the album (or playlist, or show) playing.
     var onOpenPlayingAlbum: () -> Void = {}
     var onDismissDrag: (CGFloat) -> Void = { _ in }
-    var onDismissDragEnd: (CGFloat, CGFloat) -> Void = { _, _ in }
+    var onDismissDragEnd: (CGFloat, CGFloat, CGFloat) -> Void = { _, _, _ in }
     /// iPhone Duo, partly open: which way the fold is, and how far the waves lean
     /// toward it (each from -1 to 1). The hinge as gravity.
     var lean: CGVector = .zero
@@ -78,6 +78,8 @@ struct LiquidNowPlayingView: View {
     @State private var isSettling = false
     @State private var settleTask: Task<Void, Never>?
     @State private var bottomLift: CGFloat = 0
+    /// A finger held on the cover, before the hold opens the album: it sinks in as it builds.
+    @State private var isHoldingCover = false
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -92,6 +94,7 @@ struct LiquidNowPlayingView: View {
                     // Under water on a speaker, rippling to the beat (see LiquidRipple).
                     .modifier(LiquidRippleEffect(isRunning: isRippling, epoch: rippleEpoch,
                                                  still: rippleShot, drops: rippleDrops))
+                    .modifier(HoldHint(isPressing: isHoldingCover, depth: 0.035))
                     // A tap on the cover sends a ripple out from the finger, and puts the
                     // waves away, or brings them back; a drag down takes Now Playing away,
                     // back to where you were.
@@ -104,8 +107,9 @@ struct LiquidNowPlayingView: View {
                     // every player.
                     .onLongPressGesture(minimumDuration: 0.5) {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        isHoldingCover = false
                         onOpenPlayingAlbum()
-                    }
+                    } onPressingChanged: { isHoldingCover = $0 }
                     .gesture(dismissDrag)
                 scrim
                     .ignoresSafeArea()
@@ -268,7 +272,8 @@ struct LiquidNowPlayingView: View {
                 onDismissDrag(value.translation.height)
             }
             .onEnded { value in
-                onDismissDragEnd(max(0, value.translation.height), value.predictedEndTranslation.height)
+                onDismissDragEnd(max(0, value.translation.height), value.predictedEndTranslation.height,
+                                 value.velocity.height)
             }
     }
 
@@ -522,7 +527,7 @@ struct LiquidNowPlayingView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
                 .accessibilityElement(children: .combine)
                 .accessibilityHint(String(localized: "liquid.openAlbum.hint"))
                 .accessibilityIdentifier("liquid.nowPlaying")
@@ -625,7 +630,8 @@ struct LiquidNowPlayingView: View {
                 }
                 .onEnded { value in
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) { bottomLift = 0 }
-                    onQueueDragEnd(max(0, -value.translation.height), -value.predictedEndTranslation.height)
+                    onQueueDragEnd(max(0, -value.translation.height), -value.predictedEndTranslation.height,
+                                   -value.velocity.height)
                 }
         )
         .accessibilityElement(children: .combine)

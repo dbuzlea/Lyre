@@ -30,8 +30,8 @@ struct LiquidTideView: View {
     let onNotice: (String) -> Void
     /// A finger dragging the top: how far down it has moved it.
     let onDrag: (CGFloat) -> Void
-    /// The finger let go: how far it had moved, and how far it was heading.
-    let onDragEnd: (CGFloat, CGFloat) -> Void
+    /// The finger let go: how far it had moved, how far it was heading, and how fast.
+    let onDragEnd: (CGFloat, CGFloat, CGFloat) -> Void
 
     @State private var isConfirmingClear = false
     @Environment(\.windowSafeArea) private var safeArea
@@ -67,12 +67,14 @@ struct LiquidTideView: View {
                     }
                     .background(Color(red: 0.09, green: 0.09, blue: 0.1))
                 }
-                .frame(height: height)
-                .offset(y: (1 - progress) * (height + 40))
+                // Pulled past open, it stretches up a little after the finger (a rubber
+                // band) rather than leaving a gap beneath it.
+                .frame(height: height + max(0, progress - 1) * (height + 40))
+                .offset(y: max(0, 1 - progress) * (height + 40))
                 .gesture(
                     DragGesture(minimumDistance: 8, coordinateSpace: .global)
                         .onChanged { onDrag($0.translation.height) }
-                        .onEnded { onDragEnd($0.translation.height, $0.predictedEndTranslation.height) }
+                        .onEnded { onDragEnd($0.translation.height, $0.predictedEndTranslation.height, $0.velocity.height) }
                 )
             }
             .ignoresSafeArea(edges: .bottom)
@@ -218,7 +220,7 @@ private struct LiquidBand: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle(isRow: true))
             .accessibilityLabel(track.title)
             .accessibilityValue(track.artistName)
             .accessibilityHint(String(localized: "liquid.tide.playHint"))
@@ -230,7 +232,7 @@ private struct LiquidBand: View {
                         .frame(width: 44, height: 44)
                         .background(.black.opacity(isLight ? 0.08 : 0.2), in: Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityLabel(String(format: String(localized: "liquid.tide.remove"), track.title))
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 15, weight: .semibold))

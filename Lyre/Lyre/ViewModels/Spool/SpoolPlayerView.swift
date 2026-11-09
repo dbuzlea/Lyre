@@ -100,6 +100,13 @@ struct SpoolPlayerView: View {
     @State private var isDoorOpen = false
     @State private var isBrowsing = false
     @State private var flight: TapeFlight?
+    /// A finger held on the shut door: it gives in as the hold builds.
+    @State private var isHoldingDoor = false
+    /// Which flight is the latest: a tape picked while another is in the air takes over,
+    /// and the earlier one's completions see they've been overtaken and do nothing.
+    @State private var flightGeneration = 0
+    /// The motor's run-up, so a song picked from Up Next meanwhile can take over from it.
+    @State private var motorTask: Task<Void, Never>?
     /// True from the moment a new tape lands until the door has shut on it.
     @State private var isNewTapeSeated = false
     /// Where a seated tape sits, in `coordinateSpace`.
@@ -241,7 +248,10 @@ struct SpoolPlayerView: View {
             }
 
             if let flight {
+                // Each flight its own view: one overtaken goes back to the rack as the
+                // next sets off.
                 flyingTape(flight)
+                    .id(flightGeneration)
                     .zIndex(4)
             }
 
@@ -494,11 +504,12 @@ struct SpoolPlayerView: View {
         }
         // Holding the door brings up the playing album's case; a tap works the door.
         // The hold is tried first, so a press let go early is still a tap.
-        .gesture(
-            LongPressGesture(minimumDuration: 0.5)
-                .onEnded { _ in showCaseInDeck() }
-                .exclusively(before: TapGesture().onEnded { isBrowsing ? closeDeck() : openDeck() })
-        )
+        .modifier(HoldHint(isPressing: isHoldingDoor && !isBrowsing && !isDoorOpen, depth: 0.03))
+        .onTapGesture { isBrowsing ? closeDeck() : openDeck() }
+        .onLongPressGesture(minimumDuration: 0.5) {
+            isHoldingDoor = false
+            showCaseInDeck()
+        } onPressingChanged: { isHoldingDoor = $0 }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("spool.door")
         .accessibilityAddTraits(.isButton)
@@ -533,7 +544,9 @@ struct SpoolPlayerView: View {
         // The tape in the door, or, if what's playing was started elsewhere (another
         // player, Up Next), its own album: holding what's playing opens it in every player.
         let playing = library.playingAlbum.flatMap { $0.comesInCase ? $0 : nil }
-        guard let album = caseInDeck ?? playing, !isDoorOpen, !isBrowsing, !isMotorRunning,
+        // Not waited on: held while the motor runs up, the case opens and the song still
+        // comes in under it.
+        guard let album = caseInDeck ?? pendingTape ?? playing, !isDoorOpen, !isBrowsing,
               flight == nil, openCase == nil, seatFrame.width > 0 else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         // The closed case, lying flat, as big as fits over the tape in the door.
@@ -568,6 +581,15 @@ struct SpoolPlayerView: View {
         .shadow(color: .black.opacity(0.4), radius: 10, x: 0, y: 6)
         .rotationEffect(.degrees(flight.hasLanded && turns ? 90 : 0))
         .scaleEffect(flight.hasLanded ? scale : held.width / max(start.width, 1))
+        // Drawn out a little along its way while it's quickest, as a fast thing's
+        // blur reads to the eye, and settled again as it reaches the door.
+        .keyframeAnimator(initialValue: 0.0, trigger: flight.hasLanded) { tape, amount in
+            tape.modifier(MotionStretch(amount: flight.hasLanded ? amount : 0,
+                                        angle: atan2(seatFrame.midY - held.midY, seatFrame.midX - held.midX)))
+        } keyframes: { _ in
+            CubicKeyframe(1, duration: 0.2)
+            CubicKeyframe(0, duration: 0.22)
+        }
         .position(flight.hasLanded
                   ? CGPoint(x: seatFrame.midX, y: seatFrame.midY)
                   : CGPoint(x: held.midX, y: held.midY))
@@ -1341,7 +1363,8 @@ struct SpoolPlayerView: View {
     /// case passes the tracks it already loaded; a swiped tape loads its own.
     private func insertTape(_ album: AppAlbum, from frame: CGRect,
                             startingAt index: Int = 0, tracks preloaded: [AppTrack]? = nil) {
-        guard flight == nil else { return }
+        // A tape already in the air doesn't block this one: changeTape lets it take over.
+        guard flight?.track == nil else { return }
         UsageStats.shared.used(.spoolTape)
         // A new tape replaces Up Next: ask first if it holds songs queued by hand, before
         // the old tape comes out.
@@ -1360,7 +1383,10 @@ struct SpoolPlayerView: View {
 
     private func changeTape(_ album: AppAlbum, from frame: CGRect,
                             startingAt index: Int, tracks preloaded: [AppTrack]?) {
-        guard flight == nil else { return }
+        // A song from Up Next on its way in isn't overtaken; another tape is.
+        guard flight?.track == nil else { return }
+        flightGeneration += 1
+        let generation = flightGeneration
         isShelfSearchFocused = false
         // Start loading now; the flight and the slide back cover most of the wait.
         let tracks = Task {
@@ -1382,6 +1408,7 @@ struct SpoolPlayerView: View {
             withAnimation(.easeIn(duration: 0.42)) {
                 flight?.hasLanded = true
             } completion: {
+                guard generation == flightGeneration else { return }
                 UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                 SpoolSound.cassetteInsert.play()
                 var swap = Transaction()
@@ -1397,6 +1424,7 @@ struct SpoolPlayerView: View {
         withAnimation(.easeIn(duration: 0.42)) {
             flight?.hasLanded = true
         } completion: {
+            guard generation == flightGeneration else { return }
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
             SpoolSound.cassetteInsert.play()
             // Swap the flying copy for the seated tape in the same frame.
@@ -1422,9 +1450,16 @@ struct SpoolPlayerView: View {
     /// old tape slides out, the cassette goes in, the door shuts, and once the motor has
     /// run up the song plays. The rest of the queue stays as it was.
     private func loadFromQueue(_ track: AppTrack, from row: CGRect) {
-        guard flight == nil, !isDoorOpen, !isMotorRunning, seatFrame.width > 0, row.width > 0 else {
+        guard flight == nil, !isDoorOpen, seatFrame.width > 0, row.width > 0 else {
             closeQueue()
             return
+        }
+        // Picked while a new tape's motor is still running up: this song takes over.
+        if isMotorRunning {
+            motorTask?.cancel()
+            motorTask = nil
+            isMotorRunning = false
+            pendingTape = nil
         }
         // The cassette fits inside its label to begin with, as if still in its sleeve.
         let aspect = CassetteView.aspectRatio
@@ -1478,8 +1513,10 @@ struct SpoolPlayerView: View {
     private func startMotor(for track: AppTrack) {
         SpoolSound.buttonPress.play()
         isMotorRunning = true
-        Task {
+        motorTask?.cancel()
+        motorTask = Task {
             try? await Task.sleep(for: Self.motorRunUp)
+            guard !Task.isCancelled else { return }
             // Found again by identity: the queue may have moved on during the change.
             if let offset = musicService.upcoming.firstIndex(where: { $0.id == track.id }) {
                 musicService.playUpcoming(at: offset)
@@ -1499,10 +1536,12 @@ struct SpoolPlayerView: View {
     private func startMotor(_ album: AppAlbum, tracks: Task<[AppTrack], Never>, startingAt index: Int) {
         SpoolSound.buttonPress.play()
         isMotorRunning = true
-        Task {
+        motorTask?.cancel()
+        motorTask = Task {
             async let loaded = tracks.value
             try? await Task.sleep(for: Self.motorRunUp)
             let songs = await loaded
+            guard !Task.isCancelled else { return }
             guard !songs.isEmpty else {
                 isMotorRunning = false
                 pendingTape = nil
@@ -1671,6 +1710,8 @@ private struct TapeFlight {
     var lift: CGRect?
     var isLifted = false
     var hasLanded = false
+    /// The Up Next song this cassette carries, if that's what it is.
+    var track: AppTrack?
 
     init(album: AppAlbum, start: CGRect) {
         hiddenID = album.id
@@ -1683,6 +1724,7 @@ private struct TapeFlight {
     }
 
     init(track: AppTrack, start: CGRect, lift: CGRect) {
+        self.track = track
         hiddenID = nil
         title = track.title
         labelArt = .track(track)
@@ -2165,4 +2207,28 @@ enum SpoolPalette {
     @Previewable @State var musicService = MusicService()
     SpoolPlayerView(musicService: musicService, themeSettings: ThemeSettings(),
                     foldMonitor: FoldPostureMonitor())
+}
+
+/// A thing in flight drawn out along its way (`angle`, radians) and a little thinner
+/// across it, by `amount` (0 to 1): the eye's own smear of something moving fast.
+private struct MotionStretch: GeometryEffect {
+    var amount: Double
+    let angle: Double
+
+    var animatableData: Double {
+        get { amount }
+        set { amount = newValue }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let along = 1 + 0.08 * amount
+        let across = 1 - 0.04 * amount
+        let centre = CGAffineTransform(translationX: -size.width / 2, y: -size.height / 2)
+        let transform = centre
+            .concatenating(CGAffineTransform(rotationAngle: -angle))
+            .concatenating(CGAffineTransform(scaleX: along, y: across))
+            .concatenating(CGAffineTransform(rotationAngle: angle))
+            .concatenating(CGAffineTransform(translationX: size.width / 2, y: size.height / 2))
+        return ProjectionTransform(transform)
+    }
 }

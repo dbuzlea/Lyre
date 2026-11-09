@@ -235,7 +235,7 @@ struct RecordSleeveView: View {
                         Image(systemName: "pencil")
                             .frame(width: 36, height: 36)
                             .overlay(Circle().strokeBorder(SpoolPalette.labelInk.opacity(0.6), lineWidth: 1.5))
-                            .contentShape(Circle())
+                            .contentShape(Circle().inset(by: -4))
                     }
                 }
                 .font(.system(size: 13, weight: .semibold))

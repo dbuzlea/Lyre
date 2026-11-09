@@ -2155,3 +2155,48 @@ struct BubbleTiltTests {
         #expect(BubbleWeight.delay("a") < 0.12)
     }
 }
+
+/// Lyre's shared motion (LyreMotion): the rubber band past an end, the finger's speed
+/// handed to a spring, and the zoom only for the bubble just tapped.
+@MainActor
+struct LyreMotionTests {
+    @Test func aRubberBandGivesEverLessAndNeverPastItsLimit() {
+        let small = LyreMotion.rubberBand(10, limit: 100)
+        let large = LyreMotion.rubberBand(1000, limit: 100)
+        #expect(small > 0 && small < 10)
+        #expect(large < 100 && large > 80)
+        #expect(LyreMotion.rubberBand(-1000, limit: 100) == -large)
+        #expect(LyreMotion.rubberBand(0, limit: 100) == 0)
+        // Each further point gives less than the one before.
+        #expect(LyreMotion.rubberBand(20, limit: 100) - small < small)
+    }
+
+    @Test func theFingersSpeedIsMeasuredAgainstTheDistanceLeftAndCapped() {
+        #expect(LyreMotion.relativeVelocity(600, distance: 300) == 2)
+        #expect(LyreMotion.relativeVelocity(-600, distance: 300) == -2)
+        #expect(LyreMotion.relativeVelocity(5000, distance: 1) == 30)
+        #expect(LyreMotion.relativeVelocity(800, distance: 0) == 0)
+    }
+
+    @Test func theTonearmGivesALittlePastItsSwingAndIsBroughtBack() {
+        let arm = TonearmGeometry(center: CGPoint(x: 150, y: 150), radius: 100)
+        // A finger far past the inner end of the swing: a little further than the stop.
+        let far = CGPoint(x: arm.pivot.x + 300 * cos(arm.innerAngle + 1), y: arm.pivot.y + 300 * sin(arm.innerAngle + 1))
+        let banded = arm.angle(rubberBandedToward: far)
+        #expect(banded > arm.innerAngle && banded < arm.innerAngle + 0.07)
+        #expect(arm.clamped(banded) == arm.innerAngle)
+        // Inside the swing, both agree.
+        let mid = (arm.restAngle + arm.innerAngle) / 2
+        let inside = CGPoint(x: arm.pivot.x + 200 * cos(mid), y: arm.pivot.y + 200 * sin(mid))
+        #expect(abs(arm.angle(rubberBandedToward: inside) - arm.angle(toward: inside)) < 1e-9)
+    }
+
+    @Test func onlyTheBubbleJustTappedZooms() {
+        LiquidZoom.tapped("a")
+        #expect(!LiquidZoom.take("b"))
+        // Asking forgets it.
+        #expect(!LiquidZoom.take("a"))
+        LiquidZoom.tapped("a")
+        #expect(LiquidZoom.take("a"))
+    }
+}

@@ -50,7 +50,7 @@ struct LiquidPool: View {
                         .frame(height: 38)
                         .background(.white.opacity(0.14), in: Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityIdentifier("liquid.pool.library")
             }
             .padding(.horizontal, 20)

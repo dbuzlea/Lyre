@@ -71,6 +71,12 @@ struct LiquidLibraryView: View {
     @State private var catalogOffer: CatalogOffer?
     /// What's open as a card over the library, if anything (LiquidCardDeck).
     @State private var deck: LiquidDeck?
+    /// Where on the library a deck grows from and goes back to: the touch that opened it.
+    @State private var deckAnchor: UnitPoint = .bottom
+    /// The library's place on the screen, to turn a touch into `deckAnchor`.
+    @State private var screenFrame: CGRect = .zero
+    /// Album pages zoomed out of their bubbles, which go back into them the same way.
+    @State private var zoomedAlbums: Set<String> = []
     /// For a Discover section's bubble opening into its grid (LiquidDiscover).
     @Namespace private var discoverZoom
 
@@ -96,6 +102,8 @@ struct LiquidLibraryView: View {
         .environment(\.liquidDiscoverZoom, discoverZoom)
         // Where Liquid is, for the diagnostics log (no names: a page's kind, a count).
         .onChange(of: path) { _, path in
+            // A zoomed page swiped or pinched away by the system's own gesture.
+            zoomedAlbums = zoomedAlbums.filter { id in path.contains { if case .album(let a) = $0 { a.id == id } else { false } } }
             Diagnostics.shared.show("Liquid: \(path.last.map(Self.diagnosticName) ?? "menu")")
         }
         .onChange(of: deck?.id) { _, _ in
@@ -114,11 +122,13 @@ struct LiquidLibraryView: View {
         // Something chosen from a list, as a card over it.
         .overlay {
             if let deck {
+                // Grown out of the bubble or row it was opened from, and gone back into it.
                 LiquidCardDeckView(deck: deck, onClose: closeDeck) { item in card(for: item) }
                     .id(deck.id)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.scale(scale: 0.12, anchor: deckAnchor).combined(with: .opacity))
             }
         }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { screenFrame = $0 }
         .environment(\.liquidNavigator, navigator)
         .confirmationDialog(catalogOffer.map { String(format: String(localized: "catalog.offer.title"), $0.title) } ?? "",
                             isPresented: Binding(get: { catalogOffer != nil }, set: { if !$0 { catalogOffer = nil } }),
@@ -156,6 +166,12 @@ struct LiquidLibraryView: View {
         LiquidNavigator(
             push: { route in
                 deck = nil
+                // An album opened from its own bubble zooms out of it rather than flooding.
+                if case .album(let album) = route, LiquidZoom.take(album.id) {
+                    zoomedAlbums.insert(album.id)
+                    path.append(route)
+                    return
+                }
                 Task {
                     let color = await Self.color(of: route)
                     flood(color) { path.append(route) }
@@ -163,6 +179,10 @@ struct LiquidLibraryView: View {
             },
             back: {
                 guard !path.isEmpty else { return }
+                if case .album(let album) = path.last, zoomedAlbums.remove(album.id) != nil {
+                    path.removeLast()
+                    return
+                }
                 let under = path.count >= 2 ? path[path.count - 2] : nil
                 Task {
                     var color = Color.liquidGround
@@ -223,7 +243,9 @@ struct LiquidLibraryView: View {
                 guard items.indices.contains(index) else { return }
                 // Chosen from a search: the keyboard goes, rather than covering the card.
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.88)) {
+                if case .album(let album) = items[index] { _ = LiquidZoom.take(album.id) }
+                deckAnchor = anchor(for: LiquidTouchTracker.shared.lastTouch)
+                withAnimation(LyreMotion.light) {
                     deck = LiquidDeck(items: items, index: index, title: title)
                 }
             }
@@ -242,7 +264,14 @@ struct LiquidLibraryView: View {
 
     private func closeDeck() {
         guard deck != nil else { return }
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.9)) { deck = nil }
+        withAnimation(LyreMotion.light) { deck = nil }
+    }
+
+    /// A touch on the screen as a point in the library (the bottom, without one).
+    private func anchor(for touch: CGPoint?) -> UnitPoint {
+        guard let touch, screenFrame.width > 0, screenFrame.height > 0 else { return .bottom }
+        return UnitPoint(x: min(max((touch.x - screenFrame.minX) / screenFrame.width, 0), 1),
+                         y: min(max((touch.y - screenFrame.minY) / screenFrame.height, 0), 1))
     }
 
     /// A card's page: an album's or playlist's own, or an artist's page of albums, whose
@@ -494,6 +523,7 @@ struct LiquidLibraryView: View {
         case .album(let album):
             LiquidAlbumPage(album: album, library: library, musicService: musicService,
                             onPlay: onPlay, onQueue: onQueue, bottomInset: bottomInset)
+                .modifier(DiscoverZoomDestination(id: LiquidZoom.sourceID(album.id), namespace: discoverZoom))
         }
     }
 }
@@ -807,7 +837,7 @@ struct LiquidPageTitle: View {
             }
             .foregroundStyle(.white)
             // Its own button: on a list's first row, a tap elsewhere on the row isn't one.
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .accessibilityLabel(String(localized: card == nil ? "liquid.back" : "liquid.card.close"))
             .accessibilityIdentifier("liquid.back")
             if let artist {
@@ -1142,7 +1172,7 @@ struct LiquidSearchPage: View {
                                         .background(.white.opacity(0.12), in: Capsule())
                                 }
                                 .foregroundStyle(.white)
-                                .buttonStyle(.plain)
+                                .buttonStyle(LyrePressStyle())
                                 .accessibilityIdentifier("liquid.search.suggestion")
                             }
                         }
@@ -1253,7 +1283,7 @@ struct LiquidSongsPage: View {
                     .frame(height: 36)
                     .background(.white.opacity(0.14), in: Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .accessibilityIdentifier("liquid.link.\(link.title)")
         }
     }
@@ -1403,7 +1433,7 @@ struct LiquidSongsPage: View {
                     .frame(maxWidth: .infinity, minHeight: height)
                     .background(.white, in: Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .accessibilityIdentifier("liquid.songs.play")
             Button { onPlay(shown.shuffled(), 0, true, title) } label: {
                 Label(String(localized: "detail.shuffle"), systemImage: "shuffle")
@@ -1412,7 +1442,7 @@ struct LiquidSongsPage: View {
                     .frame(maxWidth: .infinity, minHeight: height)
                     .overlay(Capsule().strokeBorder(.white.opacity(0.5), lineWidth: 1.5))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .accessibilityIdentifier("liquid.songs.shuffle")
         }
     }
@@ -1454,7 +1484,7 @@ struct LiquidSongsPage: View {
             .frame(minHeight: 62)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
     }
 }
 
@@ -1566,7 +1596,7 @@ struct LiquidAlbumPage: View {
                     .frame(width: 44, height: 44)
                     .background(.black.opacity(0.3), in: Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .foregroundStyle(.white)
             .padding(.leading, 16)
             // A card starts below the status bar.
@@ -1587,7 +1617,7 @@ struct LiquidAlbumPage: View {
                         .frame(width: 44, height: 44)
                         .background(.black.opacity(0.3), in: Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .foregroundStyle(.white)
                 .accessibilityLabel(String(localized: "catalog.offer.add"))
                 .accessibilityIdentifier("liquid.album.add")
@@ -1653,7 +1683,7 @@ struct LiquidAlbumPage: View {
                             .frame(maxWidth: .infinity, minHeight: 50)
                             .background(.white, in: Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle())
                     .accessibilityIdentifier("liquid.album.play")
                     if !album.isPodcast {
                         Button { onPlay(album, tracks.shuffled(), 0, true) } label: {
@@ -1663,7 +1693,7 @@ struct LiquidAlbumPage: View {
                                 .frame(maxWidth: .infinity, minHeight: 50)
                                 .overlay(Capsule().strokeBorder(.white.opacity(0.5), lineWidth: 1.5))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(LyrePressStyle())
                         .accessibilityIdentifier("liquid.album.shuffle")
                     }
                 }
@@ -1733,7 +1763,7 @@ struct LiquidAlbumPage: View {
                 .frame(minHeight: 52)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle(isRow: true))
             .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track,
                                 episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil },
                                 onQueue: { onQueue($0, $1, $0.count == 1 ? $0[0].title : album.tapeTitle) },

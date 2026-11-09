@@ -93,7 +93,7 @@ struct LiquidLayoutSwitch: View {
                 .frame(width: 44, height: 44)
                 .background(.white.opacity(0.1), in: Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityLabel(String(localized: layout == .stack ? "liquid.layout.grid" : "liquid.layout.stack"))
         .accessibilityIdentifier("liquid.layout")
     }
@@ -675,7 +675,7 @@ struct LiquidFoldView: View {
                             .background(.white.opacity(0.15), in: Circle())
                             .frame(width: 44, height: 44)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle())
                     .accessibilityLabel(String(localized: "liquid.fold.close"))
                     .accessibilityIdentifier("liquid.fold.close")
                 }
@@ -751,7 +751,7 @@ struct LiquidFoldView: View {
                     }
                 }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityIdentifier(id)
     }
 
@@ -790,7 +790,7 @@ struct LiquidFoldView: View {
                                      isPodcast: isPodcast,
                                      episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil })
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(LyrePressStyle(isRow: true))
                         .modifier(QueueMenu(isEnabled: !isPodcast, track: track,
                                             episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil },
                                             onQueue: { navigator.queue($0, $1, $0.count == 1 ? $0[0].title : album?.tapeTitle ?? item.title) }))
