@@ -2119,3 +2119,39 @@ struct LibraryAdderTests {
         #expect(RowSwipeAction.library(mine).isEmpty)
     }
 }
+
+/// The bubbles answering to the phone's tilt: a held angle rests at neutral, a tilt is
+/// measured from it, down is down, and only a flick sets them quivering.
+struct BubbleTiltTests {
+    @Test func aHeldAngleCreepsBackToNeutral() {
+        let held = CGVector(dx: 0.2, dy: 0.7)
+        var baseline = CGVector(dx: 0, dy: 0.6)
+        for _ in 0..<(30 * 30) { baseline = BubbleTiltMath.creep(baseline, toward: held) }   // 30 s at 30 a second
+        let tilt = BubbleTiltMath.relativeTilt(held, baseline: baseline)
+        #expect(abs(tilt.dx) < 0.05 && abs(tilt.dy) < 0.05)
+    }
+
+    @Test func aTiltIsMeasuredFromTheHeldAngleAndCapped() {
+        let baseline = CGVector(dx: 0, dy: 0.6)
+        let small = BubbleTiltMath.relativeTilt(CGVector(dx: 0.07, dy: 0.6), baseline: baseline)
+        #expect(abs(small.dx - 0.2) < 0.0001)
+        let far = BubbleTiltMath.relativeTilt(CGVector(dx: -0.9, dy: 1), baseline: baseline)
+        #expect(far.dx == -1 && far.dy == 1)
+    }
+
+    @Test func theSagFollowsDownAndNoneLyingFlat() {
+        let upright = BubbleTiltMath.sag(BubbleTiltMath.down(CGVector(dx: 0, dy: 1)))
+        #expect(abs(upright.angle.degrees) < 0.001)
+        #expect(upright.stretch > 1.02)
+        let flat = BubbleTiltMath.sag(BubbleTiltMath.down(CGVector(dx: 0, dy: 0)))
+        #expect(flat.stretch == 1)
+        let sideways = BubbleTiltMath.sag(BubbleTiltMath.down(CGVector(dx: 1, dy: 0)))
+        #expect(abs(sideways.angle.degrees - 90) < 0.001)
+    }
+
+    @Test func onlyAFlickSetsThemQuivering() {
+        #expect(!BubbleTiltMath.isJolt(x: 0.1, y: 0.2, z: 0.15))   // carried, turned over
+        #expect(BubbleTiltMath.isJolt(x: 0.8, y: 0.6, z: 0))
+        #expect(BubbleWeight.delay("a") < 0.12)
+    }
+}

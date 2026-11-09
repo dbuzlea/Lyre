@@ -431,4 +431,28 @@ final class StreamingDeviceUITests: XCTestCase {
         grid.lifetime = .keepAlways
         add(grid)
     }
+
+    /// Resting on Liquid's Discover bubbles with the phone in hand, for profiling the tilt
+    /// (BubbleTilt): the window a recording attaches to, while the phone is held or moved.
+    @MainActor
+    func testRestingOnTheDiscoverBubbles() throws {
+        let app = XCUIApplication()
+        app.launchArguments += ["-LyrePlayerStyle", "liquid"]
+        app.launch()
+        func any(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id].firstMatch }
+        let discover = any("liquid.menu.discover")
+        if !discover.waitForExistence(timeout: 10) {
+            XCTAssertTrue(any("liquid.library").waitForExistence(timeout: 10), "Liquid didn't open")
+            any("liquid.library").tap()
+            XCTAssertTrue(discover.waitForExistence(timeout: 10), "The menu has no Discover")
+        }
+        discover.tap()
+        XCTAssertTrue(any("liquid.discover.bubble").waitForExistence(timeout: 20), "Discover showed no bubbles")
+        // The profiling window.
+        sleep(60)
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "discover-resting-device"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
 }

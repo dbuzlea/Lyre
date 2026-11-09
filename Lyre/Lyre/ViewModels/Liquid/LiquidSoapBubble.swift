@@ -30,6 +30,12 @@ struct LiquidSoapBubble<Content: View>: View {
     /// blends, masks and blurs an offscreen pass of its own: for bubbles many to a page,
     /// floating, where the passes otherwise run to hundreds a frame.
     var flattens = false
+    /// Answers to the phone being moved (BubbleTilt): the highlight, rim glint and
+    /// rainbow film move with the light, the picture drifts behind the film, the shadow
+    /// slides, and the bubble sags and quivers.
+    var tilts = false
+    /// Sets this bubble's quiver a moment apart from the others'.
+    var seed = ""
     @ViewBuilder let content: () -> Content
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -42,8 +48,16 @@ struct LiquidSoapBubble<Content: View>: View {
     private var shape: SoapBubbleShape { SoapBubbleShape(phase: phase, wobble: isSmall ? 0.025 : 0.04) }
 
     var body: some View {
+        if tilts {
+            tiltingBody
+        } else {
+            stillBody
+        }
+    }
+
+    private var stillBody: some View {
         let rim = max(0.75, diameter / 120)
-        ZStack {
+        return ZStack {
             // The picture, filling the bubble, seen through the film: darker towards the
             // rim, where the film curves away.
             content()
@@ -108,6 +122,99 @@ struct LiquidSoapBubble<Content: View>: View {
         .shadow(color: .black.opacity(0.45), radius: diameter / 14, y: diameter / 28)
         .onAppear { if !isHeldStill { wobble() } }
         .onChange(of: isHeldStill) { _, still in still ? settle() : wobble() }
+    }
+
+    // MARK: Tilting
+
+    /// The same bubble, drawn as layers that tilt moves without redrawing: the picture
+    /// (flattened, drifting inside the film), the still film over it (flattened once), and
+    /// over those the light: the rainbow band and rim glint turning round, the highlights
+    /// sliding. Its shadow is a layer of its own, sliding under it.
+    private var tiltingBody: some View {
+        let rim = max(0.75, diameter / 120)
+        return ZStack {
+            // 3: the picture behind the film, drifting against the tilt.
+            content()
+                .frame(width: diameter, height: diameter)
+                .scaleEffect(1.08)
+                .modifier(BubbleFlattening(flattens: flattens))
+                .modifier(TiltShift(reach: CGSize(width: -diameter * 0.035, height: -diameter * 0.035)))
+                .frame(width: diameter, height: diameter)
+                .clipShape(shape.scale(0.985))
+                .overlay {
+                    shape.fill(RadialGradient(colors: [.clear, .black.opacity(0.32)], center: .center,
+                                              startRadius: diameter * 0.3, endRadius: diameter * 0.5))
+                }
+            // The film, its rim and the blue reflection: still, drawn once.
+            film(rim: rim)
+                .drawingGroup()
+            // 2: the rainbow round the top, creeping round the rim and brightening.
+            Circle()
+                .scale(0.985)
+                .stroke(AngularGradient(colors: [.pink, .orange, .yellow, .green, .cyan, .blue, .purple, .pink],
+                                        center: .center, angle: .degrees(200)),
+                        lineWidth: rim * 1.8)
+                .mask(LinearGradient(stops: [.init(color: .white, location: 0),
+                                             .init(color: .white.opacity(0.5), location: 0.18),
+                                             .init(color: .clear, location: 0.38)],
+                                     startPoint: .top, endPoint: .bottom))
+                .drawingGroup()
+                .modifier(TiltTurn(degrees: 32, brightens: 0.4...0.75))
+            // 1: a glint running round the rim to where the light catches it.
+            Circle()
+                .scale(0.97)
+                .trim(from: 0.58, to: 0.74)
+                .stroke(LinearGradient(colors: [.white.opacity(0), .white.opacity(0.85), .white.opacity(0)],
+                                       startPoint: .leading, endPoint: .trailing),
+                        style: StrokeStyle(lineWidth: rim * 1.4, lineCap: .round))
+                .drawingGroup()
+                .modifier(TiltTurn(degrees: 40))
+            // 1: the highlights, sliding across against the tilt.
+            Ellipse()
+                .fill(RadialGradient(colors: [.white.opacity(0.3), .white.opacity(0)], center: .center,
+                                     startRadius: 0, endRadius: diameter * 0.05))
+                .frame(width: diameter * 0.1, height: diameter * 0.06)
+                .rotationEffect(.degrees(-35))
+                .offset(x: diameter * 0.27, y: diameter * 0.25)
+                .modifier(TiltShift(reach: CGSize(width: diameter * 0.06, height: diameter * 0.05)))
+            Ellipse()
+                .fill(RadialGradient(colors: [.white.opacity(0.5), .white.opacity(0)], center: .center,
+                                     startRadius: 0, endRadius: diameter * 0.12))
+                .frame(width: diameter * 0.26, height: diameter * 0.15)
+                .rotationEffect(.degrees(-30))
+                .offset(x: -diameter * 0.22, y: -diameter * 0.26)
+                .modifier(TiltShift(reach: CGSize(width: -diameter * 0.12, height: -diameter * 0.1)))
+        }
+        .frame(width: diameter, height: diameter)
+        // 4: its shadow on the page, sliding with the light.
+        .background { TiltShadow(diameter: diameter) }
+        // 5, 6: the sag towards down, and the quiver after a flick.
+        .modifier(BubbleWeight(seed: seed))
+        .onAppear { if !isHeldStill { wobble() } }
+        .onChange(of: isHeldStill) { _, still in still ? settle() : wobble() }
+    }
+
+    /// The film over the picture, its rim, and the reflection along the bottom.
+    private func film(rim: CGFloat) -> some View {
+        ZStack {
+            shape.fill(RadialGradient(stops: [.init(color: .clear, location: 0),
+                                              .init(color: .clear, location: 0.62),
+                                              .init(color: .white.opacity(0.16), location: 0.92),
+                                              .init(color: .white.opacity(0.3), location: 1)],
+                                      center: .center, startRadius: 0, endRadius: diameter * 0.5))
+            shape.stroke(LinearGradient(stops: [.init(color: .white.opacity(0.6), location: 0),
+                                                .init(color: .white.opacity(0.12), location: 0.45),
+                                                .init(color: .white.opacity(0.08), location: 0.6),
+                                                .init(color: .white.opacity(0.45), location: 1)],
+                                        startPoint: .topTrailing, endPoint: .bottomLeading),
+                         lineWidth: rim)
+            shape.trim(from: 0.14, to: 0.34)
+                .stroke(LinearGradient(colors: [.clear, Color(red: 0.45, green: 0.75, blue: 1).opacity(0.75), .clear],
+                                       startPoint: .leading, endPoint: .trailing),
+                        style: StrokeStyle(lineWidth: rim * 1.6, lineCap: .round))
+                .scaleEffect(0.93)
+        }
+        .frame(width: diameter, height: diameter)
     }
 
     private func wobble() {
