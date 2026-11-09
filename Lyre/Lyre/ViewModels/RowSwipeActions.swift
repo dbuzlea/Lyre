@@ -28,7 +28,7 @@ struct RowSwipeAction: Identifiable {
     static let playNextTint = Color(red: 0.42, green: 0.32, blue: 0.86)
     static let addToQueueTint = Color(red: 0.93, green: 0.52, blue: 0.2)
     static let downloadTint = Color(red: 0.2, green: 0.5, blue: 0.95)
-    static let libraryTint = Color(red: 0.98, green: 0.24, blue: 0.33)
+    static let libraryTint = Color(red: 0.04, green: 0.48, blue: 1.0)
 
     /// Add to Library: what a swiped-left song streamed from Apple Music offers, if the
     /// library hasn't it (LibraryAdder); nothing for one it has.
