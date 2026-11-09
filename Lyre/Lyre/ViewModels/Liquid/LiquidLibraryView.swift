@@ -1185,6 +1185,9 @@ struct LiquidSearchPage: View {
         }
         .scrollDismissesKeyboard(.immediately)
         .modifier(StillWhileScrolling())
+        // Its songs' bubbles answer to the phone's tilt (BubbleTilt).
+        .onAppear { BubbleTilt.shared.attach() }
+        .onDisappear { BubbleTilt.shared.detach() }
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)
         .task(id: query) {
