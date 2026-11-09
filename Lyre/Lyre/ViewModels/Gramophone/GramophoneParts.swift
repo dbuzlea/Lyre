@@ -293,6 +293,8 @@ struct TurntableView: View {
 
     /// The arm's angle while a finger carries it.
     @State private var carriedAngle: Double?
+    /// A finger held on the record: it presses down as the hold builds.
+    @State private var isHoldingRecord = false
     /// The band under the carried needle, for a tick as it crosses into the next.
     @State private var carriedBand: Int?
     @State private var dragBegan = false
@@ -359,9 +361,13 @@ struct TurntableView: View {
                 .overlay(RecordSheen())
                 .frame(width: radius * 2, height: radius * 2)
                 .shadow(color: .black.opacity(0.4), radius: 3, y: 2)
+                .modifier(HoldHint(isPressing: isHoldingRecord, depth: 0.04))
                 .transition(.scale(scale: 1.12).combined(with: .opacity))
                 .id(record.id)
-                .onLongPressGesture(minimumDuration: 0.5) { onHoldRecord() }
+                .onLongPressGesture(minimumDuration: 0.5) {
+                    isHoldingRecord = false
+                    onHoldRecord()
+                } onPressingChanged: { isHoldingRecord = $0 }
                 .accessibilityElement()
                 .accessibilityLabel(String(format: String(localized: "gramophone.record.a11y"), record.title))
                 .accessibilityAddTraits(.isButton)
@@ -408,7 +414,7 @@ struct TurntableView: View {
                 .offset(x: arm.pivot.x, y: arm.pivot.y - radius * 0.08)
                 // Lifted, it rises off the record: bigger, with a longer shadow.
                 .shadow(color: .black.opacity(0.45), radius: isLifted ? 9 : 3, x: 0, y: isLifted ? 8 : 2)
-                .animation(carriedAngle == nil ? .spring(response: 0.5, dampingFraction: 0.85) : nil, value: angle)
+                .animation(carriedAngle == nil ? LyreMotion.heavy : nil, value: angle)
 
             // The pivot's base.
             Circle()
@@ -489,7 +495,7 @@ struct TurntableView: View {
     private func needleReadout(_ arm: TonearmGeometry) -> some View {
         if let record {
             if let carriedAngle {
-                let readout = NeedleReadout(record: record, fraction: arm.fraction(at: carriedAngle))
+                let readout = NeedleReadout(record: record, fraction: arm.fraction(at: arm.clamped(carriedAngle)))
                 VStack(spacing: 3) {
                     if let readout {
                         Text(String(format: String(localized: "gramophone.needle.band"), readout.number, readout.count).uppercased())
@@ -571,9 +577,11 @@ struct TurntableView: View {
                     if !isArmParked { onLift() }
                 }
                 guard carriedAngle != nil else { return }
-                carriedAngle = arm.angle(toward: value.location)
+                carriedAngle = arm.angle(rubberBandedToward: value.location)
                 // A tick as the needle crosses from one song's band to the next.
-                let band = record.flatMap { record in arm.fraction(at: carriedAngle ?? 0).map { record.grooves.position(at: $0).index } }
+                let band = record.flatMap { record in
+                    arm.fraction(at: arm.clamped(carriedAngle ?? 0)).map { record.grooves.position(at: $0).index }
+                }
                 if band != carriedBand {
                     if carriedBand != nil || band != nil { UISelectionFeedbackGenerator().selectionChanged() }
                     carriedBand = band
@@ -581,7 +589,8 @@ struct TurntableView: View {
             }
             .onEnded { _ in
                 defer { dragBegan = false }
-                guard let angle = carriedAngle else { return }
+                guard let carried = carriedAngle else { return }
+                let angle = arm.clamped(carried)
                 let fraction = record == nil ? nil : arm.fraction(at: angle)
                 // Settle where it was let go, then hand over: the arm then follows the
                 // groove, or goes to its rest.

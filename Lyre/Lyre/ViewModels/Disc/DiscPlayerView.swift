@@ -87,6 +87,10 @@ struct DiscPlayerView: View {
     @State private var seatedTracks: [AppTrack] = []
     /// The motor bringing a new disc up to speed before it plays.
     @State private var isSpinningUp = false
+    /// A finger held on the shut lid: it gives in as the hold builds.
+    @State private var isHoldingLid = false
+    /// The spin-up under way, so a song picked from Up Next meanwhile can take over.
+    @State private var spinTask: Task<Void, Never>?
     /// A disc put on the spindle of an open Duo, waiting for the phone to close.
     @State private var deckLoad: DiscLoad?
     /// The case open, and whether it was brought up from the disc playing.
@@ -294,11 +298,12 @@ struct DiscPlayerView: View {
                     .padding(.horizontal, 20)
                 if !isBrowsing { Spacer(minLength: 0) }
                 deck(side: deckSide, lidOpen: isLidOpen)
-                    .gesture(
-                        LongPressGesture(minimumDuration: 0.5)
-                            .onEnded { _ in showCaseOfDisc() }
-                            .exclusively(before: TapGesture().onEnded { isBrowsing ? closeDeck() : openDeck() })
-                    )
+                    .modifier(HoldHint(isPressing: isHoldingLid && !isBrowsing && !isLidOpen, depth: 0.03))
+                    .onTapGesture { isBrowsing ? closeDeck() : openDeck() }
+                    .onLongPressGesture(minimumDuration: 0.5) {
+                        isHoldingLid = false
+                        showCaseOfDisc()
+                    } onPressingChanged: { isHoldingLid = $0 }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(String(localized: "disc.lid"))
                     .accessibilityValue(deckDisc?.title ?? String(localized: "disc.noDisc"))
@@ -539,6 +544,8 @@ struct DiscPlayerView: View {
                     .foregroundStyle(isLoved ? theme.accent : theme.buttonSymbol)
                     .frame(width: 36, height: 36)
                     .background(theme.buttonLight.opacity(0.8), in: Circle())
+                    // Drawn at 36 points, touched at 44.
+                    .contentShape(Circle().inset(by: -4))
             }
             AirPlayRouteButton(identifier: "disc.airplay") { isActive in
                 Image(systemName: "airplayaudio")
@@ -546,6 +553,8 @@ struct DiscPlayerView: View {
                     .foregroundStyle(isActive ? theme.accent : theme.buttonSymbol)
                     .frame(width: 36, height: 36)
                     .background(theme.buttonLight.opacity(0.8), in: Circle())
+                    // Drawn at 36 points, touched at 44.
+                    .contentShape(Circle().inset(by: -4))
             }
             PlayerSwitchMenu(themeSettings: themeSettings, identifier: "disc.playerSwitch") { symbol in
                 Image(systemName: symbol)
@@ -553,6 +562,8 @@ struct DiscPlayerView: View {
                     .foregroundStyle(theme.buttonSymbol)
                     .frame(width: 36, height: 36)
                     .background(theme.buttonLight.opacity(0.8), in: Circle())
+                    // Drawn at 36 points, touched at 44.
+                    .contentShape(Circle().inset(by: -4))
             }
             Button { showSettings = true } label: {
                 Image(systemName: "gearshape.fill")
@@ -560,6 +571,8 @@ struct DiscPlayerView: View {
                     .foregroundStyle(theme.buttonSymbol)
                     .frame(width: 36, height: 36)
                     .background(theme.buttonLight.opacity(0.8), in: Circle())
+                    // Drawn at 36 points, touched at 44.
+                    .contentShape(Circle().inset(by: -4))
             }
             .accessibilityLabel(String(localized: "settings.title"))
             .accessibilityIdentifier("disc.settings")
@@ -826,7 +839,10 @@ struct DiscPlayerView: View {
 
     private func showCaseOfDisc() {
         // The disc in the deck, or what's playing if it was started elsewhere.
-        guard let album = caseOfDisc ?? library.playingAlbum, !isLidOpen, !isBrowsing, !isSpinningUp, flight == nil, openCase == nil else { return }
+        // Not waited on: held while the disc spins up, the case opens and the song still
+        // comes in under it.
+        guard let album = caseOfDisc ?? pendingDisc?.album ?? library.playingAlbum, !isLidOpen, !isBrowsing,
+              flight == nil, openCase == nil else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         isCaseFromDeck = true
         openCase = album
@@ -1292,7 +1308,8 @@ struct DiscPlayerView: View {
             withAnimation(.spring(duration: 0.4, bounce: 0.12)) { isBrowsing.toggle() }
             return
         }
-        guard foldMonitor.posture != .open, !isLidOpen, flight == nil, !isSpinningUp else { return }
+        // Opened while the disc spins up, the lid doesn't wait: the song still comes in.
+        guard foldMonitor.posture != .open, !isLidOpen, flight == nil else { return }
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
         DiscSound.lidOpen.play()
         withAnimation(.spring(duration: 0.35, bounce: 0.35)) {
@@ -1380,9 +1397,16 @@ struct DiscPlayerView: View {
     /// A song picked from Up Next: it comes out of the tray as a disc of its own, the lid
     /// pops, the disc goes on, the lid shuts and it plays. The rest of Up Next stays.
     private func loadFromQueue(_ track: AppTrack, from row: CGRect) {
-        guard flight == nil, !isLidOpen, !isSpinningUp, seatFrame.width > 0, row.width > 0 else {
+        guard flight == nil, !isLidOpen, seatFrame.width > 0, row.width > 0 else {
             closeQueue()
             return
+        }
+        // Picked while a disc is still spinning up: this song takes over.
+        if isSpinningUp {
+            spinTask?.cancel()
+            spinTask = nil
+            isSpinningUp = false
+            pendingDisc = nil
         }
         let side = row.height * 0.9
         let start = CGRect(x: row.midX - side / 2, y: row.midY - side / 2, width: side, height: side)
@@ -1428,10 +1452,12 @@ struct DiscPlayerView: View {
         DiscSound.spinUp.play()
         pendingDisc = disc
         isSpinningUp = true
-        Task {
+        spinTask?.cancel()
+        spinTask = Task {
             async let loaded = tracks.value
             try? await Task.sleep(for: Self.spinUpTime)
             let songs = await loaded
+            guard !Task.isCancelled else { return }
             guard !songs.isEmpty else {
                 isSpinningUp = false
                 pendingDisc = nil
@@ -1448,8 +1474,10 @@ struct DiscPlayerView: View {
     private func spinUp(forUpcoming track: AppTrack) {
         DiscSound.spinUp.play()
         isSpinningUp = true
-        Task {
+        spinTask?.cancel()
+        spinTask = Task {
             try? await Task.sleep(for: Self.spinUpTime)
+            guard !Task.isCancelled else { return }
             // Found again by identity: the queue may have moved on meanwhile.
             if let offset = musicService.upcoming.firstIndex(where: { $0.id == track.id }) {
                 musicService.playUpcoming(at: offset)

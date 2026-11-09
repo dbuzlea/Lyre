@@ -217,9 +217,9 @@ private struct RowSwipeActions: ViewModifier {
                 close()
                 actions[0].action()
             } else if offset > leadingWidth * 0.45 && heading > leadingWidth * 0.3 {
-                open(leadingWidth)
+                open(leadingWidth, velocity: velocity)
             } else {
-                close()
+                close(velocity: velocity)
             }
         } else if offset < 0 {
             if -offset > max(trailingWidth + 60, size.width * 0.62) {
@@ -227,27 +227,35 @@ private struct RowSwipeActions: ViewModifier {
                 close()
                 trailing[0].action()
             } else if -offset > trailingWidth * 0.45 && -heading > trailingWidth * 0.3 {
-                open(-trailingWidth)
+                open(-trailingWidth, velocity: velocity)
             } else {
-                close()
+                close(velocity: velocity)
             }
         } else {
             close()
         }
     }
 
-    private func open(_ to: CGFloat) {
+    /// The row let go towards `to`, the finger's `velocity` (points a second, rightward
+    /// positive) carried on into the spring so it doesn't stop and start again.
+    private func open(_ to: CGFloat, velocity: CGFloat = 0) {
         coordinator.openRow = id
-        withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.32, dampingFraction: 0.82)) {
+        withAnimation(reduceMotion ? .easeOut(duration: 0.2) : slide(to: to, velocity: velocity)) {
             offset = to
         }
     }
 
-    private func close() {
+    private func close(velocity: CGFloat = 0) {
         if coordinator.openRow == id { coordinator.openRow = nil }
-        withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.3, dampingFraction: 0.9)) {
+        withAnimation(reduceMotion ? .easeOut(duration: 0.2) : slide(to: 0, velocity: velocity)) {
             offset = 0
         }
+    }
+
+    private func slide(to: CGFloat, velocity: CGFloat) -> Animation {
+        let distance = to - offset
+        guard velocity != 0, abs(distance) > 0.5 else { return LyreMotion.light }
+        return LyreMotion.release(velocity: distance > 0 ? velocity : -velocity, distance: abs(distance))
     }
 }
 

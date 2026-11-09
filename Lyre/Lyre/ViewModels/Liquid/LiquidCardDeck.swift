@@ -190,20 +190,28 @@ struct LiquidCardDeckView<Content: View>: View {
                 guard dragIsSideways == true else { return }
                 let atEnd = (value.translation.width > 0 && current == 0)
                     || (value.translation.width < 0 && current == deck.items.count - 1)
-                drag = atEnd ? value.translation.width / 3 : value.translation.width
+                // Past either end it gives ever less, as a rubber band does.
+                drag = atEnd ? LyreMotion.rubberBand(value.translation.width, limit: width / 3) : value.translation.width
             }
             .onEnded { value in
                 defer { dragIsSideways = nil }
                 guard !isExpanded, dragIsSideways == true else { return }
                 let travel = value.predictedEndTranslation.width
                 let turnAt = width / 4
-                turn(to: travel < -turnAt ? current + 1 : travel > turnAt ? current - 1 : current)
+                let target = travel < -turnAt ? current + 1 : travel > turnAt ? current - 1 : current
+                // The finger's speed goes on into the turn, so the card doesn't stop and
+                // start again as it's let go.
+                let clamped = min(max(target, 0), deck.items.count - 1)
+                let step = width - 2 * Self.margin + Self.gap
+                let remaining = CGFloat(current - clamped) * step - drag
+                let toward = remaining == 0 ? 0 : value.velocity.width * (remaining < 0 ? -1 : 1)
+                turn(to: target, animation: LyreMotion.release(velocity: toward, distance: abs(remaining)))
             }
     }
 
-    private func turn(to index: Int) {
+    private func turn(to index: Int, animation: Animation = LyreMotion.light) {
         if min(max(index, 0), deck.items.count - 1) != current { UsageStats.shared.used(.cardSwipe) }
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+        withAnimation(animation) {
             current = min(max(index, 0), deck.items.count - 1)
             drag = 0
         }
@@ -246,7 +254,7 @@ struct LiquidCardDeckView<Content: View>: View {
                     .frame(width: 40, height: 40)
                     .background(.white.opacity(0.15), in: Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .accessibilityLabel(String(localized: "liquid.card.close"))
             .accessibilityIdentifier("liquid.card.bar.close")
             Spacer(minLength: 8)

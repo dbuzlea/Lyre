@@ -294,7 +294,7 @@ struct LiquidDiscoverSectionPage: View {
                         .background(.white.opacity(0.12), in: Capsule())
                 }
                 .foregroundStyle(.white)
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityIdentifier("liquid.discover.genre")
             }
         }
@@ -432,6 +432,25 @@ extension EnvironmentValues {
         get { self[LiquidDiscoverZoomKey.self] }
         set { self[LiquidDiscoverZoomKey.self] = newValue }
     }
+}
+
+/// A bubble just tapped, for the push it leads to: an album page opened from its own
+/// bubble zooms out of it (and back into it) instead of flooding, so it's seen where it
+/// came from. Only a tap a moment ago counts.
+@MainActor
+enum LiquidZoom {
+    private static var tapped: (id: String, at: Date)?
+
+    static func tapped(_ albumID: String) { tapped = (albumID, Date()) }
+
+    /// Whether `albumID`'s bubble was the one just tapped; asking forgets it either way.
+    static func take(_ albumID: String) -> Bool {
+        defer { tapped = nil }
+        guard let tapped, Date().timeIntervalSince(tapped.at) < 1 else { return false }
+        return tapped.id == albumID
+    }
+
+    static func sourceID(_ albumID: String) -> String { "album." + albumID }
 }
 
 struct DiscoverZoomSource: ViewModifier {

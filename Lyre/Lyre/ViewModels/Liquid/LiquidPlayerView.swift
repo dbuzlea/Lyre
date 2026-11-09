@@ -59,6 +59,9 @@ struct LiquidPlayerView: View {
     /// How far Now Playing has been dragged down, on its way back to the library.
     @State private var nowPlayingDrop: CGFloat = 0
     @State private var flood: Flood?
+    /// Which flood is the latest, and the change waiting under it.
+    @State private var floodGeneration = 0
+    @State private var floodChange: (() -> Void)?
     @State private var showSettings = false
     @State private var showPodcastSearch = false
     @State private var pendingPlay: PendingPlay?
@@ -103,15 +106,16 @@ struct LiquidPlayerView: View {
                         musicService: musicService,
                         themeSettings: themeSettings,
                         onOpenLibrary: { flood(.liquidGround, in: geometry) { screen = .library } },
-                        onOpenQueue: openTide,
+                        onOpenQueue: { openTide() },
                         onOpenSettings: { showSettings = true },
                         onQueueDrag: { lift in dragTide(to: lift / tideHeight, from: 0) },
-                        onQueueDragEnd: { lift, heading in
-                            endTideDrag(opens: heading > tideHeight * 0.3 || lift > tideHeight * 0.25)
+                        onQueueDragEnd: { lift, heading, speed in
+                            endTideDrag(opens: heading > tideHeight * 0.3 || lift > tideHeight * 0.25,
+                                        speed: speed / tideHeight)
                         },
                         onOpenPlayingAlbum: openPlayingAlbum,
                         onDismissDrag: { drop in nowPlayingDrop = drop },
-                        onDismissDragEnd: { drop, heading in endDismiss(drop: drop, heading: heading) }
+                        onDismissDragEnd: { drop, heading, speed in endDismiss(drop: drop, heading: heading, speed: speed) }
                     )
                     .clipShape(RoundedRectangle(cornerRadius: nowPlayingDrop > 0 ? 34 : 0, style: .continuous))
                     .shadow(color: .black.opacity(nowPlayingDrop > 0 ? 0.5 : 0), radius: 24)
@@ -135,10 +139,12 @@ struct LiquidPlayerView: View {
                             closeTide()
                             musicService.playUpcoming(at: offset)
                         },
-                        onClose: closeTide,
+                        onClose: { closeTide() },
                         onNotice: showNotice,
                         onDrag: { drop in dragTide(to: 1 - max(0, drop) / tideHeight, from: 1) },
-                        onDragEnd: { drop, heading in endTideDrag(opens: !(drop > 120 || heading > 260)) }
+                        onDragEnd: { drop, heading, speed in
+                            endTideDrag(opens: !(drop > 120 || heading > 260), speed: -speed / tideHeight)
+                        }
                     )
                     .zIndex(2)
                 }
@@ -290,9 +296,13 @@ struct LiquidPlayerView: View {
     }
 
     /// Spreads `color` out from `origin` (the last touch, when none is given) until it
-    /// covers the screen, makes `change` under it, and lets it clear. One at a time.
+    /// covers the screen, makes `change` under it, and lets it clear.
+    ///
+    /// A flood is never waited on: asked for again while one is spreading, it takes the
+    /// new colour and the new change (the newer touch is what was meant); asked for while
+    /// one is clearing, it fills back in from where it is and clears again over the new
+    /// change. Each flood's completions check they're still the latest before acting.
     private func floodAction(_ color: Color, _ origin: CGPoint?, _ change: @escaping () -> Void) {
-        guard flood == nil else { return }
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         var instant = Transaction()
         instant.disablesAnimations = true
@@ -300,24 +310,38 @@ struct LiquidPlayerView: View {
             withAnimation(.easeInOut(duration: 0.25)) { change() }
             return
         }
-        let size = bounds.size
-        // Where the touch was, in the player's own space.
-        // An origin given is on the screen (global); either way, into the player's space.
-        let touch = (origin ?? LiquidTouchTracker.shared.lastTouch).map {
-            CGPoint(x: $0.x - bounds.minX, y: $0.y - bounds.minY)
-        } ?? CGPoint(x: size.width / 2, y: size.height / 2)
-        // Large enough, centred on the touch, to reach the furthest corner.
-        let reach = max(hypot(touch.x, touch.y), hypot(size.width - touch.x, touch.y),
-                        hypot(touch.x, size.height - touch.y), hypot(size.width - touch.x, size.height - touch.y))
-        flood = Flood(color: color, origin: touch, diameter: reach * 2 + 40)
-        withAnimation(.easeIn(duration: Self.floodIn)) {
+        floodGeneration += 1
+        let generation = floodGeneration
+        floodChange = change
+        if let current = flood {
+            // Caught mid-way: the same water, recoloured, carried on from where it is.
+            flood = Flood(color: color, origin: current.origin, diameter: current.diameter,
+                          scale: current.scale, opacity: current.opacity)
+        } else {
+            let size = bounds.size
+            // An origin given is on the screen (global); either way, into the player's space.
+            let touch = (origin ?? LiquidTouchTracker.shared.lastTouch).map {
+                CGPoint(x: $0.x - bounds.minX, y: $0.y - bounds.minY)
+            } ?? CGPoint(x: size.width / 2, y: size.height / 2)
+            // Large enough, centred on the touch, to reach the furthest corner.
+            let reach = max(hypot(touch.x, touch.y), hypot(size.width - touch.x, touch.y),
+                            hypot(touch.x, size.height - touch.y), hypot(size.width - touch.x, size.height - touch.y))
+            flood = Flood(color: color, origin: touch, diameter: reach * 2 + 40)
+        }
+        // What's left of the spread (all of it, for a new flood) takes its share of the time.
+        let left = 1 - (flood?.scale ?? 0.01) * CGFloat(flood?.opacity ?? 1)
+        withAnimation(.easeIn(duration: Self.floodIn * max(0.3, left))) {
             flood?.scale = 1
+            flood?.opacity = 1
         } completion: {
-            withTransaction(instant) { change() }
+            guard generation == floodGeneration else { return }
+            let pending = floodChange
+            floodChange = nil
+            withTransaction(instant) { pending?() }
             withAnimation(.easeOut(duration: Self.floodOut)) {
                 flood?.opacity = 0
             } completion: {
-                flood = nil
+                if generation == floodGeneration { flood = nil }
             }
         }
     }
@@ -395,11 +419,13 @@ struct LiquidPlayerView: View {
             musicService: musicService,
             themeSettings: themeSettings,
             onOpenLibrary: onOpenLibrary,
-            onOpenQueue: openTide,
+            onOpenQueue: { openTide() },
             onOpenSettings: { showSettings = true },
             onQueueDrag: { lift in if queueDrag { dragTide(to: lift / tideHeight, from: 0) } },
-            onQueueDragEnd: { lift, heading in
-                if queueDrag { endTideDrag(opens: heading > tideHeight * 0.3 || lift > tideHeight * 0.25) }
+            onQueueDragEnd: { lift, heading, speed in
+                if queueDrag {
+                    endTideDrag(opens: heading > tideHeight * 0.3 || lift > tideHeight * 0.25, speed: speed / tideHeight)
+                }
             },
             onOpenPlayingAlbum: openPlayingAlbum,
             lean: lean
@@ -427,7 +453,7 @@ struct LiquidPlayerView: View {
                                 .frame(height: 46)
                                 .background(.white.opacity(0.16), in: Capsule())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(LyrePressStyle())
                         .accessibilityIdentifier("liquid.bubbles.back")
                     ))
                     .transition(.opacity)
@@ -480,7 +506,7 @@ struct LiquidPlayerView: View {
                                 .frame(height: 46)
                                 .background(.white.opacity(0.16), in: Capsule())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(LyrePressStyle())
                         .accessibilityIdentifier("liquid.pool.back")
                     ))
                 } else {
@@ -742,14 +768,21 @@ struct LiquidPlayerView: View {
     /// How tall the tide stands open.
     private var tideHeight: CGFloat { max(1, LiquidTideView.height(in: bounds.height)) }
 
-    private func openTide() {
+    /// Opens Up Next; `speed` is how fast a finger let go of it was lifting it, in tide
+    /// heights a second, carried on into the rise.
+    private func openTide(speed: CGFloat = 0) {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         isTideShown = true
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) { tideProgress = 1 }
+        let left = 1 - tideProgress
+        withAnimation(speed == 0 ? LyreMotion.light : LyreMotion.release(velocity: speed, distance: left)) {
+            tideProgress = 1
+        }
     }
 
-    private func closeTide() {
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) {
+    private func closeTide(speed: CGFloat = 0) {
+        let animation = speed == 0 ? LyreMotion.light
+            : LyreMotion.release(velocity: -speed, distance: tideProgress, bounces: false)
+        withAnimation(animation) {
             tideProgress = 0
         } completion: {
             // Unless a finger has caught it on the way down.
@@ -762,21 +795,26 @@ struct LiquidPlayerView: View {
     private func dragTide(to progress: CGFloat, from start: CGFloat) {
         if tideDragStart == nil { tideDragStart = start }
         isTideShown = true
-        withTransaction(Transaction(animation: nil)) { tideProgress = min(1, max(0, progress)) }
+        // Past open it gives a little more, ever less, as a rubber band does.
+        let shown = progress > 1 ? 1 + LyreMotion.rubberBand(progress - 1, limit: 0.06) : max(0, progress)
+        withTransaction(Transaction(animation: nil)) { tideProgress = shown }
     }
 
-    private func endTideDrag(opens: Bool) {
+    /// `speed`: the finger's, in tide heights a second, upward positive.
+    private func endTideDrag(opens: Bool, speed: CGFloat = 0) {
         tideDragStart = nil
-        opens ? openTide() : closeTide()
+        opens ? openTide(speed: speed) : closeTide(speed: speed)
     }
 
     /// Let go of Now Playing: far enough down, or flicked, it slides away to the library
     /// page you came from; else it springs back.
-    private func endDismiss(drop: CGFloat, heading: CGFloat) {
+    /// `speed` is the finger's, downward positive, carried on into either.
+    private func endDismiss(drop: CGFloat, heading: CGFloat, speed: CGFloat = 0) {
         guard drop > 0 else { return }
         if drop > 140 || heading > 420 {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-            withAnimation(.easeOut(duration: 0.26)) {
+            let away = bounds.height + 40 - drop
+            withAnimation(LyreMotion.release(velocity: max(speed, 0), distance: away, bounces: false)) {
                 nowPlayingDrop = bounds.height + 40
             } completion: {
                 withTransaction(Transaction(animation: nil)) {
@@ -785,7 +823,7 @@ struct LiquidPlayerView: View {
                 }
             }
         } else {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) { nowPlayingDrop = 0 }
+            withAnimation(LyreMotion.release(velocity: -speed, distance: drop)) { nowPlayingDrop = 0 }
         }
     }
 

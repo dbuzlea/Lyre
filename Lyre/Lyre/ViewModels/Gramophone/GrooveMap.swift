@@ -135,6 +135,25 @@ struct TonearmGeometry: Equatable {
         while raw > middle + .pi { raw -= 2 * .pi }
         return min(max(raw, restAngle), innerAngle)
     }
+
+    /// As `angle(toward:)`, but past either end of the swing the arm still gives a
+    /// little, ever less (a rubber band), so a finger carrying it on feels the stop
+    /// rather than hitting a wall.
+    func angle(rubberBandedToward point: CGPoint) -> Double {
+        var raw = atan2(Double(point.y - pivot.y), Double(point.x - pivot.x))
+        let middle = (restAngle + innerAngle) / 2
+        while raw < middle - .pi { raw += 2 * .pi }
+        while raw > middle + .pi { raw -= 2 * .pi }
+        let low = min(restAngle, innerAngle), high = max(restAngle, innerAngle)
+        if raw < low { return low + Double(LyreMotion.rubberBand(CGFloat(raw - low), limit: 0.07)) }
+        if raw > high { return high + Double(LyreMotion.rubberBand(CGFloat(raw - high), limit: 0.07)) }
+        return raw
+    }
+
+    /// An angle brought back inside the arm's swing.
+    func clamped(_ angle: Double) -> Double {
+        min(max(angle, min(restAngle, innerAngle)), max(restAngle, innerAngle))
+    }
 }
 
 // MARK: - The Needle's Song
