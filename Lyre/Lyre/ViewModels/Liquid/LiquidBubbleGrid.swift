@@ -49,6 +49,9 @@ struct LiquidBubbleGrid: View {
             }
         }
         .accessibilityElement(children: .contain)
+        // The bubbles answer to the phone's tilt while they're up (BubbleTilt).
+        .onAppear { BubbleTilt.shared.attach() }
+        .onDisappear { BubbleTilt.shared.detach() }
     }
 
     private func bubble(at index: Int, side: CGFloat, height: CGFloat) -> some View {

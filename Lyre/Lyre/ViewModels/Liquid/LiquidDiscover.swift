@@ -75,6 +75,9 @@ struct LiquidDiscoverPage: View {
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)
         .task { await Discover.shared.load(in: musicService) }
+        // The bubbles answer to the phone's tilt while the page is up (BubbleTilt).
+        .onAppear { BubbleTilt.shared.attach() }
+        .onDisappear { BubbleTilt.shared.detach() }
     }
 
     /// How big each cover's bubble is: by songs played from it, in Recently Played.
@@ -101,7 +104,7 @@ struct LiquidDiscoverBubble: View {
         let items = Array(section.items.prefix(Self.shown))
         let circles = BubblePacking.pack(Array(weights.prefix(items.count)))
         let half = diameter / 2
-        LiquidSoapBubble(diameter: diameter, wobbles: true, flattens: true) {
+        LiquidSoapBubble(diameter: diameter, wobbles: true, flattens: true, tilts: true, seed: section.id) {
             ZStack {
                 Color.white.opacity(0.05)
                 ForEach(Array(zip(items, circles).enumerated()), id: \.element.0.id) { _, pair in
@@ -120,7 +123,7 @@ struct LiquidDiscoverBubble: View {
 
     @ViewBuilder
     private func mini(_ item: AppAlbum, diameter: CGFloat) -> some View {
-        LiquidSoapBubble(diameter: diameter, isLight: true) {
+        LiquidSoapBubble(diameter: diameter, isLight: true, tilts: true, seed: item.id) {
             if section.kind == .genres {
                 // A genre has no cover until it's opened: its name on a colour of its own.
                 ZStack {
@@ -307,7 +310,7 @@ struct LiquidBubbleTile: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            LiquidSoapBubble(diameter: diameter, isLight: true, flattens: true) {
+            LiquidSoapBubble(diameter: diameter, isLight: true, flattens: true, tilts: true, seed: album.id) {
                 LiquidCover(source: .album(album))
             }
             .modifier(BubbleFloat(seed: album.id, reach: 3))
@@ -403,8 +406,12 @@ struct StillWhileScrolling: ViewModifier {
             content
                 .onScrollPhaseChange { _, phase in
                     let moving = phase != .idle
-                    if moving != isScrolling { isScrolling = moving }
+                    if moving != isScrolling {
+                        isScrolling = moving
+                        BubbleTilt.shared.isPaused = moving
+                    }
                 }
+                .onDisappear { BubbleTilt.shared.isPaused = false }
                 .environment(\.liquidBubblesStill, isScrolling)
         } else {
             content
