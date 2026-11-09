@@ -45,7 +45,11 @@ struct LiquidSoapBubble<Content: View>: View {
 
     /// Under this, a bubble is in a list or a row: no blur, no glow, no wobble.
     private var isSmall: Bool { isLight || diameter < 120 }
-    private var shape: SoapBubbleShape { SoapBubbleShape(phase: phase, wobble: isSmall ? 0.025 : 0.04) }
+    private var wobbleAmount: Double { isSmall ? 0.025 : 0.04 }
+    private var shape: SoapBubbleShape { SoapBubbleShape(phase: phase, wobble: wobbleAmount) }
+    /// The outline's mean size against the frame (SoapBubbleShape leaves room for its
+    /// give), for the round layers drawn over it to sit on its rim.
+    private var outlineScale: CGFloat { 1 / (1 + wobbleAmount * 1.6) }
 
     var body: some View {
         if tilts {
@@ -150,7 +154,7 @@ struct LiquidSoapBubble<Content: View>: View {
                 .drawingGroup()
             // 2: the rainbow round the top, creeping round the rim and brightening.
             Circle()
-                .scale(0.985)
+                .scale(0.985 * outlineScale)
                 .stroke(AngularGradient(colors: [.pink, .orange, .yellow, .green, .cyan, .blue, .purple, .pink],
                                         center: .center, angle: .degrees(200)),
                         lineWidth: rim * 1.8)
@@ -162,7 +166,7 @@ struct LiquidSoapBubble<Content: View>: View {
                 .modifier(TiltTurn(degrees: 32, brightens: 0.4...0.75))
             // 1: a glint running round the rim to where the light catches it.
             Circle()
-                .scale(0.97)
+                .scale(0.965 * outlineScale)
                 .trim(from: 0.58, to: 0.74)
                 .stroke(LinearGradient(colors: [.white.opacity(0), .white.opacity(0.85), .white.opacity(0)],
                                        startPoint: .leading, endPoint: .trailing),

@@ -271,9 +271,7 @@ struct LiquidCardDeckView<Content: View>: View {
     private func barArt(_ item: LiquidDeckItem) -> some View {
         switch item {
         case .album(let album):
-            LiquidCover(source: .album(album))
-                .frame(width: 28, height: 28)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            LiquidSoapBubble(diameter: 30) { LiquidCover(source: .album(album)) }
         case .artist(let name):
             ArtistPhoto(name: name, fallback: nil, size: 28)
         }

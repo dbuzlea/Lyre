@@ -179,11 +179,9 @@ private struct LiquidDrop: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            LiquidCover(source: .track(track))
-                .frame(width: Self.side, height: Self.side)
-                .clipShape(Circle())
-                .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 1.5))
-                .shadow(color: .black.opacity(0.35), radius: 8, y: 5)
+            LiquidSoapBubble(diameter: Self.side, isLight: true, flattens: true, tilts: true, seed: track.id) {
+                LiquidCover(source: .track(track))
+            }
             Text(track.title)
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(2)
