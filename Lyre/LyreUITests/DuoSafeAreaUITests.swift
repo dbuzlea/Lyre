@@ -5,15 +5,14 @@
 
 import XCTest
 
-/// An iPhone Duo closed has its status bar and front camera down the right edge, a
-/// column 84 points wide, where other iPhones have them across the top. Each player's
+/// An iPhone Duo closed (or held open as a book) has its status bar and front camera
+/// down the right edge, where other iPhones have them across the top. Each player's
 /// controls must keep out of it: the players draw edge to edge and place their own
 /// controls, so nothing does it for them.
+///
+/// The column is measured from the window's safe area as Lyre sees it, so the tests
+/// hold on a simulator's Duo and a real one alike, whatever their sizes.
 final class DuoSafeAreaUITests: XCTestCase {
-
-    /// The closed Duo's window, and the column its status bar and camera take.
-    private static let closedDuoWidth: CGFloat = 466
-    private static let statusColumn: CGFloat = 84
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -65,17 +64,17 @@ final class DuoSafeAreaUITests: XCTestCase {
         app.launch()
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 10))
-        guard window.frame.width == Self.closedDuoWidth else {
-            throw XCTSkip("Only an iPhone Duo closed has its status bar down the side")
+        guard let column = app.lyreSideStatusColumn else {
+            throw XCTSkip("This phone keeps its status bar across the top, not down the side")
         }
-        let edge = window.frame.maxX - Self.statusColumn
+        let edge = window.frame.maxX - column
         for id in ids {
             let element = app.descendants(matching: .any)[id].firstMatch
             XCTAssertTrue(element.waitForExistence(timeout: 10), "\(id) is missing")
             XCTAssertLessThanOrEqual(element.frame.maxX, edge,
                                      "\(id) reaches under the status bar (\(element.frame), edge \(edge))")
         }
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = "duo-closed-\(style)"
         attachment.lifetime = .keepAlways
         add(attachment)

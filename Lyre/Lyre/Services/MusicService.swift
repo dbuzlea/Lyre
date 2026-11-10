@@ -1134,6 +1134,8 @@ class MusicService: ObservableObject {
     }
 
     private func loadLibraryAttempt(attempt: Int) async {
+        // A UI test on the sample shelves: the phone's own library stays out of it.
+        guard !AppEnvironment.usesOnlySampleLibrary else { return }
         // Every query below returns nothing without access. Bailing out keeps an
         // unauthorized load from publishing an empty library and marking it as loaded,
         // which would suppress the real load later.

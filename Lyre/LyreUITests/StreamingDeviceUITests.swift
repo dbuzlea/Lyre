@@ -55,7 +55,7 @@ final class StreamingDeviceUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: showsIt, object: nowPlaying)], timeout: 20),
                        .completed, "Now Playing doesn't show '\(title)': \(nowPlaying.label)")
         sleep(4)
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "streaming-now-playing"
         shot.lifetime = .keepAlways
         add(shot)
@@ -158,7 +158,7 @@ final class StreamingDeviceUITests: XCTestCase {
         let nowPlaying = any("spool.queue.nowPlaying")
         XCTAssertTrue(nowPlaying.waitForExistence(timeout: 5))
         XCTAssertFalse(nowPlaying.label.isEmpty, "Nothing is playing")
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "spool-streaming"
         shot.lifetime = .keepAlways
         add(shot)
@@ -180,7 +180,7 @@ final class StreamingDeviceUITests: XCTestCase {
         XCTAssertEqual(field.value as? String, "billboard hot 100", "Not everything typed reached the field")
         let appleMusic = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Apple Music'")).firstMatch
         XCTAssertTrue(appleMusic.waitForExistence(timeout: 20), "No Apple Music results in Search")
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "classic-search-apple-music"
         shot.lifetime = .keepAlways
         add(shot)
@@ -207,13 +207,13 @@ final class StreamingDeviceUITests: XCTestCase {
         XCTAssertTrue(any("albumInfo.label").waitForExistence(timeout: 20) || any("albumInfo.copyright").exists,
                       "Apple Music's details didn't arrive")
         sleep(3)
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "album-info-device"
         shot.lifetime = .keepAlways
         add(shot)
         app.swipeUp(); app.swipeUp()
         sleep(2)
-        let lower = XCTAttachment(screenshot: app.screenshot())
+        let lower = XCTAttachment(screenshot: app.lyreScreenshot())
         lower.name = "album-info-device-more"
         lower.lifetime = .keepAlways
         add(lower)
@@ -256,7 +256,7 @@ final class StreamingDeviceUITests: XCTestCase {
                        .completed, "Now Playing doesn't show '\(title)': \(nowPlaying.label)")
         sleep(5)
         XCTAssertEqual(app.state, .runningForeground, "Lyre stopped")
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "mixed-search-streaming"
         shot.lifetime = .keepAlways
         add(shot)
@@ -282,7 +282,7 @@ final class StreamingDeviceUITests: XCTestCase {
             XCTAssertTrue(divider.waitForExistence(timeout: 10), "\(style) has no Artists shelf")
             divider.tap()
             sleep(2)
-            let shot = XCTAttachment(screenshot: app.screenshot())
+            let shot = XCTAttachment(screenshot: app.lyreScreenshot())
             shot.name = "artists-\(style)"
             shot.lifetime = .keepAlways
             add(shot)
@@ -294,7 +294,7 @@ final class StreamingDeviceUITests: XCTestCase {
                 sleep(2)
                 if divider.exists { divider.tap() }
             }
-            let searched = XCTAttachment(screenshot: app.screenshot())
+            let searched = XCTAttachment(screenshot: app.lyreScreenshot())
             searched.name = "artist-search-\(style)"
             searched.lifetime = .keepAlways
             add(searched)
@@ -305,7 +305,7 @@ final class StreamingDeviceUITests: XCTestCase {
             let covers = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'artist.album.'")).count
             let headings = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'artist.heading.'")).count
             print("ARTIST \(style): covers=\(covers) headings=\(headings) opened=\(artist.label)")
-            let opened = XCTAttachment(screenshot: app.screenshot())
+            let opened = XCTAttachment(screenshot: app.lyreScreenshot())
             opened.name = "artist-open-\(style)"
             opened.lifetime = .keepAlways
             add(opened)
@@ -343,7 +343,7 @@ final class StreamingDeviceUITests: XCTestCase {
         XCTAssertEqual(app.state, .runningForeground, "The artist opened outside Lyre")
         XCTAssertTrue(any("liquid.artist.photo").waitForExistence(timeout: 5), "The artist's card has no photo")
         sleep(3)
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "catalogue-artist-card"
         shot.lifetime = .keepAlways
         add(shot)
@@ -357,7 +357,7 @@ final class StreamingDeviceUITests: XCTestCase {
         sleep(3)
         XCTAssertEqual(app.state, .runningForeground, "The similar artist opened outside Lyre")
         XCTAssertTrue(any("liquid.deck.title").label.contains("similar"), "The card isn't named for the similar artists")
-        let similarShot = XCTAttachment(screenshot: app.screenshot())
+        let similarShot = XCTAttachment(screenshot: app.lyreScreenshot())
         similarShot.name = "similar-artist-card"
         similarShot.lifetime = .keepAlways
         add(similarShot)
@@ -387,7 +387,7 @@ final class StreamingDeviceUITests: XCTestCase {
         XCTAssertTrue(any("liquid.search.field").waitForExistence(timeout: 10), "Lyre didn't come back to Playlists")
         // The profiling window: idle on the page.
         sleep(45)
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "playlists-after-return"
         shot.lifetime = .keepAlways
         add(shot)
@@ -419,14 +419,14 @@ final class StreamingDeviceUITests: XCTestCase {
         }
         sleep(3)
         // To check the covers still draw inside the bubbles.
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "discover-bubbles-device"
         shot.lifetime = .keepAlways
         add(shot)
         any("liquid.discover.bubble").tap()
         XCTAssertTrue(any("liquid.discover.section").waitForExistence(timeout: 10), "The bubble didn't open")
         sleep(3)
-        let grid = XCTAttachment(screenshot: app.screenshot())
+        let grid = XCTAttachment(screenshot: app.lyreScreenshot())
         grid.name = "discover-grid-device"
         grid.lifetime = .keepAlways
         add(grid)
@@ -450,7 +450,7 @@ final class StreamingDeviceUITests: XCTestCase {
         XCTAssertTrue(any("liquid.discover.bubble").waitForExistence(timeout: 20), "Discover showed no bubbles")
         // The profiling window.
         sleep(60)
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "discover-resting-device"
         shot.lifetime = .keepAlways
         add(shot)

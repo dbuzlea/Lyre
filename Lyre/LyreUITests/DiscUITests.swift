@@ -19,7 +19,7 @@ final class DiscUITests: XCTestCase {
 
     @MainActor
     func testThePlayerShowsItsDeckDisplayAndKeys() throws {
-        let app = launchDisc()
+        let app = try launchDisc()
         XCTAssertTrue(element(app, "disc.lid").waitForExistence(timeout: 10))
         for id in ["disc.lcd", "disc.previous", "disc.playPause", "disc.next", "disc.mode", "disc.random",
                    "disc.open", "disc.queue.grip", "disc.settings", "disc.airplay"] {
@@ -31,7 +31,7 @@ final class DiscUITests: XCTestCase {
     /// The Songs divider opens every song as a CD booklet's listing.
     @MainActor
     func testTheSongsShelfListsEverySongInABooklet() throws {
-        let app = launchDisc()
+        let app = try launchDisc()
         let open = element(app, "disc.open")
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         open.tap()
@@ -49,7 +49,7 @@ final class DiscUITests: XCTestCase {
 
     @MainActor
     func testChoosingASongFromACasePutsTheDiscOnAndShutsTheLid() throws {
-        let app = launchDisc()
+        let app = try launchDisc()
         let open = element(app, "disc.open")
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         open.tap()
@@ -77,7 +77,7 @@ final class DiscUITests: XCTestCase {
 
     @MainActor
     func testTappingTheLidAgainBacksOut() throws {
-        let app = launchDisc()
+        let app = try launchDisc()
         let lid = element(app, "disc.lid")
         XCTAssertTrue(lid.waitForExistence(timeout: 10))
         lid.tap()
@@ -89,7 +89,7 @@ final class DiscUITests: XCTestCase {
 
     @MainActor
     func testModeStepsThroughRepeat() throws {
-        let app = launchDisc()
+        let app = try launchDisc()
         let mode = element(app, "disc.mode")
         XCTAssertTrue(mode.waitForExistence(timeout: 10))
         mode.tap()
@@ -104,7 +104,7 @@ final class DiscUITests: XCTestCase {
 
     @MainActor
     func testPuttingADiscOnOverAQueueBuiltByHandAsksFirst() throws {
-        let app = launchDisc(extraArguments: ["--spool-sample-queue", "--queued-by-hand"])
+        let app = try launchDisc(extraArguments: ["--spool-sample-queue", "--queued-by-hand"])
         let open = element(app, "disc.open")
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         open.tap()
@@ -123,7 +123,7 @@ final class DiscUITests: XCTestCase {
 
     @MainActor
     func testTheInstructionsHaveATutorialAndAFinishAppliesStraightAway() throws {
-        let app = launchDisc()
+        let app = try launchDisc()
         let settings = element(app, "disc.settings")
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         // The simulator's library alert can come late, and swallows a sheet asked for
@@ -160,7 +160,7 @@ final class DiscUITests: XCTestCase {
     /// in every list in Lyre, without putting the disc on.
     @MainActor
     func testSwipingASongInACaseOffersPlayNextAndAddToQueue() throws {
-        let app = launchDisc()
+        let app = try launchDisc()
         let open = element(app, "disc.open")
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         open.tap()
@@ -189,7 +189,7 @@ final class DiscUITests: XCTestCase {
     /// booklet over to the shelf.
     @MainActor
     func testAnOpenDuoIsADiscman() throws {
-        let app = launchDisc(extraArguments: ["-SpoolFoldPosture", "open", "-LyreHingeAngle", "110",
+        let app = try launchDisc(extraArguments: ["-SpoolFoldPosture", "open", "-LyreHingeAngle", "110",
                                               "--spool-sample-queue"])
         let booklet = element(app, "disc.booklet")
         XCTAssertTrue(booklet.waitForExistence(timeout: 10), "No booklet in the lid")
@@ -207,7 +207,7 @@ final class DiscUITests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func launchDisc(finish: String = "silver", extraArguments: [String] = []) -> XCUIApplication {
+    private func launchDisc(finish: String = "silver", extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += [
             "--uitest", "--uitest-complete-onboarding",
@@ -217,6 +217,7 @@ final class DiscUITests: XCTestCase {
             "--spool-reset-rack",
         ] + extraArguments
         app.launch()
+        try app.skipUnlessTheHingeAgrees()
         let dismiss = app.alerts.buttons["Dismiss"]
         if dismiss.waitForExistence(timeout: 4) {
             dismiss.tap()
@@ -235,7 +236,7 @@ final class DiscUITests: XCTestCase {
     }
 
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

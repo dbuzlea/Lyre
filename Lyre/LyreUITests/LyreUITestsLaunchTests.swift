@@ -27,7 +27,7 @@ final class LyreUITestsLaunchTests: XCTestCase {
         // XCUIAutomation Documentation
         // https://developer.apple.com/documentation/xcuiautomation
 
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = "Launch Screen"
         attachment.lifetime = .keepAlways
         add(attachment)

@@ -57,7 +57,7 @@ final class ArtworkCarouselDuoUITests: XCTestCase {
     }
 
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

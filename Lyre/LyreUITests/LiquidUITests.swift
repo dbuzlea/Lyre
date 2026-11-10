@@ -20,7 +20,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testNowPlayingShowsBothWavesAndItsControls() throws {
-        let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"])
         XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
         // A touch, in case the waves have already rested away.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
@@ -38,7 +38,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testTheWavesRestAwayAndATouchBringsThemBack() throws {
-        let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"])
         let next = element(app, "liquid.wave.next")
         XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
         // The simulator's library alert can come late; it isn't a touch on the player.
@@ -56,7 +56,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testTappingTheCoverPutsTheWavesAwayAndBack() throws {
-        let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"])
         XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
         let dismiss = app.alerts.buttons["Dismiss"]
         if dismiss.waitForExistence(timeout: 8) { dismiss.tap() }
@@ -74,7 +74,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testDraggingNowPlayingDownGoesBackToTheAlbum() throws {
-        let app = launchLiquid(["-LiquidShot", "album"])
+        let app = try launchLiquid(["-LiquidShot", "album"])
         let play = element(app, "liquid.album.play")
         XCTAssertTrue(play.waitForExistence(timeout: 10), "The album didn't open")
         let droplet = element(app, "liquid.droplet")
@@ -92,7 +92,7 @@ final class LiquidUITests: XCTestCase {
     /// playing does in every player.
     @MainActor
     func testHoldingNowPlayingOpensTheAlbumPlaying() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let nowPlaying = element(app, "liquid.nowPlaying")
         XCTAssertTrue(nowPlaying.waitForExistence(timeout: 10))
         let dismiss = app.alerts.buttons["Dismiss"]
@@ -106,7 +106,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testPullingUpNextUpRaisesItLikeASheet() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let handle = element(app, "liquid.upNext")
         XCTAssertTrue(handle.waitForExistence(timeout: 10))
         handle.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
@@ -121,7 +121,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testTheFirstSongHasNoWaveBack() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
         XCTAssertTrue(element(app, "liquid.wave.next").waitForExistence(timeout: 3))
@@ -130,7 +130,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testTheBottomHandleRaisesTheTideAndItFallsBack() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let handle = element(app, "liquid.upNext")
         XCTAssertTrue(handle.waitForExistence(timeout: 10))
         handle.tap()
@@ -147,7 +147,7 @@ final class LiquidUITests: XCTestCase {
     /// LYRE-14: an album's page has a button at its top right that queues the album.
     @MainActor
     func testAnAlbumsQueueButtonOffersPlayNextAndAddToQueue() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let albums = element(app, "liquid.menu.albums")
         XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
         albums.tap()
@@ -174,7 +174,7 @@ final class LiquidUITests: XCTestCase {
     /// sheet with its facts and songs.
     @MainActor
     func testAnAlbumShowsItsReleaseDateAndAlbumInfo() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let albums = element(app, "liquid.menu.albums")
         XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
         albums.tap()
@@ -205,7 +205,7 @@ final class LiquidUITests: XCTestCase {
     /// Holding a song offers to add it to a playlist, which brings up the playlists.
     @MainActor
     func testHoldingASongOffersAddToPlaylist() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let albums = element(app, "liquid.menu.albums")
         XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
         albums.tap()
@@ -228,7 +228,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testTheLibraryLeadsToAnAlbumAndTheDropletBackToNowPlaying() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let albums = element(app, "liquid.menu.albums")
         XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
         for id in ["liquid.menu.artists", "liquid.menu.playlists", "liquid.menu.podcasts", "liquid.menu.search"] {
@@ -259,7 +259,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testSwipingASongRightOffersPlayNextAndAddToQueue() throws {
-        let app = launchLiquid(["-LiquidShot", "album"])
+        let app = try launchLiquid(["-LiquidShot", "album"])
         let song = element(app, "liquid.album.track.1")
         XCTAssertTrue(song.waitForExistence(timeout: 10), "The album didn't open")
         song.swipeRight()
@@ -273,7 +273,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testTheMenuOpensSongsAndTheRecentLists() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let songs = element(app, "liquid.menu.songs")
         XCTAssertTrue(songs.waitForExistence(timeout: 10), "The menu has no songs")
         XCTAssertTrue(element(app, "liquid.menu.recentlyPlayed").exists, "The menu has no recently played")
@@ -298,7 +298,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testTurningThePhoneOpensTheArtworkCarouselAndUprightComesBack() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let nowPlaying = element(app, "liquid.nowPlaying")
         XCTAssertTrue(nowPlaying.waitForExistence(timeout: 10))
         defer { XCUIDevice.shared.orientation = .portrait }
@@ -316,7 +316,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testTheSongsNameOpensItsAlbum() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let name = element(app, "liquid.nowPlaying")
         XCTAssertTrue(name.waitForExistence(timeout: 10))
         name.tap()
@@ -326,7 +326,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testHoldingACoverOffersToQueueIt() throws {
-        let app = launchLiquid(["-LiquidShot", "albums"])
+        let app = try launchLiquid(["-LiquidShot", "albums"])
         let cover = element(app, "liquid.cover.sample-1")
         XCTAssertTrue(cover.waitForExistence(timeout: 10))
         cover.press(forDuration: 1.2)
@@ -338,7 +338,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testSettingsHaveTheTutorial() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let settings = element(app, "liquid.settings")
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
@@ -353,7 +353,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testSwitchingToAnotherPlayerPlaysTheHandOverAndArrives() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let settings = element(app, "liquid.settings")
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
@@ -370,7 +370,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testSwipingTurnsTheTutorialsLessons() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let settings = element(app, "liquid.settings")
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
@@ -387,7 +387,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testSearchFindsAnAlbum() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let search = element(app, "liquid.menu.search")
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         search.tap()
@@ -404,7 +404,7 @@ final class LiquidUITests: XCTestCase {
     /// doesn't show at the left, nor is this one cut off at the right.
     @MainActor
     func testTheLastCardFillsTheScreenLinedUp() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let albums = element(app, "liquid.menu.albums")
         XCTAssertTrue(albums.waitForExistence(timeout: 10))
         albums.tap()
@@ -438,7 +438,7 @@ final class LiquidUITests: XCTestCase {
     /// Settings offer Share Diagnostics, which opens the share sheet with Lyre's logs.
     @MainActor
     func testSettingsShareDiagnostics() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let settings = element(app, "liquid.settings")
         XCTAssertTrue(settings.waitForExistence(timeout: 10), "No settings button")
         settings.tap()
@@ -470,7 +470,7 @@ final class LiquidUITests: XCTestCase {
     /// A cover among the search's matches opens as a card, paging through the matches.
     @MainActor
     func testASearchMatchOpensAsACard() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let search = element(app, "liquid.menu.search")
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         search.tap()
@@ -492,7 +492,7 @@ final class LiquidUITests: XCTestCase {
     /// A show among the podcasts opens as a card of its episodes.
     @MainActor
     func testAShowOpensAsACard() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let podcasts = element(app, "liquid.menu.podcasts")
         XCTAssertTrue(podcasts.waitForExistence(timeout: 10))
         podcasts.tap()
@@ -510,7 +510,7 @@ final class LiquidUITests: XCTestCase {
 
     @MainActor
     func testSettingsOpenAndOfferTheOtherPlayers() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let settings = element(app, "liquid.settings")
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         let dismiss = app.alerts.buttons["Dismiss"]
@@ -544,7 +544,7 @@ final class LiquidUITests: XCTestCase {
     // MARK: - One at a Time
 
     func testTheStackFlipsThroughCoversAndOneSwingsOpen() throws {
-        let app = launchLiquid(["-LiquidShot", "albums"])
+        let app = try launchLiquid(["-LiquidShot", "albums"])
         let layout = element(app, "liquid.layout")
         XCTAssertTrue(layout.waitForExistence(timeout: 10), "No layout switch")
         layout.tap()
@@ -581,7 +581,7 @@ final class LiquidUITests: XCTestCase {
     /// On a closed iPhone Duo's short screen, the grid's letter index keeps below the name
     /// and search, level with the covers, instead of running up into the corner.
     func testTheGridsLetterIndexStartsBelowTheSearchOnAClosedDuo() throws {
-        let app = launchLiquid(["-LiquidShot", "albums", "-SpoolFoldPosture", "closed"])
+        let app = try launchLiquid(["-LiquidShot", "albums", "-SpoolFoldPosture", "closed"])
         let layout = element(app, "liquid.layout")
         XCTAssertTrue(layout.waitForExistence(timeout: 10), "No layout switch")
         if element(app, "liquid.stack.top").waitForExistence(timeout: 2) { layout.tap() }
@@ -598,7 +598,7 @@ final class LiquidUITests: XCTestCase {
     }
 
     func testASongInTheStackOpensOntoItsAlbum() throws {
-        let app = launchLiquid(["-LiquidShot", "songs"])
+        let app = try launchLiquid(["-LiquidShot", "songs"])
         let layout = element(app, "liquid.layout")
         XCTAssertTrue(layout.waitForExistence(timeout: 10), "No layout switch")
         layout.tap()
@@ -617,7 +617,7 @@ final class LiquidUITests: XCTestCase {
     }
 
     func testEachListKeepsItsOwnLayout() throws {
-        let app = launchLiquid(["-LiquidShot", "albums"])
+        let app = try launchLiquid(["-LiquidShot", "albums"])
         let layout = element(app, "liquid.layout")
         XCTAssertTrue(layout.waitForExistence(timeout: 10), "No layout switch")
         layout.tap()
@@ -655,7 +655,7 @@ final class LiquidUITests: XCTestCase {
     /// the screenshot).
     @MainActor
     func testASongsButtonsShareTheWidthEvenly() throws {
-        let app = launchLiquid(["-LiquidShot", "songs"])
+        let app = try launchLiquid(["-LiquidShot", "songs"])
         let layout = element(app, "liquid.layout")
         XCTAssertTrue(layout.waitForExistence(timeout: 10), "No layout switch")
         layout.tap()
@@ -680,7 +680,7 @@ final class LiquidUITests: XCTestCase {
     }
 
     func testTheStackOpensOnTheCoverItWasLeftOn() throws {
-        let app = launchLiquid(["-LiquidShot", "albums"])
+        let app = try launchLiquid(["-LiquidShot", "albums"])
         let layout = element(app, "liquid.layout")
         XCTAssertTrue(layout.waitForExistence(timeout: 10), "No layout switch")
         layout.tap()
@@ -713,7 +713,7 @@ final class LiquidUITests: XCTestCase {
     }
 
     func testTheTutorialTeachesOneAtATime() throws {
-        let app = launchLiquid(["-LiquidShot", "nowPlaying"])
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
         let settings = element(app, "liquid.settings")
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
@@ -736,7 +736,7 @@ final class LiquidUITests: XCTestCase {
     /// which gives way to the library and back.
     @MainActor
     func testAnOpenDuoHasThePoolUnderTheWaves() throws {
-        let app = launchLiquid(["-SpoolFoldPosture", "open", "-LyreHingeAngle", "110"])
+        let app = try launchLiquid(["-SpoolFoldPosture", "open", "-LyreHingeAngle", "110"])
         let pool = element(app, "liquid.pool")
         XCTAssertTrue(pool.waitForExistence(timeout: 10), "No pool under the waves")
         XCTAssertTrue(element(app, "liquid.nowPlaying").exists, "No Now Playing above the fold")
@@ -764,7 +764,7 @@ final class LiquidUITests: XCTestCase {
     /// The playlists page offers a new playlist, which asks for its name.
     @MainActor
     func testThePlaylistsPageMakesANewPlaylist() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let playlists = element(app, "liquid.menu.playlists")
         XCTAssertTrue(playlists.waitForExistence(timeout: 10))
         playlists.tap()
@@ -782,7 +782,7 @@ final class LiquidUITests: XCTestCase {
     /// opens as a list of its songs.
     @MainActor
     func testDiscoverOpensItsCoversAndGenres() throws {
-        let app = launchLiquid(["-LiquidShot", "library", "-DiscoverSamples", "YES"])
+        let app = try launchLiquid(["-LiquidShot", "library", "-DiscoverSamples", "YES"])
         let discover = element(app, "liquid.menu.discover")
         XCTAssertTrue(discover.waitForExistence(timeout: 10), "The lava menu has no Discover")
         attachScreenshot(app, named: "liquid-menu-discover")
@@ -818,7 +818,7 @@ final class LiquidUITests: XCTestCase {
     /// the simulator has none), and a second tap takes it back.
     @MainActor
     func testTheHeartLovesTheSongPlaying() throws {
-        let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying", "-LoveSamples", "YES"])
+        let app = try launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying", "-LoveSamples", "YES"])
         XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
         let love = element(app, "liquid.love")
@@ -835,7 +835,7 @@ final class LiquidUITests: XCTestCase {
     /// simulator has no Apple Music); one tapped is searched for.
     @MainActor
     func testSearchOffersSuggestions() throws {
-        let app = launchLiquid(["-LiquidShot", "library", "-SearchSuggestionSamples", "YES"])
+        let app = try launchLiquid(["-LiquidShot", "library", "-SearchSuggestionSamples", "YES"])
         let search = element(app, "liquid.menu.search")
         XCTAssertTrue(search.waitForExistence(timeout: 10))
         search.tap()
@@ -855,7 +855,7 @@ final class LiquidUITests: XCTestCase {
     /// its clean version.
     @MainActor
     func testAnExplicitAlbumIsMarked() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let albums = element(app, "liquid.menu.albums")
         XCTAssertTrue(albums.waitForExistence(timeout: 10))
         albums.tap()
@@ -872,7 +872,7 @@ final class LiquidUITests: XCTestCase {
     /// The artists can be searched by name, as every Liquid list can.
     @MainActor
     func testTheArtistsCanBeSearched() throws {
-        let app = launchLiquid(["-LiquidShot", "artists"])
+        let app = try launchLiquid(["-LiquidShot", "artists"])
         let lyre = element(app, "liquid.artist.Lyre")
         XCTAssertTrue(lyre.waitForExistence(timeout: 10), "No artist in the list")
         let field = element(app, "liquid.search.field")
@@ -889,13 +889,13 @@ final class LiquidUITests: XCTestCase {
     /// Recently Played can be searched too, not only every song.
     @MainActor
     func testRecentlyPlayedCanBeSearched() throws {
-        let app = launchLiquid(["-LiquidShot", "recentlyPlayed"])
+        let app = try launchLiquid(["-LiquidShot", "recentlyPlayed"])
         XCTAssertTrue(element(app, "liquid.search.field").waitForExistence(timeout: 10), "Recently Played has no search")
     }
 
     @MainActor
     func testArtistsHavePhotosAndTheirPageOpensOnOne() throws {
-        let app = launchLiquid(["-LiquidShot", "artists"])
+        let app = try launchLiquid(["-LiquidShot", "artists"])
         let row = element(app, "liquid.artist.Lyre")
         XCTAssertTrue(row.waitForExistence(timeout: 10), "No artist in the list")
         XCTAssertGreaterThan(row.frame.height, 60, "The row has no room for a photo")
@@ -916,7 +916,7 @@ final class LiquidUITests: XCTestCase {
     /// with a bar naming it, and back at its top it's a card again; its chevron closes it.
     @MainActor
     func testACoverOpensAsACardThatPagesAndFillsTheScreen() throws {
-        let app = launchLiquid(["-LiquidShot", "library"])
+        let app = try launchLiquid(["-LiquidShot", "library"])
         let albums = element(app, "liquid.menu.albums")
         XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
         albums.tap()
@@ -972,7 +972,7 @@ final class LiquidUITests: XCTestCase {
     /// song has been played enough.
     @MainActor
     func testRecentlyPlayedLeadsToMostPlayed() throws {
-        let app = launchLiquid(["-LiquidShot", "recentlyPlayed"])
+        let app = try launchLiquid(["-LiquidShot", "recentlyPlayed"])
         let link = element(app, "liquid.link.most played")
         XCTAssertTrue(link.waitForExistence(timeout: 10), "Recently Played doesn't offer Most Played")
         link.tap()
@@ -985,8 +985,8 @@ final class LiquidUITests: XCTestCase {
 
     /// Only the Duo's inner screen turns Liquid sideways, which the simulator can't do:
     /// the book layout is asked for in an upright window instead.
-    private func launchBook(_ extra: [String] = []) -> XCUIApplication {
-        launchLiquid(["-SpoolFoldPosture", "open", "-LiquidDuoLayout", "book"] + extra)
+    private func launchBook(_ extra: [String] = []) throws -> XCUIApplication {
+        try launchLiquid(["-SpoolFoldPosture", "open", "-LiquidDuoLayout", "book"] + extra)
     }
 
     /// Opened and held wide, as a real Duo is, without asking for the layout: Now Playing
@@ -997,7 +997,7 @@ final class LiquidUITests: XCTestCase {
     func testAnOpenDuoHeldWideShowsTheBubblesNotTheCarousel() throws {
         defer { XCUIDevice.shared.orientation = .portrait }
         XCUIDevice.shared.orientation = .landscapeLeft
-        let app = launchLiquid(["-SpoolFoldPosture", "open"])
+        let app = try launchLiquid(["-SpoolFoldPosture", "open"])
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 10))
         sleep(2)
@@ -1014,7 +1014,7 @@ final class LiquidUITests: XCTestCase {
     /// Now Playing on the left page, the bubbles on the right, with their tabs.
     @MainActor
     func testAnOpenDuoHeldAsABookHasNowPlayingBesideTheBubbles() throws {
-        let app = launchBook()
+        let app = try launchBook()
         let bubble = element(app, "liquid.bubble.sample-1")
         XCTAssertTrue(bubble.waitForExistence(timeout: 10), "No bubbles on the right page")
         let nowPlaying = element(app, "liquid.nowPlaying")
@@ -1040,7 +1040,7 @@ final class LiquidUITests: XCTestCase {
     /// nothing behind them, so playing says so).
     @MainActor
     func testTappingABubblePlaysIt() throws {
-        let app = launchBook()
+        let app = try launchBook()
         let bubble = element(app, "liquid.bubble.sample-2")
         XCTAssertTrue(bubble.waitForExistence(timeout: 10))
         bubble.tap()
@@ -1050,7 +1050,7 @@ final class LiquidUITests: XCTestCase {
     /// Dragged across the fold, a bubble is taken in and plays.
     @MainActor
     func testDraggingABubbleIntoNowPlayingPlaysIt() throws {
-        let app = launchBook()
+        let app = try launchBook()
         let bubble = element(app, "liquid.bubble.sample-2")
         let nowPlaying = element(app, "liquid.nowPlaying")
         XCTAssertTrue(bubble.waitForExistence(timeout: 10))
@@ -1064,7 +1064,7 @@ final class LiquidUITests: XCTestCase {
     /// A short drag that doesn't reach the fold floats back and plays nothing.
     @MainActor
     func testABubbleLetGoShortOfTheFoldFloatsBack() throws {
-        let app = launchBook()
+        let app = try launchBook()
         let bubble = element(app, "liquid.bubble.sample-2")
         XCTAssertTrue(bubble.waitForExistence(timeout: 10))
         let before = bubble.frame
@@ -1079,7 +1079,7 @@ final class LiquidUITests: XCTestCase {
     /// Held, a bubble opens its page to choose a song; back from it, the bubbles again.
     @MainActor
     func testHoldingABubbleOpensItsPage() throws {
-        let app = launchBook()
+        let app = try launchBook()
         let bubble = element(app, "liquid.bubble.sample-1")
         XCTAssertTrue(bubble.waitForExistence(timeout: 10))
         bubble.press(forDuration: 0.8)
@@ -1094,7 +1094,7 @@ final class LiquidUITests: XCTestCase {
     /// A show's bubble opens its episodes when tapped; it plays nothing by itself.
     @MainActor
     func testAShowsBubbleOpensItsEpisodes() throws {
-        let app = launchBook()
+        let app = try launchBook()
         XCTAssertTrue(element(app, "liquid.bubbles.tab.podcasts").waitForExistence(timeout: 10))
         element(app, "liquid.bubbles.tab.podcasts").tap()
         let show = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.bubble.podcast:'"))
@@ -1108,7 +1108,7 @@ final class LiquidUITests: XCTestCase {
     /// Now Playing's library button swaps the bubbles for the whole library, and back.
     @MainActor
     func testTheLibraryButtonSwapsTheBubblesForTheLibrary() throws {
-        let app = launchBook()
+        let app = try launchBook()
         XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 10))
         element(app, "liquid.library").tap()
         XCTAssertTrue(element(app, "liquid.menu.albums").waitForExistence(timeout: 5), "No library")
@@ -1120,7 +1120,7 @@ final class LiquidUITests: XCTestCase {
     /// A bubble held near the fold: Now Playing's edge reaching out for it.
     @MainActor
     func testNowPlayingReachesForABubbleNearTheFold() throws {
-        let app = launchBook(["-LiquidBubbleShot", "30"])
+        let app = try launchBook(["-LiquidBubbleShot", "30"])
         XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 10))
         sleep(3)
         attachScreenshot(app, named: "duo-book-reaching")
@@ -1129,7 +1129,7 @@ final class LiquidUITests: XCTestCase {
     /// Stood half open and left alone: the visualizer, until it's touched.
     @MainActor
     func testTheVisualizerGivesWayToATouch() throws {
-        let app = launchLiquid(["-SpoolFoldPosture", "open", "-LyreHingeAngle", "100", "--liquid-visualizer"])
+        let app = try launchLiquid(["-SpoolFoldPosture", "open", "-LyreHingeAngle", "100", "--liquid-visualizer"])
         let visualizer = element(app, "liquid.visualizer")
         XCTAssertTrue(visualizer.waitForExistence(timeout: 10), "No visualizer")
         sleep(1)
@@ -1147,11 +1147,11 @@ final class LiquidUITests: XCTestCase {
     func testTheNowPlayingCoverRipples() throws {
         var middles: [Data] = []
         for shot in [false, true] {
-            let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"]
+            let app = try launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"]
                                    + (shot ? ["-LiquidRippleShot", "YES"] : []))
             XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
             sleep(1)
-            let screenshot = app.screenshot()
+            let screenshot = app.lyreScreenshot()
             attachScreenshot(app, named: shot ? "liquid-cover-rippling" : "liquid-cover-still")
             middles.append(try XCTUnwrap(middle(of: screenshot.image)))
             app.terminate()
@@ -1165,11 +1165,11 @@ final class LiquidUITests: XCTestCase {
     func testTurningTheRippleOffKeepsTheCoverStill() throws {
         var middles: [Data] = []
         for off in [false, true] {
-            let app = launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"]
+            let app = try launchLiquid(["--liquid-sample-middle", "-LiquidShot", "nowPlaying"]
                                    + (off ? ["-LiquidRippleShot", "YES", "-LyreLiquidRipple", "NO"] : []))
             XCTAssertTrue(element(app, "liquid.nowPlaying").waitForExistence(timeout: 10))
             sleep(1)
-            let screenshot = app.screenshot()
+            let screenshot = app.lyreScreenshot()
             attachScreenshot(app, named: off ? "liquid-cover-ripple-off" : "liquid-cover-plain")
             middles.append(try XCTUnwrap(middle(of: screenshot.image)))
             app.terminate()
@@ -1186,7 +1186,7 @@ final class LiquidUITests: XCTestCase {
         return data as Data
     }
 
-    private func launchLiquid(_ extra: [String] = []) -> XCUIApplication {
+    private func launchLiquid(_ extra: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += [
             "--uitest", "--uitest-complete-onboarding",
@@ -1195,6 +1195,7 @@ final class LiquidUITests: XCTestCase {
             "--spool-sample-queue",
         ] + extra
         app.launch()
+        try app.skipUnlessTheHingeAgrees()
         // The simulator's library alert can take a while to come; drags under it go nowhere.
         let dismiss = app.alerts.buttons["Dismiss"]
         if dismiss.waitForExistence(timeout: 8) {
@@ -1214,7 +1215,7 @@ final class LiquidUITests: XCTestCase {
     }
 
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
