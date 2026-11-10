@@ -87,19 +87,38 @@ enum LiquidBubbleLayout {
 
     /// Where each bubble's centre goes, and how tall the field is: each in turn drops
     /// into the lowest place it fits, across `width`, under `top`.
-    static func pack(_ diameters: [CGFloat], width: CGFloat, top: CGFloat = 0) -> (centers: [CGPoint], height: CGFloat) {
-        var placed: [(center: CGPoint, radius: CGFloat)] = []
+    ///
+    /// LYRE-61: a bubble is only tried against the ones near the top of the pile. One
+    /// buried deeper than the biggest bubble could reach down can never hold a new one
+    /// up (every new bubble rests at least as high as the lowest point of the surface),
+    /// so it drops out. Trying each against every bubble before was a hundred million
+    /// tries for a library of a couple of thousand albums, long enough on opening a Duo
+    /// for the system to stop Lyre.
+    nonisolated static func pack(_ diameters: [CGFloat], width: CGFloat, top: CGFloat = 0) -> (centers: [CGPoint], height: CGFloat) {
+        var centers: [CGPoint] = []
+        centers.reserveCapacity(diameters.count)
+        // The bubbles still near enough the surface to hold a new one up.
+        var active: [(center: CGPoint, radius: CGFloat)] = []
         var bottom = top
+        let step: CGFloat = 6
+        let largestRadius = (diameters.max() ?? 0) / 2
+        let smallestRadius = (diameters.min() ?? 0) / 2
+        // The surface: how high the pile's top is at each place a bubble's centre is tried.
+        let samples = max(1, Int((width / step).rounded(.up)) + 1)
+        var surface = [CGFloat](repeating: top, count: samples)
+        // Its lowest point is looked for only where a centre can go: the edges, which no
+        // bubble reaches over, would otherwise keep it at the bottom for good.
+        let firstReachable = min(samples - 1, max(0, Int(((smallestRadius + gap / 2) / step).rounded(.up))))
+        let lastReachable = max(firstReachable, min(samples - 1, Int(((width - smallestRadius - gap / 2) / step).rounded(.down))))
         for (index, diameter) in diameters.enumerated() {
             let r = diameter / 2
             var best: CGPoint?
-            let step: CGFloat = 6
             let lowest = r + gap / 2
             let highest = max(lowest, width - r - gap / 2)
             var x = lowest
             while x <= highest + 0.5 {
                 var y = top + r + gap / 2
-                for other in placed {
+                for other in active {
                     let reach = other.radius + r + gap
                     let dx = abs(other.center.x - x)
                     guard dx < reach else { continue }
@@ -112,14 +131,28 @@ enum LiquidBubbleLayout {
                 x += step
             }
             let center = best.map { CGPoint(x: $0.x, y: $0.y - jitter(index) * 3) } ?? CGPoint(x: width / 2, y: top + r)
-            placed.append((center, r))
+            centers.append(center)
+            active.append((center, r))
             bottom = max(bottom, center.y + r + gap / 2)
+            // The surface over this bubble rises to its top.
+            let first = max(0, Int(((center.x - r) / step).rounded(.down)))
+            let last = min(samples - 1, Int(((center.x + r) / step).rounded(.up)))
+            if first <= last {
+                for sample in first...last {
+                    let dx = abs(CGFloat(sample) * step - center.x)
+                    guard dx < r else { continue }
+                    surface[sample] = max(surface[sample], center.y + (r * r - dx * dx).squareRoot())
+                }
+            }
+            // Those buried too deep to reach the lowest point of the surface drop out.
+            let floor = surface[firstReachable...lastReachable].min() ?? top
+            active.removeAll { $0.center.y + $0.radius + largestRadius + gap < floor }
         }
-        return (placed.map(\.center), bottom)
+        return (centers, bottom)
     }
 
     /// Steady noise in -1...1 for a bubble, from its place in the list.
-    static func jitter(_ seed: Int) -> CGFloat {
+    nonisolated static func jitter(_ seed: Int) -> CGFloat {
         let x = sin(Double(seed) * 12.9898 + 78.233) * 43_758.5453
         return CGFloat((x - x.rounded(.down)) * 2 - 1)
     }
@@ -171,6 +204,9 @@ struct LiquidBubbleField: View {
         var centers: [CGPoint] = []
         var height: CGFloat = 0
     }
+
+    /// Up to how many bubbles are packed on the main thread (a few milliseconds' work).
+    static let packedHere = 600
 
     /// Bubbles are grouped into bands this tall, so only those near the screen are made.
     private static let band: CGFloat = 360
@@ -232,8 +268,22 @@ struct LiquidBubbleField: View {
         let diameters = items.map {
             LiquidBubbleLayout.diameter(forSongs: LiquidBubbleLayout.songCount(of: $0), width: width)
         }
-        let packed = LiquidBubbleLayout.pack(diameters, width: width)
-        packing = Packing(key: key, diameters: diameters, centers: packed.centers, height: packed.height)
+        // A few hundred pack in a moment, here, so the field is laid out as it opens and
+        // never re-laid under a finger. A bigger library is packed off the main thread
+        // (LYRE-61), so opening a Duo never waits on it: the field shows its bubbles once
+        // they're down, unless the list or the width has moved on meanwhile.
+        guard diameters.count > Self.packedHere else {
+            let packed = LiquidBubbleLayout.pack(diameters, width: width)
+            packing = Packing(key: key, diameters: diameters, centers: packed.centers, height: packed.height)
+            return
+        }
+        Task {
+            let packed = await Task.detached(priority: .userInitiated) {
+                LiquidBubbleLayout.pack(diameters, width: width)
+            }.value
+            guard key == self.key(self.items, width) else { return }
+            packing = Packing(key: key, diameters: diameters, centers: packed.centers, height: packed.height)
+        }
     }
 
     /// The bubbles in bands, made as they come near the screen.
