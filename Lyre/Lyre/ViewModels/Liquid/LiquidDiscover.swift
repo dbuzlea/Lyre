@@ -71,6 +71,8 @@ struct LiquidDiscoverPage: View {
                 .padding(.bottom, bottomInset + 20)
             }
             .modifier(StillWhileScrolling())
+            // The section open, handed on to the next player switched to (LYRE-41).
+            .onAppear { LiquidPlace.opened(list: "discover") }
         }
         .background(LiquidPageGround())
         .toolbar(.hidden, for: .navigationBar)

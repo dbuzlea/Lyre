@@ -65,7 +65,8 @@ final class PlayerSwitchUITests: XCTestCase {
     /// LYRE-15
     @MainActor
     func testSpoolChangePlayerButtonSwitchesToLiquid() throws {
-        try assertSwitch(from: "spool", prefix: "spool", to: "Liquid", arrivesAt: "liquid.settings")
+        // LYRE-41: Liquid opens on the section the Spool was left on (its albums), not its menu.
+        try assertSwitch(from: "spool", prefix: "spool", to: "Liquid", arrivesAt: "liquid.back")
     }
 
     /// LYRE-15
@@ -94,6 +95,46 @@ final class PlayerSwitchUITests: XCTestCase {
         app.buttons["Classic"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["Scroll wheel"].firstMatch.waitForExistence(timeout: 10),
                       "Choosing Classic should bring back the click wheel")
+    }
+
+    /// LYRE-41: switching players picks up where the last one's browsing was left: the
+    /// tape brought to the front of the Spool's rack is at the front of the Disc's shelf.
+    @MainActor
+    func testSwitchingPlayersKeepsTheCoverAtTheFront() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--uitest", "--uitest-complete-onboarding", "--uitest-hide-library-errors",
+            "-LyrePlayerStyle", "spool", "-LyreSpoolModel", "original", "-LyreSpoolFinish", "blue",
+            "-SpoolSampleTapes", "YES", "--spool-reset-rack",
+        ]
+        app.launch()
+        let door = app.descendants(matching: .any)["spool.door"].firstMatch
+        XCTAssertTrue(door.waitForExistence(timeout: 10))
+        door.tap()
+        // The single stands behind the cases; its label strip brings it to the front.
+        let single = app.descendants(matching: .any)["spool.tape.sample-3"].firstMatch
+        XCTAssertTrue(single.waitForExistence(timeout: 5), "No single in the rack")
+        sleep(1)
+        single.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        let header = app.descendants(matching: .any)["spool.carousel.nowShowing"].firstMatch
+        expectation(for: NSPredicate(format: "label CONTAINS 'Sample Single 3'"), evaluatedWith: header)
+        waitForExpectations(timeout: 4)
+        // Shut the door, and switch to the Disc.
+        door.tap()
+        sleep(1)
+        openSwitchMenu(in: app, prefix: "spool")
+        app.buttons["Disc"].tap()
+        let open = app.descendants(matching: .any)["disc.open"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 10), "Didn't switch to the Disc")
+        open.tap()
+        let discHeader = app.descendants(matching: .any)["spool.carousel.nowShowing"].firstMatch
+        XCTAssertTrue(discHeader.waitForExistence(timeout: 5), "The Disc's shelf didn't open")
+        expectation(for: NSPredicate(format: "label CONTAINS 'Sample Single 3'"), evaluatedWith: discHeader)
+        waitForExpectations(timeout: 4)
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
+        shot.name = "lyre-41-disc-picks-up"
+        shot.lifetime = .keepAlways
+        add(shot)
     }
 
     // MARK: - Helpers

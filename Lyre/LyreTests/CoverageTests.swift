@@ -2200,3 +2200,37 @@ struct LyreMotionTests {
         #expect(LiquidZoom.take("a"))
     }
 }
+
+/// LYRE-41: switching players hands over where browsing was left, once, and only a
+/// switch does.
+@MainActor
+struct BrowseHandOverTests {
+    @Test func aSwitchHandsOverWhereBrowsingWasOnce() {
+        let handOver = BrowseHandOver()
+        handOver.note(BrowsePosition(shelf: .mixtapes, itemID: "playlist-1"))
+        #expect(handOver.take() == nil, "Nothing's handed over without a switch")
+        handOver.playerSwitched()
+        #expect(handOver.take() == BrowsePosition(shelf: .mixtapes, itemID: "playlist-1"))
+        #expect(handOver.take() == nil, "It's taken up once")
+    }
+
+    @Test func theNewPlayersOwnPlaceDoesntOverwriteWhatWasHandedOver() {
+        let handOver = BrowseHandOver()
+        handOver.note(BrowsePosition(shelf: .songs, itemID: "song-9"))
+        handOver.playerSwitched()
+        // The player switched to tells its own last place before taking up the hand-over.
+        handOver.note(BrowsePosition(shelf: .albums, itemID: "album-2"))
+        #expect(handOver.take() == BrowsePosition(shelf: .songs, itemID: "song-9"))
+        handOver.note(BrowsePosition(shelf: .songs, itemID: "song-10"))
+        #expect(handOver.current == BrowsePosition(shelf: .songs, itemID: "song-10"))
+    }
+
+    @Test func liquidsListsAreTheOtherPlayersSections() {
+        for shelf in SpoolShelf.allCases {
+            #expect(LiquidPlace.shelf(forList: LiquidPlace.list(for: shelf).list) == shelf)
+        }
+        #expect(LiquidPlace.shelf(forList: "recentlyPlayed") == nil)
+        #expect(LiquidPlace.artistShelfID(" Noah Kahan ") == "artist:noah kahan")
+        #expect(LiquidPlace.artistName(forShelfID: "artist:hozier", in: ["Adele", "Hozier"]) == "Hozier")
+    }
+}
