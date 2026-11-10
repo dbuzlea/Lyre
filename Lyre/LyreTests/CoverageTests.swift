@@ -2234,3 +2234,62 @@ struct BrowseHandOverTests {
         #expect(LiquidPlace.artistName(forShelfID: "artist:hozier", in: ["Adele", "Hozier"]) == "Hozier")
     }
 }
+
+/// LYRE-61: opening a Duo onto Liquid's bubbles packed the whole library on the main
+/// thread, trying each bubble against every other; with a couple of thousand albums the
+/// system stopped Lyre. The packing now tries only the bubbles near the top of the pile.
+@MainActor
+struct BubblePackingTests {
+    /// The packing as it was, trying every bubble: what the quick one must match.
+    private static func packTryingEvery(_ diameters: [CGFloat], width: CGFloat) -> [CGPoint] {
+        let gap = LiquidBubbleLayout.gap
+        var placed: [(center: CGPoint, radius: CGFloat)] = []
+        for (index, diameter) in diameters.enumerated() {
+            let r = diameter / 2
+            var best: CGPoint?
+            let lowest = r + gap / 2
+            let highest = max(lowest, width - r - gap / 2)
+            var x = lowest
+            while x <= highest + 0.5 {
+                var y = r + gap / 2
+                for other in placed {
+                    let reach = other.radius + r + gap
+                    let dx = abs(other.center.x - x)
+                    guard dx < reach else { continue }
+                    y = max(y, other.center.y + (reach * reach - dx * dx).squareRoot())
+                }
+                let lean = LiquidBubbleLayout.jitter(index) * 3
+                if best.map({ y + lean < $0.y - 0.5 }) ?? true { best = CGPoint(x: x, y: y + lean) }
+                x += 6
+            }
+            let center = best.map { CGPoint(x: $0.x, y: $0.y - LiquidBubbleLayout.jitter(index) * 3) }
+                ?? CGPoint(x: width / 2, y: r)
+            placed.append((center, r))
+        }
+        return placed.map(\.center)
+    }
+
+    private static func diameters(_ count: Int, width: CGFloat) -> [CGFloat] {
+        (0..<count).map { LiquidBubbleLayout.diameter(forSongs: 1 + ($0 * 7919) % 40, width: width) }
+    }
+
+    @Test func itLaysTheBubblesOutAsTryingEveryOneDid() {
+        for width: CGFloat in [300, 420] {
+            let diameters = Self.diameters(400, width: width)
+            let quick = LiquidBubbleLayout.pack(diameters, width: width).centers
+            let every = Self.packTryingEvery(diameters, width: width)
+            #expect(quick.count == every.count)
+            for (a, b) in zip(quick, every) {
+                #expect(abs(a.x - b.x) < 0.01 && abs(a.y - b.y) < 0.01)
+            }
+        }
+    }
+
+    @Test func aBigLibraryPacksQuickly() {
+        let diameters = Self.diameters(2500, width: 420)
+        let started = Date()
+        let packed = LiquidBubbleLayout.pack(diameters, width: 420)
+        #expect(Date().timeIntervalSince(started) < 1.5, "Packing 2,500 bubbles took too long")
+        #expect(packed.centers.count == 2500)
+    }
+}
