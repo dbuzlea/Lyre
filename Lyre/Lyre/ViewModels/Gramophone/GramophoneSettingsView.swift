@@ -149,21 +149,6 @@ struct GramophoneSettingsView: View {
                     }
                 }
 
-                #if DEBUG
-                section(7, "Debug") {
-                    Picker("Fold Posture", selection: Binding(
-                        get: { foldMonitor.debugOverride },
-                        set: { foldMonitor.debugOverride = $0 }
-                    )) {
-                        Text("Device").tag(FoldPosture?.none)
-                        ForEach(FoldPosture.allCases) { posture in
-                            Text(posture.debugName).tag(Optional(posture))
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                #endif
-
                 // Send Diagnostics Automatically, Report a Problem and Share Diagnostics
                 // (Diagnostics), then the version, as at the foot of every player's
                 // settings.

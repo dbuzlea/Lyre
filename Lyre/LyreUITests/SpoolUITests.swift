@@ -73,15 +73,11 @@ final class SpoolUITests: XCTestCase {
 
         // Close the phone: the door shuts on the tape and it goes to play. The sample tapes
         // have nothing behind them, so playing them is refused with a notice.
-        element(app, "spool.settings").tap()
-        let closed = app.buttons["Closed"]
-        for _ in 0..<8 where !closed.isHittable { app.swipeUp() }
-        closed.tap()
-        // Closing goes to play the tape at once, under the sheet; its notice lasts a moment.
+        element(app, "lyre.uitest.closePhone").tap()
+        // Closing goes to play the tape at once; its notice lasts a moment.
         let notice = element(app, "spool.notice")
         XCTAssertTrue(notice.waitForExistence(timeout: 6),
                       "Closing the phone didn't play the tape waiting in the deck")
-        element(app, "spool.settings.done").tap()
         XCTAssertTrue(waitForDisappearance(of: hint, timeout: 4), "The open layout stayed after closing")
         attachScreenshot(app, named: "duo-closed")
     }

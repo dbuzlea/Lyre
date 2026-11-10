@@ -425,8 +425,9 @@ final class GramophoneUITests: XCTestCase {
         let app = try launchGramophone(extraArguments: ["-SpoolFoldPosture", "open"])
         let front = element(app, "gramophone.carousel.front")
         XCTAssertTrue(front.waitForExistence(timeout: 10), "No carousel under the machine")
-        XCTAssertTrue(element(app, "gramophone.drawer").exists || element(app, "gramophone.crate").exists,
-                      "The machine isn't above the carousel")
+        XCTAssertTrue(element(app, "gramophone.lookInside").waitForExistence(timeout: 6), "The machine isn't above the carousel")
+        // The covers are the library here: the machine's drawer doesn't open as well.
+        XCTAssertFalse(element(app, "gramophone.crate").exists, "The drawer can be opened over the carousel")
         XCTAssertTrue(app.textFields["shelf.search.field"].exists, "No search above the carousel")
         XCTAssertEqual(front.value as? String, "1 of 12")
         attachScreenshot(app, named: "duo-carousel")

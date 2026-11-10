@@ -92,20 +92,6 @@ struct LiquidSettingsView: View {
                     switchButton(.disc, symbol: "opticaldiscdrive")
                 }
 
-                #if DEBUG
-                Section("Debug") {
-                    Picker("Fold Posture", selection: Binding(
-                        get: { foldMonitor.debugOverride },
-                        set: { foldMonitor.debugOverride = $0 }
-                    )) {
-                        Text("Device").tag(FoldPosture?.none)
-                        ForEach(FoldPosture.allCases) { posture in
-                            Text(posture.debugName).tag(Optional(posture))
-                        }
-                    }
-                }
-                #endif
-
                 // Lyre's logs and iOS's reports, to help find a problem (Diagnostics).
                 Section {
                     // Lyre's own reports of crashes and freezes, sent only if this is on.
