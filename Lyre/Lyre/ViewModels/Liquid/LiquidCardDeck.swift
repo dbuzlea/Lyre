@@ -99,9 +99,14 @@ struct LiquidCardDeckView<Content: View>: View {
     private static var margin: CGFloat { 18 }
     private static var gap: CGFloat { 10 }
 
-    init(deck: LiquidDeck, onClose: @escaping () -> Void, @ViewBuilder content: @escaping (LiquidDeckItem) -> Content) {
+    /// The card in front, as it changes: for the side rail (SideRail) to offer its actions.
+    private let onCurrent: (LiquidDeckItem) -> Void
+
+    init(deck: LiquidDeck, onClose: @escaping () -> Void, onCurrent: @escaping (LiquidDeckItem) -> Void = { _ in },
+         @ViewBuilder content: @escaping (LiquidDeckItem) -> Content) {
         self.deck = deck
         self.onClose = onClose
+        self.onCurrent = onCurrent
         self.content = content
         _current = State(initialValue: deck.index)
     }
@@ -149,6 +154,9 @@ struct LiquidCardDeckView<Content: View>: View {
             case .trailing: turn(to: current + 1)
             default: break
             }
+        }
+        .onChange(of: current, initial: true) { _, index in
+            if deck.items.indices.contains(index) { onCurrent(deck.items[index]) }
         }
     }
 
@@ -248,15 +256,20 @@ struct LiquidCardDeckView<Content: View>: View {
     /// the list.
     private func bar(_ item: LiquidDeckItem) -> some View {
         HStack(spacing: 12) {
-            Button(action: onClose) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(width: 40, height: 40)
-                    .background(.white.opacity(0.15), in: Circle())
+            // Down the side column instead, on an iPhone Duo with its status bar there.
+            if SideRail.isOn(safeArea) {
+                Color.clear.frame(width: 40, height: 40)
+            } else {
+                Button(action: onClose) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 40, height: 40)
+                        .background(.white.opacity(0.15), in: Circle())
+                }
+                .buttonStyle(LyrePressStyle())
+                .accessibilityLabel(String(localized: "liquid.card.close"))
+                .accessibilityIdentifier("liquid.card.bar.close")
             }
-            .buttonStyle(LyrePressStyle())
-            .accessibilityLabel(String(localized: "liquid.card.close"))
-            .accessibilityIdentifier("liquid.card.bar.close")
             Spacer(minLength: 8)
             barArt(item)
             Text(item.title)

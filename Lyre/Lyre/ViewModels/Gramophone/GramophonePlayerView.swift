@@ -192,6 +192,22 @@ struct GramophonePlayerView: View {
                 .opacity(vantage == .rack ? 0 : 1)
                 .allowsHitTesting(vantage != .rack)
 
+            // iPhone Duo, status bar down the side: the header buttons stand there, or,
+            // with the drawer or the bin out, the ✕ that puts it away.
+            SideRailButtons {
+                if vantage == .rack {
+                    closeKey(closeRack, "gramophone.rack.close")
+                } else if isBrowsing {
+                    closeKey(closeCrate, "gramophone.crate.close")
+                } else {
+                    if vantage == .turntable { stepBackButton }
+                    headerButtons
+                }
+            }
+            .zIndex(20)
+            .animation(.easeInOut(duration: 0.25), value: vantage)
+            .animation(.easeInOut(duration: 0.25), value: isBrowsing)
+
             if isDuoSplit {
                 GramophoneCoverCarousel(
                     library: library,
@@ -409,21 +425,11 @@ struct GramophonePlayerView: View {
 
     private var topBar: some View {
         HStack {
-            if vantage == .turntable {
-                Button {
-                    Task { await go(to: .front) }
-                } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(theme.plateInk)
-                        .frame(width: 36, height: 36)
-                        .background(theme.metalGradient, in: Circle())
-                        .frame(width: 44, height: 44)
-                }
-                .accessibilityLabel(String(localized: "gramophone.stepBack"))
-                .accessibilityIdentifier("gramophone.stepBack")
-                .transition(.opacity)
-            } else {
+            // On an iPhone Duo with its status bar down the side, the buttons stand in
+            // that column instead (SideRail), and only the name stays up here.
+            if vantage == .turntable, !SideRail.isOn(safeArea) {
+                stepBackButton
+            } else if vantage != .turntable {
                 Text(String(localized: "gramophone.brand").uppercased())
                     .font(.system(size: 13, weight: .heavy, design: .serif))
                     .tracking(5)
@@ -431,6 +437,33 @@ struct GramophonePlayerView: View {
                     .accessibilityHidden(true)
             }
             Spacer()
+            if !SideRail.isOn(safeArea) {
+                headerButtons
+            }
+        }
+        .frame(height: Self.topBarHeight)
+        .padding(.horizontal, 18)
+    }
+
+    /// Back up from the turntable to the front of the machine.
+    private var stepBackButton: some View {
+        Button {
+            Task { await go(to: .front) }
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(theme.plateInk)
+                .frame(width: 36, height: 36)
+                .background(theme.metalGradient, in: Circle())
+                .frame(width: 44, height: 44)
+        }
+        .accessibilityLabel(String(localized: "gramophone.stepBack"))
+        .accessibilityIdentifier("gramophone.stepBack")
+        .transition(.opacity)
+    }
+
+    /// The ★, AirPlay, the player switch and the booklet.
+    @ViewBuilder private var headerButtons: some View {
             // The ★ for the song playing (LoveButton), in the felt's colour once a favourite.
             LoveButton(track: musicService.nowPlayingTrack, identifier: "gramophone.love") { isLoved in
                 Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
@@ -468,9 +501,6 @@ struct GramophonePlayerView: View {
             }
             .accessibilityLabel(String(localized: "gramophone.booklet"))
             .accessibilityIdentifier("gramophone.settings")
-        }
-        .frame(height: Self.topBarHeight)
-        .padding(.horizontal, 18)
     }
 
     // MARK: - In Front
@@ -983,15 +1013,7 @@ struct GramophonePlayerView: View {
             .animation(.easeInOut(duration: 0.15), value: front?.id)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("gramophone.rack.nowShowing")
-            Button(action: closeRack) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(theme.spoolTheme.keySymbol)
-                    .frame(width: 34, height: 34)
-                    .background(theme.spoolTheme.keyLight.opacity(0.85), in: Circle())
-            }
-            .accessibilityLabel(String(localized: "gramophone.rack.close"))
-            .accessibilityIdentifier("gramophone.rack.close")
+            if !SideRail.isOn(safeArea) { closeKey(closeRack, "gramophone.rack.close") }
         }
     }
 
@@ -1261,15 +1283,7 @@ struct GramophonePlayerView: View {
             .animation(.easeInOut(duration: 0.15), value: front?.id)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("gramophone.stack.nowShowing")
-            Button(action: closeCrate) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(theme.spoolTheme.keySymbol)
-                    .frame(width: 34, height: 34)
-                    .background(theme.spoolTheme.keyLight.opacity(0.85), in: Circle())
-            }
-            .accessibilityLabel(String(localized: "gramophone.crate.close"))
-            .accessibilityIdentifier("gramophone.crate.close")
+            if !SideRail.isOn(safeArea) { closeKey(closeCrate, "gramophone.crate.close") }
         }
     }
 
@@ -1287,16 +1301,24 @@ struct GramophonePlayerView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
-            Button(action: closeCrate) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(theme.spoolTheme.keySymbol)
-                    .frame(width: 34, height: 34)
-                    .background(theme.spoolTheme.keyLight.opacity(0.85), in: Circle())
-            }
-            .accessibilityLabel(String(localized: "gramophone.crate.close"))
-            .accessibilityIdentifier("gramophone.crate.close")
+            if !SideRail.isOn(safeArea) { closeKey(closeCrate, "gramophone.crate.close") }
         }
+    }
+
+    /// The ✕ that puts the drawer or the bin away, in its header (or down the side, on
+    /// an iPhone Duo with its status bar there).
+    private func closeKey(_ action: @escaping () -> Void, _ key: String) -> some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(theme.spoolTheme.keySymbol)
+                .frame(width: 34, height: 34)
+                .background(theme.spoolTheme.keyLight.opacity(0.85), in: Circle())
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+        }
+        .accessibilityLabel(String(localized: String.LocalizationValue(key)))
+        .accessibilityIdentifier(key)
     }
 
     private var emptyShelf: some View {

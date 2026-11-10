@@ -132,6 +132,9 @@ struct DiscPlayerView: View {
             .padding(safeArea)
             .animation(.spring(response: 0.45, dampingFraction: 0.85), value: foldMonitor.posture)
 
+            // iPhone Duo with its status bar down the side: the header buttons stand there.
+            SideRailButtons { headerButtons }
+
             if let album = openCase {
                 jewelCase(album)
                     .transition(.opacity)
@@ -538,6 +541,15 @@ struct DiscPlayerView: View {
             .minimumScaleFactor(0.6)
             .accessibilityHidden(true)
             Spacer(minLength: 8)
+            // On an iPhone Duo with its status bar down the side, they stand there (body).
+            if !SideRail.isOn(safeArea) {
+                headerButtons
+            }
+        }
+    }
+
+    /// ★, AirPlay, the player switch and Settings, in the header or down the side.
+    @ViewBuilder private var headerButtons: some View {
             LoveButton(track: musicService.nowPlayingTrack, identifier: "disc.love") { isLoved in
                 Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
                     .font(.system(size: 15, weight: .bold))
@@ -576,7 +588,6 @@ struct DiscPlayerView: View {
             }
             .accessibilityLabel(String(localized: "settings.title"))
             .accessibilityIdentifier("disc.settings")
-        }
     }
 
     /// The round deck, standing proud of the casing: a bevelled body with a groove

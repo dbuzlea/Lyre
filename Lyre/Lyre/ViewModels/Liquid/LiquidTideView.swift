@@ -67,6 +67,15 @@ struct LiquidTideView: View {
                     }
                     .background(Color(red: 0.09, green: 0.09, blue: 0.1))
                 }
+                // iPhone Duo with its status bar down the side: the close stands in that
+                // column, under the status bar, riding up and down with Up Next.
+                .overlay(alignment: .topTrailing) {
+                    if SideRail.isOn(safeArea) {
+                        closeButton
+                            .frame(width: SideRail.column(safeArea))
+                            .padding(.top, 52)
+                    }
+                }
                 // Pulled past open, it stretches up a little after the finger (a rubber
                 // band) rather than leaving a gap beneath it.
                 .frame(height: height + max(0, progress - 1) * (height + 40))
@@ -87,6 +96,19 @@ struct LiquidTideView: View {
 
     /// How tall the tide stands when it's all the way up.
     static func height(in screen: CGFloat) -> CGFloat { screen * 0.8 }
+
+    private var closeButton: some View {
+        Button(action: onClose) {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 15, weight: .bold))
+                .frame(width: 40, height: 40)
+                .background(.white.opacity(0.12), in: Circle())
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+        }
+        .accessibilityLabel(String(localized: "spool.queue.close"))
+        .accessibilityIdentifier("liquid.tide.close")
+    }
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -112,14 +134,8 @@ struct LiquidTideView: View {
                         onNotice(String(localized: "queue.cleared"))
                     }
             }
-            Button(action: onClose) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 15, weight: .bold))
-                    .frame(width: 40, height: 40)
-                    .background(.white.opacity(0.12), in: Circle())
-            }
-            .accessibilityLabel(String(localized: "spool.queue.close"))
-            .accessibilityIdentifier("liquid.tide.close")
+            // Down the side column instead, on an iPhone Duo with its status bar there.
+            if !SideRail.isOn(safeArea) { closeButton }
         }
         .padding(.horizontal, 20)
         .padding(.top, 6)

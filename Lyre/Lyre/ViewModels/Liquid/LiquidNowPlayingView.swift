@@ -56,6 +56,9 @@ struct LiquidNowPlayingView: View {
     /// A bubble just taken in from the bubbles beside (iPhone Duo held as a book): the
     /// cover rings out from where it went in, as water does where a drop lands.
     var splash: LiquidSplash?
+    /// Which side its buttons stand down on an iPhone Duo with its status bar down the
+    /// side: that column's, or, held as a book (Now Playing on the left page), the left.
+    var railEdge: HorizontalEdge = .trailing
 
     @State private var left = WaveState(side: .left)
     @State private var right = WaveState(side: .right)
@@ -464,33 +467,46 @@ struct LiquidNowPlayingView: View {
 
     // MARK: Chrome
 
+    /// The library.
+    private var libraryButton: some View {
+        roundButton("line.3.horizontal", label: "liquid.library", id: "liquid.library", action: onOpenLibrary)
+    }
+
+    /// ★, AirPlay, the player switch and Settings.
+    @ViewBuilder private var headerButtons: some View {
+        LoveButton(track: current, identifier: "liquid.love") { isLoved in
+            Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(isLoved ? Color.pink : .white)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.28), in: Circle())
+        }
+        AirPlayRouteButton(identifier: "liquid.airplay") { isActive in
+            Image(systemName: "airplayaudio")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(isActive ? Color.accentColor : .white)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.28), in: Circle())
+        }
+        PlayerSwitchMenu(themeSettings: themeSettings, identifier: "liquid.playerSwitch") { symbol in
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.28), in: Circle())
+        }
+        roundButton("gearshape.fill", label: "settings.title", id: "liquid.settings", action: onOpenSettings)
+    }
+
     private func chrome(size: CGSize) -> some View {
         VStack(spacing: 0) {
             HStack {
-                roundButton("line.3.horizontal", label: "liquid.library", id: "liquid.library", action: onOpenLibrary)
-                Spacer()
-                LoveButton(track: current, identifier: "liquid.love") { isLoved in
-                    Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(isLoved ? Color.pink : .white)
-                        .frame(width: 44, height: 44)
-                        .background(.black.opacity(0.28), in: Circle())
+                // Down the side, on an iPhone Duo with its status bar there (SideRail).
+                if !SideRail.isOn(safeArea) {
+                    libraryButton
+                    Spacer()
+                    headerButtons
                 }
-                AirPlayRouteButton(identifier: "liquid.airplay") { isActive in
-                    Image(systemName: "airplayaudio")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(isActive ? Color.accentColor : .white)
-                        .frame(width: 44, height: 44)
-                        .background(.black.opacity(0.28), in: Circle())
-                }
-                PlayerSwitchMenu(themeSettings: themeSettings, identifier: "liquid.playerSwitch") { symbol in
-                    Image(systemName: symbol)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(.black.opacity(0.28), in: Circle())
-                }
-                roundButton("gearshape.fill", label: "settings.title", id: "liquid.settings", action: onOpenSettings)
             }
             .padding(.horizontal, 16)
             .padding(.top, safeArea.top + 6)
@@ -511,6 +527,14 @@ struct LiquidNowPlayingView: View {
         .padding(.leading, safeArea.leading)
         .padding(.trailing, safeArea.trailing)
         .frame(width: size.width, height: size.height)
+        // iPhone Duo with its status bar down the side: the buttons stand down the side,
+        // the status bar's or (held as a book, Now Playing on the left page) the left edge.
+        .overlay {
+            SideRailButtons(edge: railEdge) {
+                libraryButton
+                headerButtons
+            }
+        }
         .ignoresSafeArea()
     }
 

@@ -18,6 +18,7 @@ struct GramophoneSettingsView: View {
     @Bindable var themeSettings: ThemeSettings
     let foldMonitor: FoldPostureMonitor
     let onDone: () -> Void
+    @Environment(\.windowSafeArea) private var safeArea
 
     private var theme: GramophoneTheme { themeSettings.gramophoneFinish.theme }
     private var ink: Color { SpoolPalette.labelInk }
@@ -28,6 +29,13 @@ struct GramophoneSettingsView: View {
     @AppStorage(UsageStats.enabledKey) private var sharesUsageStatistics = false
 
     var body: some View {
+        settingsPage
+            .overlay {
+                SideRailButtons { SideRailDone(identifier: "gramophone.settings.done", font: .system(size: 16, weight: .semibold, design: .serif), action: onDone) }
+            }
+    }
+
+    private var settingsPage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 header
@@ -260,9 +268,12 @@ struct GramophoneSettingsView: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
             Spacer()
-            Button(String(localized: "spool.settings.done"), action: onDone)
-                .font(.system(size: 16, weight: .semibold, design: .serif))
-                .accessibilityIdentifier("gramophone.settings.done")
+            // Down the side column instead, on an iPhone Duo with its status bar there.
+            if !SideRail.isOn(safeArea) {
+                Button(String(localized: "spool.settings.done"), action: onDone)
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .accessibilityIdentifier("gramophone.settings.done")
+            }
         }
         .overlay(alignment: .bottom) {
             // A double rule, as printed under a title.

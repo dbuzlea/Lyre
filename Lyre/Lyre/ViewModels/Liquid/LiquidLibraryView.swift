@@ -77,6 +77,8 @@ struct LiquidLibraryView: View {
     @State private var screenFrame: CGRect = .zero
     /// Album pages zoomed out of their bubbles, which go back into them the same way.
     @State private var zoomedAlbums: Set<String> = []
+    /// The card in front of an open deck, for the side rail's buttons.
+    @State private var deckItem: LiquidDeckItem?
     /// For a Discover section's bubble opening into its grid (LiquidDiscover).
     @Namespace private var discoverZoom
 
@@ -123,12 +125,15 @@ struct LiquidLibraryView: View {
         .overlay {
             if let deck {
                 // Grown out of the bubble or row it was opened from, and gone back into it.
-                LiquidCardDeckView(deck: deck, onClose: closeDeck) { item in card(for: item) }
+                LiquidCardDeckView(deck: deck, onClose: closeDeck, onCurrent: { deckItem = $0 }) { item in card(for: item) }
                     .id(deck.id)
                     .transition(.scale(scale: 0.12, anchor: deckAnchor).combined(with: .opacity))
             }
         }
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { screenFrame = $0 }
+        // iPhone Duo with its status bar down the side: the way back (or the card's
+        // close) and the page's own buttons stand in that column (SideRail).
+        .overlay { sideRail }
         .environment(\.liquidNavigator, navigator)
         .confirmationDialog(catalogOffer.map { String(format: String(localized: "catalog.offer.title"), $0.title) } ?? "",
                             isPresented: Binding(get: { catalogOffer != nil }, set: { if !$0 { catalogOffer = nil } }),
@@ -260,6 +265,35 @@ struct LiquidLibraryView: View {
         case .discoverSection: "discover section"
         default: String(describing: route)
         }
+    }
+
+    /// The side rail's buttons: back, or a deck's close, and an album's own buttons.
+    private var sideRail: some View {
+        SideRailButtons {
+            if deck != nil {
+                railKey("chevron.down", label: "liquid.card.close", id: "liquid.card.bar.close", action: closeDeck)
+                if case .album(let album)? = deckItem { LiquidAlbumActions(album: album) }
+            } else if !path.isEmpty {
+                railKey("chevron.left", label: "liquid.back") { navigator.back() }
+                if case .album(let album)? = path.last { LiquidAlbumActions(album: album) }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: deck == nil)
+        .animation(.easeInOut(duration: 0.2), value: path.isEmpty)
+    }
+
+    private func railKey(_ symbol: String, label: String, id: String = "liquid.back",
+                         action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .background(.white.opacity(0.14), in: Circle())
+        }
+        .buttonStyle(LyrePressStyle())
+        .foregroundStyle(.white)
+        .accessibilityLabel(String(localized: String.LocalizationValue(label)))
+        .accessibilityIdentifier(id)
     }
 
     private func closeDeck() {
@@ -825,21 +859,25 @@ struct LiquidPageTitle: View {
     var artist: (name: String, fallback: AppAlbum?)? = nil
     @Environment(\.liquidNavigator) private var navigator
     @Environment(\.liquidCard) private var card
+    @Environment(\.windowSafeArea) private var safeArea
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // In a card, the way back closes it.
-            Button { navigator.back() } label: {
-                Image(systemName: card == nil ? "chevron.left" : "chevron.down")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .background(.white.opacity(0.1), in: Circle())
+            // In a card, the way back closes it. Down the side column instead, on an
+            // iPhone Duo with its status bar there (SideRail).
+            if !SideRail.isOn(safeArea) {
+                Button { navigator.back() } label: {
+                    Image(systemName: card == nil ? "chevron.left" : "chevron.down")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .background(.white.opacity(0.1), in: Circle())
+                }
+                .foregroundStyle(.white)
+                // Its own button: on a list's first row, a tap elsewhere on the row isn't one.
+                .buttonStyle(LyrePressStyle())
+                .accessibilityLabel(String(localized: card == nil ? "liquid.back" : "liquid.card.close"))
+                .accessibilityIdentifier("liquid.back")
             }
-            .foregroundStyle(.white)
-            // Its own button: on a list's first row, a tap elsewhere on the row isn't one.
-            .buttonStyle(LyrePressStyle())
-            .accessibilityLabel(String(localized: card == nil ? "liquid.back" : "liquid.card.close"))
-            .accessibilityIdentifier("liquid.back")
             if let artist {
                 // Their photo, large, in a slowly drifting soap bubble (LiquidSoapBubble).
                 LiquidSoapBubble(diameter: 240, wobbles: true) {
@@ -1504,6 +1542,7 @@ struct LiquidAlbumPage: View {
     @State private var color: Color
     @Environment(\.liquidNavigator) private var navigator
     @Environment(\.liquidCard) private var card
+    @Environment(\.windowSafeArea) private var safeArea
 
     init(album: AppAlbum, library: ShelfLibrary, musicService: MusicService,
          onPlay: @escaping (AppAlbum, [AppTrack], Int, Bool) -> Void,
@@ -1590,67 +1629,31 @@ struct LiquidAlbumPage: View {
                 }
                 .onAppear { BubbleTilt.shared.attach() }
                 .onDisappear { BubbleTilt.shared.detach() }
-            Button { navigator.back() } label: {
-                Image(systemName: card == nil ? "chevron.left" : "chevron.down")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .background(.black.opacity(0.3), in: Circle())
-            }
-            .buttonStyle(LyrePressStyle())
-            .foregroundStyle(.white)
-            .padding(.leading, 16)
-            // A card starts below the status bar.
-            .padding(.top, card == nil ? 56 : 16)
-            .accessibilityLabel(String(localized: card == nil ? "liquid.back" : "liquid.card.close"))
-            .accessibilityIdentifier("liquid.back")
-        }
-        .overlay(alignment: .topTrailing) {
-            // LYRE-14: the whole album to Up Next, without holding its cover. A show's
-            // episodes can't be queued, so a show has none.
-            HStack(spacing: 10) {
-            // An album from Apple Music the library hasn't (from Discover, the charts,
-            // search, an artist's card): added from here.
-            if album.isCatalog, album.mixtape == nil, let catalogue = album.musicKitAlbum {
-                Button { navigator.addAlbum(catalogue) } label: {
-                    Image(systemName: "plus")
+            if !SideRail.isOn(safeArea) {
+                Button { navigator.back() } label: {
+                    Image(systemName: card == nil ? "chevron.left" : "chevron.down")
                         .font(.system(size: 17, weight: .semibold))
                         .frame(width: 44, height: 44)
                         .background(.black.opacity(0.3), in: Circle())
                 }
                 .buttonStyle(LyrePressStyle())
                 .foregroundStyle(.white)
-                .accessibilityLabel(String(localized: "catalog.offer.add"))
-                .accessibilityIdentifier("liquid.album.add")
+                .padding(.leading, 16)
+                // A card starts below the status bar.
+                .padding(.top, card == nil ? 56 : 16)
+                .accessibilityLabel(String(localized: card == nil ? "liquid.back" : "liquid.card.close"))
+                .accessibilityIdentifier("liquid.back")
             }
-            // A playlist Lyre made can be edited (LYRE-25).
-            PlaylistEditButton(playlist: album.mixtape, identifier: "liquid.album.edit") {
-                Image(systemName: "pencil")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 44, height: 44)
-                    .background(.black.opacity(0.3), in: Circle())
-                    .foregroundStyle(.white)
+        }
+        .overlay(alignment: .topTrailing) {
+            // LYRE-14: the whole album to Up Next, without holding its cover. A show's
+            // episodes can't be queued, so a show has none. Down the side column
+            // instead, on an iPhone Duo with its status bar there (SideRail).
+            if !SideRail.isOn(safeArea) {
+                HStack(spacing: 10) { LiquidAlbumActions(album: album) }
+                    .padding(.trailing, 16)
+                    .padding(.top, 56)
             }
-            if !album.isPodcast {
-                Menu {
-                    Button { navigator.queueAlbum(album, .next) } label: {
-                        Label(String(localized: "queue.action.playNext"), systemImage: "text.insert")
-                    }
-                    Button { navigator.queueAlbum(album, .last) } label: {
-                        Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
-                    }
-                } label: {
-                    Image(systemName: "text.badge.plus")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .background(.black.opacity(0.3), in: Circle())
-                }
-                .foregroundStyle(.white)
-                .accessibilityLabel(String(localized: "liquid.album.queueMenu"))
-                .accessibilityIdentifier("liquid.album.queueMenu")
-            }
-            }
-            .padding(.trailing, 16)
-            .padding(.top, 56)
         }
     }
 
@@ -1947,6 +1950,57 @@ struct LiquidLibrarySwipe: View {
                 Label(String(localized: "catalog.offer.add"), systemImage: "plus.circle")
             }
             .tint(RowSwipeAction.libraryTint)
+        }
+    }
+}
+
+/// An album page's own buttons: Add (one from Apple Music), Edit (a playlist Lyre made)
+/// and the queue menu; in a row across the page's top, or down an iPhone Duo's side
+/// column (SideRail).
+struct LiquidAlbumActions: View {
+    let album: AppAlbum
+    @Environment(\.liquidNavigator) private var navigator
+
+    var body: some View {
+        // An album from Apple Music the library hasn't (from Discover, the charts,
+        // search, an artist's card): added from here.
+        if album.isCatalog, album.mixtape == nil, let catalogue = album.musicKitAlbum {
+            Button { navigator.addAlbum(catalogue) } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .background(.black.opacity(0.3), in: Circle())
+            }
+            .buttonStyle(LyrePressStyle())
+            .foregroundStyle(.white)
+            .accessibilityLabel(String(localized: "catalog.offer.add"))
+            .accessibilityIdentifier("liquid.album.add")
+        }
+        // A playlist Lyre made can be edited (LYRE-25).
+        PlaylistEditButton(playlist: album.mixtape, identifier: "liquid.album.edit") {
+            Image(systemName: "pencil")
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.3), in: Circle())
+                .foregroundStyle(.white)
+        }
+        if !album.isPodcast {
+            Menu {
+                Button { navigator.queueAlbum(album, .next) } label: {
+                    Label(String(localized: "queue.action.playNext"), systemImage: "text.insert")
+                }
+                Button { navigator.queueAlbum(album, .last) } label: {
+                    Label(String(localized: "queue.action.addToQueue"), systemImage: "text.append")
+                }
+            } label: {
+                Image(systemName: "text.badge.plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .background(.black.opacity(0.3), in: Circle())
+            }
+            .foregroundStyle(.white)
+            .accessibilityLabel(String(localized: "liquid.album.queueMenu"))
+            .accessibilityIdentifier("liquid.album.queueMenu")
         }
     }
 }

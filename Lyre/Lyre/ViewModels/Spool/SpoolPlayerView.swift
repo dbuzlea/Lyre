@@ -163,6 +163,38 @@ struct SpoolPlayerView: View {
             .padding(safeArea)
             .animation(.spring(response: 0.45, dampingFraction: 0.85), value: foldMonitor.posture)
 
+            // iPhone Duo with its status bar down the side: the original's rail stands in
+            // that column under the status bar; the slim's options, or the ✕ that puts
+            // the rack away, stand there one under the other.
+            if foldMonitor.posture == .closed, SideRail.isOn(safeArea) {
+                if model == .original, !isBrowsing {
+                    keyStrip(axis: .vertical, inColumn: true)
+                        .frame(width: SideRail.column(safeArea) - 6)
+                        .padding(.top, SideRail.stripTop)
+                        .padding(.bottom, safeArea.bottom + 10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                        .padding(.trailing, 3)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                } else {
+                    SideRailButtons {
+                        if isBrowsing {
+                            Button(action: closeDeck) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(theme.keySymbol)
+                                    .frame(width: 34, height: 34)
+                                    .background(theme.keyLight.opacity(0.75), in: Circle())
+                                    .frame(width: 44, height: 44)
+                                    .contentShape(Circle())
+                            }
+                            .accessibilityLabel(String(localized: "spool.carousel.close"))
+                        } else {
+                            optionButtons
+                        }
+                    }
+                }
+            }
+
             if let scene = openCase {
                 CassetteCaseView(
                     album: scene.album,
@@ -391,7 +423,7 @@ struct SpoolPlayerView: View {
                 .offset(x: isBrowsing ? -pageShift : 0)
 
                 if isBrowsing {
-                    rackColumn(showsClose: true)
+                    rackColumn(showsClose: !SideRail.isOn(safeArea))
                         .frame(width: carouselWidth)
                         // Full height: the rack runs from under the header to just above
                         // the home indicator.
@@ -423,11 +455,15 @@ struct SpoolPlayerView: View {
             .padding(.leading, Self.deckLeading)
             .padding(.vertical, 20)
 
-            // The rail leaves the other way, clearing the right side for the rack.
-            keyStrip(axis: .vertical)
-                .frame(width: Self.stripWidth)
-                .offset(x: isBrowsing ? pageShift + Self.stripWidth + Self.stripSpacing : 0)
-                .opacity(isBrowsing ? 0 : 1)
+            // The rail leaves the other way, clearing the right side for the rack. On an
+            // iPhone Duo with its status bar down the side it stands in that column
+            // instead (see body), and the deck has the width.
+            if !SideRail.isOn(safeArea) {
+                keyStrip(axis: .vertical)
+                    .frame(width: Self.stripWidth)
+                    .offset(x: isBrowsing ? pageShift + Self.stripWidth + Self.stripSpacing : 0)
+                    .opacity(isBrowsing ? 0 : 1)
+            }
         }
     }
 
@@ -438,17 +474,27 @@ struct SpoolPlayerView: View {
             // The keys and the options share the top edge where there's room. Where
             // there isn't (an iPhone Duo closed, its status bar taking the right edge),
             // the options go up on their own row rather than run under it.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    keyBank(axis: .horizontal, compact: true)
-                    Spacer(minLength: 4)
-                    optionsMenu
-                }
-                VStack(alignment: .trailing, spacing: 12) {
-                    optionsMenu
+            Group {
+                if SideRail.isOn(safeArea) {
+                    // The options stand down the side column (see body): the keys alone.
                     HStack {
                         keyBank(axis: .horizontal, compact: true)
                         Spacer(minLength: 0)
+                    }
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) {
+                            keyBank(axis: .horizontal, compact: true)
+                            Spacer(minLength: 4)
+                            optionsMenu
+                        }
+                        VStack(alignment: .trailing, spacing: 12) {
+                            optionsMenu
+                            HStack {
+                                keyBank(axis: .horizontal, compact: true)
+                                Spacer(minLength: 0)
+                            }
+                        }
                     }
                 }
             }
@@ -873,9 +919,11 @@ struct SpoolPlayerView: View {
     }
 
     /// The transport keys on their steel strip, stacked down the edge or along the bottom.
-    private func keyStrip(axis: Axis) -> some View {
+    private func keyStrip(axis: Axis, inColumn: Bool = false) -> some View {
+        // Standing in an iPhone Duo's status column, under the status bar, it has less
+        // height: closer keys, and the smaller transport keys.
         let layout = axis == .vertical
-            ? AnyLayout(VStackLayout(spacing: 12))
+            ? AnyLayout(VStackLayout(spacing: inColumn ? 8 : 12))
             : AnyLayout(HStackLayout(spacing: 12))
         return layout {
             if axis == .vertical {
@@ -888,7 +936,7 @@ struct SpoolPlayerView: View {
             }
             // The keys stand proud of the rail, out past its inner edge, as on the
             // original's side.
-            keyBank(axis: axis)
+            keyBank(axis: axis, compact: inColumn)
                 .offset(x: axis == .vertical ? -Self.keyOverhang : 0,
                         y: axis == .horizontal ? -Self.keyOverhang : 0)
             if axis == .vertical {
@@ -979,7 +1027,11 @@ struct SpoolPlayerView: View {
 
     /// Love, AirPlay, Change Player, then Settings.
     private var optionsMenu: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 8) { optionButtons }
+    }
+
+    /// Love, AirPlay, Change Player and Settings, in a row or down the side column.
+    @ViewBuilder private var optionButtons: some View {
             loveKey
             airPlayKey
             playerSwitchKey
@@ -992,7 +1044,6 @@ struct SpoolPlayerView: View {
             }
             .accessibilityLabel(String(localized: "settings.title"))
             .accessibilityIdentifier("spool.settings")
-        }
     }
 
     /// Changes the player without going into Settings (see `PlayerSwitchMenu`).
