@@ -84,3 +84,30 @@ struct HoldHint: ViewModifier {
             .animation(isPressing ? .easeIn(duration: duration) : LyreMotion.light, value: isPressing)
     }
 }
+
+/// A thing in flight drawn out along its way (`angle`, radians) and a little thinner
+/// across it, by `amount` (0 to 1): the eye's own smear of something moving fast.
+struct MotionStretch: GeometryEffect {
+    var amount: Double
+    let angle: Double
+    /// How far `amount` 1 draws it out along its way, and thins it across.
+    var along: Double = 0.08
+    var across: Double = 0.04
+
+    var animatableData: Double {
+        get { amount }
+        set { amount = newValue }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let along = 1 + self.along * amount
+        let across = 1 - self.across * amount
+        let centre = CGAffineTransform(translationX: -size.width / 2, y: -size.height / 2)
+        let transform = centre
+            .concatenating(CGAffineTransform(rotationAngle: -angle))
+            .concatenating(CGAffineTransform(scaleX: along, y: across))
+            .concatenating(CGAffineTransform(rotationAngle: angle))
+            .concatenating(CGAffineTransform(translationX: size.width / 2, y: size.height / 2))
+        return ProjectionTransform(transform)
+    }
+}

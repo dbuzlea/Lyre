@@ -80,6 +80,8 @@ struct LiquidPlayerView: View {
     @State private var carried: CarriedBubble?
     /// Now Playing's page, on screen, for a bubble to be taken into.
     @State private var nowPlayingPage: CGRect = .zero
+    /// A bubble just taken in, for Now Playing to ripple where it went in.
+    @State private var splash: LiquidSplash?
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -428,7 +430,8 @@ struct LiquidPlayerView: View {
                 }
             },
             onOpenPlayingAlbum: openPlayingAlbum,
-            lean: lean
+            lean: lean,
+            splash: splash
         )
     }
 
@@ -465,7 +468,7 @@ struct LiquidPlayerView: View {
                         onPlay: { album, center, diameter in fly(album, from: center, diameter: diameter) },
                         onOpen: openFromBubbles,
                         onDrag: drag,
-                        onDrop: drop
+                        onDrop: { album, heading, velocity in drop(album, heading: heading, velocity: velocity) }
                     )
                     .transition(.opacity)
                 }
@@ -535,6 +538,12 @@ struct LiquidPlayerView: View {
         /// How far it's been taken in: 0 at the fold, 1 filling Now Playing.
         var takenIn: CGFloat = 0
         var opacity: Double = 1
+        /// How fast it's moving (points a second), from the last two places the finger
+        /// put it, and when it was last put: what it's drawn out along.
+        var velocity: CGPoint = .zero
+        var movedAt = Date()
+        /// It's touched the water at the fold (felt once, as a soft tap).
+        var hasTouched = false
     }
 
     /// How far past the fold a bubble's centre goes before Now Playing takes it.
@@ -563,19 +572,38 @@ struct LiquidPlayerView: View {
     private func drag(_ album: AppAlbum, to center: CGPoint, diameter: CGFloat, from origin: CGPoint) {
         if let carried, carried.isTakenIn || carried.album.id != album.id { return }
         var moved = carried ?? CarriedBubble(album: album, diameter: diameter, center: center, origin: origin)
+        // Its speed, eased over the last few moves so one jittery frame doesn't jerk it.
+        let now = Date()
+        let dt = now.timeIntervalSince(moved.movedAt)
+        if dt > 0.001, dt < 0.2 {
+            let instant = CGPoint(x: (center.x - moved.center.x) / dt, y: (center.y - moved.center.y) / dt)
+            moved.velocity = CGPoint(x: moved.velocity.x * 0.6 + instant.x * 0.4, y: moved.velocity.y * 0.6 + instant.y * 0.4)
+        }
+        moved.movedAt = now
         moved.center = center
+        // Meeting the water at the fold: a soft tap, once.
+        if !moved.hasTouched, center.x - diameter / 2 <= nowPlayingPage.maxX + 4 {
+            moved.hasTouched = true
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.7)
+        }
         withTransaction(Transaction(animation: nil)) { carried = moved }
         if center.x < nowPlayingPage.maxX - Self.takeInDepth { takeIn() }
     }
 
-    /// Let go: heading past the fold, it's taken in; short of it, it floats back.
-    private func drop(_ album: AppAlbum, heading: CGPoint) {
+    /// Let go: heading past the fold, it's taken in; short of it, it floats back to its
+    /// place, going on at the finger's speed and wobbling a little as it settles.
+    private func drop(_ album: AppAlbum, heading: CGPoint, velocity: CGPoint) {
         guard let carried, !carried.isTakenIn, carried.album.id == album.id else { return }
         if heading.x < nowPlayingPage.maxX - Self.takeInDepth {
             takeIn()
         } else {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.72)) {
+            let away = CGPoint(x: carried.origin.x - carried.center.x, y: carried.origin.y - carried.center.y)
+            let distance = hypot(away.x, away.y)
+            // The finger's speed toward home.
+            let toward = distance < 1 ? 0 : (velocity.x * away.x + velocity.y * away.y) / distance
+            withAnimation(LyreMotion.release(velocity: toward, distance: distance)) {
                 self.carried?.center = carried.origin
+                self.carried?.velocity = .zero
             } completion: {
                 if self.carried?.isTakenIn == false { self.carried = nil }
             }
@@ -583,8 +611,11 @@ struct LiquidPlayerView: View {
     }
 
     /// A bubble tapped: it flies to the fold, and is taken in.
-    private func fly(_ album: AppAlbum, from center: CGPoint, diameter: CGFloat) {
+    private func fly(_ album: AppAlbum, from tapped: CGPoint, diameter: CGFloat) {
         guard carried == nil else { return }
+        // Played from VoiceOver, with no touch: from the middle of the bubbles' page.
+        let center = tapped == .zero ? CGPoint(x: nowPlayingPage.maxX + nowPlayingPage.width / 2, y: nowPlayingPage.midY)
+                                     : tapped
         carried = CarriedBubble(album: album, diameter: diameter, center: center, origin: center)
         let fold = CGPoint(x: nowPlayingPage.maxX - Self.takeInDepth - 1,
                            y: min(max(center.y, nowPlayingPage.minY + diameter), nowPlayingPage.maxY - diameter))
@@ -605,8 +636,12 @@ struct LiquidPlayerView: View {
     private func takeIn() {
         guard var taken = carried, !taken.isTakenIn else { return }
         taken.isTakenIn = true
+        taken.velocity = .zero
         withTransaction(Transaction(animation: nil)) { carried = taken }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        // It lands in Now Playing as a drop does in water: rings out from where it went in.
+        splash = LiquidSplash(point: CGPoint(x: nowPlayingPage.width - 6,
+                                             y: min(max(taken.center.y - nowPlayingPage.minY, 0), nowPlayingPage.height)))
         let album = taken.album
         Task {
             let loaded = await library.tracks(for: album)
@@ -637,11 +672,21 @@ struct LiquidPlayerView: View {
             let r = carried.diameter / 2
             // Big enough, from Now Playing's middle, to cover it.
             let cover = hypot(nowPlayingPage.width, nowPlayingPage.height) / carried.diameter
+            let speed = hypot(carried.velocity.x, carried.velocity.y)
+            // How far it's pressed into the water at the fold, 0 to 1, before it's taken in.
+            let press = carried.isTakenIn ? 0 : min(1, max(0, (fold + r - center.x) / (r + Self.takeInDepth)))
             ZStack(alignment: .topLeading) {
                 if !carried.isTakenIn {
                     membrane(fold: fold, bubble: center, radius: r)
                 }
-                LiquidBubble(album: carried.album, diameter: carried.diameter)
+                // Its film keeps moving while it's carried; flattened against the water
+                // as it presses into the fold, and drawn out along its way while it's
+                // quick, as a bubble pulled through air is.
+                LiquidBubble(album: carried.album, diameter: carried.diameter, wobbles: !reduceMotion)
+                    .scaleEffect(x: 1 - press * 0.14, y: 1 + press * 0.07)
+                    .modifier(MotionStretch(amount: reduceMotion ? 0 : min(1, speed / 2400),
+                                            angle: atan2(carried.velocity.y, carried.velocity.x),
+                                            along: 0.12, across: 0.06))
                     .scaleEffect(1.06 + (cover - 1) * carried.takenIn)
                     .position(center)
                     .opacity(carried.opacity)
