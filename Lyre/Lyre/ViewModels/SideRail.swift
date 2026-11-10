@@ -36,6 +36,17 @@ enum SideRail {
     static let leadingTop: CGFloat = 96
     /// How wide the left edge's rail is.
     static let leadingWidth: CGFloat = 72
+    /// How tall one button in a rail is, with the gap below it.
+    static let step: CGFloat = 58
+}
+
+extension EnvironmentValues {
+    /// How much of the column's top another rail already takes (held as a book, Now
+    /// Playing's buttons over the right-hand page's): a rail here starts below it.
+    @Entry var sideRailStart: CGFloat = 0
+    /// The column already has the player switch and Settings (Now Playing's, held as a
+    /// book), so a page beside it doesn't stand its own there too.
+    @Entry var sideRailHasPlayerButtons = false
 }
 
 /// Header buttons stood one under the other in the status column down the right edge
@@ -47,12 +58,13 @@ struct SideRailButtons<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     @Environment(\.windowSafeArea) private var safeArea
+    @Environment(\.sideRailStart) private var start
 
     var body: some View {
         if SideRail.isOn(safeArea) {
             VStack(spacing: spacing) { content() }
                 .frame(width: edge == .trailing ? SideRail.column(safeArea) : SideRail.leadingWidth)
-                .padding(.top, edge == .trailing ? SideRail.statusReserve : SideRail.leadingTop)
+                .padding(.top, edge == .trailing ? SideRail.statusReserve + start : SideRail.leadingTop)
                 .frame(maxWidth: .infinity, maxHeight: .infinity,
                        alignment: edge == .trailing ? .topTrailing : .topLeading)
                 // Into the column, which a view laid out in the safe area (a sheet) keeps clear of.

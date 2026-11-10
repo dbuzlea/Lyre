@@ -57,8 +57,9 @@ struct LiquidNowPlayingView: View {
     /// cover rings out from where it went in, as water does where a drop lands.
     var splash: LiquidSplash?
     /// Which side its buttons stand down on an iPhone Duo with its status bar down the
-    /// side: that column's, or, held as a book (Now Playing on the left page), the left.
-    var railEdge: HorizontalEdge = .trailing
+    /// side: that column's; nil where the player stands them there itself (held as a
+    /// book, Now Playing on the left page and the column on the right).
+    var railEdge: HorizontalEdge? = .trailing
 
     @State private var left = WaveState(side: .left)
     @State private var right = WaveState(side: .right)
@@ -469,33 +470,14 @@ struct LiquidNowPlayingView: View {
 
     /// The library.
     private var libraryButton: some View {
-        roundButton("line.3.horizontal", label: "liquid.library", id: "liquid.library", action: onOpenLibrary)
+        LiquidNowPlayingButtons(part: .library, track: current, themeSettings: themeSettings,
+                                onOpenLibrary: onOpenLibrary, onOpenSettings: onOpenSettings)
     }
 
     /// ★, AirPlay, the player switch and Settings.
-    @ViewBuilder private var headerButtons: some View {
-        LoveButton(track: current, identifier: "liquid.love") { isLoved in
-            Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(isLoved ? Color.pink : .white)
-                .frame(width: 44, height: 44)
-                .background(.black.opacity(0.28), in: Circle())
-        }
-        AirPlayRouteButton(identifier: "liquid.airplay") { isActive in
-            Image(systemName: "airplayaudio")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(isActive ? Color.accentColor : .white)
-                .frame(width: 44, height: 44)
-                .background(.black.opacity(0.28), in: Circle())
-        }
-        PlayerSwitchMenu(themeSettings: themeSettings, identifier: "liquid.playerSwitch") { symbol in
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-                .background(.black.opacity(0.28), in: Circle())
-        }
-        roundButton("gearshape.fill", label: "settings.title", id: "liquid.settings", action: onOpenSettings)
+    private var headerButtons: some View {
+        LiquidNowPlayingButtons(part: .rest, track: current, themeSettings: themeSettings,
+                                onOpenLibrary: onOpenLibrary, onOpenSettings: onOpenSettings)
     }
 
     private func chrome(size: CGSize) -> some View {
@@ -530,9 +512,13 @@ struct LiquidNowPlayingView: View {
         // iPhone Duo with its status bar down the side: the buttons stand down the side,
         // the status bar's or (held as a book, Now Playing on the left page) the left edge.
         .overlay {
-            SideRailButtons(edge: railEdge) {
-                libraryButton
-                headerButtons
+            // Held as a book, the player draws them down the right-hand column itself, over
+            // both pages (railEdge nil).
+            if let railEdge {
+                SideRailButtons(edge: railEdge) {
+                    libraryButton
+                    headerButtons
+                }
             }
         }
         .ignoresSafeArea()
@@ -777,4 +763,61 @@ struct LiquidProgress: View {
 struct LiquidSplash: Equatable {
     let id = UUID()
     let point: CGPoint
+}
+
+/// Now Playing's header buttons: the library, ★, AirPlay, the player switch and Settings;
+/// all of them, or the library or the rest, for a row with a gap between.
+struct LiquidNowPlayingButtons: View {
+    enum Part { case all, library, rest }
+    let part: Part
+    let track: AppTrack?
+    let themeSettings: ThemeSettings
+    let onOpenLibrary: () -> Void
+    let onOpenSettings: () -> Void
+
+    /// How many there are, all of them, for what stands below them in a rail.
+    static func count(track: AppTrack?) -> Int { track == nil ? 4 : 5 }
+
+    var body: some View {
+        if part != .rest {
+            round("line.3.horizontal", label: "liquid.library", id: "liquid.library", action: onOpenLibrary)
+        }
+        if part != .library {
+            LoveButton(track: track, identifier: "liquid.love") { isLoved in
+                Image(systemName: LoveButton<EmptyView>.symbol(isLoved))
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isLoved ? Color.pink : .white)
+                    .frame(width: 44, height: 44)
+                    .background(.black.opacity(0.28), in: Circle())
+            }
+            AirPlayRouteButton(identifier: "liquid.airplay") { isActive in
+                Image(systemName: "airplayaudio")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isActive ? Color.accentColor : .white)
+                    .frame(width: 44, height: 44)
+                    .background(.black.opacity(0.28), in: Circle())
+            }
+            PlayerSwitchMenu(themeSettings: themeSettings, identifier: "liquid.playerSwitch") { symbol in
+                Image(systemName: symbol)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(.black.opacity(0.28), in: Circle())
+            }
+            round("gearshape.fill", label: "settings.title", id: "liquid.settings", action: onOpenSettings)
+        }
+    }
+
+    private func round(_ symbol: String, label: String.LocalizationValue, id: String,
+                       action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.28), in: Circle())
+        }
+        .accessibilityLabel(String(localized: label))
+        .accessibilityIdentifier(id)
+    }
 }
