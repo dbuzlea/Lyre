@@ -1208,7 +1208,9 @@ final class GramophoneStage {
         cameraNode.simdPosition = pose.position
         cameraNode.simdOrientation = pose.orientation
         horn?.opacity = CGFloat(Self.hornOpacity(shot))
-        if shot != .turntable { publishHotspots() }
+        // Looking down on the record too: the bin of Up Next stays in view there, and
+        // can be tapped.
+        publishHotspots()
     }
 
     /// Where the camera is now, as a pose to move from.
@@ -1266,7 +1268,7 @@ final class GramophoneStage {
     private func publishHotspots() {
         for delay in [0.1, 0.4, 1.2] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self, self.shot != .turntable, self.driver == nil else { return }
+                guard let self, self.driver == nil else { return }
                 self.projectHotspots()
             }
         }

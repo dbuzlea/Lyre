@@ -195,6 +195,21 @@ struct GramophonePlayerView: View {
                     .transition(.opacity)
             }
 
+            // Looking down on the record, the bin of Up Next is still there beside it, in
+            // the machine; tapped, it opens (as from the front).
+            if vantage == .turntable {
+                GeometryReader { proxy in
+                    spot(.rack, proxy.frame(in: .global).origin, within: proxy.frame(in: .global)) {
+                        Button(action: openRack) { Color.clear.contentShape(Rectangle()) }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(String(localized: "spool.queue.open"))
+                            .accessibilityIdentifier("gramophone.turntable.upNext")
+                    }
+                }
+                .ignoresSafeArea()
+                .zIndex(1)
+            }
+
             overhead
                 .padding(safeArea)
                 // Above the fold, on a Duo with the covers below.
@@ -669,8 +684,14 @@ struct GramophonePlayerView: View {
                 HStack(alignment: .center, spacing: 10) {
                     BrakeLever(isPlaying: musicService.isPlaying, action: brake)
                     Nameplate(title: nowPlayingTitle, subtitle: nowPlayingSubtitle)
-                    SpeedRegulator(isEnabled: musicService.isPlayingPodcast, rate: musicService.podcastRate,
-                                   onSet: setSpeed)
+                    if isDuoSplit, !musicService.isPlayingPodcast {
+                        // Opened with the fold across the middle, the deck's keys are Back and
+                        // Next, so Up Next stands where the speed is (wanted only for a show).
+                        UpNextPile(count: musicService.upcoming.count, action: openRack)
+                    } else {
+                        SpeedRegulator(isEnabled: musicService.isPlayingPodcast, rate: musicService.podcastRate,
+                                       onSet: setSpeed)
+                    }
                 }
                 HStack(spacing: 14) {
                     if isDuoSplit {

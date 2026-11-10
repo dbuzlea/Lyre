@@ -135,6 +135,13 @@ struct LiquidLibraryView: View {
         // close) and the page's own buttons stand in that column (SideRail).
         .overlay { sideRail }
         .environment(\.liquidNavigator, navigator)
+        // A song's menu can take it to its album's page and its artist's.
+        .environment(\.songNavigation, SongNavigation(
+            album: { track in
+                guard let album = navigator.album(track) else { return }
+                navigator.push(.album(album))
+            },
+            artist: { name in navigator.push(.artist(name)) }))
         .confirmationDialog(catalogOffer.map { String(format: String(localized: "catalog.offer.title"), $0.title) } ?? "",
                             isPresented: Binding(get: { catalogOffer != nil }, set: { if !$0 { catalogOffer = nil } }),
                             titleVisibility: .visible, presenting: catalogOffer) { offer in

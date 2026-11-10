@@ -93,6 +93,9 @@ private struct RowSwipeActions: ViewModifier {
     @State private var size: CGSize = .zero
     @State private var coordinator = RowSwipeCoordinator.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Off where a sideways swipe is something else's (a card among others in Liquid's
+    /// deck turns to the next): the row's actions are in its menu there instead.
+    @Environment(\.rowSwipesEnabled) private var swipesEnabled
 
     /// Tall enough to name each button under it, as Apple Music does; on a shorter row
     /// the name goes inside, beside the symbol.
@@ -129,7 +132,8 @@ private struct RowSwipeActions: ViewModifier {
                     if offset < 0 { buttons(trailing, shown: -offset / max(1, trailingWidth), edge: .trailing) }
                 }
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
-                .modifier(RowSwipeGesture(isOpen: isOpen, allowsRight: !actions.isEmpty, allowsLeft: !trailing.isEmpty,
+                .modifier(RowSwipeGesture(isOpen: isOpen, allowsRight: swipesEnabled && !actions.isEmpty,
+                                          allowsLeft: swipesEnabled && !trailing.isEmpty,
                                           onChange: slide, onEnd: settle))
                 .onChange(of: coordinator.openRow) {
                     if coordinator.openRow != id, isOpen { close() }
@@ -345,4 +349,10 @@ private struct RowSwipeGesture: ViewModifier {
             )
         }
     }
+}
+
+extension EnvironmentValues {
+    /// Whether rows slide aside onto their swipe actions; off where a sideways swipe
+    /// belongs to something else (RowSwipeActions).
+    @Entry var rowSwipesEnabled = true
 }
