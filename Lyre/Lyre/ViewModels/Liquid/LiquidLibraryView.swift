@@ -626,6 +626,7 @@ struct LiquidGridPage: View {
     var searchAction: (title: String, symbol: String, id: String, action: () -> Void)?
 
     @Environment(\.liquidCard) private var card
+    @Environment(\.liquidListKey) private var listKey
     @State private var query = ""
     /// How tall the name and search are at the top of the grid: the letter index starts
     /// below them, so on a short screen (an iPhone Duo closed) it isn't run up past the
@@ -780,6 +781,14 @@ struct LiquidGridPage: View {
                 .scrollDismissesKeyboard(.immediately)
                 .reportsLiquidCardScroll(card)
                 .modifier(StillWhileScrolling())
+                // LYRE-41: the cover at the top kept as it scrolls, and the one handed
+                // over from another player scrolled to as the grid opens.
+                .modifier(LiquidGridPlace(list: card == nil && query.isEmpty ? listKey : "", items: shown,
+                                          gridTop: headerHeight + 16, width: gridWidth))
+                .onAppear {
+                    guard let id = LiquidPlace.takeScrollTarget(list: listKey) else { return }
+                    DispatchQueue.main.async { proxy.scrollTo(id, anchor: .top) }
+                }
 
                 if showsIndex, shown.count >= 12 {
                     LiquidLetterStrip(titles: shown.map(\.title)) { index in
@@ -1084,6 +1093,14 @@ struct LiquidArtistsPage: View {
     }
 
     private static var memo: (albums: [AppAlbum], artists: [Artist])?
+    /// Which artist is at the top, as the list scrolls (LYRE-41).
+    @State private var topRow = LiquidTopRow()
+
+    private func trackTop(_ index: Int, _ isVisible: Bool, _ shown: [Artist]) {
+        guard query.isEmpty, topRow.update(index, isVisible: isVisible), let top = topRow.top,
+              shown.indices.contains(top) else { return }
+        LiquidPlace.save(shown[top].name, list: "artists")
+    }
 
     @State private var query = ""
     @State private var headerHeight: CGFloat = 0
@@ -1138,6 +1155,9 @@ struct LiquidArtistsPage: View {
                             .buttonStyle(LiquidWordStyle())
                             .id(artist.name)
                             .accessibilityIdentifier("liquid.artist.\(artist.name)")
+                            // LYRE-41: the artist at the top, kept as the list scrolls.
+                            .onAppear { trackTop(index, true, shown) }
+                            .onDisappear { trackTop(index, false, shown) }
                         }
                     }
                     .padding(.leading, 20)
@@ -1145,6 +1165,14 @@ struct LiquidArtistsPage: View {
                     .padding(.bottom, bottomInset + 20)
                 }
                 .scrollDismissesKeyboard(.immediately)
+                .onAppear {
+                    LiquidPlace.opened(list: "artists")
+                    // Another player's artist, handed over, scrolled to (LYRE-41).
+                    guard let id = LiquidPlace.takeScrollTarget(list: "artists"),
+                          let name = LiquidPlace.artistName(forShelfID: id, in: shown.map(\.name)) ?? shown.first(where: { $0.name == id })?.name
+                    else { return }
+                    DispatchQueue.main.async { proxy.scrollTo(name, anchor: .top) }
+                }
 
                 // A to Z down the side, as the albums have.
                 if showsIndex {
@@ -1309,6 +1337,9 @@ struct LiquidSongsPage: View {
 
     @State private var query = ""
     @Environment(\.liquidNavigator) private var linkNavigator
+    @Environment(\.liquidListKey) private var listKey
+    /// Which song is at the top, as the list scrolls (LYRE-41).
+    @State private var topRow = LiquidTopRow()
 
     /// The other list, as a pill under the title.
     @ViewBuilder private var linkButton: some View {
@@ -1379,6 +1410,12 @@ struct LiquidSongsPage: View {
     }
 
     /// Every song at once.
+    private func trackTop(_ index: Int, _ isVisible: Bool, _ shown: [AppTrack]) {
+        guard query.isEmpty, topRow.update(index, isVisible: isVisible), let top = topRow.top,
+              shown.indices.contains(top) else { return }
+        LiquidPlace.save(shown[top].id, list: listKey)
+    }
+
     private var list: some View {
         let shown = self.shown
         let playingID = musicService.currentTrack?.id
@@ -1407,6 +1444,9 @@ struct LiquidSongsPage: View {
                     ForEach(Array(shown.enumerated()), id: \.offset) { index, track in
                         row(track, isPlaying: track.id == playingID) { onPlay(shown, index, false, title) }
                             .id(index)
+                            // LYRE-41: the song at the top, kept as the list scrolls.
+                            .onAppear { trackTop(index, true, shown) }
+                            .onDisappear { trackTop(index, false, shown) }
                             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                 Button { onQueue([track], .next, track.title) } label: {
                                     Label(String(localized: "queue.action.playNext"), systemImage: "text.insert")
@@ -1435,6 +1475,12 @@ struct LiquidSongsPage: View {
                 .scrollContentBackground(.hidden)
                 .scrollDismissesKeyboard(.immediately)
                 .environment(\.defaultMinListRowHeight, 1)
+                .onAppear {
+                    // Another player's song, handed over, scrolled to (LYRE-41).
+                    guard let id = LiquidPlace.takeScrollTarget(list: listKey),
+                          let index = shown.firstIndex(where: { $0.id == id }) else { return }
+                    DispatchQueue.main.async { proxy.scrollTo(index, anchor: .top) }
+                }
 
                 if hasIndex {
                     LiquidLetterStrip(titles: Self.titles(of: shown)) { index in
@@ -1935,6 +1981,8 @@ struct LiquidRememberedLayout<Content: View>: View {
     var body: some View {
         content($layout)
             .environment(\.liquidListKey, list)
+            // The section open, handed on to the next player switched to (LYRE-41).
+            .onAppear { LiquidPlace.opened(list: list) }
     }
 }
 
@@ -2001,6 +2049,33 @@ struct LiquidAlbumActions: View {
             .foregroundStyle(.white)
             .accessibilityLabel(String(localized: "liquid.album.queueMenu"))
             .accessibilityIdentifier("liquid.album.queueMenu")
+        }
+    }
+}
+
+/// LYRE-41: the cover at the top of a Liquid grid, kept as it scrolls (LiquidPlace), worked
+/// out from how far it's scrolled and how the bubbles are laid out (LiquidBubbleGrid), so
+/// nothing is measured per bubble. `list` empty keeps nothing (a card's grid, a search).
+private struct LiquidGridPlace: ViewModifier {
+    let list: String
+    let items: [AppAlbum]
+    /// Where the bubbles start down the page, below its name and search.
+    let gridTop: CGFloat
+    let width: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), !list.isEmpty, width > 0, !items.isEmpty {
+            let columns = LiquidBubbleGrid.columnCount(for: width)
+            let row = LiquidBubbleGrid.bubbleSide(for: width) + 8 + LiquidBubbleGrid.labelHeight + LiquidBubbleGrid.rowGap
+            content.onScrollGeometryChange(for: Int.self) { geometry in
+                let into = max(0, geometry.contentOffset.y + geometry.contentInsets.top - gridTop)
+                return min(items.count - 1, Int(into / max(row, 1)) * columns)
+            } action: { _, index in
+                guard items.indices.contains(index) else { return }
+                LiquidPlace.save(items[index].id, list: list)
+            }
+        } else {
+            content
         }
     }
 }

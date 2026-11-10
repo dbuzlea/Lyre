@@ -88,6 +88,26 @@ struct LiquidPlayerView: View {
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
     var body: some View {
+        playerBody
+            // LYRE-41: switched to from another player, Liquid opens that section's list
+            // on the cover (or song) it was left on there. The lists themselves tell
+            // where they are (LiquidPlace), so there's nothing to tell from here.
+            .modifier(HandsOverBrowsing(position: nil, adopt: adoptBrowsePosition))
+    }
+
+    private func adoptBrowsePosition(_ position: BrowsePosition) {
+        let (list, route) = LiquidPlace.list(for: position.shelf)
+        if let id = position.itemID { LiquidPlace.handOver(id, list: list) }
+        var instant = Transaction()
+        instant.disablesAnimations = true
+        withTransaction(instant) {
+            screen = .library
+            isBookLibrary = true
+            path = [route]
+        }
+    }
+
+    private var playerBody: some View {
         GeometryReader { geometry in
             ZStack {
                 Color.black.ignoresSafeArea()

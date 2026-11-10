@@ -109,6 +109,8 @@ struct DiscPlayerView: View {
     @State private var appleMusicFrontID: String?
     @State private var discoverFrontID: String?
     @AppStorage("DiscShelf") private var shelf: SpoolShelf = .albums
+    /// The song at the top of the Songs shelf's list, for the next player (LYRE-41).
+    @State private var songsTopID: String?
     @AppStorage("DiscShowsRemaining") private var showsRemaining = false
     @State private var shelfQuery = ""
     @State private var shelfMatches: ShelfSearchMatches?
@@ -120,6 +122,29 @@ struct DiscPlayerView: View {
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
     var body: some View {
+        playerBody
+            // LYRE-41: where browsing was left, handed on to the next player switched to.
+            .modifier(HandsOverBrowsing(position: browsePosition, adopt: adoptBrowsePosition))
+    }
+
+    /// Where this player's browsing is: its shelf, and the cover at its front (on Songs,
+    /// the song at the top). Nowhere while searching: a search's results go with it.
+    private var browsePosition: BrowsePosition? {
+        guard shelfMatches == nil else { return nil }
+        return BrowsePosition(shelf: shelf, itemID: shelf == .songs ? songsTopID : shelfFrontID.wrappedValue)
+    }
+
+    /// Picks up where another player was left (LYRE-41).
+    private func adoptBrowsePosition(_ position: BrowsePosition) {
+        shelf = position.shelf
+        if position.shelf == .songs {
+            songsTopID = position.itemID
+        } else if let id = position.itemID {
+            shelfFront(on: position.shelf).wrappedValue = id
+        }
+    }
+
+    private var playerBody: some View {
         ZStack {
             background
 
@@ -1085,7 +1110,8 @@ struct DiscPlayerView: View {
                                   playingID: musicService.currentTrack?.id,
                                   onPlay: { index in playSong(index, of: shelfSongs) },
                                   onShuffle: { playSong(0, of: shelfSongs.shuffled()) },
-                                  onQueue: { tracks, placement in queue(tracks, placement: placement, name: tracks.first?.title ?? "") })
+                                  onQueue: { tracks, placement in queue(tracks, placement: placement, name: tracks.first?.title ?? "") },
+                                  topSongID: $songsTopID)
                         .padding(.horizontal, 12)
                         .padding(.bottom, 8)
                         .transition(.opacity)
@@ -1150,7 +1176,10 @@ struct DiscPlayerView: View {
         }
     }
 
-    private var shelfFrontID: Binding<String?> {
+    private var shelfFrontID: Binding<String?> { shelfFront(on: shelf) }
+
+    /// Where a shelf was left: each keeps its own front cover.
+    private func shelfFront(on shelf: SpoolShelf) -> Binding<String?> {
         switch shelf {
         case .albums:     return $albumFrontID
         case .artists:    return $artistFrontID

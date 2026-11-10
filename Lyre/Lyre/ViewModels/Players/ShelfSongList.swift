@@ -39,10 +39,15 @@ struct ShelfSongList: View {
     /// Plays the list shuffled.
     let onShuffle: () -> Void
     let onQueue: ([AppTrack], QueuePlacement) -> Void
+    /// LYRE-41: the song at the top of the list, kept up to date as it scrolls, and the
+    /// one it opens on (handed over from another player).
+    var topSongID: Binding<String?>? = nil
 
     /// The first song under each letter, worked out when the list changes rather than
     /// on every redraw (a library can have thousands).
     @State private var headings: [Int: String] = [:]
+    /// The row at the top, by index, as the list scrolls.
+    @State private var topIndex: Int?
 
     var body: some View {
         Group {
@@ -76,11 +81,23 @@ struct ShelfSongList: View {
                                 .id(index)
                         }
                     }
+                    .scrollTargetLayout()
                     .padding(.leading, 14)
                     .padding(.trailing, tracks.count >= 12 ? 34 : 14)
                     .padding(.vertical, 10)
                 }
                 .scrollIndicators(.hidden)
+                .scrollPosition(id: $topIndex, anchor: .top)
+                .onAppear {
+                    // Opens on the song handed over, if it's in the list.
+                    if let id = topSongID?.wrappedValue, let index = tracks.firstIndex(where: { $0.id == id }) {
+                        topIndex = index
+                    }
+                }
+                .onChange(of: topIndex) { _, index in
+                    guard let topSongID, let index, tracks.indices.contains(index) else { return }
+                    if topSongID.wrappedValue != tracks[index].id { topSongID.wrappedValue = tracks[index].id }
+                }
                 if tracks.count >= 12 {
                     LiquidLetterStrip(titles: tracks.map(\.title), onJump: { index in
                         proxy.scrollTo(index, anchor: .top)

@@ -108,7 +108,12 @@ class ThemeSettings {
     var playerStyle: PlayerStyle {
         didSet {
             UserDefaults.standard.set(playerStyle.rawValue, forKey: "LyrePlayerStyle")
-            if playerStyle != oldValue { Diagnostics.shared.show("Player: \(playerStyle.rawValue)") }
+            if playerStyle != oldValue {
+                Diagnostics.shared.show("Player: \(playerStyle.rawValue)")
+                // The player switched to picks up where this one's browsing was (LYRE-41),
+                // handed over before it appears to take it up. Set on the main thread.
+                MainActor.assumeIsolated { BrowseHandOver.shared.playerSwitched() }
+            }
         }
     }
 

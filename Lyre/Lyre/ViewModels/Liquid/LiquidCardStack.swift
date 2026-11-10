@@ -228,7 +228,8 @@ struct LiquidCardStack: View {
         }
         .onChange(of: index) {
             guard hasRestored, items.indices.contains(index), !listKey.isEmpty else { return }
-            UserDefaults.standard.set(items[index].memoryID, forKey: placeKey)
+            // Kept, and handed on to the next player switched to (LYRE-41).
+            LiquidPlace.save(items[index].memoryID, list: listKey)
         }
     }
 
