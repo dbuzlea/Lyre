@@ -417,11 +417,21 @@ struct DiscPlayerView: View {
                     topBar
                         .padding(.horizontal, 20)
                     HStack(alignment: .top, spacing: 14) {
-                        deck(side: min(geometry.size.width * 0.42, half - 90), lidOpen: true)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(String(localized: "disc.lid"))
-                            .accessibilityValue(deckDisc?.title ?? String(localized: "disc.noDisc"))
-                            .accessibilityIdentifier("disc.lid")
+                        // Browsing, the shelf has the lid to itself, as roomy as the other
+                        // players' (the disc comes back with the booklet). Tapped, the
+                        // disc turns the booklet over to the shelf, as OPEN does.
+                        if !isBrowsing {
+                            deck(side: min(geometry.size.width * 0.42, half - 90), lidOpen: true)
+                                .contentShape(Circle())
+                                .onTapGesture { openDeck() }
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel(String(localized: "disc.lid"))
+                                .accessibilityValue(deckDisc?.title ?? String(localized: "disc.noDisc"))
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityIdentifier("disc.lid")
+                                .accessibilityAction { openDeck() }
+                                .transition(.move(edge: .leading).combined(with: .opacity))
+                        }
                         Group {
                             if isBrowsing {
                                 shelfColumn(showsClose: true)
@@ -460,7 +470,8 @@ struct DiscPlayerView: View {
                 }
                 .padding(.bottom, 10)
                 .frame(maxWidth: .infinity)
-                .frame(height: half)
+                // Browsing, the shelf takes the body's room too, all but a row of keys.
+                .frame(height: isBrowsing ? max(half, geometry.size.height - Self.browsingKeysHeight) : half)
                 // As the hinge closes the lid leans in after it, and the light goes.
                 .rotation3DEffect(.degrees((1 - lidOpenness) * 28), axis: (x: 1, y: 0, z: 0),
                                   anchor: .bottom, perspective: 0.4)
@@ -472,16 +483,27 @@ struct DiscPlayerView: View {
                 .animation(.easeOut(duration: 0.15), value: lidOpenness)
 
                 // The hinge.
-                Capsule()
-                    .fill(theme.ink.opacity(0.12))
-                    .frame(width: 60, height: 4)
-                    .accessibilityHidden(true)
+                if !isBrowsing {
+                    Capsule()
+                        .fill(theme.ink.opacity(0.12))
+                        .frame(width: 60, height: 4)
+                        .accessibilityHidden(true)
+                }
 
-                // The body.
+                // The body: the LCD and every key; browsing, the keys alone (OPEN among
+                // them, to put the shelf away), still in reach under it.
                 VStack {
                     Spacer(minLength: 0)
-                    controls
+                    if isBrowsing {
+                        VStack(spacing: 12) {
+                            transportKeys
+                            modeKeys
+                        }
                         .padding(.horizontal, 20)
+                    } else {
+                        controls
+                            .padding(.horizontal, 20)
+                    }
                     Spacer(minLength: 0)
                 }
                 .frame(maxHeight: .infinity)
@@ -495,6 +517,9 @@ struct DiscPlayerView: View {
             }
         }
     }
+
+    /// What's left of the body for the transport keys while the shelf is out.
+    private static let browsingKeysHeight: CGFloat = 170
 
     /// A song tapped in the booklet: the disc in the tray plays from it.
     private func playFromBooklet(_ album: AppAlbum, tracks: [AppTrack], at index: Int) {

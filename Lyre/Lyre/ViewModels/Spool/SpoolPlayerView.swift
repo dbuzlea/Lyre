@@ -166,8 +166,8 @@ struct SpoolPlayerView: View {
             // iPhone Duo with its status bar down the side: the original's rail stands in
             // that column under the status bar; the slim's options, or the ✕ that puts
             // the rack away, stand there one under the other.
-            if foldMonitor.posture == .closed, SideRail.isOn(safeArea) {
-                if model == .original, !isBrowsing {
+            if foldMonitor.posture != .tent, SideRail.isOn(safeArea) {
+                if foldMonitor.posture == .closed, model == .original, !isBrowsing {
                     keyStrip(axis: .vertical, inColumn: true)
                         .frame(width: SideRail.column(safeArea) - 6)
                         .padding(.top, SideRail.stripTop)
@@ -177,7 +177,7 @@ struct SpoolPlayerView: View {
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 } else {
                     SideRailButtons {
-                        if isBrowsing {
+                        if isBrowsing, foldMonitor.posture == .closed {
                             Button(action: closeDeck) {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 14, weight: .bold))
@@ -730,11 +730,17 @@ struct SpoolPlayerView: View {
     /// waits there; closing the phone plays it (see "Loading on an Open Duo").
     private var openLayout: some View {
         GeometryReader { geometry in
+            // The rack has exactly the room beside the deck, and is held to it: opened
+            // upright, nothing in it may push it off the right edge of the screen.
+            let inner = geometry.size.width - 24
+            let deckWidth = (inner * 0.46).rounded()
             HStack(spacing: 16) {
                 unfoldedDeck
-                    .frame(width: geometry.size.width * 0.46)
+                    .frame(width: deckWidth)
                 rackColumn(showsClose: false)
                     .padding(.top, 8)
+                    .frame(width: max(0, inner - deckWidth - 16))
+                    .clipped()
                     .onGeometryChange(for: CGRect.self) { proxy in
                         proxy.frame(in: .named(Self.coordinateSpace))
                     } action: { openRackFrame = $0 }
@@ -752,7 +758,8 @@ struct SpoolPlayerView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                 Spacer(minLength: 8)
-                optionsMenu
+                // Down the side column instead, on an iPhone Duo held as a book.
+                if !SideRail.isOn(safeArea) { optionsMenu }
             }
             Spacer(minLength: 0)
             CassetteDoor(

@@ -1160,13 +1160,17 @@ final class GramophoneStage {
         poses[.turntable] = GramophoneCameraPose.overhead(
             recordCenter: recordCenter, recordRadius: Self.recordRadius, screenCenter: target.center,
             screenRadius: target.radius, viewSize: viewSize, fieldOfView: Self.fieldOfView)
-        // The drawer's inside filling the width of the screen, a little below the middle.
+        // The drawer's inside filling the width of the screen, a little below the middle;
+        // on a screen wider than tall (an iPhone Duo held open sideways), its height
+        // instead, so the drawer and its records aren't cut off top and bottom.
         let depth: Float = 0.42
         let drawerCenter = SIMD3<Float>(0, 0.062, 0.25 + Self.drawerTravel - 0.007 - depth / 2)
+        let usableHeight = viewSize.height - insets.top - insets.bottom
         poses[.drawer] = GramophoneCameraPose.overhead(
             recordCenter: drawerCenter, recordRadius: 0.21,
             screenCenter: CGPoint(x: viewSize.width / 2, y: viewSize.height * 0.56),
-            screenRadius: viewSize.width / 2, viewSize: viewSize, fieldOfView: Self.fieldOfView)
+            screenRadius: min(viewSize.width / 2, max(120, usableHeight * 0.46)),
+            viewSize: viewSize, fieldOfView: Self.fieldOfView)
         // Round in front of the bin, a little from above, onto the record at its front.
         let yaw = Self.rackYaw, pitch: Float = 0.62
         let turn = simd_quatf(angle: yaw, axis: SIMD3(0, 1, 0))
