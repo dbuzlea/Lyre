@@ -19,6 +19,7 @@ struct DiscSettingsView: View {
     @Bindable var themeSettings: ThemeSettings
     let foldMonitor: FoldPostureMonitor
     let onDone: () -> Void
+    @Environment(\.windowSafeArea) private var safeArea
 
     private static let paper = Color(red: 0.965, green: 0.965, blue: 0.95)
     private static let ink = SpoolPalette.labelInk
@@ -31,6 +32,13 @@ struct DiscSettingsView: View {
     @AppStorage(UsageStats.enabledKey) private var sharesUsageStatistics = false
 
     var body: some View {
+        settingsPage
+            .overlay {
+                SideRailButtons { SideRailDone(identifier: "disc.settings.done", font: .system(size: 16, weight: .semibold), action: onDone) }
+            }
+    }
+
+    private var settingsPage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 header
@@ -175,9 +183,12 @@ struct DiscSettingsView: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
             Spacer()
-            Button(String(localized: "spool.settings.done"), action: onDone)
-                .font(.system(size: 16, weight: .semibold))
-                .accessibilityIdentifier("disc.settings.done")
+            // Down the side column instead, on an iPhone Duo with its status bar there.
+            if !SideRail.isOn(safeArea) {
+                Button(String(localized: "spool.settings.done"), action: onDone)
+                    .font(.system(size: 16, weight: .semibold))
+                    .accessibilityIdentifier("disc.settings.done")
+            }
         }
         .overlay(alignment: .bottom) {
             Rectangle().frame(height: 2).offset(y: 14)

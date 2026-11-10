@@ -800,7 +800,9 @@ final class LiquidUITests: XCTestCase {
         element(app, "liquid.discover.item").tap()
         XCTAssertTrue(element(app, "liquid.album.track.0").waitForExistence(timeout: 5), "The cover didn't open its page")
         // It opened as a card (LiquidCardDeck), which its chevron closes.
-        element(app, "liquid.deck.card.0").descendants(matching: .any)["liquid.back"].firstMatch.tap()
+        // In the card, or down the side column on an iPhone Duo closed (SideRail).
+        let cardBack = element(app, "liquid.deck.card.0").descendants(matching: .any)["liquid.back"].firstMatch
+        (cardBack.exists ? cardBack : element(app, "liquid.card.bar.close")).tap()
         XCTAssertTrue(element(app, "liquid.deck").waitForNonExistence(timeout: 4), "The card didn't close")
         // Back to the bubbles, and down to the genres'.
         element(app, "liquid.back").tap()
@@ -963,7 +965,8 @@ final class LiquidUITests: XCTestCase {
         XCTAssertFalse(bar.waitForExistence(timeout: 1), "Back at its top, the card didn't come back")
         attachScreenshot(app, named: "liquid-card-back")
 
-        next.descendants(matching: .any)["liquid.back"].firstMatch.tap()
+        let nextBack = next.descendants(matching: .any)["liquid.back"].firstMatch
+        (nextBack.exists ? nextBack : element(app, "liquid.card.bar.close")).tap()
         XCTAssertTrue(element(app, "liquid.deck").waitForNonExistence(timeout: 4), "The chevron didn't close the card")
         XCTAssertTrue(cover.waitForExistence(timeout: 3), "The albums weren't there behind it")
     }

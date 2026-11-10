@@ -416,7 +416,7 @@ struct LiquidPlayerView: View {
     /// Now Playing, sharing the screen: no dragging it away (the other half is already
     /// in view).
     private func nowPlayingPane(lean: CGVector, onOpenLibrary: @escaping () -> Void,
-                                queueDrag: Bool) -> some View {
+                                queueDrag: Bool, railEdge: HorizontalEdge = .trailing) -> some View {
         LiquidNowPlayingView(
             musicService: musicService,
             themeSettings: themeSettings,
@@ -431,7 +431,8 @@ struct LiquidPlayerView: View {
             },
             onOpenPlayingAlbum: openPlayingAlbum,
             lean: lean,
-            splash: splash
+            splash: splash,
+            railEdge: railEdge
         )
     }
 
@@ -441,7 +442,8 @@ struct LiquidPlayerView: View {
         let half = geometry.size.width / 2
         let pull = hingePull
         return HStack(spacing: 0) {
-            nowPlayingPane(lean: CGVector(dx: pull, dy: 0), onOpenLibrary: toggleBookLibrary, queueDrag: true)
+            nowPlayingPane(lean: CGVector(dx: pull, dy: 0), onOpenLibrary: toggleBookLibrary, queueDrag: true,
+                           railEdge: .leading)
                 .frame(width: half)
                 .clipped()
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingPage = $0 }

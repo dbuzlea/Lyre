@@ -22,6 +22,7 @@ struct SpoolSettingsView: View {
     @Bindable var themeSettings: ThemeSettings
     let foldMonitor: FoldPostureMonitor
     let onDone: () -> Void
+    @Environment(\.windowSafeArea) private var safeArea
 
     private static let paper = Color(red: 0.957, green: 0.929, blue: 0.871) // #F4EDDE
     private static let ink = SpoolPalette.labelInk
@@ -34,6 +35,13 @@ struct SpoolSettingsView: View {
     @AppStorage(UsageStats.enabledKey) private var sharesUsageStatistics = false
 
     var body: some View {
+        settingsPage
+            .overlay {
+                SideRailButtons { SideRailDone(identifier: "spool.settings.done", font: .system(size: 16, weight: .semibold), action: onDone) }
+            }
+    }
+
+    private var settingsPage: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 30) {
                 header
@@ -242,9 +250,12 @@ struct SpoolSettingsView: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
             Spacer()
-            Button(String(localized: "spool.settings.done"), action: onDone)
-                .font(.system(size: 16, weight: .semibold))
-                .accessibilityIdentifier("spool.settings.done")
+            // Down the side column instead, on an iPhone Duo with its status bar there.
+            if !SideRail.isOn(safeArea) {
+                Button(String(localized: "spool.settings.done"), action: onDone)
+                    .font(.system(size: 16, weight: .semibold))
+                    .accessibilityIdentifier("spool.settings.done")
+            }
         }
         .overlay(alignment: .bottom) {
             Rectangle().frame(height: 2).offset(y: 14)

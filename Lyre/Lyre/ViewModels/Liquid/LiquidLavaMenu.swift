@@ -64,6 +64,8 @@ struct LiquidLavaMenu: View {
                 // closed has them down the right edge), so no blob or button is under them.
                 .padding(.leading, safeArea.leading)
                 .padding(.trailing, safeArea.trailing)
+            // There, the header's buttons stand in that column instead.
+            SideRailButtons { headerButtons }
         }
         .ignoresSafeArea()
         .task(id: musicService.nowPlayingTrack?.id) {
@@ -217,6 +219,26 @@ struct LiquidLavaMenu: View {
                               size.height - bottomInset - half * 0.5))
     }
 
+    /// The player switch and Settings.
+    @ViewBuilder private var headerButtons: some View {
+        PlayerSwitchMenu(themeSettings: themeSettings, identifier: "liquid.playerSwitch") { symbol in
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.white.opacity(0.1), in: Circle())
+        }
+        Button(action: onOpenSettings) {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .background(.white.opacity(0.1), in: Circle())
+        }
+        .foregroundStyle(.white)
+        .accessibilityLabel(String(localized: "settings.title"))
+        .accessibilityIdentifier("liquid.settings")
+    }
+
     private var header: some View {
         VStack {
             HStack {
@@ -226,22 +248,8 @@ struct LiquidLavaMenu: View {
                     .foregroundStyle(.white.opacity(0.55))
                     .accessibilityHidden(true)
                 Spacer()
-                PlayerSwitchMenu(themeSettings: themeSettings, identifier: "liquid.playerSwitch") { symbol in
-                    Image(systemName: symbol)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(.white.opacity(0.1), in: Circle())
-                }
-                Button(action: onOpenSettings) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .background(.white.opacity(0.1), in: Circle())
-                }
-                .foregroundStyle(.white)
-                .accessibilityLabel(String(localized: "settings.title"))
-                .accessibilityIdentifier("liquid.settings")
+                // Down the side, on an iPhone Duo with its status bar there (SideRail).
+                if !SideRail.isOn(safeArea) { headerButtons }
             }
             .padding(.horizontal, 24)
             .padding(.top, safeArea.top + 12)
