@@ -53,6 +53,9 @@ struct LiquidNowPlayingView: View {
     /// iPhone Duo, partly open: which way the fold is, and how far the waves lean
     /// toward it (each from -1 to 1). The hinge as gravity.
     var lean: CGVector = .zero
+    /// A bubble just taken in from the bubbles beside (iPhone Duo held as a book): the
+    /// cover rings out from where it went in, as water does where a drop lands.
+    var splash: LiquidSplash?
 
     @State private var left = WaveState(side: .left)
     @State private var right = WaveState(side: .right)
@@ -110,6 +113,10 @@ struct LiquidNowPlayingView: View {
                         isHoldingCover = false
                         onOpenPlayingAlbum()
                     } onPressingChanged: { isHoldingCover = $0 }
+                    // A bubble landing: a heavier drop than a tap.
+                    .onChange(of: splash) { _, splash in
+                        if let splash { ripple(at: splash.point, strength: LiquidRipple.tapStrength * 1.6) }
+                    }
                     .gesture(dismissDrag)
                 scrim
                     .ignoresSafeArea()
@@ -192,11 +199,11 @@ struct LiquidNowPlayingView: View {
     }
 
     /// A ring from where the cover was tapped, as a finger dipped in the water.
-    private func ripple(at location: CGPoint) {
+    private func ripple(at location: CGPoint, strength: Double = LiquidRipple.tapStrength) {
         guard LiquidRipple.isAllowed(isOn: themeSettings.liquidRipple, reduceMotion: reduceMotion) else { return }
         let now = Date()
         rippleTaps.removeAll { now.timeIntervalSince($0.start) >= LiquidRipple.life }
-        rippleTaps.append(.init(center: location, start: now, strength: LiquidRipple.tapStrength))
+        rippleTaps.append(.init(center: location, start: now, strength: strength))
         settleRipples()
     }
 
@@ -739,4 +746,11 @@ struct LiquidProgress: View {
             Task { await musicService.jump(by: direction == .increment ? 15 : -15) }
         }
     }
+}
+
+/// A bubble landing in Now Playing, at a point on its cover; each one its own, so two in
+/// the same place both ring.
+struct LiquidSplash: Equatable {
+    let id = UUID()
+    let point: CGPoint
 }

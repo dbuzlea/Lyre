@@ -2209,26 +2209,3 @@ enum SpoolPalette {
                     foldMonitor: FoldPostureMonitor())
 }
 
-/// A thing in flight drawn out along its way (`angle`, radians) and a little thinner
-/// across it, by `amount` (0 to 1): the eye's own smear of something moving fast.
-private struct MotionStretch: GeometryEffect {
-    var amount: Double
-    let angle: Double
-
-    var animatableData: Double {
-        get { amount }
-        set { amount = newValue }
-    }
-
-    func effectValue(size: CGSize) -> ProjectionTransform {
-        let along = 1 + 0.08 * amount
-        let across = 1 - 0.04 * amount
-        let centre = CGAffineTransform(translationX: -size.width / 2, y: -size.height / 2)
-        let transform = centre
-            .concatenating(CGAffineTransform(rotationAngle: -angle))
-            .concatenating(CGAffineTransform(scaleX: along, y: across))
-            .concatenating(CGAffineTransform(rotationAngle: angle))
-            .concatenating(CGAffineTransform(translationX: size.width / 2, y: size.height / 2))
-        return ProjectionTransform(transform)
-    }
-}

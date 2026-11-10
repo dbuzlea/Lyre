@@ -144,12 +144,15 @@ struct LiquidBubbleField: View {
     /// A bubble dragged: it, where its centre is now on screen, how wide, and where it
     /// started.
     let onDrag: (AppAlbum, CGPoint, CGFloat, CGPoint) -> Void
-    /// Let go: it, and where it was heading.
-    let onDrop: (AppAlbum, CGPoint) -> Void
+    /// Let go: it, where it was heading, and how fast it was going (points a second).
+    let onDrop: (AppAlbum, CGPoint, CGPoint) -> Void
 
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var packing = Packing()
+    /// Whether the field is moving, for the bubbles' touches; not observed, so the
+    /// scroll starting and stopping redraws nothing.
+    @State private var scroll = BubbleScrollState()
 
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
@@ -201,6 +204,11 @@ struct LiquidBubbleField: View {
                     }
                     .padding(.bottom, safeArea.bottom + 24)
                 }
+                // While it scrolls the bubbles hold still and the scroll moves still
+                // pictures of them (StillWhileScrolling); a touch landing on it moving
+                // only stops it, as in any list, rather than playing what's under it.
+                .modifier(StillWhileScrolling())
+                .modifier(TracksScrolling(scroll: scroll))
                 .onChange(of: key(items, width), initial: true) { _, key in
                     repack(items, width: width, key: key)
                 }
@@ -208,6 +216,9 @@ struct LiquidBubbleField: View {
             tabBar
         }
         .background(Color.liquidGround)
+        // The bubbles answer to the phone's tilt while they're up (BubbleTilt).
+        .onAppear { BubbleTilt.shared.attach() }
+        .onDisappear { BubbleTilt.shared.detach() }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("liquid.bubbles")
     }
@@ -234,9 +245,9 @@ struct LiquidBubbleField: View {
                 ZStack(alignment: .topLeading) {
                     ForEach(items.indices.filter { Int(packing.centers[$0].y / Self.band) == band }, id: \.self) { index in
                         let d = packing.diameters[index]
-                        BubbleCell(album: items[index], diameter: d, seed: index,
+                        BubbleCell(album: items[index], diameter: d,
                                    drifts: LiquidBubbleLayout.drifts && !reduceMotion,
-                                   isHidden: draggedID == items[index].id,
+                                   isHidden: draggedID == items[index].id, scroll: scroll,
                                    onPlay: onPlay, onOpen: onOpen, onDrag: onDrag, onDrop: onDrop)
                             .position(x: packing.centers[index].x, y: packing.centers[index].y - top)
                     }
@@ -278,101 +289,264 @@ struct LiquidBubbleField: View {
 
 // MARK: Bubble
 
-/// One bubble in the field, with its touches.
-private struct BubbleCell: View {
-    let album: AppAlbum
-    let diameter: CGFloat
-    let seed: Int
-    let drifts: Bool
-    let isHidden: Bool
-    let onPlay: (AppAlbum, CGPoint, CGFloat) -> Void
-    let onOpen: (AppAlbum) -> Void
-    let onDrag: (AppAlbum, CGPoint, CGFloat, CGPoint) -> Void
-    let onDrop: (AppAlbum, CGPoint) -> Void
+/// Whether the bubble field is scrolling, kept where reading and writing it redraws
+/// nothing: the touches ask it at the moment a finger lands.
+final class BubbleScrollState {
+    var isMoving = false
+}
 
-    /// Where it is on screen, for the parent to take it from.
-    @State private var frame: CGRect = .zero
-    @State private var isDragging = false
-    @State private var rise = false
-    @State private var sway = false
+/// Keeps a BubbleScrollState up to date with the scroll view it's on (iOS 18 on).
+private struct TracksScrolling: ViewModifier {
+    let scroll: BubbleScrollState
 
-    private var center: CGPoint { CGPoint(x: frame.midX, y: frame.midY) }
-
-    var body: some View {
-        LiquidBubble(album: album, diameter: diameter)
-            .offset(x: sway ? 2.5 : -2.5, y: rise ? -4 : 4)
-            .opacity(isHidden ? 0 : 1)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
-            .contentShape(Circle())
-            .onTapGesture {
-                album.isPodcast ? onOpen(album) : onPlay(album, center, diameter)
-            }
-            .onLongPressGesture(minimumDuration: 0.45) {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                onOpen(album)
-            }
-            // Leftward, mostly sideways: up and down is the field scrolling.
-            .simultaneousGesture(album.isPodcast ? nil : DragGesture(minimumDistance: 12, coordinateSpace: .global)
-                .onChanged { value in
-                    if !isDragging {
-                        guard value.translation.width < 0,
-                              abs(value.translation.width) > abs(value.translation.height) * 1.2 else { return }
-                        isDragging = true
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    }
-                    onDrag(album, CGPoint(x: center.x + value.translation.width, y: center.y + value.translation.height),
-                           diameter, center)
-                }
-                .onEnded { value in
-                    guard isDragging else { return }
-                    isDragging = false
-                    onDrop(album, CGPoint(x: center.x + value.predictedEndTranslation.width,
-                                          y: center.y + value.predictedEndTranslation.height))
-                })
-            .onAppear {
-                guard drifts else { return }
-                // Each at its own pace, so they never move together.
-                let pace = 2.6 + Double(LiquidBubbleLayout.jitter(seed) + 1) * 0.9
-                withAnimation(.easeInOut(duration: pace).repeatForever(autoreverses: true)) { rise = true }
-                withAnimation(.easeInOut(duration: pace * 1.37).repeatForever(autoreverses: true)) { sway = true }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(album.tapeTitle)
-            .accessibilityValue(album.isPodcast || album.isMixtape ? "" : album.artistName)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityHint(album.isPodcast ? String(localized: "liquid.bubbles.hint.show")
-                                                : String(localized: "liquid.bubbles.hint"))
-            .accessibilityAction(named: String(localized: "liquid.bubbles.open")) { onOpen(album) }
-            .accessibilityIdentifier("liquid.bubble.\(album.id)")
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollPhaseChange { _, phase in scroll.isMoving = phase != .idle }
+        } else {
+            content
+        }
     }
 }
 
-/// A bubble: the cover seen through a ball of glass, lit from above on the left, darker
-/// toward its rim, with a bright edge.
+/// One bubble in the field, with its touches.
+///
+/// The touches are UIKit's, so they sit with the field's scrolling as a list's rows do:
+/// a tap is a tap only if the field was still when the finger landed (landing on it
+/// moving just stops it); a hold opens the bubble's page unless the finger moves off;
+/// and a drag only takes the bubble if it sets off leftward, mostly sideways, so up and
+/// down is always the field's. Where the bubble is on screen is worked out from the
+/// touch, when there is one, rather than measured on every frame of a scroll.
+private struct BubbleCell: View {
+    let album: AppAlbum
+    let diameter: CGFloat
+    let drifts: Bool
+    let isHidden: Bool
+    let scroll: BubbleScrollState
+    let onPlay: (AppAlbum, CGPoint, CGFloat) -> Void
+    let onOpen: (AppAlbum) -> Void
+    let onDrag: (AppAlbum, CGPoint, CGFloat, CGPoint) -> Void
+    let onDrop: (AppAlbum, CGPoint, CGPoint) -> Void
+
+    var body: some View {
+        let bubble = LiquidBubble(album: album, diameter: diameter)
+            .opacity(isHidden ? 0 : 1)
+            .contentShape(Circle())
+            .modifier(BubbleTouches(album: album, diameter: diameter, scroll: scroll,
+                                    onPlay: onPlay, onOpen: onOpen, onDrag: onDrag, onDrop: onDrop))
+        return Group {
+            if drifts {
+                bubble.modifier(BubbleFloat(seed: album.id, reach: 3))
+            } else {
+                bubble
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(album.tapeTitle)
+        .accessibilityValue(album.isPodcast || album.isMixtape ? "" : album.artistName)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint(album.isPodcast ? String(localized: "liquid.bubbles.hint.show")
+                                            : String(localized: "liquid.bubbles.hint"))
+        .accessibilityAction { album.isPodcast ? onOpen(album) : onPlay(album, .zero, diameter) }
+        .accessibilityAction(named: String(localized: "liquid.bubbles.open")) { onOpen(album) }
+        .accessibilityIdentifier("liquid.bubble.\(album.id)")
+    }
+}
+
+/// A bubble's touches: UIKit's from iOS 18, which sit with the field's scrolling;
+/// before that, SwiftUI's, the bubble's place measured as it moves.
+private struct BubbleTouches: ViewModifier {
+    let album: AppAlbum
+    let diameter: CGFloat
+    let scroll: BubbleScrollState
+    let onPlay: (AppAlbum, CGPoint, CGFloat) -> Void
+    let onOpen: (AppAlbum) -> Void
+    let onDrag: (AppAlbum, CGPoint, CGFloat, CGPoint) -> Void
+    let onDrop: (AppAlbum, CGPoint, CGPoint) -> Void
+
+    @State private var frame: CGRect = .zero
+    @State private var isDragging = false
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content
+                .gesture(BubbleTap(scroll: scroll, diameter: diameter) { center in
+                    album.isPodcast ? onOpen(album) : onPlay(album, center, diameter)
+                })
+                .gesture(BubbleHold {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    onOpen(album)
+                })
+                .gesture(BubblePull(diameter: diameter, isEnabled: !album.isPodcast,
+                                    onBegin: { UIImpactFeedbackGenerator(style: .light).impactOccurred() },
+                                    onMove: { center, origin in onDrag(album, center, diameter, origin) },
+                                    onEnd: { heading, velocity in onDrop(album, heading, velocity) }))
+        } else {
+            let center = CGPoint(x: frame.midX, y: frame.midY)
+            content
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+                .onTapGesture { album.isPodcast ? onOpen(album) : onPlay(album, center, diameter) }
+                .onLongPressGesture(minimumDuration: 0.45) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    onOpen(album)
+                }
+                .simultaneousGesture(album.isPodcast ? nil : DragGesture(minimumDistance: 12, coordinateSpace: .global)
+                    .onChanged { value in
+                        if !isDragging {
+                            guard value.translation.width < 0,
+                                  abs(value.translation.width) > abs(value.translation.height) * 1.2 else { return }
+                            isDragging = true
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                        onDrag(album, CGPoint(x: center.x + value.translation.width, y: center.y + value.translation.height),
+                               diameter, center)
+                    }
+                    .onEnded { value in
+                        guard isDragging else { return }
+                        isDragging = false
+                        onDrop(album, CGPoint(x: center.x + value.predictedEndTranslation.width,
+                                              y: center.y + value.predictedEndTranslation.height),
+                               CGPoint(x: value.velocity.width, y: value.velocity.height))
+                    })
+        }
+    }
+}
+
+/// Where a touched bubble's centre is on screen: the touch on screen, less the touch
+/// within the bubble, plus half the bubble.
+@available(iOS 18.0, *)
+private func bubbleCenter(_ converter: UIGestureRecognizerRepresentableCoordinateSpaceConverter,
+                          diameter: CGFloat) -> CGPoint {
+    let onScreen = converter.location(in: .global)
+    let inBubble = converter.location(in: .local)
+    return CGPoint(x: onScreen.x - inBubble.x + diameter / 2, y: onScreen.y - inBubble.y + diameter / 2)
+}
+
+/// A tap on a bubble, unless the finger landed on the field moving, and not once a
+/// hold has taken the touch.
+@available(iOS 18.0, *)
+private struct BubbleTap: UIGestureRecognizerRepresentable {
+    let scroll: BubbleScrollState
+    let diameter: CGFloat
+    let onTap: (CGPoint) -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator(scroll: scroll) }
+
+    func makeUIGestureRecognizer(context: Context) -> UITapGestureRecognizer {
+        let tap = UITapGestureRecognizer()
+        tap.delegate = context.coordinator
+        return tap
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UITapGestureRecognizer, context: Context) {
+        guard recognizer.state == .ended else { return }
+        onTap(bubbleCenter(context.converter, diameter: diameter))
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        let scroll: BubbleScrollState
+        init(scroll: BubbleScrollState) { self.scroll = scroll }
+
+        func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            !scroll.isMoving
+        }
+
+        func gestureRecognizer(_ recognizer: UIGestureRecognizer,
+                               shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
+            other.name == "lyre.bubble.hold"
+        }
+    }
+}
+
+/// A bubble held still for a moment: its page.
+@available(iOS 18.0, *)
+private struct BubbleHold: UIGestureRecognizerRepresentable {
+    let onHold: () -> Void
+
+    func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
+        let hold = UILongPressGestureRecognizer()
+        hold.name = "lyre.bubble.hold"
+        hold.minimumPressDuration = 0.45
+        hold.allowableMovement = 10
+        return hold
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UILongPressGestureRecognizer, context: Context) {
+        if recognizer.state == .began { onHold() }
+    }
+}
+
+/// A bubble pulled out of the field toward Now Playing: only begun by a drag setting off
+/// leftward and mostly sideways, so the field's own scrolling is never taken from it.
+@available(iOS 18.0, *)
+private struct BubblePull: UIGestureRecognizerRepresentable {
+    let diameter: CGFloat
+    let isEnabled: Bool
+    let onBegin: () -> Void
+    /// Where the bubble's centre is now, on screen, and where it started.
+    let onMove: (CGPoint, CGPoint) -> Void
+    /// Let go: where it was heading, and how fast it was going.
+    let onEnd: (CGPoint, CGPoint) -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        context.coordinator.isEnabled = isEnabled
+        return pan
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        context.coordinator.isEnabled = isEnabled
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        let moved = recognizer.translation(in: nil)
+        switch recognizer.state {
+        case .began:
+            // Where it started: where it is now, less how far the finger's come.
+            let now = bubbleCenter(context.converter, diameter: diameter)
+            context.coordinator.origin = CGPoint(x: now.x - moved.x, y: now.y - moved.y)
+            onBegin()
+            onMove(now, context.coordinator.origin)
+        case .changed:
+            let origin = context.coordinator.origin
+            onMove(CGPoint(x: origin.x + moved.x, y: origin.y + moved.y), origin)
+        case .ended, .cancelled, .failed:
+            let origin = context.coordinator.origin
+            let velocity = recognizer.state == .ended ? recognizer.velocity(in: nil) : .zero
+            // Where a flick would carry it: a quarter of a second on at its speed.
+            onEnd(CGPoint(x: origin.x + moved.x + velocity.x * 0.25, y: origin.y + moved.y + velocity.y * 0.25),
+                  velocity)
+        default:
+            break
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var isEnabled = true
+        var origin: CGPoint = .zero
+
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard isEnabled, let pan = recognizer as? UIPanGestureRecognizer else { return false }
+            let velocity = pan.velocity(in: nil)
+            return velocity.x < 0 && abs(velocity.x) > abs(velocity.y) * 1.2
+        }
+    }
+}
+
+/// A bubble: the cover in a soap bubble, as everywhere else in Liquid (LiquidSoapBubble),
+/// leaning with the phone's tilt. Flattened to one picture, so a field of them scrolls
+/// as still pictures; `wobbles` for the one being carried, whose film keeps moving.
 struct LiquidBubble: View {
     let album: AppAlbum
     let diameter: CGFloat
+    var wobbles = false
 
     var body: some View {
-        ZStack {
+        LiquidSoapBubble(diameter: diameter, wobbles: wobbles, isLight: diameter < 120, flattens: !wobbles,
+                         tilts: true, seed: album.id) {
             LiquidCover(source: .album(album))
-                .frame(width: diameter, height: diameter)
-                .clipShape(Circle())
-            Circle()
-                .fill(RadialGradient(colors: [.clear, .black.opacity(0.32)], center: .center,
-                                     startRadius: diameter * 0.28, endRadius: diameter * 0.52))
-            Circle()
-                .fill(RadialGradient(colors: [.white.opacity(0.42), .white.opacity(0)],
-                                     center: UnitPoint(x: 0.32, y: 0.24),
-                                     startRadius: 0, endRadius: diameter * 0.34))
-                .blendMode(.screen)
-            Circle()
-                .strokeBorder(LinearGradient(colors: [.white.opacity(0.6), .white.opacity(0.06), .white.opacity(0.25)],
-                                             startPoint: .topLeading, endPoint: .bottomTrailing),
-                              lineWidth: max(1, diameter / 70))
         }
-        .frame(width: diameter, height: diameter)
-        .compositingGroup()
-        .shadow(color: .black.opacity(0.45), radius: diameter / 12, y: diameter / 24)
     }
 }
