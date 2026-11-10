@@ -20,7 +20,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testTheHornGramophoneShowsItsFront() throws {
-        let app = launchGramophone(model: "horn")
+        let app = try launchGramophone(model: "horn")
         XCTAssertTrue(element(app, "gramophone.crate").waitForExistence(timeout: 10))
         // In front: the controls on the machine's parts, and no turntable yet.
         for id in ["gramophone.switch", "gramophone.crank", "gramophone.nameplate", "gramophone.upNext",
@@ -51,7 +51,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testThePlaySwitchSpringsBackWithNoRecord() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         let toggle = element(app, "gramophone.switch")
         XCTAssertTrue(toggle.waitForExistence(timeout: 10))
         toggle.tap()
@@ -63,7 +63,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testTheCabinetGramophoneHasItsParts() throws {
-        let app = launchGramophone(model: "cabinet", finish: "oak")
+        let app = try launchGramophone(model: "cabinet", finish: "oak")
         XCTAssertTrue(element(app, "gramophone.crate").waitForExistence(timeout: 10))
         XCTAssertTrue(element(app, "gramophone.switch").exists)
         sleep(1)
@@ -75,7 +75,7 @@ final class GramophoneUITests: XCTestCase {
     /// crate and opened, has the cover across the whole of it (checked in the screenshots).
     @MainActor
     func testAPlaylistsRecordHasItsCoverOnTheLabel() throws {
-        let app = launchGramophone(extraArguments: ["-SampleMixtapeArt", "YES"])
+        let app = try launchGramophone(extraArguments: ["-SampleMixtapeArt", "YES"])
         openCrate(app)
         let recordings = element(app, "spool.shelf.mixtapes")
         XCTAssertTrue(recordings.waitForExistence(timeout: 8), "No recordings shelf")
@@ -93,7 +93,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testChoosingASongFromASleevePutsTheRecordOnTheTurntable() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         openCrate(app)
 
         // Sample Tape 1 is on top of the stack; tapping it opens its sleeve.
@@ -126,7 +126,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testSwipingTheStackGoesUpAndDownItAndHoldingQueues() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         openCrate(app)
         let first = element(app, "gramophone.stack.sample-1")
         XCTAssertTrue(first.waitForExistence(timeout: 8), "The drawer didn't open onto the stack")
@@ -154,7 +154,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testTappingASingleInTheStackOpensItsSleeve() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         openCrate(app)
         let first = element(app, "gramophone.stack.sample-1")
         XCTAssertTrue(first.waitForExistence(timeout: 8))
@@ -180,7 +180,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testTheUpNextBinFlipsRemovesReordersAndPlays() throws {
-        let app = launchGramophone(extraArguments: ["--spool-sample-queue"])
+        let app = try launchGramophone(extraArguments: ["--spool-sample-queue"])
         // Round to the bin.
         let bin = element(app, "gramophone.upNext")
         XCTAssertTrue(bin.waitForExistence(timeout: 8))
@@ -237,7 +237,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testTappingTheEmptySpaceBacksOutOfEachView() throws {
-        let app = launchGramophone(extraArguments: ["--spool-sample-queue"])
+        let app = try launchGramophone(extraArguments: ["--spool-sample-queue"])
 
         // The drawer: below the records.
         openCrate(app)
@@ -275,7 +275,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testLiftingTheTonearmOffTheRecordPutsItOnItsRest() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         openCrate(app)
         let record = element(app, "gramophone.stack.sample-1")
         XCTAssertTrue(record.waitForExistence(timeout: 8))
@@ -303,7 +303,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testWindingTheCrankAFullTurnShufflesAllTheSongs() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         let crank = element(app, "gramophone.crank")
         XCTAssertTrue(crank.waitForExistence(timeout: 10))
 
@@ -325,7 +325,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testTheBookletSwitchesTheDesign() throws {
-        let app = launchGramophone(model: "horn")
+        let app = try launchGramophone(model: "horn")
         let booklet = element(app, "gramophone.settings")
         XCTAssertTrue(booklet.waitForExistence(timeout: 10))
         booklet.tap()
@@ -342,7 +342,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testTheBookletOpensWithATutorial() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         let booklet = element(app, "gramophone.settings")
         XCTAssertTrue(booklet.waitForExistence(timeout: 10))
         // The simulator's missing library is reported in an alert that can cover the button.
@@ -374,7 +374,7 @@ final class GramophoneUITests: XCTestCase {
     /// in every list in Lyre, without lowering the arm.
     @MainActor
     func testSwipingASongInASleeveOffersPlayNextAndAddToQueue() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         openCrate(app)
         let first = element(app, "gramophone.stack.sample-1")
         XCTAssertTrue(first.waitForExistence(timeout: 8))
@@ -404,7 +404,7 @@ final class GramophoneUITests: XCTestCase {
     /// The booklet ends with the app's version, as every player's settings do.
     @MainActor
     func testTheBookletShowsTheVersion() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         let booklet = element(app, "gramophone.settings")
         XCTAssertTrue(booklet.waitForExistence(timeout: 10))
         booklet.tap()
@@ -422,7 +422,7 @@ final class GramophoneUITests: XCTestCase {
     /// machine, with search and the dividers above them.
     @MainActor
     func testAnOpenDuoHasACarouselOfCoversUnderTheMachine() throws {
-        let app = launchGramophone(extraArguments: ["-SpoolFoldPosture", "open"])
+        let app = try launchGramophone(extraArguments: ["-SpoolFoldPosture", "open"])
         let front = element(app, "gramophone.carousel.front")
         XCTAssertTrue(front.waitForExistence(timeout: 10), "No carousel under the machine")
         XCTAssertTrue(element(app, "gramophone.drawer").exists || element(app, "gramophone.crate").exists,
@@ -469,7 +469,7 @@ final class GramophoneUITests: XCTestCase {
     /// sleeve back.
     @MainActor
     func testAnOpenDuosSleeveKeepsToTheLowerHalf() throws {
-        let app = launchGramophone(extraArguments: ["-SpoolFoldPosture", "open"])
+        let app = try launchGramophone(extraArguments: ["-SpoolFoldPosture", "open"])
         let front = element(app, "gramophone.carousel.front")
         XCTAssertTrue(front.waitForExistence(timeout: 10), "No carousel under the machine")
         front.tap()
@@ -496,7 +496,7 @@ final class GramophoneUITests: XCTestCase {
     /// the deck under the turntable has Back and Next instead of the records and Up Next.
     @MainActor
     func testAnOpenDuosDeckHasBackAndNextInsteadOfRecordsAndUpNext() throws {
-        let app = launchGramophone(extraArguments: ["-SpoolFoldPosture", "open", "--spool-sample-queue"])
+        let app = try launchGramophone(extraArguments: ["-SpoolFoldPosture", "open", "--spool-sample-queue"])
         XCTAssertTrue(element(app, "gramophone.carousel.front").waitForExistence(timeout: 10), "No carousel under the machine")
         let lookInside = element(app, "gramophone.lookInside")
         XCTAssertTrue(lookInside.waitForExistence(timeout: 6))
@@ -533,7 +533,7 @@ final class GramophoneUITests: XCTestCase {
     /// Any other iPhone, or a Duo closed, keeps the machine to itself.
     @MainActor
     func testAPhoneThatDoesntFoldHasNoCarousel() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         XCTAssertTrue(element(app, "gramophone.settings").waitForExistence(timeout: 10))
         sleep(1)
         XCTAssertFalse(element(app, "gramophone.carousel").exists, "Covers under the machine on a phone that doesn't fold")
@@ -550,7 +550,7 @@ final class GramophoneUITests: XCTestCase {
 
     @MainActor
     func testTheDrawerHasAnIndexThatTakesAFinger() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         openCrate(app)
         let index = element(app, "gramophone.index")
         XCTAssertTrue(index.waitForExistence(timeout: 5), "No A–Z index along the drawer's front")
@@ -565,7 +565,7 @@ final class GramophoneUITests: XCTestCase {
     }
 
     private func launchGramophone(model: String = "horn", finish: String = "mahogany",
-                                  extraArguments: [String] = []) -> XCUIApplication {
+                                  extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += [
             "--uitest", "--uitest-complete-onboarding",
@@ -576,6 +576,7 @@ final class GramophoneUITests: XCTestCase {
             "--gramophone-reset-crate",
         ] + extraArguments
         app.launch()
+        try app.skipUnlessTheHingeAgrees()
         let dismiss = app.alerts.buttons["Dismiss"]
         if dismiss.waitForExistence(timeout: 8) { dismiss.tap() }
         return app
@@ -585,7 +586,7 @@ final class GramophoneUITests: XCTestCase {
     /// closes the drawer, as the records' header has.
     @MainActor
     func testTheSongsShelfListsEverySongOnASleeve() throws {
-        let app = launchGramophone()
+        let app = try launchGramophone()
         openCrate(app)
         let songs = element(app, "spool.shelf.songs")
         XCTAssertTrue(songs.waitForExistence(timeout: 5), "The crate has no Songs divider")
@@ -623,7 +624,7 @@ final class GramophoneUITests: XCTestCase {
     }
 
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

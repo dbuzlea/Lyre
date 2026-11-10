@@ -92,6 +92,21 @@ struct ContentView: View {
                 WindowAnchorView(anchor: windowAnchor)
             }
         }
+        // For UI tests only: the window's safe area, which XCUITest can't measure, so a
+        // test can find the status bar wherever this phone keeps it (an iPhone Duo's
+        // runs down the side) rather than assume a simulator's size.
+        .overlay(alignment: .topLeading) {
+            if AppEnvironment.isUITesting {
+                let inset = windowSafeArea
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement()
+                    .accessibilityLabel("Safe area")
+                    .accessibilityValue("\(Int(inset.top)),\(Int(inset.leading)),\(Int(inset.bottom)),\(Int(inset.trailing))")
+                    .accessibilityIdentifier("lyre.uitest.safeArea")
+                    .allowsHitTesting(false)
+            }
+        }
         .onAppear {
             logger.info("App started — onboarding completed: \(hasCompletedOnboarding)")
         }

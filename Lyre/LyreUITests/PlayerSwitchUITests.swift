@@ -47,7 +47,7 @@ final class PlayerSwitchUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Discover Mix"].exists)
         app.buttons["Select"].tap()
         XCTAssertTrue(app.staticTexts["Discover Song 1"].waitForExistence(timeout: 5), "The album didn't open on its songs")
-        let shot = XCTAttachment(screenshot: app.screenshot())
+        let shot = XCTAttachment(screenshot: app.lyreScreenshot())
         shot.name = "classic-discover-album"
         shot.lifetime = .keepAlways
         add(shot)

@@ -169,7 +169,7 @@ final class ScreenshotTests: XCTestCase {
 
     private func save(_ app: XCUIApplication, _ name: String) {
         dismissLibraryAlert(in: app)
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

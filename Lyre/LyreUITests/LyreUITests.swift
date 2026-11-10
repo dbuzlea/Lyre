@@ -87,7 +87,7 @@ extension LyreUITests {
     }
 
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
@@ -154,7 +154,7 @@ extension LyreUITests {
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
         XCTAssertEqual(seen, ["Classic", "Spool", "Gramophone", "Disc", "Liquid"], "Players shown: \(seen)")
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = "welcome-five-players"
         attachment.lifetime = .keepAlways
         add(attachment)

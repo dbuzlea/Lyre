@@ -16,6 +16,17 @@ enum AppEnvironment {
     /// music plays means it never is, and each query waits out the full idle timeout
     /// instead — minutes of it across a suite.
     static let isUITesting = ProcessInfo.processInfo.arguments.contains("--uitest")
+
+    /// A UI test asked for the sample shelves (`-SpoolSampleTapes YES`). The real
+    /// library is then left unloaded, even on a phone that has one, so a test sees the
+    /// same twelve tapes on a device as on a simulator with no music.
+    static var usesOnlySampleLibrary: Bool {
+        #if DEBUG
+        isUITesting && UserDefaults.standard.bool(forKey: "SpoolSampleTapes")
+        #else
+        false
+        #endif
+    }
 }
 
 @main

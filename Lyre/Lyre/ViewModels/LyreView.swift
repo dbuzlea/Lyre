@@ -195,6 +195,17 @@ struct LyreView: View {
     @ObservedObject var musicService: MusicService
     @State private var themeSettings = ThemeSettings()
     @State private var foldMonitor = FoldPostureMonitor()
+
+    /// How a real phone's hinge stands, for UI tests: "none" on a simulator (whose Duo's
+    /// window doesn't change size with its posture, so any posture can be stood in for)
+    /// and on a phone without a hinge.
+    private var realHinge: String {
+        #if targetEnvironment(simulator)
+        return "none"
+        #else
+        return foldMonitor.systemAngle == nil ? "none" : foldMonitor.systemPosture.rawValue
+        #endif
+    }
     @State private var currentScreen: LyreScreen = .menu
     @State private var navigationStack: [LyreScreen] = []
     @State private var selectionMemory: [LyreScreen: SelectionState] = [:]
@@ -257,6 +268,20 @@ struct LyreView: View {
         }
         #endif
         .modifier(HingeObserver(monitor: foldMonitor))
+        // For UI tests only: how the phone's hinge really stands ("none" without one),
+        // whatever posture a test asked for, so a test meant for the other one can skip
+        // on a real iPhone Duo instead of failing in the wrong layout.
+        .overlay(alignment: .topLeading) {
+            if AppEnvironment.isUITesting {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement()
+                    .accessibilityLabel("Hinge")
+                    .accessibilityValue(realHinge)
+                    .accessibilityIdentifier("lyre.uitest.hinge")
+                    .allowsHitTesting(false)
+            }
+        }
         .background(ShakeDetector(isHoldEnabled: isHoldEnabled,
                                   isShakeOff: themeSettings.playerStyle != .classic) { handleShake() })
         .background(OrientationLock(mask: orientationMask, uprightRequest: uprightRequest))

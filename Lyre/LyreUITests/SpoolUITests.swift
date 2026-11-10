@@ -27,7 +27,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testSwipingATapeLeftLoadsItAndClosesTheDeck() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10), "Spool door never appeared")
 
@@ -52,7 +52,7 @@ final class SpoolUITests: XCTestCase {
     /// the hinge) shuts the door and plays it.
     @MainActor
     func testOnAnOpenDuoASwipedTapeWaitsInTheDeckUntilThePhoneCloses() throws {
-        let app = launchSpool(extraArguments: ["-SpoolFoldPosture", "open"])
+        let app = try launchSpool(extraArguments: ["-SpoolFoldPosture", "open"])
         let hint = element(app, "spool.open.hint")
         XCTAssertTrue(hint.waitForExistence(timeout: 10), "The open Duo layout didn't show")
         XCTAssertTrue(hint.label.contains("Swipe a tape"), "The open deck didn't ask for a tape: \(hint.label)")
@@ -90,7 +90,7 @@ final class SpoolUITests: XCTestCase {
     /// stays in view; a song picked from it goes into the open door and waits there.
     @MainActor
     func testOnAnOpenDuoACaseOpensOverTheRackAndItsSongGoesIntoTheDoor() throws {
-        let app = launchSpool(extraArguments: ["-SpoolFoldPosture", "open"])
+        let app = try launchSpool(extraArguments: ["-SpoolFoldPosture", "open"])
         let hint = element(app, "spool.open.hint")
         XCTAssertTrue(hint.waitForExistence(timeout: 10), "The open Duo layout didn't show")
         let door = element(app, ID.door)
@@ -114,7 +114,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTappingATapeInTheRackBringsItForwardToBeSwiped() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
 
@@ -136,7 +136,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testClosingTheCarouselBacksOutWithoutChangingTapes() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
 
@@ -154,7 +154,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testSwipingInFromTheRightEdgeOpensTheCarousel() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         XCTAssertTrue(element(app, ID.door).waitForExistence(timeout: 10))
 
         let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5))
@@ -167,7 +167,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testHeaderNamesTheTapeAtTheFront() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -186,7 +186,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testHoldingATapeOffersQueueingAndItsSongsAndAPickedSongInsertsIt() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -216,7 +216,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTheRackHasAnIndexDownItsSide() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -236,7 +236,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testSinglesAreLabelledAsSingles() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -252,7 +252,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testFlickingTheRackCoastsPastSeveralTapes() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -271,7 +271,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTheSlimDesignChangesTapesTheSameWay() throws {
-        let app = launchSpool(model: "slim", finish: "silver")
+        let app = try launchSpool(model: "slim", finish: "silver")
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         attachScreenshot(app, named: "slim-closed")
@@ -296,7 +296,7 @@ final class SpoolUITests: XCTestCase {
         let looks = [("original", "blue"), ("original", "sport"), ("original", "black"),
                      ("slim", "red"), ("slim", "gold"), ("slim", "black")]
         for (model, finish) in looks {
-            let app = launchSpool(model: model, finish: finish)
+            let app = try launchSpool(model: model, finish: finish)
             XCTAssertTrue(element(app, ID.door).waitForExistence(timeout: 10))
             sleep(2)
             attachScreenshot(app, named: "\(model)-\(finish)")
@@ -306,7 +306,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTheRackReopensOnTheTapeLastAtTheFront() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -331,7 +331,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTheMixtapeShelfHoldsPlaylistsWithTheirSongsSplitIntoSides() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -368,7 +368,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testThePodcastShelfOpensAShowOnItsEpisodesNewestFirst() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -408,7 +408,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testWithAnEpisodeInTheKeysJumpTheSpeedKnobShowsAndUpNextListsTheRest() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         // Music keys to start with.
@@ -486,7 +486,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTheOwnersManualHasATutorialToStepThrough() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let settings = element(app, "spool.settings")
         XCTAssertTrue(settings.waitForExistence(timeout: 10))
         settings.tap()
@@ -512,7 +512,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTurningThePhoneDoesNotOpenTheArtworkCarousel() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
 
@@ -529,7 +529,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTappingACasedAlbumOpensItsCaseAndClosingPutsItBack() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -554,7 +554,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testSwipingACaseLeftOpensItInsteadOfPlayingIt() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -572,7 +572,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testDraggingTheLidDownFoldsTheCaseShut() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -605,7 +605,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testSwipingATapeRightQueuesIt() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -627,7 +627,7 @@ final class SpoolUITests: XCTestCase {
     /// The mixtapes shelf offers a new playlist, which asks for its name.
     @MainActor
     func testTheMixtapesShelfMakesANewPlaylist() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -645,7 +645,7 @@ final class SpoolUITests: XCTestCase {
     /// which takes it out of the list.
     @MainActor
     func testHoldingASongInAMixtapeRemovesItFromThePlaylist() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -674,7 +674,7 @@ final class SpoolUITests: XCTestCase {
     /// Playlist: its name, its songs to reorder or take out, and Add Music.
     @MainActor
     func testAPlaylistsCaseOpensEditPlaylist() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -710,7 +710,7 @@ final class SpoolUITests: XCTestCase {
     /// The Songs shelf lists every song on a J-card; held, a song offers to queue it.
     @MainActor
     func testTheSongsShelfListsEverySongOnAJCard() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -750,7 +750,7 @@ final class SpoolUITests: XCTestCase {
     /// simulator has no Apple Music), an album opening on its songs.
     @MainActor
     func testTheDiscoverShelfHoldsAppleMusicsSuggestions() throws {
-        let app = launchSpool(extraArguments: ["-DiscoverSamples", "YES"])
+        let app = try launchSpool(extraArguments: ["-DiscoverSamples", "YES"])
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -769,7 +769,7 @@ final class SpoolUITests: XCTestCase {
     /// The Artists shelf: each artist as a case, opened on their songs.
     @MainActor
     func testTheArtistsShelfOpensAnArtistOnTheirSongs() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -803,7 +803,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testHoldingASongInTheCaseOffersToQueueIt() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -831,7 +831,7 @@ final class SpoolUITests: XCTestCase {
     /// An album's J-card says when it came out; holding its tape offers Album Info.
     @MainActor
     func testACaseShowsItsReleaseDateAndHoldingATapeOffersAlbumInfo() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -855,7 +855,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testHoldingTheDoorBringsUpThePlayingAlbumsCase() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
 
@@ -891,7 +891,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testHoldingTheDoorWithASingleInTheDeckDoesNothing() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
 
@@ -917,7 +917,7 @@ final class SpoolUITests: XCTestCase {
     /// Clear and Play goes ahead.
     @MainActor
     func testPlayingATapeOverAQueueBuiltByHandAsksFirst() throws {
-        let app = launchSpool(extraArguments: ["--spool-sample-queue", "--queued-by-hand"])
+        let app = try launchSpool(extraArguments: ["--spool-sample-queue", "--queued-by-hand"])
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -956,7 +956,7 @@ final class SpoolUITests: XCTestCase {
     /// Clearing Up Next asks first: Cancel keeps the songs, Clear Queue empties it.
     @MainActor
     func testClearingUpNextAsksFirst() throws {
-        let app = launchSpool(extraArguments: ["--spool-sample-queue"])
+        let app = try launchSpool(extraArguments: ["--spool-sample-queue"])
         let grip = element(app, "spool.queue.grip")
         XCTAssertTrue(grip.waitForExistence(timeout: 10), "No Up Next grip under the door")
         grip.tap()
@@ -981,7 +981,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTappingTheGripBringsUpUpNextAndASwipeRemovesASong() throws {
-        let app = launchSpool(finish: "gold", extraArguments: ["--spool-sample-queue"])
+        let app = try launchSpool(finish: "gold", extraArguments: ["--spool-sample-queue"])
         let grip = element(app, "spool.queue.grip")
         XCTAssertTrue(grip.waitForExistence(timeout: 10), "No Up Next grip under the door")
 
@@ -1009,7 +1009,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testPickingASongFromUpNextLoadsItsCassetteIntoTheDeck() throws {
-        let app = launchSpool(extraArguments: ["--spool-sample-queue"])
+        let app = try launchSpool(extraArguments: ["--spool-sample-queue"])
         let grip = element(app, "spool.queue.grip")
         XCTAssertTrue(grip.waitForExistence(timeout: 10))
         grip.tap()
@@ -1035,7 +1035,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testDraggingTheGripUpPullsTheTrayAndDraggingItsHeaderDownPutsItAway() throws {
-        let app = launchSpool(extraArguments: ["--spool-sample-queue"])
+        let app = try launchSpool(extraArguments: ["--spool-sample-queue"])
         let grip = element(app, "spool.queue.grip")
         XCTAssertTrue(grip.waitForExistence(timeout: 10))
 
@@ -1053,7 +1053,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testUpNextSaysSoWhenTheQueueIsEmpty() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let grip = element(app, "spool.queue.grip")
         XCTAssertTrue(grip.waitForExistence(timeout: 10))
         grip.tap()
@@ -1067,7 +1067,7 @@ final class SpoolUITests: XCTestCase {
     @MainActor
     func testSettingsOfferAccessWhileLyreHasNone() throws {
         for needsAccess in [true, false] {
-            let app = launchSpool(extraArguments: ["-ForceNeedsMusicAccess", needsAccess ? "YES" : "NO"])
+            let app = try launchSpool(extraArguments: ["-ForceNeedsMusicAccess", needsAccess ? "YES" : "NO"])
             let settings = element(app, "spool.settings")
             XCTAssertTrue(settings.waitForExistence(timeout: 10), "No settings button on the rail")
             let dismiss = app.alerts.buttons["Dismiss"]
@@ -1088,7 +1088,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testTheHotlineButtonOpensSettingsAndAFinishAppliesStraightAway() throws {
-        let app = launchSpool(finish: "blue")
+        let app = try launchSpool(finish: "blue")
         let settings = element(app, "spool.settings")
         XCTAssertTrue(settings.waitForExistence(timeout: 10), "No settings button on the rail")
         // The simulator's missing library is reported in an alert that can cover the button.
@@ -1116,7 +1116,7 @@ final class SpoolUITests: XCTestCase {
 
     @MainActor
     func testPickingTheSlimDesignInSettingsChangesTheDeck() throws {
-        let app = launchSpool(model: "original")
+        let app = try launchSpool(model: "original")
         XCTAssertTrue(element(app, "spool.settings").waitForExistence(timeout: 10))
         element(app, "spool.settings").tap()
 
@@ -1137,7 +1137,7 @@ final class SpoolUITests: XCTestCase {
     /// in every list in Lyre, without loading the tape.
     @MainActor
     func testSwipingASongInACaseOffersPlayNextAndAddToQueue() throws {
-        let app = launchSpool()
+        let app = try launchSpool()
         let door = element(app, ID.door)
         XCTAssertTrue(door.waitForExistence(timeout: 10))
         door.tap()
@@ -1165,7 +1165,7 @@ final class SpoolUITests: XCTestCase {
     @MainActor
     func testEpisodesHeardBeforeAreMarked() throws {
         // The newest Cassette Culture episode played, the one before it started.
-        let app = launchSpool(extraArguments: [
+        let app = try launchSpool(extraArguments: [
             "-podcast.episodeHistory",
             "{\"cassette culture|episode 12: sample episode\" = 2; \"cassette culture|episode 11: sample episode\" = 1;}"
         ])
@@ -1195,7 +1195,7 @@ final class SpoolUITests: XCTestCase {
     // MARK: - Helpers
 
     private func launchSpool(model: String = "original", finish: String = "blue",
-                             extraArguments: [String] = []) -> XCUIApplication {
+                             extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += extraArguments
         app.launchArguments += [
@@ -1208,6 +1208,7 @@ final class SpoolUITests: XCTestCase {
             "--spool-reset-rack",
         ]
         app.launch()
+        try app.skipUnlessTheHingeAgrees()
         dismissLibraryAlert(in: app)
         return app
     }
@@ -1229,7 +1230,7 @@ final class SpoolUITests: XCTestCase {
     }
 
     private func attachScreenshot(_ app: XCUIApplication, named name: String) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let attachment = XCTAttachment(screenshot: app.lyreScreenshot())
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
