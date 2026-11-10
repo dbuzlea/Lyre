@@ -323,6 +323,10 @@ struct GramophonePlayerView: View {
             containerWidth = $0.width
         }
         .animation(.spring(response: 0.45, dampingFraction: 0.85), value: isDuoSplit)
+        // Unfolded with the drawer out: the covers below take over from it.
+        .onChange(of: isDuoSplit) { _, split in
+            if split, vantage == .drawer { closeCrate() }
+        }
         .sheet(isPresented: $showSettings) {
             GramophoneSettingsView(musicService: musicService, themeSettings: themeSettings,
                                    foldMonitor: foldMonitor) { showSettings = false }
@@ -545,11 +549,13 @@ struct GramophonePlayerView: View {
                         UISelectionFeedbackGenerator().selectionChanged()
                     }, onWound: shuffleAll)
                 }
-                spot(.drawer, origin) {
-                    Button(action: openCrate) { Color.clear.contentShape(Rectangle()) }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(String(localized: "gramophone.crate.open"))
-                        .accessibilityIdentifier("gramophone.crate")
+                if !isDuoSplit {
+                    spot(.drawer, origin) {
+                        Button(action: openCrate) { Color.clear.contentShape(Rectangle()) }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(String(localized: "gramophone.crate.open"))
+                            .accessibilityIdentifier("gramophone.crate")
+                    }
                 }
                 spot(.rack, origin, within: screen) {
                     Button(action: openRack) {
@@ -842,7 +848,9 @@ struct GramophonePlayerView: View {
 
     /// The drawer pulled out, and the camera looking down into it at the records.
     private func openCrate() {
-        guard vantage == .front || vantage == .turntable else { return }
+        // Opened with the fold across the middle, the library is the covers below it:
+        // no drawer as well.
+        guard vantage == .front || vantage == .turntable, !isDuoSplit else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         crateReturn = vantage == .turntable ? .turntable : .front
         Task { await go(to: .drawer) }
@@ -1188,13 +1196,22 @@ struct GramophonePlayerView: View {
                         })
                     // The A–Z index along the drawer's front, between the records and
                     // the part of the drawer that closes it.
-                    if albums.count >= Self.indexMinimumRecords {
-                        let height = max(30, frame.width * 0.13)
+                    let indexHeight = albums.count >= Self.indexMinimumRecords ? max(30, frame.width * 0.13) : 0
+                    if indexHeight > 0 {
                         RecordIndexStrip(albums: albums, frontID: frontID)
-                            .frame(width: max(0, bounds.width - 28), height: height)
+                            .frame(width: max(0, bounds.width - 28), height: indexHeight)
                             // Clear of the sleeves under the top one, which lie askew.
-                            .position(x: bounds.width / 2, y: frame.maxY + 12 + height / 2 - bounds.minY)
+                            .position(x: bounds.width / 2, y: frame.maxY + 12 + indexHeight / 2 - bounds.minY)
                             .transition(.opacity)
+                    }
+                    // How to handle the records, just under the index (or the records),
+                    // never over it; left out where there's no room below (a Duo held
+                    // open sideways, the drawer filling the height).
+                    let hintY = frame.maxY - bounds.minY + 12 + indexHeight + 18
+                    if hintY + 12 < bounds.height - safeArea.bottom {
+                        stackInstructions
+                            .frame(width: max(0, bounds.width - 28))
+                            .position(x: bounds.width / 2, y: hintY)
                     }
                 }
                 VStack(spacing: 10) {
@@ -1226,13 +1243,8 @@ struct GramophonePlayerView: View {
                     crateHeader(front)
                     Spacer()
                     }
-                    if !albums.isEmpty {
-                        Text(String(localized: "gramophone.stack.instructions"))
-                            .font(.system(size: 13, weight: .medium, design: .serif))
-                            .italic()
-                            .foregroundStyle(.white.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                            .accessibilityHidden(true)
+                    if !albums.isEmpty, shelf == .songs {
+                        stackInstructions
                     }
                 }
                 .padding(.horizontal, 14)
@@ -1319,6 +1331,18 @@ struct GramophonePlayerView: View {
         }
         .accessibilityLabel(String(localized: String.LocalizationValue(key)))
         .accessibilityIdentifier(key)
+    }
+
+    private var stackInstructions: some View {
+        Text(String(localized: "gramophone.stack.instructions"))
+            .font(.system(size: 13, weight: .medium, design: .serif))
+            .italic()
+            .foregroundStyle(.white.opacity(0.7))
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.8)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     private var emptyShelf: some View {

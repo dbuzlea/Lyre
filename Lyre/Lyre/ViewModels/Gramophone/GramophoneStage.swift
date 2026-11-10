@@ -1177,8 +1177,22 @@ final class GramophoneStage {
         let binTarget = Self.rackPosition + turn.act(SIMD3(0, 0.17, Self.rackFrontZ + 0.02))
         let back = SIMD3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
         let tanH = tan(Self.fieldOfView * .pi / 360)
-        let distance = (Self.rackSleeveSide / 2 + 0.035) / tanH
-        poses[.rack] = GramophoneCameraPose(position: binTarget + back * distance, target: binTarget, up: SIMD3(0, 1, 0))
+        var distance = (Self.rackSleeveSide / 2 + 0.035) / tanH
+        var rackTarget = binTarget
+        // With the covers taking the bottom half (an iPhone Duo opened upright), the bin
+        // fits the half above them: the camera stands back as far again as the screen is
+        // taller than that half, and moves down so the bin sits in its middle.
+        if insets.bottom > viewSize.height * 0.3 {
+            let usable = max(1, viewSize.height - insets.top - insets.bottom)
+            distance *= Float(viewSize.height / usable)
+            let bandMiddle = insets.top + usable / 2
+            let lift = Float((viewSize.height / 2 - bandMiddle) / (viewSize.height / 2))
+            let forward = simd_normalize(-back)
+            let right = simd_normalize(simd_cross(forward, SIMD3<Float>(0, 1, 0)))
+            let up = simd_cross(right, forward)
+            rackTarget -= up * (lift * tanH * distance)
+        }
+        poses[.rack] = GramophoneCameraPose(position: rackTarget + back * distance, target: rackTarget, up: SIMD3(0, 1, 0))
         if driver == nil { applyShot() }
     }
 

@@ -207,21 +207,6 @@ struct SpoolSettingsView: View {
                     .accessibilityIdentifier("spool.settings.liquid")
                 }
 
-                #if DEBUG
-                section(7, "Debug") {
-                    Picker("Fold Posture", selection: Binding(
-                        get: { foldMonitor.debugOverride },
-                        set: { foldMonitor.debugOverride = $0 }
-                    )) {
-                        Text("Device").tag(FoldPosture?.none)
-                        ForEach(FoldPosture.allCases) { posture in
-                            Text(posture.debugName).tag(Optional(posture))
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                #endif
-
                 footer
             }
             .padding(24)

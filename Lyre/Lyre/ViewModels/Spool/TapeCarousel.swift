@@ -749,7 +749,10 @@ struct ShelfDividers: View {
             }
             .zIndex(1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // The room offered, whatever the tabs in it come to: with no least width the
+        // frame would take on rows laid out wider than the room (after the room shrank,
+        // say, the Duo opened), measure that, and keep the tabs too wide, cut off.
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .background {
             // The room there is, measured apart from the tabs in it.
             GeometryReader { proxy in

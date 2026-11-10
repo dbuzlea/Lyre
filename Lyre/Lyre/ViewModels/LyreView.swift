@@ -282,6 +282,17 @@ struct LyreView: View {
                     .allowsHitTesting(false)
             }
         }
+        // For UI tests only: closing the phone, stood in for (the posture a test opened
+        // with, `-SpoolFoldPosture open`, is its own), as the settings' debug picker did.
+        .overlay(alignment: .bottomLeading) {
+            if AppEnvironment.isUITesting {
+                Button { foldMonitor.debugOverride = .closed } label: {
+                    Color.clear.frame(width: 12, height: 12).contentShape(Rectangle())
+                }
+                .accessibilityLabel("Close the phone")
+                .accessibilityIdentifier("lyre.uitest.closePhone")
+            }
+        }
         .background(ShakeDetector(isHoldEnabled: isHoldEnabled,
                                   isShakeOff: themeSettings.playerStyle != .classic) { handleShake() })
         .background(OrientationLock(mask: orientationMask, uprightRequest: uprightRequest))
