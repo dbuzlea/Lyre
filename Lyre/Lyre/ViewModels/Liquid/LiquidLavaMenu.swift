@@ -51,6 +51,7 @@ struct LiquidLavaMenu: View {
     @State private var isOnScreen = false
     @State private var source: Color?
     @Environment(\.windowSafeArea) private var safeArea
+    @Environment(\.sideRailHasPlayerButtons) private var columnHasPlayerButtons
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
@@ -64,8 +65,9 @@ struct LiquidLavaMenu: View {
                 // closed has them down the right edge), so no blob or button is under them.
                 .padding(.leading, safeArea.leading)
                 .padding(.trailing, safeArea.trailing)
-            // There, the header's buttons stand in that column instead.
-            SideRailButtons { headerButtons }
+            // There, the header's buttons stand in that column instead, unless Now
+            // Playing's beside it already put the same ones there (held as a book).
+            SideRailButtons { if !columnHasPlayerButtons { headerButtons } }
         }
         .ignoresSafeArea()
         .task(id: musicService.nowPlayingTrack?.id) {

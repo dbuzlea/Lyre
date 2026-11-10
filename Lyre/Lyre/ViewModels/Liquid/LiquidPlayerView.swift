@@ -416,7 +416,7 @@ struct LiquidPlayerView: View {
     /// Now Playing, sharing the screen: no dragging it away (the other half is already
     /// in view).
     private func nowPlayingPane(lean: CGVector, onOpenLibrary: @escaping () -> Void,
-                                queueDrag: Bool, railEdge: HorizontalEdge = .trailing) -> some View {
+                                queueDrag: Bool, railEdge: HorizontalEdge? = .trailing) -> some View {
         LiquidNowPlayingView(
             musicService: musicService,
             themeSettings: themeSettings,
@@ -442,8 +442,9 @@ struct LiquidPlayerView: View {
         let half = geometry.size.width / 2
         let pull = hingePull
         return HStack(spacing: 0) {
+            // Its buttons stand down the right-hand column, drawn below over both pages.
             nowPlayingPane(lean: CGVector(dx: pull, dy: 0), onOpenLibrary: toggleBookLibrary, queueDrag: true,
-                           railEdge: .leading)
+                           railEdge: nil)
                 .frame(width: half)
                 .clipped()
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingPage = $0 }
@@ -477,6 +478,18 @@ struct LiquidPlayerView: View {
             }
             .frame(width: half)
             .clipped()
+            // The right page's own rail buttons (the way back, an album's) stand below
+            // Now Playing's in the column, and it doesn't repeat the switch and Settings.
+            .environment(\.sideRailStart, CGFloat(LiquidNowPlayingButtons.count(track: musicService.nowPlayingTrack)) * SideRail.step)
+            .environment(\.sideRailHasPlayerButtons, true)
+        }
+        // iPhone Duo held as a book, the status bar down the right: Now Playing's buttons
+        // (on the left page) stand in that column, where the hand holding that side is.
+        .overlay {
+            SideRailButtons {
+                LiquidNowPlayingButtons(part: .all, track: musicService.nowPlayingTrack, themeSettings: themeSettings,
+                                        onOpenLibrary: toggleBookLibrary, onOpenSettings: { showSettings = true })
+            }
         }
         .overlay { GeometryReader { carriedLayer(in: $0) } }
         .ignoresSafeArea()
