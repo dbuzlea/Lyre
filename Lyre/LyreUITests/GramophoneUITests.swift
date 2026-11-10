@@ -512,7 +512,8 @@ final class GramophoneUITests: XCTestCase {
         XCTAssertTrue(back.exists && back.isHittable, "No Back on the deck")
         XCTAssertTrue(next.exists && next.isHittable, "No Next on the deck")
         XCTAssertFalse(element(app, "gramophone.crate").exists, "The records handle is still on the deck")
-        XCTAssertFalse(element(app, "gramophone.upNext").exists, "Up Next is still on the deck")
+        // Up Next stands where the speed is instead (wanted only for a show).
+        XCTAssertTrue(element(app, "gramophone.upNext").exists, "No Up Next where the speed was")
 
         // Both are above the fold, on the deck, not in among the covers.
         let fold = app.windows.firstMatch.frame.midY

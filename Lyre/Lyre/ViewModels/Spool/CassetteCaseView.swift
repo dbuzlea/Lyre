@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import MusicKit
 
 // MARK: - Cassette Case
 //
@@ -661,6 +662,15 @@ struct QueueMenu: ViewModifier {
     @ObservedObject private var downloads = PodcastDownloads.shared
     /// So a song just added stops offering to be.
     @ObservedObject private var libraryAdder = LibraryAdder.shared
+    /// Where the player can take a song: its album's page, its artist's (Liquid).
+    @Environment(\.songNavigation) private var navigation
+
+    /// The song on Apple Music, to share; none for a file of the listener's own.
+    static func shareURL(of track: AppTrack) -> URL? {
+        if let url = track.musicKitSong?.url { return url }
+        if case .song(let song)? = track.musicKitTrack { return song.url }
+        return nil
+    }
 
     func body(content: Content) -> some View {
         if isEnabled {
@@ -678,6 +688,39 @@ struct QueueMenu: ViewModifier {
                 if libraryAdder.canAdd(track) {
                     Button { libraryAdder.add(track) } label: {
                         Label(String(localized: "catalog.offer.add"), systemImage: "plus.circle")
+                    }
+                }
+                // As the Music app's song menu has them: the song's star, sharing it, and
+                // its album and artist where the player can open them (SongNavigation).
+                Section {
+                    if Loves.shared.canLove(track) {
+                        let isLoved = Loves.shared.isLoved(track)
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            Task { await Loves.shared.toggle(track) }
+                        } label: {
+                            Label(String(localized: isLoved ? "song.unfavorite" : "love.label"),
+                                  systemImage: LoveButton<EmptyView>.symbol(isLoved))
+                        }
+                    }
+                    if let url = Self.shareURL(of: track) {
+                        ShareLink(item: url, subject: Text(track.title), message: Text(track.artistName)) {
+                            Label(String(localized: "song.share"), systemImage: "square.and.arrow.up")
+                        }
+                    }
+                }
+                if let navigation {
+                    Section {
+                        if let goToAlbum = navigation.album, !track.albumTitle.isEmpty {
+                            Button { goToAlbum(track) } label: {
+                                Label(String(localized: "song.goToAlbum"), systemImage: "square.stack")
+                            }
+                        }
+                        if let goToArtist = navigation.artist, !track.artistName.isEmpty {
+                            Button { goToArtist(track.artistName) } label: {
+                                Label(String(localized: "song.goToArtist"), systemImage: "music.microphone")
+                            }
+                        }
                     }
                 }
                 if let onRemove {
@@ -944,4 +987,15 @@ private struct PlasticPanel<Content: View>: View {
             )
             .shadow(color: .black.opacity(0.3), radius: 14, x: 0, y: 8)
     }
+}
+
+/// Where a player can take a song from its menu: its album's page, its artist's. Players
+/// that open those pages give it (Liquid); elsewhere the menu leaves them out.
+struct SongNavigation {
+    var album: ((AppTrack) -> Void)?
+    var artist: ((String) -> Void)?
+}
+
+extension EnvironmentValues {
+    @Entry var songNavigation: SongNavigation? = nil
 }

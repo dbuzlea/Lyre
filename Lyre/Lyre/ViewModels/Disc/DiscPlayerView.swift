@@ -160,7 +160,8 @@ struct DiscPlayerView: View {
             // iPhone Duo with its status bar down the side: the header buttons stand there.
             SideRailButtons { headerButtons }
 
-            if let album = openCase {
+            // On an open Duo the case opens over the shelf instead (see the layouts).
+            if let album = openCase, foldMonitor.posture != .open {
                 jewelCase(album)
                     .transition(.opacity)
                     .zIndex(3)
@@ -394,6 +395,14 @@ struct DiscPlayerView: View {
                     .onGeometryChange(for: CGRect.self) { proxy in
                         proxy.frame(in: .named(SpoolPlayerView.coordinateSpace))
                     } action: { openShelfFrame = $0 }
+                    // A case opens over the shelf, leaving the deck in view: drawn in the
+                    // shelf's own place, whatever shape the open phone is.
+                    .overlay {
+                        if let album = openCase {
+                            jewelCase(album)
+                                .transition(.opacity)
+                        }
+                    }
             }
             .padding(12)
         }
@@ -479,6 +488,12 @@ struct DiscPlayerView: View {
                         .onGeometryChange(for: CGRect.self) { proxy in
                             proxy.frame(in: .named(SpoolPlayerView.coordinateSpace))
                         } action: { openShelfFrame = $0 }
+                        .overlay {
+                            if let album = openCase {
+                                jewelCase(album)
+                                    .transition(.opacity)
+                            }
+                        }
                     }
                     .padding(.horizontal, 14)
                     .frame(maxHeight: .infinity)
@@ -1268,16 +1283,7 @@ struct DiscPlayerView: View {
                 }
             } : nil
         )
-        // On an open Duo the case opens over the shelf, leaving the deck in view.
-        return Group {
-            if foldMonitor.posture == .open, openShelfFrame.width > 0 {
-                view
-                    .frame(width: openShelfFrame.width, height: openShelfFrame.height)
-                    .position(x: openShelfFrame.midX, y: openShelfFrame.midY)
-            } else {
-                view
-            }
-        }
+        return view
     }
 
     private func openCaseOf(_ album: AppAlbum) {

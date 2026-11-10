@@ -945,3 +945,7 @@
 "settings.shareDiagnostics.detail" = "Send Lyre's logs and iOS's reports, to help find a problem. Nothing personal is included.";
 "settings.allowMusicAccess" = "Allow Access to Apple Music Library";
 "settings.allowMusicAccess.detail" = "Opens Lyre in Settings, where Media & Apple Music lets Lyre play your library.";
+"song.share" = "Share";
+"song.goToAlbum" = "Go to Album";
+"song.goToArtist" = "Go to Artist";
+"song.unfavorite" = "Undo Favorite";

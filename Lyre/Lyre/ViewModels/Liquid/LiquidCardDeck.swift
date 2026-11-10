@@ -173,6 +173,10 @@ struct LiquidCardDeckView<Content: View>: View {
         let x = fills ? 0 : Self.margin + CGFloat(index - current) * (cardWidth + Self.gap) + drag
         return content(item)
             .environment(\.liquidCard, LiquidCardContext(close: onClose) { y in scrolled(y, on: index) })
+            // A sideways swipe among the cards turns to the next, so the songs on one don't
+            // slide aside then (their menu has the same actions); filling the screen, alone,
+            // they do.
+            .environment(\.rowSwipesEnabled, fills)
             .environment(\.liquidNavigator, cardNavigator)
             .frame(width: fills ? width : cardWidth, height: height)
             // It runs to the bottom edge, so only its top corners are rounded.
