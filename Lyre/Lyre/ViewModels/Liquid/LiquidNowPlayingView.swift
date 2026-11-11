@@ -487,8 +487,9 @@ struct LiquidNowPlayingView: View {
         VStack(spacing: 0) {
             HStack {
                 // Down the side, on an iPhone Duo with its status bar there (SideRail).
-                if !SideRail.isOn(safeArea) {
-                    libraryButton
+                // Or in the row when there's no rail for them (railEdge nil).
+                if !SideRail.isOn(safeArea) || railEdge == nil {
+                    if showsLibraryButton { libraryButton }
                     Spacer()
                     headerButtons
                 }
@@ -515,8 +516,7 @@ struct LiquidNowPlayingView: View {
         // iPhone Duo with its status bar down the side: the buttons stand down the side,
         // the status bar's or (held as a book, Now Playing on the left page) the left edge.
         .overlay {
-            // Held as a book, the player draws them down the right-hand column itself, over
-            // both pages (railEdge nil).
+            // Without a rail edge (open, the fold across), they stay in the row at the top.
             if let railEdge {
                 SideRailButtons(edge: railEdge) {
                     if showsLibraryButton { libraryButton }

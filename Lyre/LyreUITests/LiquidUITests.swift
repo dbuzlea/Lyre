@@ -732,31 +732,35 @@ final class LiquidUITests: XCTestCase {
 
     // MARK: - iPhone Duo
 
-    /// Opened with the fold across the middle: the waves above, Up Next's pool below,
-    /// which gives way to the library and back.
+    /// Opened with the fold across the middle: the book turned. Now Playing above the
+    /// fold, and below it the side bar's section, the side bar down that half's edge;
+    /// a bubble dragged up across the fold plays.
     @MainActor
-    func testAnOpenDuoHasThePoolUnderTheWaves() throws {
-        let app = try launchLiquid(["-SpoolFoldPosture", "open", "-LyreHingeAngle", "110"])
-        let pool = element(app, "liquid.pool")
-        XCTAssertTrue(pool.waitForExistence(timeout: 10), "No pool under the waves")
-        XCTAssertTrue(element(app, "liquid.nowPlaying").exists, "No Now Playing above the fold")
-        XCTAssertTrue(element(app, "liquid.pool.drop.0").exists, "Up Next isn't in the pool")
+    func testAnOpenDuoTurnedHasTheSideBarUnderNowPlaying() throws {
+        let app = try launchLiquid(["-SpoolFoldPosture", "open", "-LyreHingeAngle", "180"])
+        let bubble = element(app, "liquid.bubble.sample-1")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10), "No bubbles under Now Playing")
+        let nowPlaying = element(app, "liquid.nowPlaying")
+        XCTAssertTrue(nowPlaying.exists, "No Now Playing above the fold")
+        XCTAssertLessThan(nowPlaying.frame.midY, bubble.frame.midY, "Now Playing isn't above the bubbles")
+        let songs = element(app, "liquid.book.songs")
+        XCTAssertTrue(songs.exists, "No side bar")
+        XCTAssertGreaterThan(songs.frame.minY, nowPlaying.frame.midY, "The side bar isn't under the fold")
+        XCTAssertFalse(element(app, "liquid.library").exists, "Now Playing still has a library button")
         sleep(1)
-        attachScreenshot(app, named: "duo-pool")
+        attachScreenshot(app, named: "duo-turned-bubbles")
 
-        // Flicked up, a drop rises into the wave: it plays next.
-        let second = element(app, "liquid.pool.drop.2")
-        XCTAssertTrue(second.exists)
-        second.swipeUp()
-        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Flicking it up said nothing")
+        songs.tap()
+        XCTAssertTrue(element(app, "liquid.songs.track.0").waitForExistence(timeout: 5), "Songs didn't open below")
+        attachScreenshot(app, named: "duo-turned-songs")
+        element(app, "liquid.book.albums").tap()
+        XCTAssertTrue(bubble.waitForExistence(timeout: 5), "The bubbles didn't come back")
 
-        // The library in the pool's place, and back.
-        element(app, "liquid.pool.library").tap()
-        XCTAssertTrue(element(app, "liquid.menu.albums").waitForExistence(timeout: 5), "The library didn't come up")
-        sleep(1)
-        attachScreenshot(app, named: "duo-library-below")
-        element(app, "liquid.pool.back").tap()
-        XCTAssertTrue(pool.waitForExistence(timeout: 5), "The pool didn't come back")
+        // Tapped, it flies up across the fold into Now Playing and plays (the samples
+        // have nothing behind them, so playing says so). A drag the simulator can't
+        // make reliably (see testDraggingABubbleIntoNowPlayingPlaysIt).
+        bubble.tap()
+        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Tapping the bubble didn't play it")
     }
 
     /// Each artist has a rounded-square photo beside their name (here their album's
