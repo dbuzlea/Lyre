@@ -69,7 +69,7 @@ struct LiquidPlayerView: View {
     @State private var noticeTask: Task<Void, Never>?
     /// iPhone Duo open: whether the fold is across the middle (Now Playing above it) or
     /// down it (Now Playing on the left), for which way a bubble crosses it.
-    @State private var foldIsAcross = false
+    private var foldIsAcross: Bool { duoLayout(for: bounds.size) == .laptop }
     /// Open: where the section page is on screen, and where on it the bubble whose page is
     /// open was held, for that page to grow out of it and go back into it.
     @State private var sectionFrame: CGRect = .zero
@@ -98,7 +98,13 @@ struct LiquidPlayerView: View {
     /// A bubble on its way into Now Playing: dragged, flying after a tap, or taken in.
     @State private var carried: CarriedBubble?
     /// Now Playing's page, on screen, for a bubble to be taken into.
-    @State private var nowPlayingPage: CGRect = .zero
+    /// Where Now Playing is on screen in each open layout, kept apart: turning the phone,
+    /// the layout going away still reports where it was after the new one has, and one
+    /// shared frame was left the old layout's (the ink then spread through the wrong half).
+    @State private var nowPlayingInBook: CGRect = .zero
+    @State private var nowPlayingTurned: CGRect = .zero
+    /// Where Now Playing is on screen, in the layout showing.
+    private var nowPlayingPage: CGRect { foldIsAcross ? nowPlayingTurned : nowPlayingInBook }
     /// A bubble just taken in, for Now Playing to ripple where it went in.
     @State private var splash: LiquidSplash?
     @Environment(\.windowSafeArea) private var safeArea
@@ -535,7 +541,7 @@ struct LiquidPlayerView: View {
             }
             .frame(width: half)
             .clipped()
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingPage = $0 }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingInBook = $0 }
             sectionPage(geometry, lavaPull: CGVector(dx: -pull, dy: 0), barInColumn: inColumn)
                 .frame(width: half)
                 .clipped()
@@ -551,7 +557,6 @@ struct LiquidPlayerView: View {
         .overlay { GeometryReader { spreadLayer(in: $0) } }
         .overlay { GeometryReader { carriedLayer(in: $0) } }
         .ignoresSafeArea()
-        .onAppear { foldIsAcross = false }
     }
 
     /// Turned with the fold across: the book turned. Now Playing above the fold, and below
@@ -568,7 +573,7 @@ struct LiquidPlayerView: View {
                            railEdge: nil, showsLibraryButton: false)
                 .frame(height: half)
                 .clipped()
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingPage = $0 }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingTurned = $0 }
                 .frame(maxHeight: .infinity, alignment: .top)
                 .ignoresSafeArea()
             // Laid from the bottom, not under a view that leaves out the top's safe area:
@@ -581,7 +586,6 @@ struct LiquidPlayerView: View {
         }
         .overlay { GeometryReader { spreadLayer(in: $0) }.ignoresSafeArea() }
         .overlay { GeometryReader { carriedLayer(in: $0) }.ignoresSafeArea() }
-        .onAppear { foldIsAcross = true }
     }
 
     /// The page the side bar opens sections on, open either way: the albums, playlists or
@@ -1127,9 +1131,12 @@ struct LiquidPlayerView: View {
                 openFromBubbles(album)
                 return
             }
-            // Within the section's page, clear of the side bar down its edge.
+            // Within the section's page, clear of the side bar down its edge and of the top,
+            // where a finger reaches badly and a tap can be taken for the status bar's.
             var room = sectionFrame
             room.size.width -= foldIsAcross || !SideRail.isOn(safeArea) ? 58 : SideRail.column(safeArea)
+            room.origin.y += 60
+            room.size.height -= 60
             spread?.tracks = tracks
             spread?.slots = TrackSpreadLayout.slots(count: tracks.count + 1, around: center,
                                                    diameter: diameter, within: room)
