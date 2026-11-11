@@ -187,12 +187,20 @@ struct LiquidBubbleField: View {
     var keepsClearOfColumn = false
     /// Find Shows, beside the search on the shows' tab, as on the library's Podcasts page.
     var onFindShows: () -> Void = {}
+    /// An album's or a playlist's bubble of several songs held: its songs spread around it
+    /// (TrackSpread), given the bubble, where it is and how wide; true if they did. Then
+    /// where the finger goes, and where it's lifted. Without, a held bubble opens its page.
+    var onSpread: ((AppAlbum, CGPoint, CGFloat) -> Bool)?
+    var onSpreadMove: (CGPoint) -> Void = { _ in }
+    var onSpreadEnd: (CGPoint) -> Void = { _ in }
 
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var packing = Packing()
     /// What the search over the bubbles has in it: the bubbles then are only those it finds.
     @State private var query = ""
+    /// A bubble held with its songs spread around it: the field holds still meanwhile.
+    @State private var isSpreading = false
     /// Whether the field is moving, for the bubbles' touches; not observed, so the
     /// scroll starting and stopping redraws nothing.
     @State private var scroll = BubbleScrollState()
@@ -295,6 +303,7 @@ struct LiquidBubbleField: View {
                 // While it scrolls the bubbles hold still and the scroll moves still
                 // pictures of them (StillWhileScrolling); a touch landing on it moving
                 // only stops it, as in any list, rather than playing what's under it.
+                .scrollDisabled(isSpreading)
                 .modifier(StillWhileScrolling())
                 .modifier(TracksScrolling(scroll: scroll))
                 .onChange(of: key(items, width), initial: true) { _, key in
@@ -358,7 +367,7 @@ struct LiquidBubbleField: View {
                         BubbleCell(album: items[index], diameter: d,
                                    drifts: LiquidBubbleLayout.drifts && !reduceMotion,
                                    isHidden: draggedID == items[index].id, scroll: scroll,
-                                   onPlay: onPlay, onOpen: onOpen, onDrag: onDrag, onDrop: onDrop)
+                                   onPlay: onPlay, onOpen: onOpen, onHold: hold, onDrag: onDrag, onDrop: onDrop)
                             .position(x: packing.centers[index].x, y: packing.centers[index].y - top)
                     }
                 }
@@ -366,6 +375,26 @@ struct LiquidBubbleField: View {
                        alignment: .topLeading)
                 .zIndex(Double(count - band))
             }
+        }
+    }
+
+    /// A bubble held, and the finger going on: its songs spread, followed, and let go of;
+    /// or, for a show, a bubble of one song or none to spread to, its page.
+    private func hold(_ album: AppAlbum, _ phase: BubbleHoldPhase, center: CGPoint, diameter: CGFloat, finger: CGPoint) {
+        switch phase {
+        case .began:
+            let songs = LiquidBubbleLayout.songCount(of: album) ?? 2
+            if !album.isPodcast, songs > 1, let onSpread, onSpread(album, center, diameter) {
+                isSpreading = true
+            } else {
+                onOpen(album)
+            }
+        case .moved:
+            if isSpreading { onSpreadMove(finger) }
+        case .ended:
+            guard isSpreading else { return }
+            isSpreading = false
+            onSpreadEnd(finger)
         }
     }
 
@@ -443,6 +472,7 @@ private struct BubbleCell: View {
     let scroll: BubbleScrollState
     let onPlay: (AppAlbum, CGPoint, CGFloat) -> Void
     let onOpen: (AppAlbum) -> Void
+    let onHold: (AppAlbum, BubbleHoldPhase, _ center: CGPoint, _ diameter: CGFloat, _ finger: CGPoint) -> Void
     let onDrag: (AppAlbum, CGPoint, CGFloat, CGPoint) -> Void
     let onDrop: (AppAlbum, CGPoint, CGPoint) -> Void
 
@@ -451,7 +481,7 @@ private struct BubbleCell: View {
             .opacity(isHidden ? 0 : 1)
             .contentShape(Circle())
             .modifier(BubbleTouches(album: album, diameter: diameter, scroll: scroll,
-                                    onPlay: onPlay, onOpen: onOpen, onDrag: onDrag, onDrop: onDrop))
+                                    onPlay: onPlay, onOpen: onOpen, onHold: onHold, onDrag: onDrag, onDrop: onDrop))
         return Group {
             if drifts {
                 bubble.modifier(BubbleFloat(seed: album.id, reach: 3))
@@ -479,6 +509,7 @@ private struct BubbleTouches: ViewModifier {
     let scroll: BubbleScrollState
     let onPlay: (AppAlbum, CGPoint, CGFloat) -> Void
     let onOpen: (AppAlbum) -> Void
+    let onHold: (AppAlbum, BubbleHoldPhase, _ center: CGPoint, _ diameter: CGFloat, _ finger: CGPoint) -> Void
     let onDrag: (AppAlbum, CGPoint, CGFloat, CGPoint) -> Void
     let onDrop: (AppAlbum, CGPoint, CGPoint) -> Void
 
@@ -491,9 +522,9 @@ private struct BubbleTouches: ViewModifier {
                 .gesture(BubbleTap(scroll: scroll, diameter: diameter) { center in
                     album.isPodcast ? onOpen(album) : onPlay(album, center, diameter)
                 })
-                .gesture(BubbleHold {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    onOpen(album)
+                .gesture(BubbleHold(diameter: diameter) { phase, center, finger in
+                    if phase == .began { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
+                    onHold(album, phase, center, diameter, finger)
                 })
                 .gesture(BubblePull(diameter: diameter, isEnabled: !album.isPodcast,
                                     onBegin: { UIImpactFeedbackGenerator(style: .light).impactOccurred() },
@@ -505,8 +536,11 @@ private struct BubbleTouches: ViewModifier {
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
                 .onTapGesture { album.isPodcast ? onOpen(album) : onPlay(album, center, diameter) }
                 .onLongPressGesture(minimumDuration: 0.45) {
+                    // Before iOS 18 the finger isn't followed after the hold: held and let go,
+                    // its songs stay out to be tapped.
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    onOpen(album)
+                    onHold(album, .began, center, diameter, center)
+                    onHold(album, .ended, center, diameter, center)
                 }
                 .simultaneousGesture(album.isPodcast ? nil : DragGesture(minimumDistance: 12, coordinateSpace: .global)
                     .onChanged { value in
@@ -576,10 +610,21 @@ private struct BubbleTap: UIGestureRecognizerRepresentable {
     }
 }
 
-/// A bubble held still for a moment: its page.
+/// A bubble held still for a moment, and where the finger goes on from there.
+enum BubbleHoldPhase { case began, moved, ended }
+
+/// A bubble held still for a moment, and the finger followed on from there until it's
+/// lifted: given where the bubble is and where the finger is, on screen.
 @available(iOS 18.0, *)
 private struct BubbleHold: UIGestureRecognizerRepresentable {
-    let onHold: () -> Void
+    let diameter: CGFloat
+    let onHold: (BubbleHoldPhase, CGPoint, CGPoint) -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var center: CGPoint = .zero
+    }
 
     func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
         let hold = UILongPressGestureRecognizer()
@@ -590,7 +635,18 @@ private struct BubbleHold: UIGestureRecognizerRepresentable {
     }
 
     func handleUIGestureRecognizerAction(_ recognizer: UILongPressGestureRecognizer, context: Context) {
-        if recognizer.state == .began { onHold() }
+        let finger = context.converter.location(in: .global)
+        switch recognizer.state {
+        case .began:
+            context.coordinator.center = bubbleCenter(context.converter, diameter: diameter)
+            onHold(.began, context.coordinator.center, finger)
+        case .changed:
+            onHold(.moved, context.coordinator.center, finger)
+        case .ended, .cancelled, .failed:
+            onHold(.ended, context.coordinator.center, finger)
+        default:
+            break
+        }
     }
 }
 
@@ -645,6 +701,12 @@ private struct BubblePull: UIGestureRecognizerRepresentable {
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var isEnabled = true
         var origin: CGPoint = .zero
+
+        // Not once a hold has the finger (its songs are spread, and followed).
+        func gestureRecognizer(_ recognizer: UIGestureRecognizer,
+                               shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
+            other.name == "lyre.bubble.hold"
+        }
 
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
             guard isEnabled, let pan = recognizer as? UIPanGestureRecognizer else { return false }

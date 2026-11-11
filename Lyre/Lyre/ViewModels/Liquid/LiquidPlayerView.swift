@@ -79,6 +79,11 @@ struct LiquidPlayerView: View {
     @State private var foldDroplets: [FoldWater.Droplet] = []
     @State private var ink: FoldWater.Ink?
     @State private var lastPressRipple = Date.distantPast
+    /// A held bubble's songs spread around it (TrackSpread); where the finger had gone
+    /// before they'd come; and whether a carried one is over the fold, felt once.
+    @State private var spread: TrackSpread?
+    @State private var pendingSpreadFinger: CGPoint?
+    @State private var spreadPastFold = false
     /// `-LiquidInkShot`: the ink held this far through its spread, for screenshots.
     @State private var inkShotProgress: Double?
     /// The visualizer, while the Duo stands half open, left alone.
@@ -543,6 +548,7 @@ struct LiquidPlayerView: View {
                 }
             }
         }
+        .overlay { GeometryReader { spreadLayer(in: $0) } }
         .overlay { GeometryReader { carriedLayer(in: $0) } }
         .ignoresSafeArea()
         .onAppear { foldIsAcross = false }
@@ -573,6 +579,7 @@ struct LiquidPlayerView: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .ignoresSafeArea(edges: [.bottom, .horizontal])
         }
+        .overlay { GeometryReader { spreadLayer(in: $0) }.ignoresSafeArea() }
         .overlay { GeometryReader { carriedLayer(in: $0) }.ignoresSafeArea() }
         .onAppear { foldIsAcross = true }
     }
@@ -595,7 +602,10 @@ struct LiquidPlayerView: View {
                         onDrop: { album, heading, velocity in drop(album, heading: heading, velocity: velocity) },
                         showsTabBar: false,
                         keepsClearOfColumn: barInColumn,
-                        onFindShows: { showPodcastSearch = true }
+                        onFindShows: { showPodcastSearch = true },
+                        onSpread: beginSpread,
+                        onSpreadMove: moveSpread,
+                        onSpreadEnd: endSpread
                     )
                     .transition(.opacity)
                 } else {
@@ -1073,10 +1083,16 @@ struct LiquidPlayerView: View {
 
     /// A carried bubble's album and artist, on a small dark label.
     private func carriedTitle(_ album: AppAlbum) -> some View {
+        bubbleLabel(album.title, album.artistName)
+            .accessibilityIdentifier("liquid.carried.title")
+    }
+
+    /// A name, and what's under it, on a small dark label.
+    private func bubbleLabel(_ title: String, _ detail: String) -> some View {
         VStack(spacing: 1) {
-            Text(album.title)
+            Text(title)
                 .font(.system(size: 15, weight: .semibold))
-            Text(album.artistName)
+            Text(detail)
                 .font(.system(size: 12))
                 .opacity(0.75)
         }
@@ -1090,7 +1106,216 @@ struct LiquidPlayerView: View {
         .background(.ultraThinMaterial, in: Capsule())
         .environment(\.colorScheme, .dark)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("liquid.carried.title")
+    }
+
+    // MARK: A Held Bubble's Songs
+
+    /// An album's or a playlist's bubble held: its songs burst out around it, once they've
+    /// come; one alone, or none, and its page opens instead.
+    private func beginSpread(_ album: AppAlbum, at center: CGPoint, diameter: CGFloat) -> Bool {
+        guard sectionFrame.width > 0 else { return false }
+        pendingSpreadFinger = nil
+        spreadPastFold = false
+        spread = TrackSpread(album: album, center: center, diameter: diameter)
+        let id = album.id
+        Task {
+            let loaded = await library.tracks(for: album)
+            let tracks = loaded.isEmpty ? album.tapeSongs(album.preloadedTracks) : loaded
+            guard spread?.album.id == id, spread?.isOut == false else { return }
+            guard tracks.count > 1 else {
+                spread = nil
+                openFromBubbles(album)
+                return
+            }
+            // Within the section's page, clear of the side bar down its edge.
+            var room = sectionFrame
+            room.size.width -= foldIsAcross || !SideRail.isOn(safeArea) ? 58 : SideRail.column(safeArea)
+            spread?.tracks = tracks
+            spread?.slots = TrackSpreadLayout.slots(count: tracks.count + 1, around: center,
+                                                   diameter: diameter, within: room)
+            withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : LyreMotion.light) { spread?.isOut = true }
+            if let finger = pendingSpreadFinger { moveSpread(finger) }
+            if spread?.isHeld == false, let finger = pendingSpreadFinger { endSpread(finger) }
+        }
+        return true
+    }
+
+    /// The finger that held the bubble, moving on: over a song, it's chosen (felt as a
+    /// tick); carried on from it toward Now Playing, the song goes with the finger.
+    private func moveSpread(_ finger: CGPoint) {
+        guard var moved = spread, moved.isOut else {
+            pendingSpreadFinger = finger
+            return
+        }
+        if moved.carried != nil {
+            moved.carriedAt = finger
+            let past = pastFold(finger) > -10
+            if past != spreadPastFold {
+                spreadPastFold = past
+                if past { UIImpactFeedbackGenerator(style: .soft).impactOccurred() }
+            }
+        } else {
+            let under = TrackSpreadLayout.slot(at: finger, in: moved.slots)
+            if under == nil, let chosen = moved.highlighted, chosen != TrackSpread.pageSlot,
+               pastFold(finger) > pastFold(moved.slots[chosen]) + TrackSpreadLayout.bubble * 0.5 {
+                // Off it, toward Now Playing: picked up.
+                moved.carried = chosen
+                moved.carriedAt = finger
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } else if under != moved.highlighted {
+                if under != nil { UISelectionFeedbackGenerator().selectionChanged() }
+                withAnimation(LyreMotion.tap) { spread?.highlighted = under }
+                moved.highlighted = under
+            }
+        }
+        withTransaction(Transaction(animation: nil)) { spread = moved }
+    }
+
+    /// The finger lifted: on a song, it plays; a song carried over the fold plays in Now
+    /// Playing; over none, the songs stay out to be tapped or carried.
+    private func endSpread(_ finger: CGPoint) {
+        guard var ended = spread else { return }
+        ended.isHeld = false
+        spread = ended
+        guard ended.isOut else {
+            pendingSpreadFinger = finger
+            return
+        }
+        if let carried = ended.carried {
+            finishCarry(carried, at: finger)
+        } else if let chosen = ended.highlighted {
+            choose(chosen)
+        }
+    }
+
+    /// A song carried and let go: over the fold, played; short of it, back to its place.
+    private func finishCarry(_ slot: Int, at point: CGPoint) {
+        if pastFold(point) > -10 {
+            choose(slot)
+        } else {
+            withAnimation(LyreMotion.light) {
+                spread?.carried = nil
+                spread?.highlighted = nil
+            }
+        }
+    }
+
+    /// A little bubble chosen: the album's page, or the album played from that song.
+    private func choose(_ slot: Int) {
+        guard let chosen = spread else { return }
+        closeSpread()
+        if slot == TrackSpread.pageSlot {
+            openFromBubbles(chosen.album)
+        } else if let song = chosen.track(atSlot: slot) {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            play(chosen.album, chosen.tracks, song.index, whole: true, in: bounds.size)
+        }
+    }
+
+    /// The songs gone back into their bubble.
+    private func closeSpread() {
+        let id = spread?.album.id
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : LyreMotion.light) {
+            spread?.isOut = false
+            spread?.highlighted = nil
+            spread?.carried = nil
+        } completion: {
+            if spread?.album.id == id, spread?.isOut == false { spread = nil }
+        }
+    }
+
+    /// The held bubble's songs, over the section's page, which dims behind them.
+    @ViewBuilder
+    private func spreadLayer(in proxy: GeometryProxy) -> some View {
+        if let spread {
+            let origin = proxy.frame(in: .global).origin
+            let page = sectionFrame.offsetBy(dx: -origin.x, dy: -origin.y)
+            let center = CGPoint(x: spread.center.x - origin.x, y: spread.center.y - origin.y)
+            let named = spread.carried ?? spread.highlighted
+            ZStack(alignment: .topLeading) {
+                Rectangle()
+                    .fill(Color.black.opacity(spread.isOut ? 0.55 : 0))
+                    .frame(width: page.width, height: page.height)
+                    .position(x: page.midX, y: page.midY)
+                    .contentShape(Rectangle())
+                    .onTapGesture { closeSpread() }
+                    .accessibilityLabel(String(localized: "liquid.spread.close"))
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityIdentifier("liquid.spread.close")
+                LiquidBubble(album: spread.album, diameter: spread.diameter)
+                    .scaleEffect(spread.isOut ? 1.06 : 1)
+                    .position(center)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                ForEach(Array(spread.slots.enumerated()), id: \.offset) { slot, place in
+                    let at = spread.carried == slot ? spread.carriedAt : (spread.isOut ? place : spread.center)
+                    spreadBubble(spread, slot: slot)
+                        .scaleEffect(spread.isOut ? (named == slot ? 1.3 : 1) : 0.2)
+                        .opacity(spread.isOut ? 1 : 0)
+                        .position(x: at.x - origin.x, y: at.y - origin.y)
+                        .animation(reduceMotion ? nil : LyreMotion.light.delay(spread.isOut ? Double(slot) * 0.012 : 0),
+                                   value: spread.isOut)
+                        .onTapGesture { choose(slot) }
+                        .gesture(DragGesture(minimumDistance: 6, coordinateSpace: .global)
+                            .onChanged { value in
+                                guard slot != TrackSpread.pageSlot else { return }
+                                var carried = self.spread
+                                carried?.carried = slot
+                                carried?.carriedAt = value.location
+                                withTransaction(Transaction(animation: nil)) { self.spread = carried }
+                            }
+                            .onEnded { value in
+                                guard slot != TrackSpread.pageSlot else { return }
+                                finishCarry(slot, at: value.location)
+                            })
+                }
+                // What the chosen one is, above it.
+                if spread.isOut, let named, spread.slots.indices.contains(named) {
+                    let place = spread.carried == named ? spread.carriedAt : spread.slots[named]
+                    let song = spread.track(atSlot: named)
+                    bubbleLabel(song?.track.title ?? String(localized: "liquid.spread.allSongs"),
+                                song.map { String(format: String(localized: "liquid.spread.track"), $0.index + 1) }
+                                    ?? spread.album.title)
+                        .position(x: min(max(place.x - origin.x, 120), proxy.size.width - SideRail.column(safeArea) - 120),
+                                  y: max(place.y - origin.y - TrackSpreadLayout.bubble * 0.65 - 30, 30))
+                        .allowsHitTesting(false)
+                        .accessibilityIdentifier("liquid.spread.title")
+                }
+            }
+            // While the finger that held the bubble is down, it's that finger's; lifted,
+            // the songs are there to be tapped or carried.
+            .allowsHitTesting(!spread.isHeld)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("liquid.spread")
+        }
+    }
+
+    /// One of a held bubble's little bubbles: a song's, numbered, or the album page's.
+    private func spreadBubble(_ spread: TrackSpread, slot: Int) -> some View {
+        let diameter = TrackSpreadLayout.bubble
+        let song = spread.track(atSlot: slot)
+        let isNamed = spread.highlighted == slot || spread.carried == slot
+        return LiquidSoapBubble(diameter: diameter, isLight: true, flattens: true, seed: spread.album.id + "#\(slot)") {
+            ZStack {
+                LiquidCover(source: .album(spread.album))
+                    .overlay(Color.black.opacity(0.42))
+                if song == nil {
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: 17, weight: .bold))
+                } else {
+                    Text("\(slot)")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                }
+            }
+            .foregroundStyle(.white)
+        }
+        .overlay(Circle().strokeBorder(.white.opacity(isNamed ? 0.95 : 0), lineWidth: 2.5))
+        .frame(width: diameter, height: diameter)
+        .contentShape(Circle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(song?.track.title ?? String(localized: "liquid.spread.allSongs"))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier(song.map { "liquid.spread.track.\($0.index)" } ?? "liquid.spread.open")
     }
 
     /// The ink of a bubble taken in, spreading through Now Playing.

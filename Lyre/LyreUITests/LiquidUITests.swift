@@ -1122,17 +1122,49 @@ final class LiquidUITests: XCTestCase {
 
     /// Held, a bubble opens its page to choose a song; back from it, the bubbles again.
     @MainActor
-    func testHoldingABubbleOpensItsPage() throws {
+    func testHoldingABubbleSpreadsItsSongsAndOneTappedPlays() throws {
+        let app = try launchBook()
+        let bubble = element(app, "liquid.bubble.sample-1")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10))
+        // Held and lifted over none of them, its songs stay out around it.
+        bubble.press(forDuration: 0.8)
+        XCTAssertTrue(element(app, "liquid.spread").waitForExistence(timeout: 5), "Holding didn't spread its songs")
+        XCTAssertTrue(element(app, "liquid.spread.open").exists, "No bubble for the album's page")
+        for index in 0..<9 {
+            XCTAssertTrue(element(app, "liquid.spread.track.\(index)").exists, "No bubble for song \(index + 1)")
+        }
+        XCTAssertFalse(element(app, "liquid.album.play").exists, "Holding still opened the album's page")
+        sleep(1)
+        attachScreenshot(app, named: "duo-book-spread")
+        // One tapped plays (the samples have nothing behind them, so playing says so).
+        element(app, "liquid.spread.track.2").tap()
+        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Tapping a song didn't play it")
+        XCTAssertTrue(waitForGone(element(app, "liquid.spread")), "The songs stayed out")
+    }
+
+    /// The album's page is the first of a held bubble's little bubbles; and a tap beside
+    /// them puts them away.
+    @MainActor
+    func testAHeldBubblesFirstBubbleOpensItsPage() throws {
         let app = try launchBook()
         let bubble = element(app, "liquid.bubble.sample-1")
         XCTAssertTrue(bubble.waitForExistence(timeout: 10))
         bubble.press(forDuration: 0.8)
-        XCTAssertTrue(element(app, "liquid.album.play").waitForExistence(timeout: 5), "Holding didn't open the album")
-        XCTAssertFalse(element(app, "liquid.notice").exists, "Holding played it")
-        sleep(1)
-        attachScreenshot(app, named: "duo-book-album")
+        XCTAssertTrue(element(app, "liquid.spread.close").waitForExistence(timeout: 5))
+        element(app, "liquid.spread.close").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.97)).tap()
+        XCTAssertTrue(waitForGone(element(app, "liquid.spread")), "A tap beside them didn't put them away")
+        bubble.press(forDuration: 0.8)
+        let open = element(app, "liquid.spread.open")
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+        open.tap()
+        XCTAssertTrue(element(app, "liquid.album.play").waitForExistence(timeout: 5), "All Songs didn't open the album")
         element(app, "liquid.back").tap()
         XCTAssertTrue(bubble.waitForExistence(timeout: 5), "Back didn't bring the bubbles back")
+    }
+
+    private func waitForGone(_ element: XCUIElement, timeout: TimeInterval = 5) -> Bool {
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: element)
+        return XCTWaiter.wait(for: [gone], timeout: timeout) == .completed
     }
 
     /// A show's bubble opens its episodes when tapped; it plays nothing by itself.
@@ -1294,8 +1326,11 @@ final class LiquidUITests: XCTestCase {
         let bubble = element(app, "liquid.bubble.sample-1")
         XCTAssertTrue(bubble.waitForExistence(timeout: 10))
         bubble.press(forDuration: 0.8)
+        let open = element(app, "liquid.spread.open")
+        XCTAssertTrue(open.waitForExistence(timeout: 5), "Holding didn't spread its songs")
+        open.tap()
         let play = element(app, "liquid.album.play")
-        XCTAssertTrue(play.waitForExistence(timeout: 5), "Holding didn't open the album")
+        XCTAssertTrue(play.waitForExistence(timeout: 5), "All Songs didn't open the album")
         play.tap()
         attachScreenshot(app, named: "duo-book-play-ink")
         XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Play didn't play")
