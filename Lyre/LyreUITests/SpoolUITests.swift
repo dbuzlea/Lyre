@@ -99,6 +99,11 @@ final class SpoolUITests: XCTestCase {
         let tray = element(app, "spool.case.cassette")
         XCTAssertTrue(tray.exists)
         XCTAssertGreaterThan(tray.frame.minX, door.frame.maxX - 1, "The case covered the deck")
+        // The song list has the room: the cassette sits smaller, and four songs show at once.
+        for index in 0..<4 {
+            let row = element(app, "spool.jcard.track.\(index)")
+            XCTAssertTrue(row.exists && row.frame.maxY <= tray.frame.minY, "Song \(index + 1) isn't in view above the tray")
+        }
         attachScreenshot(app, named: "duo-case-over-rack")
 
         song.tap()
