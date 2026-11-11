@@ -749,12 +749,6 @@
 "liquid.fold.close" = "Close";
 "liquid.minutes" = "%d min";
 "liquid.tide.playHint" = "Plays this song now.";
-"liquid.pool.title" = "Up Next";
-"liquid.pool.library" = "Library";
-"liquid.pool.hint" = "Flick a song up to play it next, down to take it out. Hold one to move it.";
-"liquid.pool.hint.episodes" = "Tap an episode to play it.";
-"liquid.pool.playsNext" = "“%@” plays next";
-"liquid.pool.drain" = "Take Out of Up Next";
 "liquid.pool.nowPlaying" = "Now Playing";
 "liquid.visualizer.hint" = "Touch to bring the player back.";
 "liquid.tide.remove" = "Remove %@";

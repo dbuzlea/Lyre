@@ -812,7 +812,9 @@ struct LiquidGridPage: View {
                     // Level with the first row of covers, below the name and search.
                     .padding(.top, headerHeight + 16)
                     .padding(.bottom, bottomInset + 12)
-                    .frame(maxHeight: .infinity, alignment: .top)
+                    // Never what sizes the page: a short one (an open Duo's half) would
+                    // otherwise grow past its frame, its top run up out of sight.
+                    .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
                 }
             }
         }
@@ -1197,7 +1199,9 @@ struct LiquidArtistsPage: View {
                     .padding(.trailing, 6)
                     .padding(.top, headerHeight + 16)
                     .padding(.bottom, bottomInset + 12)
-                    .frame(maxHeight: .infinity, alignment: .top)
+                    // Never what sizes the page: a short one (an open Duo's half) would
+                    // otherwise grow past its frame, its top run up out of sight.
+                    .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
                 }
             }
         }
@@ -1505,6 +1509,7 @@ struct LiquidSongsPage: View {
                     // Below the name, search, and Play and Shuffle.
                     .padding(.top, 250)
                     .padding(.bottom, bottomInset)
+                    .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
                 }
             }
         }
