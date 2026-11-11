@@ -186,13 +186,11 @@ struct CassetteCaseView: View {
         }
     }
 
-    private func lidInside(isOpen: Bool, tracks: [AppTrack]?) -> some View {
-        PlasticPanel {
-            // The J-card, seen through the lid.
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 10) {
-                    coverArt(size: 96)
-                        .frame(width: 96, height: 96)
+    /// The J-card's cover, and the stamps under it.
+    private func coverColumn(size: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+                    coverArt(size: size)
+                        .frame(width: size, height: size)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                         .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
                         .accessibilityHidden(true)
@@ -214,8 +212,12 @@ struct CassetteCaseView: View {
                             .background(SpoolPalette.labelInk, in: RoundedRectangle(cornerRadius: 4))
                     }
                 }
+    }
 
-                VStack(alignment: .leading, spacing: 0) {
+    /// The J-card's name, byline and date, and the keys to play it.
+    @ViewBuilder
+    private func jcardHeader(_ tracks: [AppTrack]?, isOpen: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
                     Text(album.tapeTitle)
                         .font(album.isMixtape
                               ? .custom(SpoolPalette.handwriting, size: 21)
@@ -254,7 +256,31 @@ struct CassetteCaseView: View {
                                 .padding(.bottom, 4)
                         }
                     }
-                    songList(tracks, scrolls: isOpen)
+}
+    }
+
+    private func lidInside(isOpen: Bool, tracks: [AppTrack]?) -> some View {
+        PlasticPanel {
+            // The J-card, seen through the lid. In an unfolded Duo's rack, where the lid
+            // is short, the songs run the whole width under the name and keys, beside a
+            // smaller cover, so more of them are seen at once.
+            Group {
+                if bounds != nil {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .top, spacing: 12) {
+                            coverColumn(size: 64)
+                            jcardHeader(tracks, isOpen: isOpen)
+                        }
+                        songList(tracks, scrolls: isOpen)
+                    }
+                } else {
+                    HStack(alignment: .top, spacing: 12) {
+                        coverColumn(size: 96)
+                        VStack(alignment: .leading, spacing: 0) {
+                            jcardHeader(tracks, isOpen: isOpen)
+                            songList(tracks, scrolls: isOpen)
+                        }
+                    }
                 }
             }
             .padding(12)
@@ -629,9 +655,12 @@ struct CassetteCaseView: View {
                 ?? CGRect(x: safeArea.leading + Self.margin, y: safeArea.top + 12,
                           width: size.width - safeArea.leading - safeArea.trailing - 2 * Self.margin,
                           height: size.height - safeArea.top - safeArea.bottom - 24)
-            // The tray fits the cassette; the lid takes the rest, for the song list.
-            let trayHeight = (frame.width - 2 * Self.trayInset.width) / CassetteView.aspectRatio
+            // The tray fits the cassette; the lid takes the rest, for the song list. In an
+            // unfolded Duo's rack, short for its width, the cassette sits smaller in a tray
+            // of under a third of the height, so the songs have the room.
+            let fitted = (frame.width - 2 * Self.trayInset.width) / CassetteView.aspectRatio
                 + 2 * Self.trayInset.height
+            let trayHeight = bounds == nil ? fitted : min(fitted, frame.height * 0.3)
             tray = CGRect(x: frame.minX, y: frame.maxY - trayHeight, width: frame.width, height: trayHeight)
             lid = CGRect(x: frame.minX, y: frame.minY, width: frame.width,
                          height: max(trayHeight, tray.minY - CassetteCaseView.hingeGap - frame.minY))
