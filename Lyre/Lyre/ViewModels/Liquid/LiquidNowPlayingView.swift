@@ -412,8 +412,13 @@ struct LiquidNowPlayingView: View {
                     UISelectionFeedbackGenerator().selectionChanged()
                 }
             }
-            .onEnded { _ in
-                if state(side).progress < LiquidWaveGeometry.cancelThreshold {
+            .onEnded { value in
+                // Where the flick was taking it, not only where the finger lifted: a quick
+                // short flick turns the song too.
+                let speed = (side == .left ? 1 : -1) * value.velocity.width
+                let projected = state(side).progress
+                    + LyreMotion.project(speed) * LiquidWaveGeometry.dragGain / max(1, size.width)
+                if max(state(side).progress, projected) < LiquidWaveGeometry.cancelThreshold {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) { update(side) { $0.progress = 0 } }
                 } else {
                     commit(side, size: size)

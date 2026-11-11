@@ -99,7 +99,9 @@ struct LiquidLibraryView: View {
                                 .frame(width: 22)
                                 .contentShape(Rectangle())
                                 .gesture(DragGesture(minimumDistance: 12).onEnded { value in
-                                    if value.translation.width > 60 { navigator.back() }
+                                    // Far enough, or flicked: a quick short swipe goes back too.
+                                    let flung = value.translation.width + LyreMotion.project(value.velocity.width)
+                                    if max(value.translation.width, flung) > 60 { navigator.back() }
                                 })
                         }
                 }
@@ -1882,6 +1884,8 @@ struct LiquidDroplet: View {
 
     @State private var color: Color = Color(red: 0.17, green: 0.29, blue: 0.48)
     @State private var frame: CGRect = .zero
+    /// How far it's being pulled up (negative), following the finger.
+    @State private var lift: CGFloat = 0
 
     var body: some View {
         if let track = musicService.nowPlayingTrack {
@@ -1939,9 +1943,24 @@ struct LiquidDroplet: View {
             .contentShape(Capsule())
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
             .onTapGesture { onOpen(CGPoint(x: frame.minX + 36, y: frame.midY)) }
-            .gesture(DragGesture(minimumDistance: 10).onEnded { value in
-                if value.translation.height < -30 { onOpen(CGPoint(x: frame.minX + 36, y: frame.midY)) }
-            })
+            // Pulled up, it follows the finger (giving ever less, the further it goes), and
+            // let go far enough or flicked, floods into Now Playing; short of it, it settles
+            // back at the finger's speed.
+            .offset(y: lift)
+            .gesture(DragGesture(minimumDistance: 10)
+                .onChanged { value in
+                    let up = min(0, value.translation.height)
+                    lift = -LyreMotion.rubberBand(-up, limit: 90)
+                }
+                .onEnded { value in
+                    let flung = value.translation.height + LyreMotion.project(value.velocity.height)
+                    if min(value.translation.height, flung) < -30 {
+                        onOpen(CGPoint(x: frame.minX + 36, y: frame.midY))
+                        withAnimation(LyreMotion.tap) { lift = 0 }
+                    } else {
+                        withAnimation(LyreMotion.release(velocity: value.velocity.height, distance: -lift)) { lift = 0 }
+                    }
+                })
             .accessibilityElement(children: .contain)
             .accessibilityAction(named: String(localized: "liquid.openNowPlaying")) {
                 onOpen(CGPoint(x: frame.midX, y: frame.midY))
