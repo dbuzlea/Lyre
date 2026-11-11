@@ -774,11 +774,70 @@ struct LiquidNowPlayingButtons: View {
     let themeSettings: ThemeSettings
     let onOpenLibrary: () -> Void
     let onOpenSettings: () -> Void
+    /// Where the column runs out of room: the library and AirPlay stand there, and the
+    /// rest (the star, the player switch, Settings) go in a "…" menu, each with its
+    /// symbol and name, as the system's own overflow menus have them.
+    var overflows = false
 
     /// How many there are, all of them, for what stands below them in a rail.
     static func count(track: AppTrack?) -> Int { track == nil ? 4 : 5 }
+    /// How many stand in the rail once the rest overflow: the library, AirPlay and "…".
+    static let overflowCount = 3
 
     var body: some View {
+        if overflows {
+            round("line.3.horizontal", label: "liquid.library", id: "liquid.library", action: onOpenLibrary)
+            airPlay
+            overflowMenu
+        } else {
+            buttons
+        }
+    }
+
+    private var airPlay: some View {
+        AirPlayRouteButton(identifier: "liquid.airplay") { isActive in
+            Image(systemName: "airplayaudio")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(isActive ? Color.accentColor : .white)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.28), in: Circle())
+        }
+    }
+
+    private var overflowMenu: some View {
+        Menu {
+            if Loves.shared.canLove(track) {
+                let isLoved = Loves.shared.isLoved(track)
+                Button {
+                    Task { await Loves.shared.toggle(track) }
+                } label: {
+                    Label(String(localized: isLoved ? "song.unfavorite" : "love.label"),
+                          systemImage: LoveButton<EmptyView>.symbol(isLoved))
+                }
+            }
+            Menu {
+                Picker(String(localized: "playerSwitch.title"), selection: Binding(
+                    get: { themeSettings.playerStyle }, set: { themeSettings.playerStyle = $0 })) {
+                    ForEach(PlayerStyle.allCases) { style in Text(style.displayName).tag(style) }
+                }
+            } label: {
+                Label(String(localized: "playerSwitch.title"), systemImage: PlayerSwitchMenu<EmptyView>.symbol)
+            }
+            Button(action: onOpenSettings) {
+                Label(String(localized: "settings.title"), systemImage: "gearshape.fill")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.28), in: Circle())
+        }
+        .accessibilityLabel(String(localized: "sideRail.more"))
+        .accessibilityIdentifier("liquid.more")
+    }
+
+    @ViewBuilder private var buttons: some View {
         if part != .rest {
             round("line.3.horizontal", label: "liquid.library", id: "liquid.library", action: onOpenLibrary)
         }
