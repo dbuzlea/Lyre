@@ -759,6 +759,9 @@
 "liquid.bubbles.hint" = "Plays it. Drag it into Now Playing, or hold it to choose a song.";
 "liquid.bubbles.hint.show" = "Opens its episodes.";
 "liquid.bubbles.open" = "Open";
+"liquid.spread.allSongs" = "All Songs";
+"liquid.spread.track" = "Track %d";
+"liquid.spread.close" = "Put the songs away";
 "catalog.explicit" = "Explicit";
 "catalog.variant.atmos" = "Dolby Atmos";
 "catalog.variant.hiRes" = "Hi-Res Lossless";

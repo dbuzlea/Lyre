@@ -2156,6 +2156,45 @@ struct BubbleTiltTests {
     }
 }
 
+/// A held bubble's songs, spread around it: packed close, nearest first from the top,
+/// clockwise, all on the
+/// page and none over another; and the one a finger's on.
+@MainActor
+struct TrackSpreadTests {
+    @Test func theSongsRingTheHeldBubbleOnThePage() {
+        let page = CGRect(x: 0, y: 0, width: 400, height: 700)
+        let center = CGPoint(x: 200, y: 350)
+        let slots = TrackSpreadLayout.slots(count: 12, around: center, diameter: 100, within: page)
+        #expect(slots.count == 12)
+        // The first among the nearest, above it and a little to the right (clockwise from the top).
+        #expect(slots[0].y < center.y && slots[0].x >= center.x)
+        let nearest = slots.map { hypot($0.x - center.x, $0.y - center.y) }.min() ?? 0
+        #expect(hypot(slots[0].x - center.x, slots[0].y - center.y) < nearest + TrackSpreadLayout.bubble)
+        let inset = page.insetBy(dx: TrackSpreadLayout.bubble / 2, dy: TrackSpreadLayout.bubble / 2)
+        #expect(slots.allSatisfy { inset.contains($0) })
+        for i in slots.indices {
+            for j in slots.indices where j > i {
+                #expect(hypot(slots[i].x - slots[j].x, slots[i].y - slots[j].y) >= TrackSpreadLayout.bubble)
+            }
+        }
+    }
+
+    @Test func nearAnEdgeTheyGoWhereThereIsRoom() {
+        let page = CGRect(x: 0, y: 0, width: 400, height: 700)
+        let slots = TrackSpreadLayout.slots(count: 10, around: CGPoint(x: 60, y: 60), diameter: 90, within: page)
+        #expect(slots.count == 10)
+        let inset = page.insetBy(dx: TrackSpreadLayout.bubble / 2, dy: TrackSpreadLayout.bubble / 2)
+        #expect(slots.allSatisfy { inset.contains($0) })
+    }
+
+    @Test func theFingerChoosesTheBubbleItsOn() {
+        let slots = [CGPoint(x: 100, y: 100), CGPoint(x: 160, y: 100)]
+        #expect(TrackSpreadLayout.slot(at: CGPoint(x: 104, y: 98), in: slots) == 0)
+        #expect(TrackSpreadLayout.slot(at: CGPoint(x: 150, y: 104), in: slots) == 1)
+        #expect(TrackSpreadLayout.slot(at: CGPoint(x: 130, y: 200), in: slots) == nil)
+    }
+}
+
 /// The open Duo's side bar fitted to its height: as usual when it fits, closer together
 /// when that's what fits, and in a short window (stood as a tent) the fewest sections given
 /// up to "…", Artists first, the rest keeping their places.
