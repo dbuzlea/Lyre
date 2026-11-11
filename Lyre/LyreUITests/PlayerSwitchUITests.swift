@@ -87,6 +87,21 @@ final class PlayerSwitchUITests: XCTestCase {
         try assertSwitch(from: "liquid", prefix: "liquid", to: "Gramophone", arrivesAt: "gramophone.settings")
     }
 
+    /// The switch's show isn't waited on: a touch while the old player bows out brings the
+    /// new one straight in, ready to use.
+    @MainActor
+    func testATouchDuringTheSwitchBringsTheNewPlayerInAtOnce() throws {
+        let app = launch(style: "liquid")
+        openSwitchMenu(in: app, prefix: "liquid")
+        XCTAssertTrue(app.buttons["Gramophone"].waitForExistence(timeout: 3))
+        app.buttons["Gramophone"].tap()
+        // Clear of anything the Gramophone has, near the top corner.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.02)).tap()
+        let settings = app.buttons["gramophone.settings"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 3), "The Gramophone didn't come in")
+        XCTAssertTrue(settings.isHittable, "The Gramophone came in but can't be touched")
+    }
+
     /// LYRE-15: switching back to the Classic player from a button.
     @MainActor
     func testDiscChangePlayerButtonSwitchesToClassic() throws {

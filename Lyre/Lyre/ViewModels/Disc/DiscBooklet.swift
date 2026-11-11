@@ -117,7 +117,7 @@ struct DiscBooklet: View {
             .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         .rowSwipeActions(album.isPodcast ? episode.map(RowSwipeAction.download) ?? []
                                          : RowSwipeAction.queue { onQueue([track], $0) },
                          trailing: album.isPodcast ? [] : RowSwipeAction.library(track),

@@ -795,7 +795,7 @@ struct ShelfDividers: View {
                 )
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         // Read in the order they're filed, across and back, not row by row.
         .accessibilitySortPriority(Double(shelves.count - order))
         .accessibilityAddTraits(isSelected ? .isSelected : [])

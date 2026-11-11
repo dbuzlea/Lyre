@@ -93,17 +93,9 @@ struct LiquidLibraryView: View {
             menu
                 .navigationDestination(for: LiquidRoute.self) { route in
                     page(for: route)
-                        // Back by a swipe in from the left edge, as anywhere else.
-                        .overlay(alignment: .leading) {
-                            Color.clear
-                                .frame(width: 22)
-                                .contentShape(Rectangle())
-                                .gesture(DragGesture(minimumDistance: 12).onEnded { value in
-                                    // Far enough, or flicked: a quick short swipe goes back too.
-                                    let flung = value.translation.width + LyreMotion.project(value.velocity.width)
-                                    if max(value.translation.width, flung) > 60 { navigator.back() }
-                                })
-                        }
+                        // Back by a swipe in from the left edge, following the finger, as
+                        // anywhere else (InteractivePop).
+                        .background(InteractivePop(rootDepth: rootDepth))
                 }
         }
         .tint(.white)

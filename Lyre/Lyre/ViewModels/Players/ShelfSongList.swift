@@ -120,7 +120,7 @@ struct ShelfSongList: View {
             case .sleeve: sleeveRow(track, isPlaying: isPlaying)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         .accessibilityAddTraits(isPlaying ? .isSelected : [])
         .accessibilityIdentifier("shelf.song.\(index)")
         // Swiped right onto Play Next and Add to Queue, as the albums' songs are. (The
@@ -296,7 +296,7 @@ struct ShelfSongList: View {
 
     private func shuffleButton<Label: View>(@ViewBuilder label: () -> Label) -> some View {
         Button(action: { UsageStats.shared.used(.shuffle); onShuffle() }, label: label)
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .accessibilityLabel(String(localized: "detail.shuffle"))
             .accessibilityIdentifier("shelf.songs.shuffle")
     }

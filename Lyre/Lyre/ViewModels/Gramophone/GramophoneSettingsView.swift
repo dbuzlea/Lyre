@@ -62,7 +62,7 @@ struct GramophoneSettingsView: View {
                     .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                     .contentShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
 
                 section(1, String(localized: "spool.settings.tutorial")) {
                     GramophoneTourPager(theme: theme)
@@ -199,7 +199,7 @@ struct GramophoneSettingsView: View {
                     .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                     .contentShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
                 ShareDiagnosticsButton {
                     HStack(spacing: 12) {
                         Image(systemName: "doc.text.magnifyingglass")
@@ -221,7 +221,7 @@ struct GramophoneSettingsView: View {
                     .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                     .contentShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
                 Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
                     .font(.system(size: 11))
                     .opacity(0.5)
@@ -330,7 +330,7 @@ struct GramophoneSettingsView: View {
                 .strokeBorder(ink.opacity(isSelected ? 1 : 0.15), lineWidth: isSelected ? 2 : 1))
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("gramophone.settings.design.\(model.rawValue)")
     }
@@ -356,7 +356,7 @@ struct GramophoneSettingsView: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("gramophone.settings.finish.\(finish.rawValue)")
     }
@@ -382,7 +382,7 @@ struct GramophoneSettingsView: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         .accessibilityIdentifier("gramophone.settings.player.\(style.rawValue)")
     }
 }

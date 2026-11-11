@@ -48,7 +48,7 @@ struct ShelfSearchField: View {
                         .font(.system(size: 15))
                         .foregroundStyle(theme.keySymbol.opacity(0.6))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityLabel(String(localized: "search.clear"))
             }
         }

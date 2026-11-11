@@ -199,7 +199,7 @@ private struct AlbumInfoPage: View {
                         .contentShape(Rectangle())
                     }
                     // Rows read as text, not links.
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle(isRow: true))
                     .accessibilityIdentifier("albumInfo.song.\(index)")
                 }
             }
@@ -246,7 +246,7 @@ private struct AlbumInfoPage: View {
                                 }
                                 .frame(width: 110, alignment: .leading)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(LyrePressStyle())
                         }
                     }
                     .padding(.vertical, 4)

@@ -54,7 +54,7 @@ struct PlaylistEditButton<Label: View>: View {
     var body: some View {
         if let playlist, PlaylistAdder.shared.canEdit(playlist) {
             Button { PlaylistEditCenter.shared.edit(playlist) } label: { label() }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityLabel(String(localized: "playlist.edit.action"))
                 .accessibilityIdentifier(identifier)
         }
@@ -109,7 +109,7 @@ struct PlaylistEditSheet: View {
                             }
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(LyrePressStyle())
                         .accessibilityLabel(String(format: String(localized: "playlist.edit.addSong"), track.title))
                         .accessibilityIdentifier("playlist.edit.result.\(index)")
                     }

@@ -234,7 +234,7 @@ struct SpoolQueueTray: View {
                         // Once its cassette is out, the label is an empty sleeve.
                         .opacity(pulledID == entry.id && isPulledEmpty ? 0.45 : 1)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
                 // Pulled out of the stack, sideways and up towards the finger.
                 .offset(x: pulledID == entry.id ? 34 : 0)
                 .scaleEffect(pulledID == entry.id ? 1.03 : 1)

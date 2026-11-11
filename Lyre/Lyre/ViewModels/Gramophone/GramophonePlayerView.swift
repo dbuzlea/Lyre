@@ -740,7 +740,7 @@ struct GramophonePlayerView: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityLabel(String(localized: "gramophone.crate.open"))
         .accessibilityIdentifier("gramophone.crate")
     }
@@ -772,7 +772,7 @@ struct GramophonePlayerView: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityLabel(String(localized: isPodcast ? (forward ? "spool.skipForward" : "spool.skipBack")
                                                         : (forward ? "disc.next" : "disc.previous")))
         .accessibilityIdentifier(forward ? "gramophone.next" : "gramophone.back")

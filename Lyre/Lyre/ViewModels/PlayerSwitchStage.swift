@@ -39,6 +39,8 @@ struct PlayerSwitchStage<Content: View>: View {
     @State private var entrance: CGFloat = 1
     @State private var card: Card?
     @State private var run: Task<Void, Never>?
+    /// The show cut short by a touch (hurry), which brings the player in itself.
+    @State private var isHurried = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Card {
@@ -65,7 +67,18 @@ struct PlayerSwitchStage<Content: View>: View {
                     .opacity(1 - Double(bowOut))
                     // Coming in.
                     .modifier(Entrance(style: current, progress: entrance, size: size))
+                    // The new player takes touches as soon as its entrance begins; while the
+                    // song is still flying to it, a touch hurries the show along (below).
                     .allowsHitTesting(bowOut == 0 && entrance == 1)
+
+                // The show isn't waited on: a touch while the old player bows out or the
+                // song is in flight brings the new player straight in, under the finger.
+                if bowOut > 0 || entrance < 1 {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { hurry() }
+                        .accessibilityHidden(true)
+                }
 
                 if let card {
                     LiquidCover(source: .track(card.track))
@@ -93,6 +106,7 @@ struct PlayerSwitchStage<Content: View>: View {
 
     private func play(from old: PlayerStyle, to new: PlayerStyle, size: CGSize) {
         run?.cancel()
+        isHurried = false
         guard old != new else { return }
         guard !reduceMotion else {
             withAnimation(.easeInOut(duration: 0.3)) { shown = new }
@@ -113,7 +127,7 @@ struct PlayerSwitchStage<Content: View>: View {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             withAnimation(.easeIn(duration: 0.4)) { bowOut = 1 }
             try? await Task.sleep(for: .milliseconds(420))
-            guard !Task.isCancelled else { return settle(on: new) }
+            guard !Task.isCancelled else { return isHurried ? () : settle(on: new) }
 
             // The new player, out of sight until its entrance.
             var swap = Transaction()
@@ -133,7 +147,7 @@ struct PlayerSwitchStage<Content: View>: View {
                     card?.lift = 1
                 }
                 try? await Task.sleep(for: .milliseconds(460))
-                guard !Task.isCancelled else { return settle(on: new) }
+                guard !Task.isCancelled else { return isHurried ? () : settle(on: new) }
             }
 
             // 3. The new player's entrance.
@@ -143,6 +157,26 @@ struct PlayerSwitchStage<Content: View>: View {
             withAnimation(.easeIn(duration: 0.3).delay(0.3)) { card?.opacity = 0 }
             try? await Task.sleep(for: .milliseconds(650))
             settle(on: new)
+        }
+    }
+
+    /// A touch during the show: the rest of it skipped, the new player brought in at once
+    /// with the light spring (it can be used as it arrives), the song faded where it is.
+    private func hurry() {
+        isHurried = true
+        run?.cancel()
+        var swap = Transaction()
+        swap.disablesAnimations = true
+        withTransaction(swap) {
+            shown = style
+            bowOut = 0
+        }
+        Self.entranceSound(for: style)
+        withAnimation(LyreMotion.light) {
+            entrance = 1
+            card?.opacity = 0
+        } completion: {
+            card = nil
         }
     }
 

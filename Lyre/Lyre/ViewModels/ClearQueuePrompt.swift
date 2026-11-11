@@ -140,7 +140,7 @@ private struct ReplaceQueueDialog: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .padding(4)
                 .accessibilityLabel(String(localized: "queue.clear.confirm.cancel"))
                 .accessibilityIdentifier("queue.replace.cancel")
@@ -161,7 +161,7 @@ private struct ReplaceQueueDialog: View {
                 .frame(maxWidth: .infinity, minHeight: 46)
                 .background(.thinMaterial, in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .foregroundStyle(role == .destructive ? Color.red : Color.accentColor)
         .accessibilityIdentifier(id)
     }

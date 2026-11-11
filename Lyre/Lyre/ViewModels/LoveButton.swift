@@ -29,7 +29,7 @@ struct LoveButton<Label: View>: View {
                 label(isLoved)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .accessibilityLabel(isLoved ? String(localized: "love.loved") : String(localized: "love.label"))
             .accessibilityAddTraits(isLoved ? .isSelected : [])
             .accessibilityIdentifier(identifier)
