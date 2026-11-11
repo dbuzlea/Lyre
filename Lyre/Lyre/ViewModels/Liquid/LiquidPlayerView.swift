@@ -487,7 +487,8 @@ struct LiquidPlayerView: View {
                         onDrag: drag,
                         onDrop: { album, heading, velocity in drop(album, heading: heading, velocity: velocity) },
                         showsTabBar: false,
-                        keepsClearOfColumn: SideRail.isOn(safeArea)
+                        keepsClearOfColumn: SideRail.isOn(safeArea),
+                        onFindShows: { showPodcastSearch = true }
                     )
                     .transition(.opacity)
                 } else {
