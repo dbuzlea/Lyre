@@ -766,6 +766,28 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Tapping the bubble didn't play it")
     }
 
+    /// Open with the fold across, an album's page below the fold: its cover as a bubble in
+    /// the middle of the half, whole, with the way back and the queue button in its top
+    /// corners, not scrolled out of sight under the fold.
+    @MainActor
+    func testAnAlbumBelowTheFoldHasItsBubbleCentredAndItsButtonsInTheCorners() throws {
+        let app = try launchLiquid(["-SpoolFoldPosture", "open", "-LyreHingeAngle", "180", "-LiquidShot", "album"])
+        let back = element(app, "liquid.back")
+        let add = element(app, "liquid.album.queueMenu")
+        XCTAssertTrue(back.waitForExistence(timeout: 5), "No way back on the album's page")
+        XCTAssertTrue(add.exists, "No queue button on the album's page")
+        sleep(1)
+        // The fold is across the middle of the screen.
+        let fold = app.windows.firstMatch.frame.midY
+        for button in [back, add] {
+            XCTAssertTrue(button.isHittable, "\(button.identifier) can't be reached")
+            XCTAssertGreaterThan(button.frame.minY, fold, "\(button.identifier) is above the fold")
+            XCTAssertLessThan(button.frame.minY, fold + 30, "\(button.identifier) isn't at the top of the half")
+        }
+        XCTAssertLessThan(back.frame.midX, add.frame.midX, "The buttons aren't in their corners")
+        attachScreenshot(app, named: "duo-turned-album")
+    }
+
     /// Each artist has a rounded-square photo beside their name (here their album's
     /// cover, as the simulator has no Apple Music), and their page opens on it, large.
     /// The playlists page offers a new playlist, which asks for its name.

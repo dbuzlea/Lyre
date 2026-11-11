@@ -96,6 +96,9 @@ final class LiquidFoldState {
 extension EnvironmentValues {
     @Entry var liquidFlood = LiquidFloodAction()
     @Entry var liquidNavigator = LiquidNavigator()
+    /// How far down a page's own buttons stand from its top: clear of the status bar, or
+    /// near the top below the fold of an open iPhone Duo (no status bar there).
+    @Entry var liquidPageTop: CGFloat = 56
     /// The list a page shows (albums, songs, one artist's…), which its layout and the
     /// cover its stack was left on are kept under.
     @Entry var liquidListKey = ""

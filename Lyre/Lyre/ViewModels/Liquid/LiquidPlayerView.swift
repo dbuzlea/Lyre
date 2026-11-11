@@ -637,8 +637,10 @@ struct LiquidPlayerView: View {
             }
         }
         // The page's own buttons (the way back, an album's) stand on the page: the column
-        // is the side bar's sections and nothing else.
+        // is the side bar's sections and nothing else. Below the fold there's no status
+        // bar to keep clear of, so they stand near the page's top.
         .environment(\.sideRailHoldsPageButtons, false)
+        .environment(\.liquidPageTop, foldIsAcross ? 12 : 56)
         // Opened on a section of pages (the one last open): its page, not the lava menu.
         .onAppear {
             if path.isEmpty, bookSection.bubbleTab == nil { path = [bookSection.route] }
