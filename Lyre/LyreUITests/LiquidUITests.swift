@@ -816,6 +816,37 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(element(app, "liquid.album.track.0").waitForExistence(timeout: 5), "The genre didn't open its songs")
     }
 
+    /// A card grown to the screen and back keeps its page to its own width: Play and
+    /// Shuffle sit inside it again, not laid out as wide as the screen and cut off.
+    @MainActor
+    func testACardBackFromTheFullScreenKeepsItsPageToItsWidth() throws {
+        let app = try launchLiquid(["-LiquidShot", "library"])
+        let albums = element(app, "liquid.menu.albums")
+        XCTAssertTrue(albums.waitForExistence(timeout: 10), "The menu has no albums")
+        albums.tap()
+        let cover = element(app, "liquid.cover.sample-1")
+        XCTAssertTrue(cover.waitForExistence(timeout: 5), "Albums didn't open")
+        cover.tap()
+        let card = element(app, "liquid.deck.card.0")
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "The cover didn't open as a card")
+        sleep(1)
+        let shuffle = element(app, "liquid.album.shuffle")
+        XCTAssertTrue(shuffle.waitForExistence(timeout: 5), "The card has no Shuffle")
+        XCTAssertLessThanOrEqual(shuffle.frame.maxX, card.frame.maxX + 1, "Shuffle runs past the card before it grew")
+
+        card.swipeUp()
+        let bar = element(app, "liquid.card.bar")
+        XCTAssertTrue(bar.waitForExistence(timeout: 4), "Scrolled down, the card didn't fill the screen")
+        sleep(1)
+        for _ in 0..<4 where bar.exists { card.swipeDown(); sleep(1) }
+        XCTAssertFalse(bar.exists, "Back at its top, the card didn't come back")
+        sleep(1)
+        XCTAssertTrue(shuffle.waitForExistence(timeout: 3))
+        attachScreenshot(app, named: "liquid-card-back-from-full")
+        XCTAssertLessThanOrEqual(shuffle.frame.maxX, card.frame.maxX + 1,
+                                 "Back from the full screen, Shuffle runs past the card (\(shuffle.frame), card \(card.frame))")
+    }
+
     /// Now Playing has a ★ that favourites the song (in Apple Music; here kept in Lyre, as
     /// the simulator has none), and a second tap takes it back.
     @MainActor
