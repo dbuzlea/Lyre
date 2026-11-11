@@ -1026,8 +1026,11 @@ final class LiquidUITests: XCTestCase {
 
     /// Only the Duo's inner screen turns Liquid sideways, which the simulator can't do:
     /// the book layout is asked for in an upright window instead.
+    /// Flat, unless the test stands it at an angle: the simulator reports a hinge angle of
+    /// its own, short of flat, which would stand every book up as a tent.
     private func launchBook(_ extra: [String] = []) throws -> XCUIApplication {
-        try launchLiquid(["-SpoolFoldPosture", "open", "-LiquidDuoLayout", "book"] + extra)
+        let angle = extra.contains("-LyreHingeAngle") ? [] : ["-LyreHingeAngle", "180"]
+        return try launchLiquid(["-SpoolFoldPosture", "open", "-LiquidDuoLayout", "book"] + angle + extra)
     }
 
     /// Opened and held wide, as a real Duo is, without asking for the layout: Now Playing
@@ -1294,6 +1297,24 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Play didn't play")
         XCTAssertTrue(element(app, "liquid.nowPlaying").exists, "Now Playing left the left page")
         XCTAssertTrue(play.exists, "The album's page left the right page")
+    }
+
+    /// Held as a book but stood half open, as a tent: Now Playing as the visualizer shows
+    /// the song, with its keys and buttons, and the side bar beside the sections.
+    @MainActor
+    func testStoodAsATentNowPlayingIsTheSongInTheMiddle() throws {
+        let app = try launchBook(["-LyreHingeAngle", "110"])
+        let standing = element(app, "liquid.standing")
+        XCTAssertTrue(standing.waitForExistence(timeout: 10), "Stood half open, Now Playing isn't the standing one")
+        for id in ["liquid.playPause", "liquid.standing.previous", "liquid.standing.next", "liquid.upNext",
+                   "liquid.settings", "liquid.playerSwitch", "liquid.book.albums", "liquid.book.more"] {
+            XCTAssertTrue(element(app, id).exists, "\(id) is missing")
+        }
+        XCTAssertTrue(element(app, "liquid.bubble.sample-1").exists, "No bubbles beside it")
+        sleep(1)
+        attachScreenshot(app, named: "duo-tent")
+        element(app, "liquid.upNext").tap()
+        XCTAssertTrue(element(app, "liquid.tide").waitForExistence(timeout: 5), "Up Next didn't rise")
     }
 
     /// Stood half open and left alone: the visualizer, until it's touched.

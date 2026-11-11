@@ -70,6 +70,8 @@ extension EnvironmentValues {
 struct SideRailButtons<Content: View>: View {
     var edge: HorizontalEdge = .trailing
     var spacing: CGFloat = 14
+    /// Where the rail starts, when not under the status bar's reserve (a short window).
+    var top: CGFloat?
     @ViewBuilder let content: () -> Content
 
     @Environment(\.windowSafeArea) private var safeArea
@@ -79,7 +81,7 @@ struct SideRailButtons<Content: View>: View {
         if SideRail.isOn(safeArea) {
             VStack(spacing: spacing) { content() }
                 .frame(width: edge == .trailing ? SideRail.column(safeArea) : SideRail.leadingWidth)
-                .padding(.top, edge == .trailing ? SideRail.statusReserve + start : SideRail.leadingTop)
+                .padding(.top, top ?? (edge == .trailing ? SideRail.statusReserve + start : SideRail.leadingTop))
                 .frame(maxWidth: .infinity, maxHeight: .infinity,
                        alignment: edge == .trailing ? .topTrailing : .topLeading)
                 // Into the column, which a view laid out in the safe area (a sheet) keeps clear of.

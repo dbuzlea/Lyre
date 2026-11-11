@@ -510,19 +510,38 @@ struct LiquidPlayerView: View {
         let half = geometry.size.width / 2
         let pull = hingePull
         let inColumn = SideRail.isOn(safeArea)
+        let height = geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom
+        // Under the status bar's reserve as usual; in a short window (stood as a tent),
+        // from just under the clock, closer together, and with what still doesn't fit in "…".
+        let usual = height - SideRail.statusReserve - safeArea.bottom - 12
+        let top = BookSection.fitted(recent: bookRecent, height: usual).spacing == 14
+            ? SideRail.statusReserve : SideRail.stripTop
+        let bar = BookSection.fitted(recent: bookRecent, height: height - top - safeArea.bottom - 12)
         return HStack(spacing: 0) {
-            nowPlayingPane(lean: CGVector(dx: pull, dy: 0), onOpenLibrary: {}, queueDrag: true,
-                           railEdge: .leading, showsLibraryButton: false)
-                .frame(width: half)
-                .clipped()
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingPage = $0 }
+            Group {
+                // Stood half open (as a tent, on a table): the song as the visualizer has
+                // it, with what it needs to be played.
+                if foldMonitor.isPartlyOpen {
+                    standingNowPlaying
+                } else {
+                    nowPlayingPane(lean: CGVector(dx: pull, dy: 0), onOpenLibrary: {}, queueDrag: true,
+                                   railEdge: .leading, showsLibraryButton: false)
+                }
+            }
+            .frame(width: half)
+            .clipped()
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingPage = $0 }
             sectionPage(geometry, lavaPull: CGVector(dx: -pull, dy: 0), barInColumn: inColumn)
                 .frame(width: half)
                 .clipped()
         }
         // The side bar: the sections first, as navigation goes, the rest in "…".
         .overlay {
-            if inColumn { SideRailButtons { bookSectionButtons } }
+            if inColumn {
+                SideRailButtons(spacing: bar.spacing, top: top) {
+                    bookSectionButtons(bar: bar.bar, more: bar.more)
+                }
+            }
         }
         .overlay { GeometryReader { carriedLayer(in: $0) } }
         .ignoresSafeArea()
@@ -593,10 +612,14 @@ struct LiquidPlayerView: View {
             // Without a status bar's column, the sections stand down the page's own right
             // edge, beside what they open rather than over it.
             if !barInColumn {
-                VStack(spacing: 14) { bookSectionButtons }
-                    .frame(width: 58)
-                    .frame(maxHeight: .infinity)
-                    .background(Color.white.opacity(0.04))
+                GeometryReader { strip in
+                    let bar = BookSection.fitted(recent: bookRecent, height: strip.size.height - 16)
+                    VStack(spacing: bar.spacing) { bookSectionButtons(bar: bar.bar, more: bar.more) }
+                        .frame(width: 58, height: strip.size.height)
+                }
+                .frame(width: 58)
+                .frame(maxHeight: .infinity)
+                .background(Color.white.opacity(0.04))
             }
         }
         // The page's own buttons (the way back, an album's) stand on the page: the column
@@ -616,8 +639,8 @@ struct LiquidPlayerView: View {
     }
 
     /// The side bar's sections, and "…" for the rest.
-    @ViewBuilder private var bookSectionButtons: some View {
-        ForEach(BookSection.bar(recent: bookRecent)) { section in
+    @ViewBuilder private func bookSectionButtons(bar: [BookSection], more: [BookSection]) -> some View {
+        ForEach(bar) { section in
             Button { openBookSection(section) } label: {
                 Image(systemName: section.symbol)
                     .font(.system(size: 17, weight: .semibold))
@@ -630,7 +653,6 @@ struct LiquidPlayerView: View {
             .accessibilityAddTraits(section == bookSection ? .isSelected : [])
             .accessibilityIdentifier("liquid.book.\(section.rawValue)")
         }
-        let more = BookSection.more(recent: bookRecent)
         let moreIsOpen = more.contains(bookSection)
         Menu {
             ForEach(more) { section in
@@ -648,6 +670,22 @@ struct LiquidPlayerView: View {
         .accessibilityLabel(String(localized: "sideRail.more"))
         .accessibilityValue(moreIsOpen ? bookSection.title : "")
         .accessibilityIdentifier("liquid.book.more")
+    }
+
+    /// Held as a book but stood half open (as a tent on a table): Now Playing as the
+    /// visualizer shows the song, the cover in the middle with rings on the beat, with its
+    /// title, the keys to play it, and Now Playing's own buttons down the left edge.
+    private var standingNowPlaying: some View {
+        LiquidVisualizer(musicService: musicService, onWake: {}, standing: true, onOpenQueue: { openTide() })
+            .overlay(alignment: .topLeading) {
+                VStack(spacing: 14) {
+                    LiquidNowPlayingButtons(part: .rest, track: musicService.nowPlayingTrack, themeSettings: themeSettings,
+                                            onOpenLibrary: {}, onOpenSettings: { showSettings = true })
+                }
+                .frame(width: SideRail.leadingWidth)
+                .padding(.top, max(safeArea.top, 20) + 20)
+            }
+            .ignoresSafeArea()
     }
 
     /// A section opened: one of the sections that aren't always in the side bar takes its
@@ -1336,6 +1374,25 @@ enum BookSection: String, CaseIterable, Identifiable {
     static func more(recent: BookSection) -> [BookSection] {
         let shown = bar(recent: recent).last
         return rotating.filter { $0 != shown }
+    }
+
+    /// The side bar fitted to `height` points of rail (an iPhone Duo stood as a tent has
+    /// a short window): the buttons apart as they usually are if all of them and "…" fit,
+    /// closer if that's what fits, and if even then they don't, the fewest given up to
+    /// "…" (Artists first, then Search, then Songs), the rest keeping their places.
+    static func fitted(recent: BookSection, height: CGFloat) -> (spacing: CGFloat, bar: [BookSection], more: [BookSection]) {
+        let bar = bar(recent: recent)
+        var more = more(recent: recent)
+        func fits(_ spacing: CGFloat) -> Int { Int((height + spacing) / (44 + spacing)) }
+        if fits(14) >= bar.count + 1 { return (14, bar, more) }
+        let room = max(3, fits(8)) - 1
+        guard room < bar.count else { return (8, bar, more) }
+        var kept = bar
+        for section in [BookSection.artists, .search, .songs] where kept.count > room {
+            kept.removeAll { $0 == section }
+            more.insert(section, at: 0)
+        }
+        return (8, kept, more)
     }
 
     var title: String {
