@@ -2156,6 +2156,33 @@ struct BubbleTiltTests {
     }
 }
 
+/// The open Duo's side bar fitted to its height: as usual when it fits, closer together
+/// when that's what fits, and in a short window (stood as a tent) the fewest sections given
+/// up to "…", Artists first, the rest keeping their places.
+@MainActor
+struct BookSideBarTests {
+    @Test func theSideBarFitsItsHeight() {
+        let roomy = BookSection.fitted(recent: .playlists, height: 400)
+        #expect(roomy.spacing == 14)
+        #expect(roomy.bar == [.albums, .songs, .artists, .search, .playlists])
+
+        // Six buttons at 14 apart need 334; at 8 apart, 304.
+        let snug = BookSection.fitted(recent: .playlists, height: 310)
+        #expect(snug.spacing == 8)
+        #expect(snug.bar.count == 5)
+
+        // Five buttons at 8 apart need 252: four sections and "…".
+        let short = BookSection.fitted(recent: .playlists, height: 260)
+        #expect(short.bar == [.albums, .songs, .search, .playlists])
+        #expect(short.more.first == .artists)
+
+        let tiny = BookSection.fitted(recent: .discover, height: 150)
+        #expect(tiny.bar == [.albums, .discover])
+        #expect(Set(tiny.more).isSuperset(of: [.artists, .search, .songs]))
+        #expect(!tiny.more.contains(.discover))
+    }
+}
+
 /// The water at an open iPhone Duo's fold (FoldWater): the surface holding a bubble back
 /// and giving way, the bubble flattening without losing its size, and the neck of water
 /// between them joining, thinning and snapping.
