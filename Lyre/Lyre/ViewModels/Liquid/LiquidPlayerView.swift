@@ -72,10 +72,12 @@ struct LiquidPlayerView: View {
     /// The visualizer, while the Duo stands half open, left alone.
     @State private var isVisualizing = false
     /// iPhone Duo held as a book: the whole library on the right page, not the bubbles.
-    @State private var isBookLibrary = false
+    /// Held as a book: the section the side bar has open on the right-hand page.
+    @AppStorage("LiquidBookSection") private var bookSection: BookSection = .albums
+    /// The side bar's fifth button: whichever of the sections that aren't always there
+    /// (Playlists, Podcasts, Discover, the recent lists) was opened last.
+    @AppStorage("LiquidBookRecent") private var bookRecent: BookSection = .playlists
     /// The library came up from a bubble held: going back from its page goes back to them.
-    @State private var isBookLibraryFromBubbles = false
-    @State private var bubbleTab: LiquidBubbleTab = .albums
     /// A bubble on its way into Now Playing: dragged, flying after a tap, or taken in.
     @State private var carried: CarriedBubble?
     /// Now Playing's page, on screen, for a bubble to be taken into.
@@ -102,21 +104,9 @@ struct LiquidPlayerView: View {
         instant.disablesAnimations = true
         withTransaction(instant) {
             screen = .library
-            isBookLibrary = true
+            if let section = BookSection(route: route) { chooseBookSection(section) }
             path = [route]
         }
-    }
-
-    /// What stands in the side column held as a book: the bubbles' tabs while the bubbles
-    /// are up, then Now Playing's buttons, the less used of them in a "…" menu when the
-    /// column hasn't room for all; and how many buttons that comes to.
-    private func bookRail(height: CGFloat) -> (hasTabs: Bool, overflows: Bool, count: Int) {
-        let hasTabs = !isBookLibrary
-        let tabs = hasTabs ? LiquidBubbleTab.allCases.count : 0
-        let all = LiquidNowPlayingButtons.count(track: musicService.nowPlayingTrack)
-        let room = SideRail.capacity(height: height, bottom: safeArea.bottom)
-        let overflows = tabs + all > room
-        return (hasTabs, overflows, tabs + (overflows ? LiquidNowPlayingButtons.overflowCount : all))
     }
 
     private var playerBody: some View {
@@ -387,7 +377,7 @@ struct LiquidPlayerView: View {
     /// The library, with what's playing docked at the bottom as a droplet (on a Duo's
     /// split screen, where Now Playing is in view, the droplet's place is `dock`'s).
     private func libraryLayer(_ geometry: GeometryProxy, lavaPull: CGVector = .zero,
-                              dock: AnyView? = nil) -> some View {
+                              dock: AnyView? = nil, rootDepth: Int = 0) -> some View {
         LiquidLibraryView(
             musicService: musicService,
             path: $path,
@@ -399,7 +389,8 @@ struct LiquidPlayerView: View {
             themeSettings: themeSettings,
             bottomInset: musicService.nowPlayingTrack != nil || dock != nil ? 104 + safeArea.bottom : safeArea.bottom,
             lavaPull: lavaPull,
-            onNotice: showNotice
+            onNotice: showNotice,
+            rootDepth: rootDepth
         )
         .overlay(alignment: .bottom) {
             Group {
@@ -448,7 +439,8 @@ struct LiquidPlayerView: View {
     /// Now Playing, sharing the screen: no dragging it away (the other half is already
     /// in view).
     private func nowPlayingPane(lean: CGVector, onOpenLibrary: @escaping () -> Void,
-                                queueDrag: Bool, railEdge: HorizontalEdge? = .trailing) -> some View {
+                                queueDrag: Bool, railEdge: HorizontalEdge? = .trailing,
+                                showsLibraryButton: Bool = true) -> some View {
         LiquidNowPlayingView(
             musicService: musicService,
             themeSettings: themeSettings,
@@ -464,81 +456,127 @@ struct LiquidPlayerView: View {
             onOpenPlayingAlbum: openPlayingAlbum,
             lean: lean,
             splash: splash,
-            railEdge: railEdge
+            railEdge: railEdge,
+            showsLibraryButton: showsLibraryButton
         )
     }
 
-    /// Held as a book: Now Playing on the left page, and on the right the bubbles, or
-    /// the whole library.
+    /// Held as a book: Now Playing on the left page, and on the right the section the side
+    /// bar has open: the albums, playlists or shows as bubbles, or the songs, artists,
+    /// search, Discover and the recent lists as the library's pages. The side bar, down
+    /// the status bar's column, is the way round the library; Now Playing keeps its own
+    /// buttons, down its left edge.
     private func bookLayout(_ geometry: GeometryProxy) -> some View {
         let half = geometry.size.width / 2
         let pull = hingePull
+        let tab = bookSection.bubbleTab
         return HStack(spacing: 0) {
-            // Its buttons stand down the right-hand column, drawn below over both pages.
-            nowPlayingPane(lean: CGVector(dx: pull, dy: 0), onOpenLibrary: toggleBookLibrary, queueDrag: true,
-                           railEdge: nil)
+            nowPlayingPane(lean: CGVector(dx: pull, dy: 0), onOpenLibrary: {}, queueDrag: true,
+                           railEdge: .leading, showsLibraryButton: false)
                 .frame(width: half)
                 .clipped()
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { nowPlayingPage = $0 }
             ZStack {
-                if isBookLibrary {
-                    libraryLayer(geometry, lavaPull: CGVector(dx: -pull, dy: 0), dock: AnyView(
-                        Button(action: toggleBookLibrary) {
-                            Label(String(localized: "liquid.bubbles.back"), systemImage: "circle.grid.3x3.fill")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 18)
-                                .frame(height: 46)
-                                .background(.white.opacity(0.16), in: Capsule())
-                        }
-                        .buttonStyle(LyrePressStyle())
-                        .accessibilityIdentifier("liquid.bubbles.back")
-                    ))
-                    .transition(.opacity)
-                } else {
+                if let tab, path.isEmpty {
                     LiquidBubbleField(
                         musicService: musicService,
-                        tab: $bubbleTab,
+                        tab: Binding(get: { tab }, set: { chooseBookSection(BookSection(tab: $0)) }),
                         draggedID: carried?.album.id,
                         onPlay: { album, center, diameter in fly(album, from: center, diameter: diameter) },
                         onOpen: openFromBubbles,
                         onDrag: drag,
                         onDrop: { album, heading, velocity in drop(album, heading: heading, velocity: velocity) },
-                        // With the status bar's column down the right, the tabs stand there.
-                        showsTabBar: !SideRail.isOn(safeArea)
+                        showsTabBar: false,
+                        keepsClearOfColumn: SideRail.isOn(safeArea)
                     )
                     .transition(.opacity)
+                } else {
+                    libraryLayer(geometry, lavaPull: CGVector(dx: -pull, dy: 0),
+                                 dock: AnyView(EmptyView()), rootDepth: tab == nil ? 1 : 0)
+                        .transition(.opacity)
                 }
             }
             .frame(width: half)
             .clipped()
-            // The right page's own rail buttons (the way back, an album's) stand below
-            // Now Playing's in the column, and it doesn't repeat the switch and Settings.
-            .environment(\.sideRailStart, CGFloat(bookRail(height: geometry.size.height).count) * SideRail.step)
-            .environment(\.sideRailHasPlayerButtons, true)
-        }
-        // iPhone Duo held as a book, the status bar down the right: the bubbles' tabs and
-        // Now Playing's buttons stand in that column, where the hand holding that side is,
-        // in the order Apple's guidance has: navigation first (the tabs, the library),
-        // then the rest, and a "…" menu for what doesn't fit (SideRail).
-        .overlay {
-            let rail = bookRail(height: geometry.size.height)
-            SideRailButtons {
-                if rail.hasTabs { LiquidBubbleTabs(tab: $bubbleTab) }
-                LiquidNowPlayingButtons(part: .all, track: musicService.nowPlayingTrack, themeSettings: themeSettings,
-                                        onOpenLibrary: toggleBookLibrary, onOpenSettings: { showSettings = true },
-                                        overflows: rail.overflows)
+            // Without a status bar's column (any other open phone), the sections stand
+            // down the page's own right edge instead.
+            .overlay(alignment: .trailing) {
+                if !SideRail.isOn(safeArea) {
+                    VStack(spacing: 14) { bookSectionButtons }
+                        .frame(width: 58)
+                        .frame(maxHeight: .infinity)
+                        .background(Color.white.opacity(0.04))
+                }
             }
+            // The right page's own buttons (the way back, an album's) stand on the page:
+            // the column is the side bar's sections and nothing else.
+            .environment(\.sideRailHoldsPageButtons, false)
+        }
+        // The side bar: the sections first, as navigation goes, the rest in "…".
+        .overlay {
+            SideRailButtons { bookSectionButtons }
         }
         .overlay { GeometryReader { carriedLayer(in: $0) } }
         .ignoresSafeArea()
         .onChange(of: path) { _, path in
-            // Back from the page a bubble opened: the bubbles again.
-            guard path.isEmpty, isBookLibraryFromBubbles else { return }
-            withAnimation(.easeInOut(duration: 0.3)) {
-                isBookLibrary = false
-                isBookLibraryFromBubbles = false
+            // Back from an album opened from the bubbles: the bubbles again. A section
+            // of pages can't be gone back from (it's the bottom page; rootDepth).
+            if path.isEmpty, bookSection.bubbleTab == nil {
+                self.path = [bookSection.route]
             }
+        }
+    }
+
+    /// The side bar's sections, and "…" for the rest.
+    @ViewBuilder private var bookSectionButtons: some View {
+        ForEach(BookSection.bar(recent: bookRecent)) { section in
+            Button { openBookSection(section) } label: {
+                Image(systemName: section.symbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(section == bookSection ? Color.black : Color.white.opacity(0.75))
+                    .frame(width: 44, height: 44)
+                    .background(section == bookSection ? Color.white : Color.white.opacity(0.1), in: Circle())
+            }
+            .buttonStyle(LyrePressStyle())
+            .accessibilityLabel(section.title)
+            .accessibilityAddTraits(section == bookSection ? .isSelected : [])
+            .accessibilityIdentifier("liquid.book.\(section.rawValue)")
+        }
+        let more = BookSection.more(recent: bookRecent)
+        let moreIsOpen = more.contains(bookSection)
+        Menu {
+            ForEach(more) { section in
+                Button { openBookSection(section) } label: {
+                    Label(section.title, systemImage: section.symbol)
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(moreIsOpen ? Color.black : Color.white.opacity(0.75))
+                .frame(width: 44, height: 44)
+                .background(moreIsOpen ? Color.white : Color.white.opacity(0.1), in: Circle())
+        }
+        .accessibilityLabel(String(localized: "sideRail.more"))
+        .accessibilityValue(moreIsOpen ? bookSection.title : "")
+        .accessibilityIdentifier("liquid.book.more")
+    }
+
+    /// A section opened: one of the sections that aren't always in the side bar takes its
+    /// fifth button, so the one last used is a tap away. The four that are always there
+    /// never move, so they stay where the thumb expects them.
+    private func chooseBookSection(_ section: BookSection) {
+        bookSection = section
+        if BookSection.rotating.contains(section) { bookRecent = section }
+    }
+
+    /// A section chosen in the side bar: its bubbles, or its page at the bottom of the
+    /// right-hand page's own pages.
+    private func openBookSection(_ section: BookSection) {
+        UISelectionFeedbackGenerator().selectionChanged()
+        withAnimation(.easeInOut(duration: 0.25)) {
+            chooseBookSection(section)
+            path = section.bubbleTab == nil ? [section.route] : []
         }
     }
 
@@ -603,24 +641,9 @@ struct LiquidPlayerView: View {
     /// How far past the fold a bubble's centre goes before Now Playing takes it.
     private static let takeInDepth: CGFloat = 36
 
-    /// Now Playing's library button, held as a book: the right page swaps between the
-    /// bubbles and the library.
-    private func toggleBookLibrary() {
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        withAnimation(.easeInOut(duration: 0.3)) {
-            isBookLibrary.toggle()
-            isBookLibraryFromBubbles = false
-            path = []
-        }
-    }
-
     /// A bubble held, or a show tapped: its page, on the right.
     private func openFromBubbles(_ album: AppAlbum) {
-        withAnimation(.easeInOut(duration: 0.3)) {
-            path = [.album(album)]
-            isBookLibrary = true
-            isBookLibraryFromBubbles = true
-        }
+        withAnimation(.easeInOut(duration: 0.3)) { path = [.album(album)] }
     }
 
     private func drag(_ album: AppAlbum, to center: CGPoint, diameter: CGFloat, from origin: CGPoint) {
@@ -993,5 +1016,94 @@ struct LiquidPlayerView: View {
             guard !Task.isCancelled else { return }
             notice = nil
         }
+    }
+}
+
+/// The Duo held open as a book: the library's sections, down the side bar. Albums, Songs,
+/// Artists, Playlists and Search stand in it; the rest are in its "…" menu.
+enum BookSection: String, CaseIterable, Identifiable {
+    case albums, songs, artists, playlists, search, podcasts, discover, recentlyPlayed, recentlyAdded
+
+    var id: String { rawValue }
+
+    /// Always in the side bar, always in the same place.
+    static let fixed: [BookSection] = [.albums, .songs, .artists, .search]
+    /// One of these, the last opened, takes the side bar's fifth button; the rest are in "…".
+    static let rotating: [BookSection] = [.playlists, .podcasts, .discover, .recentlyPlayed, .recentlyAdded]
+
+    static func bar(recent: BookSection) -> [BookSection] {
+        fixed + [rotating.contains(recent) ? recent : .playlists]
+    }
+
+    static func more(recent: BookSection) -> [BookSection] {
+        let shown = bar(recent: recent).last
+        return rotating.filter { $0 != shown }
+    }
+
+    var title: String {
+        switch self {
+        case .albums:         String(localized: "liquid.menu.albums").localizedCapitalized
+        case .songs:          String(localized: "liquid.menu.songs").localizedCapitalized
+        case .artists:        String(localized: "liquid.menu.artists").localizedCapitalized
+        case .playlists:      String(localized: "liquid.menu.playlists").localizedCapitalized
+        case .search:         String(localized: "liquid.menu.search").localizedCapitalized
+        case .podcasts:       String(localized: "liquid.menu.podcasts").localizedCapitalized
+        case .discover:       String(localized: "discover.title")
+        case .recentlyPlayed: String(localized: "liquid.menu.recentlyPlayed").localizedCapitalized
+        case .recentlyAdded:  String(localized: "liquid.menu.recentlyAdded").localizedCapitalized
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .albums:         "square.stack.fill"
+        case .songs:          "music.note"
+        case .artists:        "music.microphone"
+        case .playlists:      "music.note.list"
+        case .search:         "magnifyingglass"
+        case .podcasts:       "mic.fill"
+        case .discover:       "sparkles"
+        case .recentlyPlayed: "clock.arrow.circlepath"
+        case .recentlyAdded:  "plus.square.on.square"
+        }
+    }
+
+    /// The bubbles a section shows, for the albums, playlists and shows.
+    var bubbleTab: LiquidBubbleTab? {
+        switch self {
+        case .albums:    .albums
+        case .playlists: .playlists
+        case .podcasts:  .podcasts
+        default:         nil
+        }
+    }
+
+    /// The library's page for a section.
+    var route: LiquidRoute {
+        switch self {
+        case .albums:         .albums
+        case .songs:          .songs
+        case .artists:        .artists
+        case .playlists:      .playlists
+        case .search:         .search
+        case .podcasts:       .podcasts
+        case .discover:       .discover
+        case .recentlyPlayed: .recentlyPlayed
+        case .recentlyAdded:  .recentlyAdded
+        }
+    }
+
+    init(tab: LiquidBubbleTab) {
+        switch tab {
+        case .albums:    self = .albums
+        case .playlists: self = .playlists
+        case .podcasts:  self = .podcasts
+        }
+    }
+
+    /// The section a library page is, if it's one.
+    init?(route: LiquidRoute) {
+        guard let found = Self.allCases.first(where: { $0.route == route }) else { return nil }
+        self = found
     }
 }

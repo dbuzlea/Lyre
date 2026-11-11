@@ -33,6 +33,8 @@ struct LiquidFloodAction {
 /// can ask of the library: queueing a whole album, and finding shows.
 struct LiquidNavigator {
     var push: (LiquidRoute) -> Void = { _ in }
+    /// Whether there's a page to go back to (not at a book section's bottom page).
+    var canGoBack = true
     var back: () -> Void = {}
     var queueAlbum: (AppAlbum, QueuePlacement) -> Void = { _, _ in }
     var findShows: () -> Void = {}

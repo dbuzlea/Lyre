@@ -64,8 +64,12 @@ struct LiquidLibraryView: View {
 
     /// Shows a short message over the player (queued, added, …).
     var onNotice: (String) -> Void = { _ in }
+    /// How many pages stay put underneath, not gone back from: held as a book, a section
+    /// chosen in the side bar is the bottom page, with no menu under it.
+    var rootDepth = 0
 
     @Environment(\.windowSafeArea) private var safeArea
+    @Environment(\.sideRailHoldsPageButtons) private var railHoldsPageButtons
     @Environment(\.liquidFlood) private var flood
     @Environment(\.openURL) private var openURL
     @State private var catalogOffer: CatalogOffer?
@@ -189,8 +193,9 @@ struct LiquidLibraryView: View {
                     flood(color) { path.append(route) }
                 }
             },
+            canGoBack: path.count > rootDepth,
             back: {
-                guard !path.isEmpty else { return }
+                guard path.count > rootDepth else { return }
                 if case .album(let album) = path.last, zoomedAlbums.remove(album.id) != nil {
                     path.removeLast()
                     return
@@ -277,10 +282,12 @@ struct LiquidLibraryView: View {
     /// The side rail's buttons: back, or a deck's close, and an album's own buttons.
     private var sideRail: some View {
         SideRailButtons {
-            if deck != nil {
+            if !railHoldsPageButtons {
+                // On the page instead (held as a book).
+            } else if deck != nil {
                 railKey("chevron.down", label: "liquid.card.close", id: "liquid.card.bar.close", action: closeDeck)
                 if case .album(let album)? = deckItem { LiquidAlbumActions(album: album) }
-            } else if !path.isEmpty {
+            } else if path.count > rootDepth {
                 railKey("chevron.left", label: "liquid.back") { navigator.back() }
                 if case .album(let album)? = path.last { LiquidAlbumActions(album: album) }
             }
@@ -876,12 +883,13 @@ struct LiquidPageTitle: View {
     @Environment(\.liquidNavigator) private var navigator
     @Environment(\.liquidCard) private var card
     @Environment(\.windowSafeArea) private var safeArea
+    @Environment(\.sideRailHoldsPageButtons) private var railHoldsPageButtons
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             // In a card, the way back closes it. Down the side column instead, on an
             // iPhone Duo with its status bar there (SideRail).
-            if !SideRail.isOn(safeArea) {
+            if !SideRail.holdsPageButtons(safeArea, railHoldsPageButtons), navigator.canGoBack {
                 Button { navigator.back() } label: {
                     Image(systemName: card == nil ? "chevron.left" : "chevron.down")
                         .font(.system(size: 17, weight: .semibold))
@@ -1596,6 +1604,7 @@ struct LiquidAlbumPage: View {
     @Environment(\.liquidNavigator) private var navigator
     @Environment(\.liquidCard) private var card
     @Environment(\.windowSafeArea) private var safeArea
+    @Environment(\.sideRailHoldsPageButtons) private var railHoldsPageButtons
 
     init(album: AppAlbum, library: ShelfLibrary, musicService: MusicService,
          onPlay: @escaping (AppAlbum, [AppTrack], Int, Bool) -> Void,
@@ -1682,7 +1691,7 @@ struct LiquidAlbumPage: View {
                 }
                 .onAppear { BubbleTilt.shared.attach() }
                 .onDisappear { BubbleTilt.shared.detach() }
-            if !SideRail.isOn(safeArea) {
+            if !SideRail.holdsPageButtons(safeArea, railHoldsPageButtons), navigator.canGoBack {
                 Button { navigator.back() } label: {
                     Image(systemName: card == nil ? "chevron.left" : "chevron.down")
                         .font(.system(size: 17, weight: .semibold))
@@ -1702,7 +1711,7 @@ struct LiquidAlbumPage: View {
             // LYRE-14: the whole album to Up Next, without holding its cover. A show's
             // episodes can't be queued, so a show has none. Down the side column
             // instead, on an iPhone Duo with its status bar there (SideRail).
-            if !SideRail.isOn(safeArea) {
+            if !SideRail.holdsPageButtons(safeArea, railHoldsPageButtons) {
                 HStack(spacing: 10) { LiquidAlbumActions(album: album) }
                     .padding(.trailing, 16)
                     .padding(.top, 56)

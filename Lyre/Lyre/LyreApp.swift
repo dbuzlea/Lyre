@@ -59,6 +59,9 @@ struct LyreApp: App {
         if arguments.contains("--uitest-complete-onboarding") {
             defaults.set(true, forKey: "hasCompletedOnboarding")
             defaults.removeObject(forKey: "LyrePlayerStyle")
+            // Held as a book, from the albums, not a section an earlier run left open.
+            defaults.removeObject(forKey: "LiquidBookSection")
+            defaults.removeObject(forKey: "LiquidBookRecent")
         } else if arguments.contains("--uitest-reset-onboarding") {
             defaults.set(false, forKey: "hasCompletedOnboarding")
             defaults.removeObject(forKey: "LyrePlayerStyle")

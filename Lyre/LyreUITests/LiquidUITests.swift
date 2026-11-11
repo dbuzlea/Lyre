@@ -1045,7 +1045,7 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "duo-open-wide")
     }
 
-    /// Now Playing on the left page, the bubbles on the right, with their tabs.
+    /// Now Playing on the left page, the bubbles on the right, and the side bar's sections.
     @MainActor
     func testAnOpenDuoHeldAsABookHasNowPlayingBesideTheBubbles() throws {
         let app = try launchBook()
@@ -1054,16 +1054,16 @@ final class LiquidUITests: XCTestCase {
         let nowPlaying = element(app, "liquid.nowPlaying")
         XCTAssertTrue(nowPlaying.exists, "No Now Playing on the left page")
         XCTAssertLessThan(nowPlaying.frame.midX, bubble.frame.midX, "Now Playing isn't left of the bubbles")
-        for tab in ["albums", "playlists", "podcasts"] {
-            XCTAssertTrue(element(app, "liquid.bubbles.tab.\(tab)").exists, "No \(tab) tab")
+        for section in ["albums", "songs", "artists", "playlists", "search", "more"] {
+            XCTAssertTrue(element(app, "liquid.book.\(section)").exists, "No \(section) in the side bar")
         }
-        XCTAssertFalse(element(app, "liquid.bubbles.tab.artists").exists, "There's an artists tab")
+        XCTAssertFalse(element(app, "liquid.library").exists, "Now Playing still has a library button")
         sleep(1)
         attachScreenshot(app, named: "duo-book-bubbles")
 
-        element(app, "liquid.bubbles.tab.playlists").tap()
+        element(app, "liquid.book.playlists").tap()
         XCTAssertTrue(element(app, "liquid.bubble.mixtape:sample-mix-0").waitForExistence(timeout: 3), "No playlist bubbles")
-        element(app, "liquid.bubbles.tab.podcasts").tap()
+        openFromMore(app, "Podcasts")
         XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.bubble.podcast:'"))
             .firstMatch.waitForExistence(timeout: 3), "No show bubbles")
         sleep(1)
@@ -1129,8 +1129,8 @@ final class LiquidUITests: XCTestCase {
     @MainActor
     func testAShowsBubbleOpensItsEpisodes() throws {
         let app = try launchBook()
-        XCTAssertTrue(element(app, "liquid.bubbles.tab.podcasts").waitForExistence(timeout: 10))
-        element(app, "liquid.bubbles.tab.podcasts").tap()
+        XCTAssertTrue(element(app, "liquid.book.more").waitForExistence(timeout: 10))
+        openFromMore(app, "Podcasts")
         let show = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'liquid.bubble.podcast:'"))
             .firstMatch
         XCTAssertTrue(show.waitForExistence(timeout: 5))
@@ -1139,16 +1139,44 @@ final class LiquidUITests: XCTestCase {
         XCTAssertFalse(element(app, "liquid.notice").exists, "Tapping a show played it")
     }
 
-    /// Now Playing's library button swaps the bubbles for the whole library, and back.
+    /// The side bar is the way round the library: Songs and Artists open as the right
+    /// page's bottom page (no way back from it to a menu), Discover from "…" takes the
+    /// fifth button from Playlists, and Albums brings the bubbles back.
     @MainActor
-    func testTheLibraryButtonSwapsTheBubblesForTheLibrary() throws {
-        let app = try launchBook()
+    func testTheSideBarOpensEachSectionOnTheRightPage() throws {
+        let app = try launchBook(["-DiscoverSamples", "YES"])
         XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 10))
-        element(app, "liquid.library").tap()
-        XCTAssertTrue(element(app, "liquid.menu.albums").waitForExistence(timeout: 5), "No library")
-        XCTAssertFalse(element(app, "liquid.bubbles").exists)
-        element(app, "liquid.bubbles.back").tap()
+        element(app, "liquid.book.songs").tap()
+        XCTAssertTrue(element(app, "liquid.songs.track.0").waitForExistence(timeout: 5), "Songs didn't open")
+        XCTAssertFalse(element(app, "liquid.back").exists, "Songs, a section's bottom page, has a way back")
+        XCTAssertFalse(element(app, "liquid.bubbles").exists, "The bubbles stayed over Songs")
+        XCTAssertFalse(element(app, "liquid.menu.albums").exists, "The lava menu is on the right page")
+        sleep(1)
+        attachScreenshot(app, named: "duo-book-songs")
+
+        element(app, "liquid.book.artists").tap()
+        XCTAssertTrue(element(app, "liquid.artist.Lyre").waitForExistence(timeout: 5), "Artists didn't open")
+        openFromMore(app, "Discover")
+        XCTAssertTrue(element(app, "liquid.discover.discover:made:sample").waitForExistence(timeout: 5), "Discover didn't open")
+        XCTAssertTrue(element(app, "liquid.book.discover").waitForExistence(timeout: 3), "Discover didn't take the fifth button")
+        XCTAssertTrue(element(app, "liquid.book.discover").isSelected, "Discover isn't marked open")
+        XCTAssertFalse(element(app, "liquid.book.playlists").exists, "Playlists kept its button")
+        for fixed in ["albums", "songs", "artists", "search"] {
+            XCTAssertTrue(element(app, "liquid.book.\(fixed)").exists, "\(fixed) moved out of the side bar")
+        }
+        sleep(1)
+        attachScreenshot(app, named: "duo-book-discover")
+
+        element(app, "liquid.book.albums").tap()
         XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 5), "The bubbles didn't come back")
+    }
+
+    /// The side bar's "…": the sections that aren't in it.
+    private func openFromMore(_ app: XCUIApplication, _ title: String) {
+        element(app, "liquid.book.more").tap()
+        let item = app.buttons[title]
+        XCTAssertTrue(item.waitForExistence(timeout: 3), "No \(title) in …")
+        item.tap()
     }
 
     /// A bubble held near the fold: Now Playing's edge reaching out for it.

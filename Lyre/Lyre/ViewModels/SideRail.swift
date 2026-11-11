@@ -27,6 +27,11 @@ enum SideRail {
     /// Whether the header buttons stand down the side.
     static func isOn(_ safeArea: EdgeInsets) -> Bool { column(safeArea) > 0 }
 
+    /// Whether a page's own buttons stand in the column rather than on the page.
+    static func holdsPageButtons(_ safeArea: EdgeInsets, _ allowed: Bool) -> Bool {
+        allowed && isOn(safeArea)
+    }
+
     /// Clear of the status bar at the column's top, a Live Activity's pill included.
     static let statusReserve: CGFloat = 262
     /// Where a rail that runs the column's height (the Spool's keys) starts: under the
@@ -53,6 +58,10 @@ extension EnvironmentValues {
     /// The column already has the player switch and Settings (Now Playing's, held as a
     /// book), so a page beside it doesn't stand its own there too.
     @Entry var sideRailHasPlayerButtons = false
+    /// Whether a page's own buttons (the way back, an album's) stand in the column. Not
+    /// held as a book, where the column is the side bar's sections and nothing else: they
+    /// stand on the page, as on a phone without a column.
+    @Entry var sideRailHoldsPageButtons = true
 }
 
 /// Header buttons stood one under the other in the status column down the right edge
