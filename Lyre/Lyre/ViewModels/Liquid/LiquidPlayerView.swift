@@ -1007,6 +1007,23 @@ struct LiquidPlayerView: View {
         }
     }
 
+    /// Played from the library beside Now Playing (an iPhone Duo open): what's played
+    /// comes into Now Playing as a bubble let go does, its colour spreading through it like
+    /// ink from the fold, level with where it was chosen, and a ring out from there.
+    private func spreadInkBeside(_ color: Color) {
+        guard duoLayout(for: bounds.size) != nil, nowPlayingPage.width > 0 else { return }
+        let touch = LiquidTouchTracker.shared.lastTouch ?? CGPoint(x: nowPlayingPage.maxX, y: nowPlayingPage.midY)
+        let entry = contact(at: touch)
+        splash = LiquidSplash(point: entry.local, strength: 0.8)
+        guard !reduceMotion else { return }
+        let spread = FoldWater.Ink(origin: entry.screen, color: color)
+        ink = spread
+        Task {
+            try? await Task.sleep(for: .seconds(FoldWater.Ink.life))
+            if ink?.id == spread.id { ink = nil }
+        }
+    }
+
     /// The ink of a bubble taken in, spreading through Now Playing.
     private func inkLayer(_ ink: FoldWater.Ink, origin: CGPoint, now: Date) -> some View {
         let page = nowPlayingPage.offsetBy(dx: -origin.x, dy: -origin.y)
@@ -1243,6 +1260,7 @@ struct LiquidPlayerView: View {
             Task {
                 if floods {
                     let color = await LiquidColors.shared.color(for: album)
+                    spreadInkBeside(color)
                     floodAction(color.liquidDeep, nil) { screen = .nowPlaying }
                 }
                 if await library.play(album, tracks: tracks, startingAt: index) != .started {
@@ -1262,6 +1280,7 @@ struct LiquidPlayerView: View {
         }) {
             Task {
                 let color = await LiquidColors.shared.color(for: tracks[index])
+                spreadInkBeside(color)
                 floodAction(color.liquidDeep, nil) { screen = .nowPlaying }
                 if await musicService.play(tracks: tracks, startingAt: index) != .started {
                     showNotice(String(localized: "playback.nothingPlayable"))
