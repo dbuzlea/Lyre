@@ -2156,6 +2156,61 @@ struct BubbleTiltTests {
     }
 }
 
+/// The water at an open iPhone Duo's fold (FoldWater): the surface holding a bubble back
+/// and giving way, the bubble flattening without losing its size, and the neck of water
+/// between them joining, thinning and snapping.
+@MainActor
+struct FoldWaterTests {
+    @Test func theSurfaceHoldsABubbleBackUntilItGivesWay() {
+        let r: CGFloat = 60
+        // Short of the fold, it's where the finger has it.
+        #expect(FoldWater.shownPush(-20, radius: r) == -20)
+        // Pressed in, it goes ever less far, never past what the surface gives.
+        let little = FoldWater.shownPush(10, radius: r)
+        let lots = FoldWater.shownPush(500, radius: r)
+        #expect(little > 0 && little < 10)
+        #expect(lots < FoldWater.give(radius: r))
+        // The push builds to 1 at the breaking point, where it goes through.
+        #expect(FoldWater.pressure(-5, radius: r) == 0)
+        #expect(FoldWater.pressure(FoldWater.breakDepth(radius: r) / 2, radius: r) == 0.5)
+        #expect(!FoldWater.breaks(FoldWater.breakDepth(radius: r) - 1, radius: r))
+        #expect(FoldWater.breaks(FoldWater.breakDepth(radius: r), radius: r))
+    }
+
+    @Test func aPressedBubbleFlattensWithoutLosingItsSize() {
+        let flat = FoldWater.squash(1)
+        #expect(flat.along < 1 && flat.across > 1)
+        #expect(abs(flat.along * flat.across - 1) < 0.0001)
+        #expect(FoldWater.squash(0) == (1, 1))
+    }
+
+    @Test func theNeckJoinsThinsAndSnaps() {
+        let r: CGFloat = 60
+        var neck = FoldWater.Neck()
+        // Nearing, the surface reaches out more the closer it comes; not at all far off.
+        #expect(neck.width(gap: 200, radius: r) == 0)
+        #expect(neck.width(gap: 10, radius: r) > neck.width(gap: 30, radius: r))
+        // Touching, it joins; pulled away, it thins, holding until it's stretched too far.
+        let joining = neck.update(gap: 2, radius: r)
+        #expect(!joining)
+        #expect(neck.isJoined)
+        #expect(neck.width(gap: 40, radius: r) < neck.width(gap: 5, radius: r))
+        let holding = neck.update(gap: FoldWater.Neck.snapGap(radius: r) - 1, radius: r)
+        #expect(!holding)
+        let snapping = neck.update(gap: FoldWater.Neck.snapGap(radius: r) + 1, radius: r)
+        #expect(snapping)
+        #expect(!neck.isJoined)
+        // Snapped once, it doesn't snap again; let go while joined, it snaps as it goes.
+        let again = neck.update(gap: 300, radius: r)
+        #expect(!again)
+        _ = neck.update(gap: 0, radius: r)
+        let letGo = neck.release()
+        #expect(letGo)
+        let letGoAgain = neck.release()
+        #expect(!letGoAgain)
+    }
+}
+
 /// Lyre's shared motion (LyreMotion): the rubber band past an end, the finger's speed
 /// handed to a spring, and the zoom only for the bubble just tapped.
 @MainActor
