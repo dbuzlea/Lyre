@@ -1604,6 +1604,7 @@ struct LiquidAlbumPage: View {
     @Environment(\.liquidCard) private var card
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.sideRailHoldsPageButtons) private var railHoldsPageButtons
+    @Environment(\.liquidPageTop) private var pageTop
 
     init(album: AppAlbum, library: ShelfLibrary, musicService: MusicService,
          onPlay: @escaping (AppAlbum, [AppTrack], Int, Bool) -> Void,
@@ -1621,8 +1622,9 @@ struct LiquidAlbumPage: View {
     var body: some View {
         let ground = color.liquidDeep
         // A list, so each song can be swiped right to queue it.
+        GeometryReader { page in
         List {
-            header(ground: ground)
+            header(ground: ground, page: page.size)
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
@@ -1649,6 +1651,7 @@ struct LiquidAlbumPage: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        }
         .reportsLiquidCardScroll(card)
         .environment(\.defaultMinListRowHeight, 1)
         .ignoresSafeArea(edges: .top)
@@ -1671,21 +1674,28 @@ struct LiquidAlbumPage: View {
     }
 
     /// The cover across the top, melting into the page's colour, with the way back and,
-    /// opposite it, the album's queue menu.
-    private func header(ground: Color) -> some View {
-        ZStack(alignment: .topLeading) {
+    /// opposite it, the album's queue menu. On a page shorter than that (below the fold of
+    /// an iPhone Duo open in portrait), as tall as the page: the bubble in its middle, as
+    /// big as fits between top and bottom, and the two buttons in its top corners.
+    private func header(ground: Color, page: CGSize) -> some View {
+        let usual = page.width * 0.9
+        let fitsPage = page.height > 0 && page.height < usual
+        let height = fitsPage ? page.height : usual
+        let diameter = fitsPage ? min(page.width * 0.7, page.height - 48) : page.width * 0.7
+        return ZStack(alignment: .topLeading) {
             // The cover as one big bubble on the page's colour, floating, wobbling and
             // answering to the phone's tilt as every bubble in Liquid does.
             Color.clear
-                .aspectRatio(1 / 0.9, contentMode: .fit)
+                .frame(height: max(1, height))
                 .overlay {
                     GeometryReader { proxy in
-                        LiquidSoapBubble(diameter: (proxy.size.width * 0.7).rounded(), wobbles: true, flattens: true,
+                        LiquidSoapBubble(diameter: max(1, diameter.rounded()), wobbles: true, flattens: true,
                                          tilts: true, seed: album.id) {
                             LiquidCover(source: .album(album))
                         }
                         .modifier(BubbleFloat(seed: album.id, reach: 4))
-                        .position(x: proxy.size.width / 2, y: proxy.size.height * (card == nil ? 0.58 : 0.52))
+                        .position(x: proxy.size.width / 2,
+                                  y: proxy.size.height * (fitsPage ? 0.5 : card == nil ? 0.58 : 0.52))
                     }
                 }
                 .onAppear { BubbleTilt.shared.attach() }
@@ -1701,7 +1711,7 @@ struct LiquidAlbumPage: View {
                 .foregroundStyle(.white)
                 .padding(.leading, 16)
                 // A card starts below the status bar.
-                .padding(.top, card == nil ? 56 : 16)
+                .padding(.top, card == nil ? pageTop : 16)
                 .accessibilityLabel(String(localized: card == nil ? "liquid.back" : "liquid.card.close"))
                 .accessibilityIdentifier("liquid.back")
             }
@@ -1713,7 +1723,7 @@ struct LiquidAlbumPage: View {
             if !SideRail.holdsPageButtons(safeArea, railHoldsPageButtons) {
                 HStack(spacing: 10) { LiquidAlbumActions(album: album) }
                     .padding(.trailing, 16)
-                    .padding(.top, 56)
+                    .padding(.top, pageTop)
             }
         }
     }
