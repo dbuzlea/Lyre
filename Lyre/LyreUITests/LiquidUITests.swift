@@ -1251,6 +1251,33 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "duo-book-reaching")
     }
 
+    /// A bubble touching the surface at the fold: a neck of water joins them.
+    @MainActor
+    func testABubbleTouchingTheFoldIsJoinedByANeckOfWater() throws {
+        let app = try launchBook(["-LiquidBubbleShot", "2"])
+        XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 10))
+        sleep(3)
+        attachScreenshot(app, named: "duo-book-neck")
+    }
+
+    /// A bubble pressed into the surface: it flattens against it and the surface bows in.
+    @MainActor
+    func testABubblePressedOnTheFoldFlattensAgainstTheSurface() throws {
+        let app = try launchBook(["-LiquidBubblePress", "30"])
+        XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 10))
+        sleep(3)
+        attachScreenshot(app, named: "duo-book-pressed")
+    }
+
+    /// A bubble taken in: its colour spreading through Now Playing like ink in water.
+    @MainActor
+    func testATakenInBubblesColourSpreadsLikeInk() throws {
+        let app = try launchBook(["-LiquidInkShot", "0.35"])
+        XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 10))
+        sleep(3)
+        attachScreenshot(app, named: "duo-book-ink")
+    }
+
     /// Stood half open and left alone: the visualizer, until it's touched.
     @MainActor
     func testTheVisualizerGivesWayToATouch() throws {

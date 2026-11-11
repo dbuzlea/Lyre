@@ -74,6 +74,13 @@ struct LiquidPlayerView: View {
     /// open was held, for that page to grow out of it and go back into it.
     @State private var sectionFrame: CGRect = .zero
     @State private var bubbleZoomAnchor: UnitPoint?
+    /// The water at the fold (FoldWater): droplets falling back into it, the ink of a
+    /// bubble taken in, and when the surface last rippled from a bubble pressing on it.
+    @State private var foldDroplets: [FoldWater.Droplet] = []
+    @State private var ink: FoldWater.Ink?
+    @State private var lastPressRipple = Date.distantPast
+    /// `-LiquidInkShot`: the ink held this far through its spread, for screenshots.
+    @State private var inkShotProgress: Double?
     /// The visualizer, while the Duo stands half open, left alone.
     @State private var isVisualizing = false
     /// iPhone Duo held as a book: the whole library on the right page, not the bubbles.
@@ -252,13 +259,35 @@ struct LiquidPlayerView: View {
             }
             // `-LiquidBubbleShot 40` holds the first album's bubble that far (points) from
             // the fold, as if dragged there, for screenshots of Now Playing reaching for it.
-            if UserDefaults.standard.object(forKey: "LiquidBubbleShot") != nil, let album = library.albums.first {
-                let gap = CGFloat(UserDefaults.standard.double(forKey: "LiquidBubbleShot"))
+            // `-LiquidBubblePress 30` presses it that far into the surface instead.
+            let defaults = UserDefaults.standard
+            if defaults.object(forKey: "LiquidBubbleShot") != nil || defaults.object(forKey: "LiquidBubblePress") != nil,
+               let album = library.albums.first {
+                let gap = defaults.object(forKey: "LiquidBubblePress") != nil
+                    ? -CGFloat(defaults.double(forKey: "LiquidBubblePress"))
+                    : CGFloat(defaults.double(forKey: "LiquidBubbleShot"))
                 Task {
                     try? await Task.sleep(for: .seconds(1.5))
                     let diameter: CGFloat = 120
-                    let center = CGPoint(x: nowPlayingPage.maxX + gap + diameter / 2, y: nowPlayingPage.midY)
-                    carried = CarriedBubble(album: album, diameter: diameter, center: center, origin: center)
+                    // Negative: pressed into the surface that far, held back as a finger would be.
+                    let raw = -gap
+                    let shown = FoldWater.shownPush(raw, radius: diameter / 2)
+                    let center = CGPoint(x: nowPlayingPage.maxX + diameter / 2 - shown, y: nowPlayingPage.midY)
+                    var shot = CarriedBubble(album: album, diameter: diameter, center: center, origin: center)
+                    shot.push = raw
+                    _ = shot.neck.update(gap: max(0, -shown), radius: diameter / 2)
+                    carried = shot
+                }
+            }
+            // `-LiquidInkShot 0.4` holds the ink of a bubble taken in that far through its
+            // spread, from the fold's middle, for screenshots.
+            if defaults.object(forKey: "LiquidInkShot") != nil, let album = library.albums.first {
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    let color = await LiquidColors.shared.color(for: album)
+                    inkShotProgress = defaults.double(forKey: "LiquidInkShot")
+                    ink = FoldWater.Ink(origin: contact(at: CGPoint(x: nowPlayingPage.maxX, y: nowPlayingPage.midY)).screen,
+                                        color: color)
                 }
             }
             // `--liquid-visualizer` shows the Duo's visualizer at once, for screenshots.
@@ -638,19 +667,35 @@ struct LiquidPlayerView: View {
     private struct CarriedBubble {
         let album: AppAlbum
         let diameter: CGFloat
+        /// Where it's drawn: where the finger has it, held back by the surface at the fold.
         var center: CGPoint
+        /// Where the finger has it.
+        var finger: CGPoint
         /// Where it was in the field, to float back to.
         let origin: CGPoint
+        /// How far its leading edge is pushed past the fold (FoldWater): negative short of it.
+        var push: CGFloat = -.greatestFiniteMagnitude
+        var neck = FoldWater.Neck()
         var isTakenIn = false
-        /// How far it's been taken in: 0 at the fold, 1 filling Now Playing.
+        /// How far it's gone in, 0 at the surface giving way to 1 dissolved.
         var takenIn: CGFloat = 0
         var opacity: Double = 1
-        /// How fast it's moving (points a second), from the last two places the finger
-        /// put it, and when it was last put: what it's drawn out along.
+        /// How fast it's moving (points a second), eased over the last few moves: what
+        /// it's drawn out along.
         var velocity: CGPoint = .zero
         var movedAt = Date()
         /// It's touched the water at the fold (felt once, as a soft tap).
         var hasTouched = false
+        /// Its album's colour, for the ink it becomes in Now Playing.
+        var color: Color?
+
+        init(album: AppAlbum, diameter: CGFloat, center: CGPoint, origin: CGPoint) {
+            self.album = album
+            self.diameter = diameter
+            self.center = center
+            self.finger = center
+            self.origin = origin
+        }
     }
 
     /// How far a point is past the fold, into Now Playing: across it held as a book (to
@@ -659,7 +704,21 @@ struct LiquidPlayerView: View {
         foldIsAcross ? nowPlayingPage.maxY - point.y : nowPlayingPage.maxX - point.x
     }
 
-    /// How far past the fold a bubble's centre goes before Now Playing takes it.
+    /// `point` moved `distance` on the way into Now Playing (back out, negative).
+    private func movedIn(_ point: CGPoint, by distance: CGFloat) -> CGPoint {
+        foldIsAcross ? CGPoint(x: point.x, y: point.y - distance) : CGPoint(x: point.x - distance, y: point.y)
+    }
+
+    /// Where a bubble at `center` meets the fold: in Now Playing's own points, and on screen.
+    private func contact(at center: CGPoint) -> (local: CGPoint, screen: CGPoint) {
+        let page = nowPlayingPage
+        let local = foldIsAcross
+            ? CGPoint(x: min(max(center.x - page.minX, 0), page.width), y: page.height - 6)
+            : CGPoint(x: page.width - 6, y: min(max(center.y - page.minY, 0), page.height))
+        return (local, CGPoint(x: page.minX + local.x, y: page.minY + local.y))
+    }
+
+    /// How far past the fold a tapped bubble flies before it's taken in.
     private static let takeInDepth: CGFloat = 36
 
     /// A bubble held, or a show tapped: its page, on the right.
@@ -676,44 +735,93 @@ struct LiquidPlayerView: View {
                          y: min(max((touch.y - frame.minY) / frame.height, 0), 1))
     }
 
+    /// A new bubble picked up: its colour looked up for the ink, while it's carried.
+    private func pickUp(_ bubble: CarriedBubble) -> CarriedBubble {
+        let id = bubble.album.id
+        Task {
+            let color = await LiquidColors.shared.color(for: bubble.album)
+            if carried?.album.id == id { carried?.color = color }
+        }
+        return bubble
+    }
+
     private func drag(_ album: AppAlbum, to center: CGPoint, diameter: CGFloat, from origin: CGPoint) {
         if let carried, carried.isTakenIn || carried.album.id != album.id { return }
-        var moved = carried ?? CarriedBubble(album: album, diameter: diameter, center: center, origin: origin)
+        var moved = carried ?? pickUp(CarriedBubble(album: album, diameter: diameter, center: center, origin: origin))
+        let r = diameter / 2
         // Its speed, eased over the last few moves so one jittery frame doesn't jerk it.
         let now = Date()
         let dt = now.timeIntervalSince(moved.movedAt)
         if dt > 0.001, dt < 0.2 {
-            let instant = CGPoint(x: (center.x - moved.center.x) / dt, y: (center.y - moved.center.y) / dt)
+            let instant = CGPoint(x: (center.x - moved.finger.x) / dt, y: (center.y - moved.finger.y) / dt)
             moved.velocity = CGPoint(x: moved.velocity.x * 0.6 + instant.x * 0.4, y: moved.velocity.y * 0.6 + instant.y * 0.4)
         }
         moved.movedAt = now
-        moved.center = center
+        moved.finger = center
+        // The surface holds it back: past the fold, it's shown pressed in only as far as
+        // the water gives.
+        let raw = pastFold(center) + r
+        let shown = FoldWater.shownPush(raw, radius: r)
+        moved.push = raw
+        moved.center = movedIn(center, by: shown - raw)
         // Meeting the water at the fold: a soft tap, once.
-        if !moved.hasTouched, pastFold(center) + diameter / 2 >= -4 {
+        if !moved.hasTouched, raw >= -4 {
             moved.hasTouched = true
             UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.7)
         }
+        // The neck of water: joined at touching, snapped when pulled too far away.
+        if moved.neck.update(gap: max(0, -shown), radius: r) {
+            snapNeck(at: moved.center, gap: max(0, -shown), radius: r)
+        }
         withTransaction(Transaction(animation: nil)) { carried = moved }
-        if pastFold(center) > Self.takeInDepth { takeIn() }
+
+        // Pressing: felt as the surface holding, seen as Now Playing rippling from there.
+        let pressure = FoldWater.pressure(raw, radius: r)
+        FoldHaptics.shared.press(raw > 0 ? pressure : 0)
+        if raw > 0, now.timeIntervalSince(lastPressRipple) > 0.18 {
+            lastPressRipple = now
+            splash = LiquidSplash(point: contact(at: moved.center).local, strength: 0.2 + 0.45 * Double(pressure))
+        }
+        if FoldWater.breaks(raw, radius: r) { takeIn() }
     }
 
-    /// Let go: heading past the fold, it's taken in; short of it, it floats back to its
-    /// place, going on at the finger's speed and wobbling a little as it settles.
+    /// The neck between the surface and a bubble at `center` snapping: a droplet left
+    /// halfway, falling back into the surface.
+    private func snapNeck(at center: CGPoint, gap: CGFloat, radius: CGFloat) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.5)
+        guard !reduceMotion else { return }
+        let droplet = FoldWater.Droplet(from: movedIn(center, by: radius + gap / 2), radius: max(6, radius * 0.12))
+        foldDroplets.append(droplet)
+        Task {
+            try? await Task.sleep(for: .seconds(FoldWater.Droplet.life))
+            foldDroplets.removeAll { $0.id == droplet.id }
+        }
+    }
+
+    /// Let go: heading through the surface, it's taken in; short of it, it floats back to
+    /// its place, going on at the finger's speed and wobbling a little as it settles.
     private func drop(_ album: AppAlbum, heading: CGPoint, velocity: CGPoint) {
-        guard let carried, !carried.isTakenIn, carried.album.id == album.id else { return }
-        if pastFold(heading) > Self.takeInDepth {
+        guard var carried, !carried.isTakenIn, carried.album.id == album.id else { return }
+        let r = carried.diameter / 2
+        if FoldWater.breaks(pastFold(heading) + r, radius: r) {
             takeIn()
-        } else {
-            let away = CGPoint(x: carried.origin.x - carried.center.x, y: carried.origin.y - carried.center.y)
-            let distance = hypot(away.x, away.y)
-            // The finger's speed toward home.
-            let toward = distance < 1 ? 0 : (velocity.x * away.x + velocity.y * away.y) / distance
-            withAnimation(LyreMotion.release(velocity: toward, distance: distance)) {
-                self.carried?.center = carried.origin
-                self.carried?.velocity = .zero
-            } completion: {
-                if self.carried?.isTakenIn == false { self.carried = nil }
-            }
+            return
+        }
+        FoldHaptics.shared.release()
+        if carried.neck.release() {
+            snapNeck(at: carried.center, gap: max(0, -FoldWater.shownPush(carried.push, radius: r)), radius: r)
+        }
+        carried.push = -.greatestFiniteMagnitude
+        withTransaction(Transaction(animation: nil)) { self.carried = carried }
+        let away = CGPoint(x: carried.origin.x - carried.center.x, y: carried.origin.y - carried.center.y)
+        let distance = hypot(away.x, away.y)
+        // The finger's speed toward home.
+        let toward = distance < 1 ? 0 : (velocity.x * away.x + velocity.y * away.y) / distance
+        withAnimation(LyreMotion.release(velocity: toward, distance: distance)) {
+            self.carried?.center = carried.origin
+            self.carried?.velocity = .zero
+        } completion: {
+            if self.carried?.isTakenIn == false { self.carried = nil }
         }
     }
 
@@ -725,7 +833,7 @@ struct LiquidPlayerView: View {
         let center = tapped != .zero ? tapped
             : foldIsAcross ? CGPoint(x: page.midX, y: page.maxY + page.height / 2)
             : CGPoint(x: page.maxX + page.width / 2, y: page.midY)
-        carried = CarriedBubble(album: album, diameter: diameter, center: center, origin: center)
+        carried = pickUp(CarriedBubble(album: album, diameter: diameter, center: center, origin: center))
         let fold = foldIsAcross
             ? CGPoint(x: min(max(center.x, page.minX + diameter), page.maxX - diameter),
                       y: page.maxY - Self.takeInDepth - 1)
@@ -743,92 +851,139 @@ struct LiquidPlayerView: View {
         }
     }
 
-    /// Now Playing takes the bubble in: it slips through the fold, swells to fill the
-    /// page and clears, and its album plays.
+    /// The surface gives way: the bubble slips through, wavering as it's seen through the
+    /// water, and dissolves; its colour spreads through Now Playing like ink, and its
+    /// album plays.
     private func takeIn() {
         guard var taken = carried, !taken.isTakenIn else { return }
         taken.isTakenIn = true
         taken.velocity = .zero
+        _ = taken.neck.release()
         withTransaction(Transaction(animation: nil)) { carried = taken }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        // It lands in Now Playing as a drop does in water: rings out from where it went in.
-        splash = LiquidSplash(point: foldIsAcross
-            ? CGPoint(x: min(max(taken.center.x - nowPlayingPage.minX, 0), nowPlayingPage.width),
-                      y: nowPlayingPage.height - 6)
-            : CGPoint(x: nowPlayingPage.width - 6,
-                      y: min(max(taken.center.y - nowPlayingPage.minY, 0), nowPlayingPage.height)))
+        FoldHaptics.shared.pop()
+        let entry = contact(at: taken.center)
+        splash = LiquidSplash(point: entry.local)
+        if !reduceMotion {
+            let spread = FoldWater.Ink(origin: entry.screen, color: taken.color ?? nowPlayingColor)
+            ink = spread
+            Task {
+                try? await Task.sleep(for: .seconds(FoldWater.Ink.life))
+                if ink?.id == spread.id { ink = nil }
+            }
+        }
         let album = taken.album
         Task {
             let loaded = await library.tracks(for: album)
             let tracks = loaded.isEmpty ? album.tapeSongs(album.preloadedTracks) : loaded
             play(album, tracks, 0, whole: true, in: bounds.size, floods: false)
         }
-        let page = nowPlayingPage
-        withAnimation(.easeIn(duration: reduceMotion ? 0.01 : 0.45)) {
-            carried?.center = CGPoint(x: page.midX, y: page.midY)
+        let r = taken.diameter / 2
+        withAnimation(.easeIn(duration: reduceMotion ? 0.01 : 0.42)) {
+            carried?.center = movedIn(taken.center, by: r * 1.3)
             carried?.takenIn = 1
+            carried?.opacity = 0
         } completion: {
-            withAnimation(.easeOut(duration: 0.3)) {
-                carried?.opacity = 0
-            } completion: {
-                carried = nil
-            }
+            carried = nil
         }
     }
 
-    /// The bubble being carried, over both pages; reaching for the fold, Now Playing's
-    /// edge swells out to meet it, joining it as two drops of water do.
-    @ViewBuilder
+    /// The water at the fold, the bubble carried to it, and the ink of one taken in; kept
+    /// moving (a TimelineView) only while any of them is there.
     private func carriedLayer(in proxy: GeometryProxy) -> some View {
-        if let carried {
-            let origin = proxy.frame(in: .global).origin
-            let center = CGPoint(x: carried.center.x - origin.x, y: carried.center.y - origin.y)
-            let across = foldIsAcross
-            // Along the way to Now Playing: x held as a book, y turned.
-            let fold = across ? nowPlayingPage.maxY - origin.y : nowPlayingPage.maxX - origin.x
-            let along = across ? center.y : center.x
-            let r = carried.diameter / 2
-            // Big enough, from Now Playing's middle, to cover it.
-            let cover = hypot(nowPlayingPage.width, nowPlayingPage.height) / carried.diameter
-            let speed = hypot(carried.velocity.x, carried.velocity.y)
-            // How far it's pressed into the water at the fold, 0 to 1, before it's taken in.
-            let press = carried.isTakenIn ? 0 : min(1, max(0, (fold + r - along) / (r + Self.takeInDepth)))
-            let reach = carried.isTakenIn ? fold + (1 - carried.takenIn) * carried.diameter
-                                          : (across ? proxy.size.height : proxy.size.width)
-            ZStack(alignment: .topLeading) {
+        // A bubble held still at the fold wavers where it's under water; not under a UI test,
+        // where a picture that never settles keeps XCUITest waiting (the ink and the
+        // droplets end on their own).
+        let wavers = carried != nil && !AppEnvironment.isUITesting
+        let moving = !reduceMotion && (wavers || (ink != nil && inkShotProgress == nil) || !foldDroplets.isEmpty)
+        return TimelineView(.animation(paused: !moving)) { timeline in
+            carriedContent(in: proxy, now: timeline.date)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func carriedContent(in proxy: GeometryProxy, now: Date) -> some View {
+        let origin = proxy.frame(in: .global).origin
+        let across = foldIsAcross
+        // Along the way to Now Playing: x held as a book, y turned. Shapes for the water
+        // are worked out as if the fold ran down the screen, and laid across when turned.
+        let fold = across ? nowPlayingPage.maxY - origin.y : nowPlayingPage.maxX - origin.x
+        func local(_ point: CGPoint) -> CGPoint { CGPoint(x: point.x - origin.x, y: point.y - origin.y) }
+        func folded(_ point: CGPoint) -> CGPoint { across ? CGPoint(x: point.y, y: point.x) : point }
+        let droplets: [(center: CGPoint, radius: CGFloat)] = foldDroplets.map { droplet in
+            let t = min(1, now.timeIntervalSince(droplet.start) / FoldWater.Droplet.life)
+            let from = folded(local(droplet.from))
+            // Falling back into the surface, quicker as it goes, and shrinking into it.
+            let x = fold + (from.x - fold) * (1 - t * t)
+            return (CGPoint(x: x, y: from.y), droplet.radius * (1 - 0.4 * t))
+        }
+        return ZStack(alignment: .topLeading) {
+            if let ink { inkLayer(ink, origin: origin, now: now) }
+            if let carried {
+                let r = carried.diameter / 2
+                let pressure = carried.isTakenIn ? 0 : FoldWater.pressure(carried.push, radius: r)
+                let squash = FoldWater.squash(pressure)
+                // Flattened, its leading edge stays against the surface.
+                let center = movedIn(local(carried.center), by: carried.isTakenIn ? 0 : r * (1 - squash.along))
+                let shown = FoldWater.shownPush(carried.push, radius: r)
+                let gap = max(0, -shown)
+                let speed = hypot(carried.velocity.x, carried.velocity.y)
+                let alongCenter = across ? center.y : center.x
                 if !carried.isTakenIn {
-                    membrane(fold: fold, bubble: across ? CGPoint(x: center.y, y: center.x) : center,
-                             radius: r, across: across)
+                    membrane(fold: fold, bubble: folded(center),
+                             radii: CGSize(width: r * squash.along, height: r * squash.across),
+                             neck: carried.neck.width(gap: gap, radius: r),
+                             near: max(0, min(1, 1 - gap / 150)),
+                             bow: carried.push > 0 ? pressure * r * 0.45 : 0,
+                             droplets: droplets, across: across)
+                } else if !droplets.isEmpty {
+                    membrane(fold: fold, bubble: nil, radii: .zero, neck: 0, near: 0, bow: 0,
+                             droplets: droplets, across: across)
                 }
-                // Its film keeps moving while it's carried; flattened against the water
-                // as it presses into the fold, and drawn out along its way while it's
-                // quick, as a bubble pulled through air is.
+                // Its film keeps moving while it's carried; flattened against the water as
+                // it presses into it, drawn out along its way while it's quick, and seen
+                // through the water where it's past the surface.
                 LiquidBubble(album: carried.album, diameter: carried.diameter, wobbles: !reduceMotion)
-                    .scaleEffect(x: across ? 1 + press * 0.07 : 1 - press * 0.14,
-                                 y: across ? 1 - press * 0.14 : 1 + press * 0.07)
+                    .layerEffect(ShaderLibrary.foldRefraction(.float(fold - (alongCenter - r)),
+                                                              .float(across ? 1 : 0),
+                                                              .float(now.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1000))),
+                                 maxSampleOffset: CGSize(width: 6, height: 6),
+                                 isEnabled: !reduceMotion)
+                    .scaleEffect(x: across ? squash.across : squash.along, y: across ? squash.along : squash.across)
                     .modifier(MotionStretch(amount: reduceMotion ? 0 : min(1, speed / 2400),
                                             angle: atan2(carried.velocity.y, carried.velocity.x),
                                             along: 0.12, across: 0.06))
-                    .scaleEffect(1.06 + (cover - 1) * carried.takenIn)
+                    .scaleEffect(1.06 * (1 - 0.3 * carried.takenIn))
                     .position(center)
                     .opacity(carried.opacity)
-                    // Taken in, all that's past the fold is inside Now Playing.
-                    .mask(alignment: .topLeading) {
-                        Rectangle().frame(width: across ? proxy.size.width : reach,
-                                          height: across ? reach : proxy.size.height)
-                    }
+            } else if !droplets.isEmpty {
+                membrane(fold: fold, bubble: nil, radii: .zero, neck: 0, near: 0, bow: 0,
+                         droplets: droplets, across: across)
             }
-            .allowsHitTesting(false)
         }
     }
 
-    /// Now Playing's edge at the fold, as a line of water down it, swelling out toward
-    /// the bubble the nearer it comes and running into it: clear, with a bright rim.
-    /// Turned (`across`), the same water lies along the fold: `bubble` and the shapes are
-    /// worked out as if down it, and laid across.
-    private func membrane(fold: CGFloat, bubble: CGPoint, radius: CGFloat, across: Bool = false) -> some View {
-        let gap = max(0, bubble.x - radius - fold)
-        let near = max(0, min(1, 1 - gap / 150))
+    /// The ink of a bubble taken in, spreading through Now Playing.
+    private func inkLayer(_ ink: FoldWater.Ink, origin: CGPoint, now: Date) -> some View {
+        let page = nowPlayingPage.offsetBy(dx: -origin.x, dy: -origin.y)
+        let progress = inkShotProgress ?? min(1, now.timeIntervalSince(ink.start) / FoldWater.Ink.life)
+        return Rectangle()
+            .fill(ink.color)
+            .colorEffect(ShaderLibrary.inkSpread(.float2(page.size),
+                                                 .float2(CGPoint(x: ink.origin.x - nowPlayingPage.minX,
+                                                                 y: ink.origin.y - nowPlayingPage.minY)),
+                                                 .float(progress), .float(ink.seed)))
+            .frame(width: page.width, height: page.height)
+            .position(x: page.midX, y: page.midY)
+            .accessibilityHidden(true)
+    }
+
+    /// Now Playing's edge at the fold, as a line of water down it: swelling toward a
+    /// bubble the nearer it comes, reaching out to it in a neck that joins them, bowing in
+    /// ahead of it as it presses, and taking back the droplets a snapped neck leaves; clear,
+    /// with a bright rim. Worked out as if the fold ran down the screen (`bubble`, `radii`
+    /// along and across, the droplets), and laid across when turned (`across`).
+    private func membrane(fold: CGFloat, bubble: CGPoint?, radii: CGSize, neck: CGFloat, near: CGFloat,
+                          bow: CGFloat, droplets: [(center: CGPoint, radius: CGFloat)], across: Bool) -> some View {
         /// The water's shapes, drawn `inset` points thinner all round.
         func water(inset: CGFloat) -> some View {
             Canvas { context, size in
@@ -836,20 +991,54 @@ struct LiquidPlayerView: View {
                 func laid(_ rect: CGRect) -> CGRect {
                     across ? CGRect(x: rect.minY, y: rect.minX, width: rect.height, height: rect.width) : rect
                 }
+                func laid(_ point: CGPoint) -> CGPoint { across ? CGPoint(x: point.y, y: point.x) : point }
                 context.addFilter(.alphaThreshold(min: 0.5, color: .white))
                 context.addFilter(.blur(radius: 14))
                 context.drawLayer { layer in
                     // Past both ends of the screen, so the line has no ends to round.
                     layer.fill(Path(laid(CGRect(x: fold - 13 + inset, y: -60, width: 26 - inset * 2, height: length + 120))),
                                with: .color(.white))
-                    let swell = (14 + 26 * near) - inset
-                    let reach = fold + gap * 0.6 * near
-                    layer.fill(Path(ellipseIn: laid(CGRect(x: reach - swell, y: bubble.y - swell * 2.1,
-                                                           width: swell * 2, height: swell * 4.2))),
-                               with: .color(.white))
-                    let r = radius - inset
-                    layer.fill(Path(ellipseIn: laid(CGRect(x: bubble.x - r, y: bubble.y - r, width: r * 2, height: r * 2))),
-                               with: .color(.white))
+                    if let bubble {
+                        let leading = bubble.x - radii.width
+                        let gap = max(0, leading - fold)
+                        // The surface swelling toward it.
+                        let swell = (14 + 26 * near) - inset
+                        let reach = fold + gap * 0.6 * near
+                        layer.fill(Path(ellipseIn: laid(CGRect(x: reach - swell, y: bubble.y - swell * 2.1,
+                                                               width: swell * 2, height: swell * 4.2))),
+                                   with: .color(.white))
+                        // The neck: wide at the surface, narrower where it holds the bubble.
+                        if neck > 1 {
+                            let atSurface = neck * 1.25 - inset
+                            let atBubble = neck - inset
+                            var bridge = Path()
+                            bridge.move(to: laid(CGPoint(x: fold, y: bubble.y - atSurface / 2)))
+                            bridge.addLine(to: laid(CGPoint(x: bubble.x, y: bubble.y - atBubble / 2)))
+                            bridge.addLine(to: laid(CGPoint(x: bubble.x, y: bubble.y + atBubble / 2)))
+                            bridge.addLine(to: laid(CGPoint(x: fold, y: bubble.y + atSurface / 2)))
+                            bridge.closeSubpath()
+                            layer.fill(bridge, with: .color(.white))
+                        }
+                        // The surface bowed in ahead of it, as it presses.
+                        if bow > 0.5 {
+                            let height = radii.height * 1.7 - inset
+                            layer.fill(Path(ellipseIn: laid(CGRect(x: fold - bow - 6, y: bubble.y - height / 2,
+                                                                   width: bow + 12, height: height))),
+                                       with: .color(.white))
+                        }
+                        // The bubble, as flattened as it's pressed.
+                        layer.fill(Path(ellipseIn: laid(CGRect(x: bubble.x - radii.width + inset,
+                                                               y: bubble.y - radii.height + inset,
+                                                               width: (radii.width - inset) * 2,
+                                                               height: (radii.height - inset) * 2))),
+                                   with: .color(.white))
+                    }
+                    for droplet in droplets {
+                        let r = droplet.radius + 6 - inset
+                        layer.fill(Path(ellipseIn: laid(CGRect(x: droplet.center.x - r, y: droplet.center.y - r,
+                                                               width: r * 2, height: r * 2))),
+                                   with: .color(.white))
+                    }
                 }
             }
         }

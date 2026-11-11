@@ -122,7 +122,7 @@ struct LiquidNowPlayingView: View {
                     } onPressingChanged: { isHoldingCover = $0 }
                     // A bubble landing: a heavier drop than a tap.
                     .onChange(of: splash) { _, splash in
-                        if let splash { ripple(at: splash.point, strength: LiquidRipple.tapStrength * 1.6) }
+                        if let splash { ripple(at: splash.point, strength: LiquidRipple.tapStrength * 1.6 * splash.strength) }
                     }
                     .gesture(dismissDrag)
                 scrim
@@ -771,6 +771,8 @@ struct LiquidProgress: View {
 struct LiquidSplash: Equatable {
     let id = UUID()
     let point: CGPoint
+    /// How hard, against a bubble landing (1): a bubble pressing on the surface is softer.
+    var strength: Double = 1
 }
 
 /// Now Playing's header buttons: the library, ★, AirPlay, the player switch and Settings;
