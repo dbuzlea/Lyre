@@ -957,20 +957,17 @@ struct LiquidPlayerView: View {
             FoldHaptics.shared.pop()
             splash = LiquidSplash(point: entry.local)
         }
-        if !reduceMotion {
-            let origin = wasThrough && nowPlayingPage.contains(taken.center) ? taken.center : entry.screen
-            let spread = FoldWater.Ink(origin: origin, color: taken.color ?? nowPlayingColor)
-            ink = spread
-            Task {
-                try? await Task.sleep(for: .seconds(FoldWater.Ink.life))
-                if ink?.id == spread.id { ink = nil }
-            }
-        }
+        // Its colour spreads through Now Playing once it's really to play: asked first
+        // whether to clear Up Next, only when the answer's to clear it and play.
+        let origin = wasThrough && nowPlayingPage.contains(taken.center) ? taken.center : entry.screen
+        let color = taken.color ?? nowPlayingColor
         let album = taken.album
         Task {
             let loaded = await library.tracks(for: album)
             let tracks = loaded.isEmpty ? album.tapeSongs(album.preloadedTracks) : loaded
-            play(album, tracks, 0, whole: true, in: bounds.size, floods: false)
+            play(album, tracks, 0, whole: true, in: bounds.size, floods: false) {
+                spreadInk(from: origin, color: color)
+            }
         }
         let r = taken.diameter / 2
         withAnimation(.easeIn(duration: reduceMotion ? 0.01 : 0.42)) {
@@ -1073,18 +1070,13 @@ struct LiquidPlayerView: View {
     /// Played from the library beside Now Playing (an iPhone Duo open): what's played
     /// comes into Now Playing as a bubble let go does, its colour spreading through it like
     /// ink from the fold, level with where it was chosen, and a ring out from there.
-    private func spreadInkBeside(_ color: Color) {
+    /// `chosenAt` is where it was chosen, taken before any question about Up Next (whose
+    /// answer is a touch of its own, somewhere else).
+    private func spreadInkBeside(_ color: Color, chosenAt: CGPoint?) {
         guard duoLayout(for: bounds.size) != nil, nowPlayingPage.width > 0 else { return }
-        let touch = LiquidTouchTracker.shared.lastTouch ?? CGPoint(x: nowPlayingPage.maxX, y: nowPlayingPage.midY)
-        let entry = contact(at: touch)
+        let entry = contact(at: chosenAt ?? CGPoint(x: nowPlayingPage.maxX, y: nowPlayingPage.midY))
         splash = LiquidSplash(point: entry.local, strength: 0.8)
-        guard !reduceMotion else { return }
-        let spread = FoldWater.Ink(origin: entry.screen, color: color)
-        ink = spread
-        Task {
-            try? await Task.sleep(for: .seconds(FoldWater.Ink.life))
-            if ink?.id == spread.id { ink = nil }
-        }
+        spreadInk(from: entry.screen, color: color)
     }
 
     /// A carried bubble's album and artist, on a small dark label.
@@ -1327,6 +1319,17 @@ struct LiquidPlayerView: View {
         .accessibilityIdentifier(song.map { "liquid.spread.track.\($0.index)" } ?? "liquid.spread.open")
     }
 
+    /// A colour spreading through Now Playing like ink, from `origin` on screen.
+    private func spreadInk(from origin: CGPoint, color: Color) {
+        guard !reduceMotion else { return }
+        let spread = FoldWater.Ink(origin: origin, color: color)
+        ink = spread
+        Task {
+            try? await Task.sleep(for: .seconds(FoldWater.Ink.life))
+            if ink?.id == spread.id { ink = nil }
+        }
+    }
+
     /// The ink of a bubble taken in, spreading through Now Playing.
     private func inkLayer(_ ink: FoldWater.Ink, origin: CGPoint, now: Date) -> some View {
         let page = nowPlayingPage.offsetBy(dx: -origin.x, dy: -origin.y)
@@ -1339,7 +1342,9 @@ struct LiquidPlayerView: View {
                                                  .float(progress), .float(ink.seed)))
             .frame(width: page.width, height: page.height)
             .position(x: page.midX, y: page.midY)
-            .accessibilityHidden(true)
+            // Not for VoiceOver; there for a UI test to see it's spreading.
+            .accessibilityHidden(!AppEnvironment.isUITesting)
+            .accessibilityIdentifier("liquid.ink")
     }
 
     /// Now Playing's edge at the fold, as a line of water down it: swelling toward a
@@ -1553,17 +1558,22 @@ struct LiquidPlayerView: View {
     /// Plays from the library, asking first if it would clear songs queued by hand, and
     /// floods into Now Playing in the album's colour (unless a bubble's being taken in,
     /// which is its own way in).
+    /// `onPlays` runs once it's really to play: at once, or when the question about Up Next
+    /// (clear it and play?) has been answered so; not if it's added to Up Next instead, or
+    /// the question's put away.
     private func play(_ album: AppAlbum, _ tracks: [AppTrack], _ index: Int, whole: Bool, in size: CGSize,
-                      floods: Bool = true) {
+                      floods: Bool = true, onPlays: (() -> Void)? = nil) {
         guard tracks.indices.contains(index) else { return }
         let queued = whole ? tracks : [tracks[index]]
+        let chosenAt = LiquidTouchTracker.shared.lastTouch
         musicService.play(asking: { pendingPlay = $0 }, addToQueue: album.isPodcast ? nil : {
             queue(queued, .last, whole ? album.tapeTitle : tracks[index].title)
         }) {
+            onPlays?()
             Task {
                 if floods {
                     let color = await LiquidColors.shared.color(for: album)
-                    spreadInkBeside(color)
+                    spreadInkBeside(color, chosenAt: chosenAt)
                     floodAction(color.liquidDeep, nil) { screen = .nowPlaying }
                 }
                 if await library.play(album, tracks: tracks, startingAt: index) != .started {
@@ -1578,12 +1588,13 @@ struct LiquidPlayerView: View {
     private func playSongs(_ tracks: [AppTrack], _ index: Int, whole: Bool, _ name: String) {
         guard tracks.indices.contains(index) else { return }
         let queued = whole ? tracks : [tracks[index]]
+        let chosenAt = LiquidTouchTracker.shared.lastTouch
         musicService.play(asking: { pendingPlay = $0 }, addToQueue: {
             queue(queued, .last, whole ? name : tracks[index].title)
         }) {
             Task {
                 let color = await LiquidColors.shared.color(for: tracks[index])
-                spreadInkBeside(color)
+                spreadInkBeside(color, chosenAt: chosenAt)
                 floodAction(color.liquidDeep, nil) { screen = .nowPlaying }
                 if await musicService.play(tracks: tracks, startingAt: index) != .started {
                     showNotice(String(localized: "playback.nothingPlayable"))

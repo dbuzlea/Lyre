@@ -1339,6 +1339,28 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "duo-book-ink")
     }
 
+    /// Over a queue built by hand, a bubble taken in asks first whether to clear it, and
+    /// its ink waits for the answer: none while it's asked, none if the question's put
+    /// away, and spreading once the answer's to clear it and play.
+    @MainActor
+    func testTheInkWaitsForTheQuestionAboutUpNext() throws {
+        let app = try launchBook(["--queued-by-hand"])
+        let bubble = element(app, "liquid.bubble.sample-1")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10))
+        bubble.tap()
+        let prompt = element(app, "queue.replace")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5), "Taking a bubble in over a queue built by hand didn't ask")
+        XCTAssertFalse(element(app, "liquid.ink").exists, "The ink spread before the question was answered")
+        element(app, "queue.replace.cancel").tap()
+        sleep(1)
+        XCTAssertFalse(element(app, "liquid.ink").exists, "The ink spread though the question was put away")
+
+        bubble.tap()
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        element(app, "queue.replace.play").tap()
+        XCTAssertTrue(element(app, "liquid.ink").waitForExistence(timeout: 3), "Clear and Play didn't spread the ink")
+    }
+
     /// Held as a book, a song played from an album's page on the right comes into Now
     /// Playing on the left as ink, and plays there (the samples have nothing behind them,
     /// so playing says so).
