@@ -360,7 +360,15 @@ struct LiquidPlayerView: View {
     /// new colour and the new change (the newer touch is what was meant); asked for while
     /// one is clearing, it fills back in from where it is and clears again over the new
     /// change. Each flood's completions check they're still the latest before acting.
+    ///
+    /// Open, an iPhone Duo has Now Playing and the library side by side: there's nothing
+    /// to flood between, and a flood would cover both pages. The change is made where it
+    /// is, the page moving by its own push, or a bubble's zoom.
     private func floodAction(_ color: Color, _ origin: CGPoint?, _ change: @escaping () -> Void) {
+        if duoLayout(for: bounds.size) != nil {
+            change()
+            return
+        }
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         var instant = Transaction()
         instant.disablesAnimations = true
