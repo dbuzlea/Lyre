@@ -179,6 +179,9 @@ struct LiquidBubbleField: View {
     let onDrag: (AppAlbum, CGPoint, CGFloat, CGPoint) -> Void
     /// Let go: it, where it was heading, and how fast it was going (points a second).
     let onDrop: (AppAlbum, CGPoint, CGPoint) -> Void
+    /// Whether the tabs stand down the field's edge; not when they're in an iPhone Duo's
+    /// side column with the other buttons.
+    var showsTabBar = true
 
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -249,7 +252,13 @@ struct LiquidBubbleField: View {
                     repack(items, width: width, key: key)
                 }
             }
-            tabBar
+            // In the side column instead, when the player puts them there (SideRail): the
+            // bubbles then keep clear of that column, as the tabs used to for them.
+            if showsTabBar {
+                tabBar
+            } else {
+                Color.clear.frame(width: safeArea.trailing)
+            }
         }
         .background(Color.liquidGround)
         // The bubbles answer to the phone's tilt while they're up (BubbleTilt).
@@ -311,29 +320,38 @@ struct LiquidBubbleField: View {
 
     /// The tabs, down the right edge, clear of the side the screen's corner is on.
     private var tabBar: some View {
-        VStack(spacing: 14) {
-            ForEach(LiquidBubbleTab.allCases) { option in
-                Button {
-                    guard option != tab else { return }
-                    UISelectionFeedbackGenerator().selectionChanged()
-                    withAnimation(.easeInOut(duration: 0.3)) { tab = option }
-                } label: {
-                    Image(systemName: option.symbol)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(option == tab ? Color.black : Color.white.opacity(0.75))
-                        .frame(width: 44, height: 44)
-                        .background(option == tab ? Color.white : Color.white.opacity(0.1), in: Circle())
-                }
-                .buttonStyle(LyrePressStyle())
-                .accessibilityLabel(option.title)
-                .accessibilityAddTraits(option == tab ? .isSelected : [])
-                .accessibilityIdentifier("liquid.bubbles.tab.\(option.rawValue)")
+        VStack(spacing: 14) { LiquidBubbleTabs(tab: $tab) }
+            .frame(width: Self.barWidth)
+            .frame(maxHeight: .infinity)
+            .padding(.trailing, safeArea.trailing)
+            .background(Color.white.opacity(0.04))
+    }
+}
+
+/// Albums, Playlists, Podcasts: which the bubbles are. Down the field's own edge, or in
+/// an iPhone Duo's side column with the other buttons (SideRail), at the top, as
+/// navigation goes.
+struct LiquidBubbleTabs: View {
+    @Binding var tab: LiquidBubbleTab
+
+    var body: some View {
+        ForEach(LiquidBubbleTab.allCases) { option in
+            Button {
+                guard option != tab else { return }
+                UISelectionFeedbackGenerator().selectionChanged()
+                withAnimation(.easeInOut(duration: 0.3)) { tab = option }
+            } label: {
+                Image(systemName: option.symbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(option == tab ? Color.black : Color.white.opacity(0.75))
+                    .frame(width: 44, height: 44)
+                    .background(option == tab ? Color.white : Color.white.opacity(0.1), in: Circle())
             }
+            .buttonStyle(LyrePressStyle())
+            .accessibilityLabel(option.title)
+            .accessibilityAddTraits(option == tab ? .isSelected : [])
+            .accessibilityIdentifier("liquid.bubbles.tab.\(option.rawValue)")
         }
-        .frame(width: Self.barWidth)
-        .frame(maxHeight: .infinity)
-        .padding(.trailing, safeArea.trailing)
-        .background(Color.white.opacity(0.04))
     }
 }
 

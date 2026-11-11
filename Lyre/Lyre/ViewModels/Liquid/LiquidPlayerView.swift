@@ -107,6 +107,18 @@ struct LiquidPlayerView: View {
         }
     }
 
+    /// What stands in the side column held as a book: the bubbles' tabs while the bubbles
+    /// are up, then Now Playing's buttons, the less used of them in a "…" menu when the
+    /// column hasn't room for all; and how many buttons that comes to.
+    private func bookRail(height: CGFloat) -> (hasTabs: Bool, overflows: Bool, count: Int) {
+        let hasTabs = !isBookLibrary
+        let tabs = hasTabs ? LiquidBubbleTab.allCases.count : 0
+        let all = LiquidNowPlayingButtons.count(track: musicService.nowPlayingTrack)
+        let room = SideRail.capacity(height: height, bottom: safeArea.bottom)
+        let overflows = tabs + all > room
+        return (hasTabs, overflows, tabs + (overflows ? LiquidNowPlayingButtons.overflowCount : all))
+    }
+
     private var playerBody: some View {
         GeometryReader { geometry in
             ZStack {
@@ -491,7 +503,9 @@ struct LiquidPlayerView: View {
                         onPlay: { album, center, diameter in fly(album, from: center, diameter: diameter) },
                         onOpen: openFromBubbles,
                         onDrag: drag,
-                        onDrop: { album, heading, velocity in drop(album, heading: heading, velocity: velocity) }
+                        onDrop: { album, heading, velocity in drop(album, heading: heading, velocity: velocity) },
+                        // With the status bar's column down the right, the tabs stand there.
+                        showsTabBar: !SideRail.isOn(safeArea)
                     )
                     .transition(.opacity)
                 }
@@ -500,15 +514,20 @@ struct LiquidPlayerView: View {
             .clipped()
             // The right page's own rail buttons (the way back, an album's) stand below
             // Now Playing's in the column, and it doesn't repeat the switch and Settings.
-            .environment(\.sideRailStart, CGFloat(LiquidNowPlayingButtons.count(track: musicService.nowPlayingTrack)) * SideRail.step)
+            .environment(\.sideRailStart, CGFloat(bookRail(height: geometry.size.height).count) * SideRail.step)
             .environment(\.sideRailHasPlayerButtons, true)
         }
-        // iPhone Duo held as a book, the status bar down the right: Now Playing's buttons
-        // (on the left page) stand in that column, where the hand holding that side is.
+        // iPhone Duo held as a book, the status bar down the right: the bubbles' tabs and
+        // Now Playing's buttons stand in that column, where the hand holding that side is,
+        // in the order Apple's guidance has: navigation first (the tabs, the library),
+        // then the rest, and a "…" menu for what doesn't fit (SideRail).
         .overlay {
+            let rail = bookRail(height: geometry.size.height)
             SideRailButtons {
+                if rail.hasTabs { LiquidBubbleTabs(tab: $bubbleTab) }
                 LiquidNowPlayingButtons(part: .all, track: musicService.nowPlayingTrack, themeSettings: themeSettings,
-                                        onOpenLibrary: toggleBookLibrary, onOpenSettings: { showSettings = true })
+                                        onOpenLibrary: toggleBookLibrary, onOpenSettings: { showSettings = true },
+                                        overflows: rail.overflows)
             }
         }
         .overlay { GeometryReader { carriedLayer(in: $0) } }

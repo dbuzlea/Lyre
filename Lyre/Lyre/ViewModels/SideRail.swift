@@ -38,6 +38,12 @@ enum SideRail {
     static let leadingWidth: CGFloat = 72
     /// How tall one button in a rail is, with the gap below it.
     static let step: CGFloat = 58
+
+    /// How many buttons fit down the column of a window `height` tall, under the status
+    /// bar and above the home indicator (`bottom`): past that, the rest go in a "…" menu.
+    static func capacity(height: CGFloat, bottom: CGFloat) -> Int {
+        max(1, Int((height - statusReserve - bottom - 8 + 14) / step))
+    }
 }
 
 extension EnvironmentValues {
