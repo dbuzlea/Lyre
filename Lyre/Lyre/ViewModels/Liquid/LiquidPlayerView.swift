@@ -1038,6 +1038,15 @@ struct LiquidPlayerView: View {
                     .scaleEffect(1.06 * (1 - 0.3 * carried.takenIn))
                     .position(center)
                     .opacity(carried.opacity)
+                // What it is, beside it as it's carried: below it, or above it near the
+                // bottom, kept on the screen.
+                if !carried.isTakenIn {
+                    let below = center.y + r * squash.across + 30
+                    let labelY = below + 24 > proxy.size.height ? center.y - r * squash.across - 30 : below
+                    carriedTitle(carried.album)
+                        .position(x: min(max(center.x, 120), proxy.size.width - SideRail.column(safeArea) - 120), y: labelY)
+                        .transition(.opacity)
+                }
             } else if !droplets.isEmpty {
                 membrane(fold: fold, bubble: nil, radii: .zero, neck: 0, near: 0, bow: 0,
                          droplets: droplets, across: across)
@@ -1060,6 +1069,28 @@ struct LiquidPlayerView: View {
             try? await Task.sleep(for: .seconds(FoldWater.Ink.life))
             if ink?.id == spread.id { ink = nil }
         }
+    }
+
+    /// A carried bubble's album and artist, on a small dark label.
+    private func carriedTitle(_ album: AppAlbum) -> some View {
+        VStack(spacing: 1) {
+            Text(album.title)
+                .font(.system(size: 15, weight: .semibold))
+            Text(album.artistName)
+                .font(.system(size: 12))
+                .opacity(0.75)
+        }
+        .lineLimit(1)
+        // As wide as its words, up to a limit.
+        .frame(maxWidth: 190)
+        .fixedSize()
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(.ultraThinMaterial, in: Capsule())
+        .environment(\.colorScheme, .dark)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("liquid.carried.title")
     }
 
     /// The ink of a bubble taken in, spreading through Now Playing.
