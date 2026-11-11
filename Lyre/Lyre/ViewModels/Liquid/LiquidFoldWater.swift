@@ -18,7 +18,9 @@ import SwiftUI
 //              it widens as it flattens) and the surface bows in ahead of it, felt as a
 //              hum that grows with the push; Now Playing ripples from where it presses
 //   through    pushed past what the surface holds, it gives way with a pop, and the
-//              bubble's colour spreads through Now Playing like ink in water
+//              bubble is under the water, still under the finger
+//   let go     in the water, its colour spreads through Now Playing like ink, and its
+//              album plays; carried back out first, the surface closes behind it
 //
 // Here, the arithmetic of it, kept apart from the drawing so it can be tested; the
 // drawing is LiquidPlayerView's carried layer, and LiquidFoldWater.metal's shaders.
@@ -113,7 +115,7 @@ enum FoldWater {
         let color: Color
         let seed = Float.random(in: 0...50)
         let start = Date()
-        static let life: TimeInterval = 1.4
+        static let life: TimeInterval = 2.6
     }
 }
 

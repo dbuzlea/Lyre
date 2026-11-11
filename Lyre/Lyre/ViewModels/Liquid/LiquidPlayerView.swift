@@ -676,6 +676,8 @@ struct LiquidPlayerView: View {
         /// How far its leading edge is pushed past the fold (FoldWater): negative short of it.
         var push: CGFloat = -.greatestFiniteMagnitude
         var neck = FoldWater.Neck()
+        /// The surface has given way: it's under the water, still held, waiting to be let go.
+        var isThrough = false
         var isTakenIn = false
         /// How far it's gone in, 0 at the surface giving way to 1 dissolved.
         var takenIn: CGFloat = 0
@@ -758,9 +760,18 @@ struct LiquidPlayerView: View {
         }
         moved.movedAt = now
         moved.finger = center
+        let raw = pastFold(center) + r
+        // Through the surface, it goes where the finger takes it, under the water, until
+        // it's let go; carried all the way back out, the surface closes behind it.
+        if moved.isThrough {
+            moved.push = raw
+            moved.center = center
+            if raw < -4 { moved.isThrough = false }
+            withTransaction(Transaction(animation: nil)) { carried = moved }
+            return
+        }
         // The surface holds it back: past the fold, it's shown pressed in only as far as
         // the water gives.
-        let raw = pastFold(center) + r
         let shown = FoldWater.shownPush(raw, radius: r)
         moved.push = raw
         moved.center = movedIn(center, by: shown - raw)
@@ -782,7 +793,20 @@ struct LiquidPlayerView: View {
             lastPressRipple = now
             splash = LiquidSplash(point: contact(at: moved.center).local, strength: 0.2 + 0.45 * Double(pressure))
         }
-        if FoldWater.breaks(raw, radius: r) { takeIn() }
+        if FoldWater.breaks(raw, radius: r) { breakThrough() }
+    }
+
+    /// Pushed past what the surface holds: it gives way with a pop and a splash, and the
+    /// bubble is in the water, still held. Let go there, it's taken in (drop).
+    private func breakThrough() {
+        guard var through = carried, !through.isThrough, !through.isTakenIn else { return }
+        through.isThrough = true
+        through.center = through.finger
+        through.push = pastFold(through.finger) + through.diameter / 2
+        _ = through.neck.release()
+        withTransaction(Transaction(animation: nil)) { carried = through }
+        FoldHaptics.shared.pop()
+        splash = LiquidSplash(point: contact(at: through.center).local, strength: 0.8)
     }
 
     /// The neck between the surface and a bubble at `center` snapping: a droplet left
@@ -803,7 +827,8 @@ struct LiquidPlayerView: View {
     private func drop(_ album: AppAlbum, heading: CGPoint, velocity: CGPoint) {
         guard var carried, !carried.isTakenIn, carried.album.id == album.id else { return }
         let r = carried.diameter / 2
-        if FoldWater.breaks(pastFold(heading) + r, radius: r) {
+        // Let go in the water, or flung through the surface: taken in, and only now.
+        if carried.isThrough || FoldWater.breaks(pastFold(heading) + r, radius: r) {
             takeIn()
             return
         }
@@ -851,20 +876,28 @@ struct LiquidPlayerView: View {
         }
     }
 
-    /// The surface gives way: the bubble slips through, wavering as it's seen through the
-    /// water, and dissolves; its colour spreads through Now Playing like ink, and its
-    /// album plays.
+    /// Let go in the water (or tapped, or flung through): the bubble sinks in, wavering as
+    /// it's seen through the water, and dissolves; its colour spreads through Now Playing
+    /// like ink, and its album plays. The ink spreads from where it went in, for one let go
+    /// far inside, from where it is.
     private func takeIn() {
         guard var taken = carried, !taken.isTakenIn else { return }
         taken.isTakenIn = true
         taken.velocity = .zero
         _ = taken.neck.release()
+        let wasThrough = taken.isThrough
         withTransaction(Transaction(animation: nil)) { carried = taken }
-        FoldHaptics.shared.pop()
         let entry = contact(at: taken.center)
-        splash = LiquidSplash(point: entry.local)
+        if wasThrough {
+            // The surface already gave way: let go, it settles in with a soft tap.
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.8)
+        } else {
+            FoldHaptics.shared.pop()
+            splash = LiquidSplash(point: entry.local)
+        }
         if !reduceMotion {
-            let spread = FoldWater.Ink(origin: entry.screen, color: taken.color ?? nowPlayingColor)
+            let origin = wasThrough && nowPlayingPage.contains(taken.center) ? taken.center : entry.screen
+            let spread = FoldWater.Ink(origin: origin, color: taken.color ?? nowPlayingColor)
             ink = spread
             Task {
                 try? await Task.sleep(for: .seconds(FoldWater.Ink.life))
@@ -920,15 +953,19 @@ struct LiquidPlayerView: View {
             if let ink { inkLayer(ink, origin: origin, now: now) }
             if let carried {
                 let r = carried.diameter / 2
-                let pressure = carried.isTakenIn ? 0 : FoldWater.pressure(carried.push, radius: r)
+                let pressure = carried.isTakenIn || carried.isThrough ? 0 : FoldWater.pressure(carried.push, radius: r)
                 let squash = FoldWater.squash(pressure)
                 // Flattened, its leading edge stays against the surface.
-                let center = movedIn(local(carried.center), by: carried.isTakenIn ? 0 : r * (1 - squash.along))
+                let center = movedIn(local(carried.center), by: carried.isTakenIn || carried.isThrough ? 0 : r * (1 - squash.along))
                 let shown = FoldWater.shownPush(carried.push, radius: r)
                 let gap = max(0, -shown)
                 let speed = hypot(carried.velocity.x, carried.velocity.y)
                 let alongCenter = across ? center.y : center.x
-                if !carried.isTakenIn {
+                if carried.isThrough && !carried.isTakenIn {
+                    // The surface closed behind it.
+                    membrane(fold: fold, bubble: nil, radii: .zero, neck: 0, near: 0, bow: 0,
+                             droplets: droplets, across: across)
+                } else if !carried.isTakenIn {
                     membrane(fold: fold, bubble: folded(center),
                              radii: CGSize(width: r * squash.along, height: r * squash.across),
                              neck: carried.neck.width(gap: gap, radius: r),
