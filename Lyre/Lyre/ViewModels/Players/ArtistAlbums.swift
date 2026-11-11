@@ -93,7 +93,7 @@ struct ArtistAlbumStrip: View {
                         .frame(width: 64, alignment: .leading)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle())
                     .accessibilityLabel(album.tapeTitle)
                     .accessibilityHint(String(localized: "artist.openAlbum.hint"))
                     .accessibilityIdentifier("artist.album.\(album.id)")
@@ -138,7 +138,7 @@ struct ArtistAlbumHeading: View {
             .padding(.bottom, 4)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         .disabled(section.album == nil)
         .accessibilityAddTraits(.isHeader)
         .accessibilityIdentifier("artist.heading.\(section.start)")

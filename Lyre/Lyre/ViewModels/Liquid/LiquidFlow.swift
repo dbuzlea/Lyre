@@ -112,6 +112,58 @@ extension Color {
 /// Remembers where the last touch on the window landed, in window coordinates, without
 /// taking part in any gesture.
 @MainActor
+/// Swiping in from the left edge takes a page back with the finger, the page before it
+/// showing underneath, as everywhere in iOS. UIKit turns that swipe off when the
+/// navigation bar is hidden, as Liquid's is, so each of Liquid's pages turns it back on.
+/// `rootDepth` pages at the bottom of the stack (an open Duo's section page) aren't gone
+/// back from.
+struct InteractivePop: UIViewControllerRepresentable {
+    let rootDepth: Int
+
+    func makeUIViewController(context: Context) -> Hook { Hook() }
+    func updateUIViewController(_ hook: Hook, context: Context) { hook.rootDepth = rootDepth; hook.attach() }
+
+    final class Hook: UIViewController {
+        var rootDepth = 0
+
+        override func didMove(toParent parent: UIViewController?) {
+            super.didMove(toParent: parent)
+            attach()
+        }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            attach()
+        }
+
+        func attach() {
+            guard let navigation = navigationController, let swipe = navigation.interactivePopGestureRecognizer else { return }
+            PopGate.shared.depths[ObjectIdentifier(navigation)] = rootDepth
+            swipe.delegate = PopGate.shared
+            swipe.isEnabled = true
+        }
+    }
+
+    /// Lets the swipe begin only with a page to go back to. Kept for the app's life (a
+    /// recognizer holds its delegate weakly).
+    final class PopGate: NSObject, UIGestureRecognizerDelegate {
+        static let shared = PopGate()
+        var depths: [ObjectIdentifier: Int] = [:]
+
+        func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+            guard let navigation = gesture.view?.next as? UINavigationController
+                    ?? sequence(first: gesture.view?.next, next: { $0?.next }).compactMap({ $0 as? UINavigationController }).first
+            else { return false }
+            let depth = depths[ObjectIdentifier(navigation)] ?? 0
+            return navigation.viewControllers.count > 1 + depth
+        }
+
+        // Beside a list's own scrolling and a row's swipe, not instead of them.
+        func gestureRecognizer(_ gesture: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { false }
+    }
+}
+
 final class LiquidTouchTracker {
     static let shared = LiquidTouchTracker()
     var lastTouch: CGPoint?

@@ -98,7 +98,7 @@ struct SearchView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(theme.screenSecondaryTextColor)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityLabel(String(localized: "search.clear"))
             }
         }

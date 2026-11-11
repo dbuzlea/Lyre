@@ -321,7 +321,7 @@ struct CassetteCaseView: View {
         .font(.system(size: 13, weight: .semibold))
         .lineLimit(1)
         .minimumScaleFactor(0.8)
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
     }
 
     /// The track listing. While the lid is moving it is a plain stack: a scroll view
@@ -459,7 +459,7 @@ struct CassetteCaseView: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle(isRow: true))
             .id(index)
             .accessibilityValue(matches.contains(index) ? String(localized: "spool.case.searchMatch") : "")
             // Swiped right, a song offers Play Next and Add to Queue, as every list in

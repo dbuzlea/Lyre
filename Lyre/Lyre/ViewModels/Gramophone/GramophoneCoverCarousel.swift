@@ -182,7 +182,7 @@ struct GramophoneCoverCarousel: View {
                                 .fill(tab == divider ? theme.paper : theme.wood.opacity(0.6))
                         )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
                 .accessibilityAddTraits(tab == divider ? .isSelected : [])
                 .accessibilityIdentifier("gramophone.carousel.\(tab.rawValue)")
             }

@@ -139,7 +139,7 @@ struct ChoiceRow<Leading: View>: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
@@ -192,7 +192,7 @@ struct SwatchButton: View {
             .frame(maxWidth: .infinity, minHeight: 96)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityLabel(name)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }

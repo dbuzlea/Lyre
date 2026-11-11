@@ -198,8 +198,10 @@ struct JewelCaseView: View {
             ZStack {
                 tray(side: side)
                     .overlay { castShadow(p: p).clipShape(RoundedRectangle(cornerRadius: side * 0.02)) }
-                    // Reachable only with the lid out of the way.
-                    .allowsHitTesting(p > 0.98)
+                    // Reachable as soon as the lid is out of the way: past upright it's no
+                    // longer over the tray, so the disc can be taken while the lid still
+                    // swings down and settles.
+                    .allowsHitTesting(p > 0.5)
 
                 if reduceMotion {
                     // No hinge: the lid fades from over the tray to its place on the left.
@@ -347,7 +349,7 @@ struct JewelCaseView: View {
                 .overlay(DiscSheen(diameter: disc))
                 .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.plain) // The disc lifts out under the finger instead.
             .opacity(isDiscTaken ? 0 : 1)
             .onGeometryChange(for: CGRect.self) { proxy in
                 proxy.frame(in: .named(SpoolPlayerView.coordinateSpace))
@@ -383,7 +385,7 @@ struct JewelCaseView: View {
                         .background(SpoolPalette.labelInk.opacity(0.1), in: Circle())
                         .frame(width: 44, height: 44)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityLabel(String(localized: "disc.case.close"))
                 .accessibilityIdentifier("disc.case.close")
             }
@@ -417,7 +419,7 @@ struct JewelCaseView: View {
                     }
                 }
                 .font(.system(size: 13, weight: .semibold))
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 if let onOpenAlbum, case let covers = ArtistAlbums.albums(in: artistSections(tracks)), !covers.isEmpty {
                     ArtistAlbumStrip(albums: covers, onOpen: onOpenAlbum)
                         .padding(.top, 6)
@@ -513,7 +515,7 @@ struct JewelCaseView: View {
             .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         // Swiped right, a song offers Play Next and Add to Queue, as every list in Lyre
         // does; an episode, its download.
         .rowSwipeActions(album.isPodcast ? episode.map(RowSwipeAction.download) ?? []

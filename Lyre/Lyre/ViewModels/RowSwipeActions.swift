@@ -182,7 +182,7 @@ private struct RowSwipeActions: ViewModifier {
                     .frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
                 .accessibilityLabel(action.title)
                 .accessibilityIdentifier("swipe." + action.symbol)
             }

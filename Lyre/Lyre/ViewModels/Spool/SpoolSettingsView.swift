@@ -68,7 +68,7 @@ struct SpoolSettingsView: View {
                     .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                     .contentShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
 
                 section(1, String(localized: "spool.settings.tutorial")) {
                     SpoolTourPager(theme: theme, appearance: .manual)
@@ -152,7 +152,7 @@ struct SpoolSettingsView: View {
                         }
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle(isRow: true))
                     .accessibilityIdentifier("spool.settings.classic")
 
                     Button {
@@ -168,7 +168,7 @@ struct SpoolSettingsView: View {
                         }
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle(isRow: true))
                     .padding(.top, 10)
                     .accessibilityIdentifier("spool.settings.gramophone")
 
@@ -185,7 +185,7 @@ struct SpoolSettingsView: View {
                         }
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle(isRow: true))
                     .padding(.top, 10)
                     .accessibilityIdentifier("spool.settings.disc")
 
@@ -202,7 +202,7 @@ struct SpoolSettingsView: View {
                         }
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle(isRow: true))
                     .padding(.top, 10)
                     .accessibilityIdentifier("spool.settings.liquid")
                 }
@@ -300,7 +300,7 @@ struct SpoolSettingsView: View {
             )
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("spool.settings.design.\(model.rawValue)")
     }
@@ -330,7 +330,7 @@ struct SpoolSettingsView: View {
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("spool.settings.finish.\(finish.rawValue)")
     }
@@ -386,7 +386,7 @@ struct SpoolSettingsView: View {
                 .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                 .contentShape(RoundedRectangle(cornerRadius: 12))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle(isRow: true))
             ShareDiagnosticsButton {
                 HStack(spacing: 12) {
                     Image(systemName: "doc.text.magnifyingglass")
@@ -408,7 +408,7 @@ struct SpoolSettingsView: View {
                 .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                 .contentShape(RoundedRectangle(cornerRadius: 12))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle(isRow: true))
             Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
                 .font(.system(size: 11))
                 .opacity(0.5)

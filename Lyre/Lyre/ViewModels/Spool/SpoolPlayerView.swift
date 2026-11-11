@@ -1143,7 +1143,7 @@ struct SpoolPlayerView: View {
                     .frame(minWidth: 44, minHeight: 30)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle())
             .accessibilityLabel(String(localized: "spool.queue.open"))
             if isPodcast {
                 speedKnob
@@ -2071,7 +2071,7 @@ struct TapeShelfView: View {
                         } label: {
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(LyrePressStyle())
                         .accessibilityLabel(String(localized: "search.clear"))
                     }
                 }
@@ -2093,7 +2093,7 @@ struct TapeShelfView: View {
                             Button { onSelect(album) } label: {
                                 tape(for: album)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(LyrePressStyle(isRow: true))
                         }
                     }
                     .padding(.vertical, 12)

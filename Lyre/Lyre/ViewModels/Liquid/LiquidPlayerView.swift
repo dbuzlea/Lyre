@@ -70,6 +70,10 @@ struct LiquidPlayerView: View {
     /// iPhone Duo open: whether the fold is across the middle (Now Playing above it) or
     /// down it (Now Playing on the left), for which way a bubble crosses it.
     @State private var foldIsAcross = false
+    /// Open: where the section page is on screen, and where on it the bubble whose page is
+    /// open was held, for that page to grow out of it and go back into it.
+    @State private var sectionFrame: CGRect = .zero
+    @State private var bubbleZoomAnchor: UnitPoint?
     /// The visualizer, while the Duo stands half open, left alone.
     @State private var isVisualizing = false
     /// iPhone Duo held as a book: the whole library on the right page, not the bubbles.
@@ -541,9 +545,14 @@ struct LiquidPlayerView: View {
                 } else {
                     libraryLayer(geometry, lavaPull: lavaPull,
                                  besideNowPlaying: true, rootDepth: tab == nil ? 1 : 0)
-                        .transition(.opacity)
+                        .transition(tab != nil && bubbleZoomAnchor != nil
+                                    ? .scale(scale: 0.12, anchor: bubbleZoomAnchor ?? .center).combined(with: .opacity)
+                                    : .opacity)
                 }
             }
+            // Back to the bubbles however the page was left (its back button, the swipe).
+            .animation(LyreMotion.light, value: path.isEmpty)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { sectionFrame = $0 }
             // Without a status bar's column, the sections stand down the page's own right
             // edge, beside what they open rather than over it.
             if !barInColumn {
@@ -616,6 +625,7 @@ struct LiquidPlayerView: View {
     /// right-hand page's own pages.
     private func openBookSection(_ section: BookSection) {
         UISelectionFeedbackGenerator().selectionChanged()
+        bubbleZoomAnchor = nil
         withAnimation(.easeInOut(duration: 0.25)) {
             chooseBookSection(section)
             path = section.bubbleTab == nil ? [section.route] : []
@@ -654,7 +664,16 @@ struct LiquidPlayerView: View {
 
     /// A bubble held, or a show tapped: its page, on the right.
     private func openFromBubbles(_ album: AppAlbum) {
-        withAnimation(.easeInOut(duration: 0.3)) { path = [.album(album)] }
+        // Out of the bubble held: grown from where it was, and gone back into it.
+        bubbleZoomAnchor = anchor(in: sectionFrame, at: LiquidTouchTracker.shared.lastTouch)
+        withAnimation(LyreMotion.light) { path = [.album(album)] }
+    }
+
+    /// A touch on the screen as a point in `frame` (its middle, without one).
+    private func anchor(in frame: CGRect, at touch: CGPoint?) -> UnitPoint {
+        guard let touch, frame.width > 0, frame.height > 0 else { return .center }
+        return UnitPoint(x: min(max((touch.x - frame.minX) / frame.width, 0), 1),
+                         y: min(max((touch.y - frame.minY) / frame.height, 0), 1))
     }
 
     private func drag(_ album: AppAlbum, to center: CGPoint, diameter: CGFloat, from origin: CGPoint) {

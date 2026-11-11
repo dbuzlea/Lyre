@@ -717,7 +717,7 @@ struct BrakeLever: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityLabel(String(localized: isPlaying ? "gramophone.brake.a11y.stop" : "gramophone.brake.a11y.start"))
         .accessibilityIdentifier("gramophone.brake")
     }
@@ -815,7 +815,7 @@ struct UpNextPile: View {
             .frame(minWidth: 64, minHeight: 44)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityLabel(String(localized: "spool.queue.open"))
         .accessibilityValue(count > 0 ? String(format: String(localized: "queue.upNextCount"), count) : "")
         .accessibilityIdentifier("gramophone.upNext")

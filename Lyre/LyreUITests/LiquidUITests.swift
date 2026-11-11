@@ -1208,6 +1208,32 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 5), "Find Shows didn't open")
     }
 
+    /// Swiped in from the left edge, a page goes back with the finger, as anywhere in iOS;
+    /// held as a book, a section's own page is the bottom one and doesn't go back to the
+    /// lava menu.
+    @MainActor
+    func testASwipeInFromTheEdgeGoesBackButNotPastASection() throws {
+        let app = try launchLiquid(["-LiquidShot", "library"])
+        let artists = element(app, "liquid.menu.artists")
+        XCTAssertTrue(artists.waitForExistence(timeout: 10))
+        artists.tap()
+        XCTAssertTrue(element(app, "liquid.artist.Lyre").waitForExistence(timeout: 5), "Artists didn't open")
+        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.005, dy: 0.5))
+        edge.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)))
+        XCTAssertTrue(element(app, "liquid.menu.albums").waitForExistence(timeout: 5), "The swipe didn't go back")
+        app.terminate()
+
+        let book = try launchBook()
+        XCTAssertTrue(element(book, "liquid.book.songs").waitForExistence(timeout: 10))
+        element(book, "liquid.book.songs").tap()
+        XCTAssertTrue(element(book, "liquid.songs.track.0").waitForExistence(timeout: 5))
+        let pageEdge = book.coordinate(withNormalizedOffset: CGVector(dx: 0.505, dy: 0.6))
+        pageEdge.press(forDuration: 0.05, thenDragTo: book.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.6)))
+        sleep(1)
+        XCTAssertTrue(element(book, "liquid.songs.track.0").exists, "Songs was swiped away")
+        XCTAssertFalse(element(book, "liquid.menu.albums").exists, "The swipe went back to the lava menu")
+    }
+
     /// The side bar's "…": the sections that aren't in it.
     private func openFromMore(_ app: XCUIApplication, _ title: String) {
         element(app, "liquid.book.more").tap()

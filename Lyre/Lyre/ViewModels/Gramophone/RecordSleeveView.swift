@@ -206,7 +206,7 @@ struct RecordSleeveView: View {
                         .background(SpoolPalette.labelInk.opacity(0.1), in: Circle())
                         .frame(width: 44, height: 44)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityLabel(String(localized: "gramophone.sleeve.close"))
                 .accessibilityIdentifier("gramophone.sleeve.close")
             }
@@ -239,7 +239,7 @@ struct RecordSleeveView: View {
                     }
                 }
                 .font(.system(size: 13, weight: .semibold))
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 if let onOpenAlbum, case let covers = ArtistAlbums.albums(in: artistSections(tracks)), !covers.isEmpty {
                     ArtistAlbumStrip(albums: covers, onOpen: onOpenAlbum)
                         .padding(.top, 6)
@@ -334,7 +334,7 @@ struct RecordSleeveView: View {
             .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         // Swiped right, a song offers Play Next and Add to Queue, as every list in Lyre
         // does; an episode, its download.
         .rowSwipeActions(album.isPodcast ? episode.map(RowSwipeAction.download) ?? []

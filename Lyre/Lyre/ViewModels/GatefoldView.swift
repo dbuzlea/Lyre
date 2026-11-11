@@ -417,7 +417,7 @@ private struct GatefoldPill: View {
             .padding(.vertical, 7)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityIdentifier(identifier)
     }
 }
@@ -462,7 +462,7 @@ struct RecordPanel<Label: View>: View {
                     label: label
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.plain) // The record answers the touch itself, flipping.
             .offset(y: isFlipping ? -20 : 0)
             .rotation3DEffect(.degrees(flipAngle), axis: (x: 1, y: 0, z: 0), perspective: 0.4)
             // Slides in from the gutter side as the cover clears it.

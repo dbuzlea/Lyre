@@ -147,7 +147,7 @@ struct MeetTheWheelStep: View {
                 )
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         .accessibilityHint(String(localized: "onboarding.wheel.showOnWheel"))
         .accessibilityAddTraits(focused == part ? .isSelected : [])
     }

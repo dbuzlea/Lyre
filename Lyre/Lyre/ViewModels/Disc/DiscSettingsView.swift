@@ -65,7 +65,7 @@ struct DiscSettingsView: View {
                     .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                     .contentShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
 
                 section(1, String(localized: "spool.settings.tutorial")) {
                     DiscTourPager(theme: theme)
@@ -228,7 +228,7 @@ struct DiscSettingsView: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle(isRow: true))
         .accessibilityIdentifier("disc.settings.\(style.rawValue)")
     }
 
@@ -250,7 +250,7 @@ struct DiscSettingsView: View {
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LyrePressStyle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("disc.settings.finish.\(finish.rawValue)")
     }
@@ -306,7 +306,7 @@ struct DiscSettingsView: View {
                 .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                 .contentShape(RoundedRectangle(cornerRadius: 12))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle(isRow: true))
             ShareDiagnosticsButton {
                 HStack(spacing: 12) {
                     Image(systemName: "doc.text.magnifyingglass")
@@ -328,7 +328,7 @@ struct DiscSettingsView: View {
                 .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                 .contentShape(RoundedRectangle(cornerRadius: 12))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(LyrePressStyle(isRow: true))
             Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
                 .font(.system(size: 11))
                 .opacity(0.5)

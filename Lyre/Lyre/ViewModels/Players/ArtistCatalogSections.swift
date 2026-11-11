@@ -44,7 +44,7 @@ struct ArtistCatalogHeader: View {
                         .opacity(0.8)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle(isRow: true))
                 .accessibilityIdentifier("artist.biography")
             }
             if let songs = details?.topSongs, !songs.isEmpty {
@@ -75,7 +75,7 @@ struct ArtistCatalogHeader: View {
                         .padding(.vertical, 5)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(LyrePressStyle(isRow: true))
                     .accessibilityIdentifier("artist.topSong.\(index)")
                 }
             }
@@ -99,7 +99,7 @@ struct ArtistCatalogHeader: View {
                     }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LyrePressStyle())
                 .accessibilityIdentifier("artist.latestRelease")
             }
         }
@@ -151,7 +151,7 @@ struct ArtistCatalogFooter: View {
                                         .frame(width: 70)
                                 }
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(LyrePressStyle())
                         }
                     }
                 }
