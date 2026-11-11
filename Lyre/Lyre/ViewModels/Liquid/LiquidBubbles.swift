@@ -185,10 +185,14 @@ struct LiquidBubbleField: View {
     /// Whether the bubbles keep clear of an iPhone Duo's side column (the player's buttons
     /// stand there).
     var keepsClearOfColumn = false
+    /// Find Shows, beside the search on the shows' tab, as on the library's Podcasts page.
+    var onFindShows: () -> Void = {}
 
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var packing = Packing()
+    /// What the search over the bubbles has in it: the bubbles then are only those it finds.
+    @State private var query = ""
     /// Whether the field is moving, for the bubbles' touches; not observed, so the
     /// scroll starting and stopping redraws nothing.
     @State private var scroll = BubbleScrollState()
@@ -196,10 +200,51 @@ struct LiquidBubbleField: View {
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
     private var items: [AppAlbum] {
-        switch tab {
+        let all: [AppAlbum] = switch tab {
         case .albums:    library.albums
         case .playlists: library.mixtapes
         case .podcasts:  library.podcasts
+        }
+        let terms = query.lowercased().split(separator: " ").map(String.init)
+        guard !terms.isEmpty else { return all }
+        return all.filter { album in
+            let text = (album.title + " " + album.artistName).lowercased()
+            return terms.allSatisfy { text.contains($0) }
+        }
+    }
+
+    /// The search, as each list's page has it, and the tab's own button beside it: a new
+    /// playlist, or Find Shows.
+    private var searchRow: some View {
+        HStack(spacing: 10) {
+            LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), tab.title))
+            if let action = searchAction {
+                Button(action: action.action) {
+                    Image(systemName: action.symbol)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 46, height: 46)
+                        .background(.white.opacity(0.1), in: Circle())
+                }
+                .buttonStyle(LyrePressStyle())
+                .accessibilityLabel(action.title)
+                .accessibilityIdentifier(action.id)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 10)
+    }
+
+    private var searchAction: (title: String, symbol: String, id: String, action: () -> Void)? {
+        switch tab {
+        case .albums:
+            nil
+        case .playlists:
+            (String(localized: "playlist.new.action"), "plus", "liquid.newPlaylist",
+             { PlaylistAdder.shared.promptNewPlaylist() })
+        case .podcasts:
+            (String(localized: "spool.shelf.findShows"), "plus.magnifyingglass", "liquid.podcasts.findShows",
+             onFindShows)
         }
     }
 
@@ -234,8 +279,9 @@ struct LiquidBubbleField: View {
                             .padding(.top, safeArea.top + 18)
                             .padding(.bottom, 6)
                             .accessibilityAddTraits(.isHeader)
+                        searchRow
                         if items.isEmpty {
-                            Text(tab.emptyText)
+                            Text(query.isEmpty ? tab.emptyText : String(localized: "search.noResults"))
                                 .font(.system(size: 15))
                                 .foregroundStyle(.white.opacity(0.6))
                                 .padding(.horizontal, 20)
@@ -254,6 +300,8 @@ struct LiquidBubbleField: View {
                 .onChange(of: key(items, width), initial: true) { _, key in
                     repack(items, width: width, key: key)
                 }
+                // Another list: its own search, from empty.
+                .onChange(of: tab) { query = "" }
             }
             // In the side column instead, when the player puts them there (SideRail): the
             // bubbles then keep clear of that column, as the tabs used to for them.
@@ -272,7 +320,7 @@ struct LiquidBubbleField: View {
     }
 
     private func key(_ items: [AppAlbum], _ width: CGFloat) -> String {
-        "\(tab.rawValue)|\(Int(width))|\(items.count)|\(items.first?.id ?? "")|\(items.last?.id ?? "")"
+        "\(tab.rawValue)|\(query)|\(Int(width))|\(items.count)|\(items.first?.id ?? "")|\(items.last?.id ?? "")"
     }
 
     private func repack(_ items: [AppAlbum], width: CGFloat, key: String) {

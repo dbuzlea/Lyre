@@ -1171,6 +1171,36 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 5), "The bubbles didn't come back")
     }
 
+    /// Held as a book, the bubbles have each list's search, and its button beside it:
+    /// New Playlist on the playlists, Find Shows on the shows, as their pages have.
+    @MainActor
+    func testTheBubblesHaveTheirListsSearchAndButtons() throws {
+        let app = try launchBook()
+        XCTAssertTrue(element(app, "liquid.bubble.sample-1").waitForExistence(timeout: 10))
+        let search = element(app, "liquid.search.field")
+        XCTAssertTrue(search.exists, "The album bubbles have no search")
+        search.tap()
+        search.typeText("Tape 2")
+        XCTAssertTrue(element(app, "liquid.bubble.sample-2").waitForExistence(timeout: 3), "Searching lost the one it found")
+        XCTAssertFalse(element(app, "liquid.bubble.sample-1").exists, "Searching left the others")
+
+        element(app, "liquid.book.playlists").tap()
+        let new = element(app, "liquid.newPlaylist")
+        XCTAssertTrue(new.waitForExistence(timeout: 3), "The playlist bubbles have no New Playlist")
+        XCTAssertTrue(element(app, "liquid.bubble.mixtape:sample-mix-0").exists, "The search carried over to playlists")
+        new.tap()
+        XCTAssertTrue(app.alerts["New Playlist"].waitForExistence(timeout: 3), "New Playlist didn't ask for a name")
+        app.alerts["New Playlist"].buttons["Cancel"].tap()
+
+        openFromMore(app, "Podcasts")
+        let find = element(app, "liquid.podcasts.findShows")
+        XCTAssertTrue(find.waitForExistence(timeout: 3), "The show bubbles have no Find Shows")
+        sleep(1)
+        attachScreenshot(app, named: "duo-book-podcasts-search")
+        find.tap()
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 5), "Find Shows didn't open")
+    }
+
     /// The side bar's "…": the sections that aren't in it.
     private func openFromMore(_ app: XCUIApplication, _ title: String) {
         element(app, "liquid.book.more").tap()
