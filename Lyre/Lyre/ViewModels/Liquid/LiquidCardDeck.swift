@@ -89,6 +89,7 @@ struct LiquidCardDeckView<Content: View>: View {
     /// so scrolling a card's page up and down doesn't nudge it along.
     @State private var dragIsSideways: Bool?
     @Environment(\.windowSafeArea) private var safeArea
+    @Environment(\.sideRailHoldsPageButtons) private var railHoldsPageButtons
     @Environment(\.liquidNavigator) private var navigator
 
     /// Scrolled this far down, the card fills the screen.
@@ -266,7 +267,7 @@ struct LiquidCardDeckView<Content: View>: View {
     private func bar(_ item: LiquidDeckItem) -> some View {
         HStack(spacing: 12) {
             // Down the side column instead, on an iPhone Duo with its status bar there.
-            if SideRail.isOn(safeArea) {
+            if SideRail.holdsPageButtons(safeArea, railHoldsPageButtons) {
                 Color.clear.frame(width: 40, height: 40)
             } else {
                 Button(action: onClose) {

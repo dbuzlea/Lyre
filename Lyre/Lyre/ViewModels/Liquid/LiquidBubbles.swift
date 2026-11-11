@@ -182,6 +182,9 @@ struct LiquidBubbleField: View {
     /// Whether the tabs stand down the field's edge; not when they're in an iPhone Duo's
     /// side column with the other buttons.
     var showsTabBar = true
+    /// Whether the bubbles keep clear of an iPhone Duo's side column (the player's buttons
+    /// stand there).
+    var keepsClearOfColumn = false
 
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -256,7 +259,7 @@ struct LiquidBubbleField: View {
             // bubbles then keep clear of that column, as the tabs used to for them.
             if showsTabBar {
                 tabBar
-            } else {
+            } else if keepsClearOfColumn {
                 Color.clear.frame(width: safeArea.trailing)
             }
         }

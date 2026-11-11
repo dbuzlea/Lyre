@@ -60,6 +60,9 @@ struct LiquidNowPlayingView: View {
     /// side: that column's; nil where the player stands them there itself (held as a
     /// book, Now Playing on the left page and the column on the right).
     var railEdge: HorizontalEdge? = .trailing
+    /// Whether it has a library button: not held as a book, where the side bar is the way
+    /// round the library.
+    var showsLibraryButton = true
 
     @State private var left = WaveState(side: .left)
     @State private var right = WaveState(side: .right)
@@ -516,7 +519,7 @@ struct LiquidNowPlayingView: View {
             // both pages (railEdge nil).
             if let railEdge {
                 SideRailButtons(edge: railEdge) {
-                    libraryButton
+                    if showsLibraryButton { libraryButton }
                     headerButtons
                 }
             }
