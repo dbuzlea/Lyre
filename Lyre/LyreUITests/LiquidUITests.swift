@@ -247,7 +247,10 @@ final class LiquidUITests: XCTestCase {
         sleep(1)
         attachScreenshot(app, named: "liquid-album")
 
-        element(app, "liquid.back").tap()
+        // The cover opened as a card: its close, on the page or (an iPhone Duo with its
+        // status bar down the side) in that column.
+        let back = element(app, "liquid.back")
+        (back.exists ? back : element(app, "liquid.card.bar.close")).tap()
         XCTAssertTrue(cover.waitForExistence(timeout: 5), "Back didn't return to the grid")
 
         let droplet = element(app, "liquid.droplet")

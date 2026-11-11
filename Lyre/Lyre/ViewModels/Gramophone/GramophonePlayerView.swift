@@ -201,7 +201,7 @@ struct GramophonePlayerView: View {
                 GeometryReader { proxy in
                     spot(.rack, proxy.frame(in: .global).origin, within: proxy.frame(in: .global)) {
                         Button(action: openRack) { Color.clear.contentShape(Rectangle()) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(HotspotPressStyle())
                             .accessibilityLabel(String(localized: "spool.queue.open"))
                             .accessibilityIdentifier("gramophone.turntable.upNext")
                     }
@@ -560,7 +560,7 @@ struct GramophonePlayerView: View {
                 Color.clear
                 spot(.turntable, origin, within: screen) {
                     Button(action: lookInside) { Color.clear.contentShape(Rectangle()) }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HotspotPressStyle())
                         .accessibilityLabel(String(localized: "gramophone.lookInside"))
                         .accessibilityHint(String(localized: "gramophone.lookInside.hint"))
                         .accessibilityIdentifier("gramophone.lookInside")
@@ -574,7 +574,7 @@ struct GramophonePlayerView: View {
                 }
                 spot(.playSwitch, origin) {
                     Button(action: flipSwitch) { Color.clear.contentShape(Rectangle()) }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HotspotPressStyle())
                         .accessibilityLabel(String(localized: "gramophone.switch"))
                         .accessibilityValue(String(localized: isSwitchOn ? "gramophone.switch.on" : "gramophone.switch.off"))
                         .accessibilityIdentifier("gramophone.switch")
@@ -592,7 +592,7 @@ struct GramophonePlayerView: View {
                 if !isDuoSplit {
                     spot(.drawer, origin) {
                         Button(action: openCrate) { Color.clear.contentShape(Rectangle()) }
-                            .buttonStyle(.plain)
+                            .buttonStyle(HotspotPressStyle())
                             .accessibilityLabel(String(localized: "gramophone.crate.open"))
                             .accessibilityIdentifier("gramophone.crate")
                     }
@@ -602,7 +602,7 @@ struct GramophonePlayerView: View {
                         Color.clear.contentShape(Rectangle())
                             .overlay(alignment: .top) { rackTag.offset(y: -12) }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HotspotPressStyle())
                     .accessibilityLabel(String(localized: "spool.queue.open"))
                     .accessibilityValue(musicService.upcoming.isEmpty ? ""
                                         : String(format: String(localized: "queue.upNextCount"), musicService.upcoming.count))

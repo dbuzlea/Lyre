@@ -2178,6 +2178,15 @@ struct LyreMotionTests {
         #expect(LyreMotion.relativeVelocity(800, distance: 0) == 0)
     }
 
+    /// A flick is judged by where it would come to rest, as a scroll view would carry it.
+    @Test func aFlickIsProjectedToWhereItWouldComeToRest() {
+        #expect(abs(LyreMotion.project(1000) - 499) < 1)
+        #expect(LyreMotion.project(-1000) == -LyreMotion.project(1000))
+        #expect(LyreMotion.project(0) == 0)
+        // A quicker flick goes further, in proportion.
+        #expect(abs(LyreMotion.project(2000) - 2 * LyreMotion.project(1000)) < 0.001)
+    }
+
     @Test func theTonearmGivesALittlePastItsSwingAndIsBroughtBack() {
         let arm = TonearmGeometry(center: CGPoint(x: 150, y: 150), radius: 100)
         // A finger far past the inner end of the swing: a little further than the stop.

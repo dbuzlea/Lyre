@@ -43,6 +43,13 @@ enum LyreMotion {
         return Double(max(-30, min(30, velocity / distance)))
     }
 
+    /// Where a flick would come to rest: the finger's speed (points a second) carried on
+    /// and slowed as a scroll view slows it (WWDC18's projection). A decision made at the
+    /// lift goes by this, so a short quick flick counts as much as a long slow drag.
+    static func project(_ velocity: CGFloat, decelerationRate: CGFloat = 0.998) -> CGFloat {
+        (velocity / 1000) * decelerationRate / (1 - decelerationRate)
+    }
+
     /// A drag past its end: it goes on giving, ever less, as a rubber band does, never
     /// past `limit`.
     static func rubberBand(_ overshoot: CGFloat, limit: CGFloat) -> CGFloat {
@@ -67,6 +74,26 @@ struct LyrePressStyle: ButtonStyle {
             .opacity(configuration.isPressed ? (isRow ? 0.55 : 0.75) : 1)
             // Down at once, back with the tap's spring.
             .animation(configuration.isPressed ? nil : LyreMotion.tap, value: configuration.isPressed)
+    }
+}
+
+/// An invisible control laid over something drawn (the Gramophone's machine, in 3D): it
+/// has no face of its own to give under the finger, so the part touched lights softly at
+/// once, and fades as the finger leaves or slides off.
+struct HotspotPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .overlay {
+                GeometryReader { proxy in
+                    Ellipse()
+                        .fill(RadialGradient(colors: [.white.opacity(0.24), .white.opacity(0)], center: .center,
+                                             startRadius: 0, endRadius: max(proxy.size.width, proxy.size.height) / 2))
+                }
+                .opacity(configuration.isPressed ? 1 : 0)
+                .animation(configuration.isPressed ? nil : LyreMotion.tap, value: configuration.isPressed)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
     }
 }
 
