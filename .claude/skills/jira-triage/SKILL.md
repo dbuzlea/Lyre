@@ -33,7 +33,7 @@ ORDER BY priority DESC, created ASC
 
 ## 2. Check it's safe to start
 
-In the repo (`/Users/danielbuzlea/Desktop/code/Programs/Swift/Projects/Lyre`):
+In the repo (`/Users/danielbuzlea/Developer/Lyre`):
 
 - `git status --porcelain`: if there are uncommitted changes, **stop**. Don't pick the
   issue up. Report which files are dirty and ask Daniel what to do. Never stash, reset or
