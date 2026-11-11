@@ -1278,6 +1278,24 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "duo-book-ink")
     }
 
+    /// Held as a book, a song played from an album's page on the right comes into Now
+    /// Playing on the left as ink, and plays there (the samples have nothing behind them,
+    /// so playing says so).
+    @MainActor
+    func testPlayingFromAnAlbumBesideNowPlayingSpreadsItsInk() throws {
+        let app = try launchBook()
+        let bubble = element(app, "liquid.bubble.sample-1")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10))
+        bubble.press(forDuration: 0.8)
+        let play = element(app, "liquid.album.play")
+        XCTAssertTrue(play.waitForExistence(timeout: 5), "Holding didn't open the album")
+        play.tap()
+        attachScreenshot(app, named: "duo-book-play-ink")
+        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Play didn't play")
+        XCTAssertTrue(element(app, "liquid.nowPlaying").exists, "Now Playing left the left page")
+        XCTAssertTrue(play.exists, "The album's page left the right page")
+    }
+
     /// Stood half open and left alone: the visualizer, until it's touched.
     @MainActor
     func testTheVisualizerGivesWayToATouch() throws {
