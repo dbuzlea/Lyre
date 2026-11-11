@@ -1250,7 +1250,11 @@ final class LiquidUITests: XCTestCase {
     func testNowPlayingReachesForABubbleNearTheFold() throws {
         let app = try launchBook(["-LiquidBubbleShot", "30"])
         XCTAssertTrue(element(app, "liquid.bubbles").waitForExistence(timeout: 10))
-        sleep(3)
+        // Carried, its album's name goes with it.
+        let title = element(app, "liquid.carried.title")
+        XCTAssertTrue(title.waitForExistence(timeout: 5), "A carried bubble has no title")
+        XCTAssertTrue(title.label.contains("Sample Tape 1"), "The carried title isn't its album's: \(title.label)")
+        sleep(2)
         attachScreenshot(app, named: "duo-book-reaching")
     }
 
