@@ -179,6 +179,11 @@ struct LiquidCardDeckView<Content: View>: View {
             .environment(\.rowSwipesEnabled, fills)
             .environment(\.liquidNavigator, cardNavigator)
             .frame(width: fills ? width : cardWidth, height: height)
+            // The width changes in one step, not animated: a page's list laid out through
+            // the in-between widths kept rows as wide as the screen once the card was
+            // back among the others, Shuffle and the songs' ends cut off past its edge.
+            // Its place and corners still animate, so it still grows and shrinks.
+            .animation(nil, value: fills)
             // It runs to the bottom edge, so only its top corners are rounded.
             .clipShape(UnevenRoundedRectangle(topLeadingRadius: isExpanded ? 0 : 30, topTrailingRadius: isExpanded ? 0 : 30,
                                               style: .continuous))
