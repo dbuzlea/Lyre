@@ -62,7 +62,7 @@ struct SettingsView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "settings.title"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -85,12 +85,12 @@ struct SettingsView: View {
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                         Text(rows[index])
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                         Spacer()
                                         if let value = value(at: index) {
                                             Text(value)
-                                                .font(.system(size: 12))
+                                                .lyreFont(size: 12, maxScale: 1.5)
                                                 .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.8))
                                                 .padding(.trailing, 8)
                                         }
@@ -101,12 +101,12 @@ struct SettingsView: View {
                         } else {
                             HStack {
                                 Text(rows[index])
-                                    .font(.system(size: 14))
+                                    .lyreFont(size: 14, maxScale: 1.5)
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                 Spacer()
                                 if let value = value(at: index) {
                                     Text(value)
-                                        .font(.system(size: 12))
+                                        .lyreFont(size: 12, maxScale: 1.5)
                                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                                         .padding(.trailing, 8)
                                 }
@@ -151,7 +151,7 @@ struct ThemeSelectionView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "settings.theme"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -174,7 +174,7 @@ struct ThemeSelectionView: View {
                                                     .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                     .frame(width: 12)
                                                 Text(themeStyle.rawValue)
-                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                                                     .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                 Spacer()
                                             }
@@ -188,7 +188,7 @@ struct ThemeSelectionView: View {
                                             .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                             .frame(width: 12)
                                         Text(themeStyle.rawValue)
-                                            .font(.system(size: 14))
+                                            .lyreFont(size: 14, maxScale: 1.5)
                                             .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                         Spacer()
                                     }
@@ -226,7 +226,7 @@ struct HighlightColorView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "settings.highlightColor"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -249,7 +249,7 @@ struct HighlightColorView: View {
                                                 .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                 .frame(width: 12)
                                             Text(String(localized: "settings.highlightColor.default"))
-                                                .font(.system(size: 14, weight: .semibold))
+                                                .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                                                 .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                             Spacer()
                                         }
@@ -263,7 +263,7 @@ struct HighlightColorView: View {
                                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                         .frame(width: 12)
                                     Text(String(localized: "settings.highlightColor.default"))
-                                        .font(.system(size: 14))
+                                        .lyreFont(size: 14, maxScale: 1.5)
                                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     Spacer()
                                 }
@@ -290,7 +290,7 @@ struct HighlightColorView: View {
                                                     .fill(colorOption.color)
                                                     .frame(width: 10, height: 10)
                                                 Text(colorOption.name)
-                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                                                     .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                 Spacer()
                                             }
@@ -307,7 +307,7 @@ struct HighlightColorView: View {
                                             .fill(colorOption.color)
                                             .frame(width: 10, height: 10)
                                         Text(colorOption.name)
-                                            .font(.system(size: 14))
+                                            .lyreFont(size: 14, maxScale: 1.5)
                                             .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                         Spacer()
                                     }
@@ -359,7 +359,7 @@ struct AboutView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "about.title"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -376,21 +376,21 @@ struct AboutView: View {
                 
                 VStack(spacing: 4) {
                     Text(String(localized: "app.name"))
-                        .font(.system(size: 16, weight: .bold))
+                        .lyreFont(size: 16, weight: .bold, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     
                     Text(String(localized: "about.version").replacingOccurrences(of: "%@",
                         with: versionString))
-                        .font(.system(size: 11))
+                        .lyreFont(size: 11, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                     
                     Text(String(localized: "about.description"))
-                        .font(.system(size: 10))
+                        .lyreFont(size: 10, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                         .padding(.top, 4)
 
                     Text(String(localized: "about.replay"))
-                        .font(.system(size: 10, weight: .medium))
+                        .lyreFont(size: 10, weight: .medium, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                         .padding(.top, 6)
                 }
@@ -413,7 +413,7 @@ struct ScreenSizeSelectionView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "settings.screenSize"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -436,7 +436,7 @@ struct ScreenSizeSelectionView: View {
                                                 .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                 .frame(width: 12)
                                             Text("Auto (Match Theme)")
-                                                .font(.system(size: 13, weight: .semibold))
+                                                .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                                                 .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                             Spacer()
                                         }
@@ -450,7 +450,7 @@ struct ScreenSizeSelectionView: View {
                                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                         .frame(width: 12)
                                     Text("Auto (Match Theme)")
-                                        .font(.system(size: 13))
+                                        .lyreFont(size: 13, maxScale: 1.5)
                                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     Spacer()
                                 }
@@ -475,10 +475,10 @@ struct ScreenSizeSelectionView: View {
                                                     .frame(width: 12)
                                                 VStack(alignment: .leading, spacing: 0) {
                                                     Text(screenSize.rawValue)
-                                                        .font(.system(size: 13, weight: .semibold))
+                                                        .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                                                         .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                     Text("\(Int(screenSize.dimensions.width))×\(Int(screenSize.dimensions.height))")
-                                                        .font(.system(size: 9))
+                                                        .lyreFont(size: 9, maxScale: 1.5)
                                                         .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.8))
                                                 }
                                                 Spacer()
@@ -494,10 +494,10 @@ struct ScreenSizeSelectionView: View {
                                             .frame(width: 12)
                                         VStack(alignment: .leading, spacing: 0) {
                                             Text(screenSize.rawValue)
-                                                .font(.system(size: 13))
+                                                .lyreFont(size: 13, maxScale: 1.5)
                                                 .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                             Text("\(Int(screenSize.dimensions.width))×\(Int(screenSize.dimensions.height))")
-                                                .font(.system(size: 9))
+                                                .lyreFont(size: 9, maxScale: 1.5)
                                                 .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                                         }
                                         Spacer()
@@ -534,7 +534,7 @@ struct ScrollSensitivityView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "settings.scrollSensitivity"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -555,7 +555,7 @@ struct ScrollSensitivityView: View {
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                             .frame(width: 12)
                                         Text(sensitivity.rawValue)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                         Spacer()
                                     }
@@ -569,7 +569,7 @@ struct ScrollSensitivityView: View {
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     .frame(width: 12)
                                 Text(sensitivity.rawValue)
-                                    .font(.system(size: 14))
+                                    .lyreFont(size: 14, maxScale: 1.5)
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                 Spacer()
                             }
@@ -600,7 +600,7 @@ struct ClickSoundSelectionView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "settings.clickSound"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -622,7 +622,7 @@ struct ClickSoundSelectionView: View {
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                             .frame(width: 12)
                                         Text(option)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                         Spacer()
                                     }
@@ -636,7 +636,7 @@ struct ClickSoundSelectionView: View {
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     .frame(width: 12)
                                 Text(option)
-                                    .font(.system(size: 14))
+                                    .lyreFont(size: 14, maxScale: 1.5)
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                 Spacer()
                             }
@@ -663,7 +663,7 @@ struct PlayerStyleSelectionView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "settings.playerStyle"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -685,7 +685,7 @@ struct PlayerStyleSelectionView: View {
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                             .frame(width: 12)
                                         Text(style.displayName)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                         Spacer()
                                     }
@@ -699,7 +699,7 @@ struct PlayerStyleSelectionView: View {
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     .frame(width: 12)
                                 Text(style.displayName)
-                                    .font(.system(size: 14))
+                                    .lyreFont(size: 14, maxScale: 1.5)
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                 Spacer()
                             }
@@ -726,7 +726,7 @@ struct BacklightDurationSelectionView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "settings.backlight"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -747,7 +747,7 @@ struct BacklightDurationSelectionView: View {
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                             .frame(width: 12)
                                         Text(duration.rawValue)
-                                            .font(.system(size: 14, weight: .semibold))
+                                            .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                         Spacer()
                                     }
@@ -761,7 +761,7 @@ struct BacklightDurationSelectionView: View {
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     .frame(width: 12)
                                 Text(duration.rawValue)
-                                    .font(.system(size: 14))
+                                    .lyreFont(size: 14, maxScale: 1.5)
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                 Spacer()
                             }

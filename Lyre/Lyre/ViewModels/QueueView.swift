@@ -59,7 +59,7 @@ struct QueueView: View {
                 // beats looking broken when a queued song is passed over.
                 if musicService.shuffleMode != .off, canEdit {
                     Label(String(localized: "queue.shuffleOn"), systemImage: "shuffle")
-                        .font(.system(size: 8))
+                        .lyreFont(size: 8, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
@@ -88,12 +88,12 @@ struct QueueView: View {
                 .font(.system(size: 10))
                 .foregroundStyle(themeSettings.currentTheme.screenTextColor)
             Text(String(localized: "queue.title"))
-                .font(.system(size: 12, weight: .semibold))
+                .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                 .foregroundStyle(themeSettings.currentTheme.screenTextColor)
             Spacer()
             if !upNext.isEmpty {
                 Text(String(format: String(localized: "queue.upNextCount"), upNext.count))
-                    .font(.system(size: 10))
+                    .lyreFont(size: 10, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
             }
         }
@@ -110,12 +110,12 @@ struct QueueView: View {
                         .font(.system(size: 7))
                         .foregroundStyle(themeSettings.currentTheme.highlightColor)
                     Text(String(localized: "queue.nowPlaying"))
-                        .font(.system(size: 8, weight: .semibold))
+                        .lyreFont(size: 8, weight: .semibold, maxScale: 1.5)
                         .tracking(0.4)
                         .foregroundStyle(themeSettings.currentTheme.highlightColor)
                 }
                 Text(current.title)
-                    .font(.system(size: 11, weight: .medium))
+                    .lyreFont(size: 11, weight: .medium, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     .lineLimit(1)
             }
@@ -164,7 +164,7 @@ struct QueueView: View {
                     : themeSettings.currentTheme.screenSecondaryTextColor)
                 .frame(width: 16, alignment: .center)
             Text(String(localized: "queue.clear"))
-                .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                .lyreFont(size: 11, weight: isSelected ? .medium : .regular, maxScale: 1.5)
                 .foregroundStyle(isSelected
                     ? themeSettings.currentTheme.highlightTextColor
                     : themeSettings.currentTheme.screenSecondaryTextColor)
@@ -193,7 +193,7 @@ struct QueueView: View {
                     .frame(width: 16, alignment: .center)
             } else {
                 Text("\(offset + 1)")
-                    .font(.system(size: 9))
+                    .lyreFont(size: 9, maxScale: 1.5)
                     .foregroundStyle(isSelected
                         ? themeSettings.currentTheme.highlightTextColor.opacity(0.7)
                         : themeSettings.currentTheme.screenTextColor.opacity(0.5))
@@ -202,13 +202,13 @@ struct QueueView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(track.title)
-                    .font(.system(size: 11, weight: isMoving ? .semibold : .regular))
+                    .lyreFont(size: 11, weight: isMoving ? .semibold : .regular, maxScale: 1.5)
                     .foregroundStyle(isSelected
                         ? themeSettings.currentTheme.highlightTextColor
                         : themeSettings.currentTheme.screenTextColor)
                     .lineLimit(1)
                 Text(track.artistName)
-                    .font(.system(size: 9))
+                    .lyreFont(size: 9, maxScale: 1.5)
                     .foregroundStyle(isSelected
                         ? themeSettings.currentTheme.highlightTextColor.opacity(0.8)
                         : themeSettings.currentTheme.screenSecondaryTextColor)
@@ -252,7 +252,7 @@ struct QueueView: View {
         }
 
         return Text(String(localized: key))
-            .font(.system(size: 8))
+            .lyreFont(size: 8, maxScale: 1.5)
             .foregroundStyle(movingOffset == nil
                 ? themeSettings.currentTheme.screenSecondaryTextColor
                 : themeSettings.currentTheme.highlightColor)
@@ -269,10 +269,10 @@ struct QueueView: View {
                 .font(.system(size: 28))
                 .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.3))
             Text(String(localized: "queue.empty"))
-                .font(.system(size: 12))
+                .lyreFont(size: 12, maxScale: 1.5)
                 .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
             Text(String(localized: "queue.empty.hint"))
-                .font(.system(size: 9))
+                .lyreFont(size: 9, maxScale: 1.5)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                 .padding(.horizontal, 12)

@@ -540,11 +540,11 @@ struct LiquidNowPlayingView: View {
                 Button(action: onOpenPlayingAlbum) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(track.title)
-                            .font(.system(size: 28, weight: .bold))
+                            .lyreFont(size: 28, weight: .bold, maxScale: 1.5)
                             .lineLimit(2)
                             .minimumScaleFactor(0.7)
                         Text(subtitle(for: track))
-                            .font(.system(size: 16))
+                            .lyreFont(size: 16, maxScale: 1.5)
                             .foregroundStyle(.white.opacity(0.8))
                             .lineLimit(1)
                     }
@@ -605,7 +605,7 @@ struct LiquidNowPlayingView: View {
             }
         } label: {
             Text(SpoolPlayerView.speedText(musicService.podcastRate))
-                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .lyreFont(size: 14, weight: .bold, design: .rounded, maxScale: 1.5)
                 .monospacedDigit()
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
@@ -629,7 +629,7 @@ struct LiquidNowPlayingView: View {
         return VStack(spacing: 2) {
             Text(count > 0 ? String(format: String(localized: "liquid.upNext.count"), count)
                            : String(localized: "liquid.upNext"))
-                .font(.system(size: 11, weight: .semibold))
+                .lyreFont(size: 11, weight: .semibold, maxScale: 1.5)
                 .tracking(1.5)
                 .textCase(.uppercase)
                 .foregroundStyle(.white.opacity(0.8))
@@ -669,9 +669,9 @@ struct LiquidNowPlayingView: View {
     private var emptyState: some View {
         VStack(spacing: 14) {
             Text(String(localized: "liquid.nothingPlaying"))
-                .font(.system(size: 26, weight: .bold))
+                .lyreFont(size: 26, weight: .bold, maxScale: 1.5)
             Button(String(localized: "liquid.openLibrary"), action: onOpenLibrary)
-                .font(.system(size: 16, weight: .semibold))
+                .lyreFont(size: 16, weight: .semibold, maxScale: 1.5)
                 .foregroundStyle(.black)
                 .padding(.horizontal, 22)
                 .frame(height: 48)
@@ -754,7 +754,7 @@ struct LiquidProgress: View {
                 Spacer()
                 Text("-" + AppHelpers.formatTime(max(0, duration - (scrub ?? clock.time))))
             }
-            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .lyreFont(size: 12, weight: .medium, design: .monospaced, maxScale: 1.5)
             .foregroundStyle(.white.opacity(0.75))
         }
         .accessibilityElement()

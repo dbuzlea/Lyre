@@ -33,7 +33,7 @@ struct ShelfSearchField: View {
                 .font(.system(size: 14, weight: .semibold))
                 .accessibilityHidden(true)
             TextField("", text: $query, prompt: Text(prompt).foregroundStyle(theme.keySymbol.opacity(0.55)))
-                .font(.system(size: 15))
+                .lyreFont(size: 15, maxScale: 2)
                 .focused(isFocused)
                 .submitLabel(.search)
                 .onSubmit { isFocused.wrappedValue = false }

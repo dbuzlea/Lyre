@@ -316,7 +316,7 @@ struct SpoolPlayerView: View {
 
             if let notice {
                 Text(notice)
-                    .font(.system(size: 13, weight: .semibold))
+                    .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
@@ -811,7 +811,7 @@ struct SpoolPlayerView: View {
             .accessibilityValue(deckLoad.map { $0.album.tapeTitle } ?? "")
             Spacer(minLength: 0)
             Text(String(localized: deckLoad == nil ? "spool.open.hint" : "spool.closeToPlay"))
-                .font(.system(size: 13, weight: .semibold))
+                .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                 .foregroundStyle(theme.ink)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 14)
@@ -828,7 +828,7 @@ struct SpoolPlayerView: View {
 
     private var brand: some View {
         Text(String(localized: "spool.brand"))
-            .font(.system(size: 34, weight: .black, design: .rounded))
+            .lyreFont(size: 34, weight: .black, design: .rounded, maxScale: 1.5)
             .tracking(4)
             .foregroundStyle(theme.logo)
             .accessibilityHidden(true)
@@ -838,7 +838,7 @@ struct SpoolPlayerView: View {
     /// door.
     private var originalBrand: some View {
         Text(String(localized: "spool.subtitle"))
-            .font(.system(size: 11, weight: .semibold))
+            .lyreFont(size: 11, weight: .semibold, maxScale: 1.5)
             .tracking(1.5)
             .foregroundStyle(theme.ink.opacity(0.75))
             .accessibilityHidden(true)
@@ -885,13 +885,13 @@ struct SpoolPlayerView: View {
     private var slimLogoPlate: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(String(localized: "spool.brand"))
-                .font(.system(size: 26, weight: .heavy, design: .serif))
+                .lyreFont(size: 26, weight: .heavy, design: .serif, maxScale: 1.5)
                 .tracking(5)
                 .foregroundStyle(theme.isLight ? theme.ink : theme.keySymbol)
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 2) {
                 Text(String(localized: "spool.stereo"))
-                    .font(.system(size: 22, weight: .black, design: .rounded))
+                    .lyreFont(size: 22, weight: .black, design: .rounded, maxScale: 1.5)
                     .italic()
                     .foregroundStyle(theme.isLight ? theme.logo : theme.accent)
                 counter
@@ -943,9 +943,9 @@ struct SpoolPlayerView: View {
     private func nowPlayingCaption(titleSize: CGFloat, subtitleSize: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(nowPlayingTitle ?? String(localized: "spool.noTape"))
-                .font(.system(size: titleSize, weight: .semibold))
+                .lyreFont(size: titleSize, weight: .semibold, maxScale: 1.5)
             Text(nowPlayingTitle == nil ? String(localized: "spool.noTape.hint") : nowPlayingSubtitle ?? "")
-                .font(.system(size: subtitleSize))
+                .lyreFont(size: subtitleSize, maxScale: 1.5)
                 .opacity(0.75)
         }
         .lineLimit(1)
@@ -1257,7 +1257,7 @@ struct SpoolPlayerView: View {
             }
         } label: {
             Text(Self.speedText(musicService.podcastRate))
-                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .lyreFont(size: 12, weight: .heavy, design: .rounded, maxScale: 1.5)
                 .monospacedDigit()
                 .foregroundStyle(theme.keySymbol)
                 .padding(.horizontal, 8)
@@ -1945,7 +1945,7 @@ private struct ElapsedTimeLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 1.5)
             .foregroundStyle(theme.keySymbol.opacity(0.8))
             .accessibilityHidden(true)
     }
@@ -2136,9 +2136,9 @@ struct TapeShelfView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(String(localized: "spool.shelf.title"))
-                .font(.system(size: 28, weight: .bold))
+                .lyreFont(size: 28, weight: .bold, maxScale: 1.5)
             Text(hint)
-                .font(.system(size: 13))
+                .lyreFont(size: 13, maxScale: 1.5)
                 .foregroundStyle(.secondary)
 
             if !albums.isEmpty {
@@ -2212,10 +2212,10 @@ struct TapeShelfView: View {
                         .strokeBorder(SpoolPalette.accent, lineWidth: isSelected ? 3 : 0)
                 )
             Text(album.title)
-                .font(.system(size: 12, weight: .semibold))
+                .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                 .lineLimit(1)
             Text(album.artistName)
-                .font(.system(size: 11))
+                .lyreFont(size: 11, maxScale: 1.5)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }

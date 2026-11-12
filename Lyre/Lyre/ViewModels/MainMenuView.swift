@@ -56,7 +56,7 @@ struct MainMenuView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(String(localized: "app.name"))
-                    .font(.system(size: 16, weight: .bold))
+                    .lyreFont(size: 16, weight: .bold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
                 Image(systemName: batteryIconName)
@@ -88,7 +88,7 @@ struct MainMenuView: View {
                                                     .font(.system(size: 10, weight: .bold))
                                                     .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                 Text(menuItems[index])
-                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                                                     .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                 Spacer()
                                             }
@@ -98,7 +98,7 @@ struct MainMenuView: View {
                                 } else {
                                     HStack {
                                         Text(menuItems[index])
-                                            .font(.system(size: 14))
+                                            .lyreFont(size: 14, maxScale: 1.5)
                                             .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                         Spacer()
                                     }

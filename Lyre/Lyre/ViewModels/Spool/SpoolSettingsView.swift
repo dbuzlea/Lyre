@@ -53,9 +53,9 @@ struct SpoolSettingsView: View {
                             .font(.system(size: 20, weight: .semibold))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(String(localized: "settings.allowMusicAccess"))
-                                .font(.system(size: 16, weight: .semibold))
+                                .lyreFont(size: 16, weight: .semibold, maxScale: 2)
                             Text(String(localized: "settings.allowMusicAccess.detail"))
-                                .font(.system(size: 12))
+                                .lyreFont(size: 12, maxScale: 2)
                                 .opacity(0.7)
                         }
                         .multilineTextAlignment(.leading)
@@ -225,10 +225,12 @@ struct SpoolSettingsView: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(String(localized: "spool.brand"))
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                    .lyreFont(size: 30, weight: .heavy, design: .rounded, maxScale: 2)
                     .tracking(4)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                 Text(String(localized: "spool.settings.manual"))
-                    .font(.system(size: 11, weight: .semibold))
+                    .lyreFont(size: 11, weight: .semibold, maxScale: 2)
                     .tracking(2)
                     .opacity(0.6)
             }
@@ -238,7 +240,7 @@ struct SpoolSettingsView: View {
             // Down the side column instead, on an iPhone Duo with its status bar there.
             if !SideRail.isOn(safeArea) {
                 Button(String(localized: "spool.settings.done"), action: onDone)
-                    .font(.system(size: 16, weight: .semibold))
+                    .lyreFont(size: 16, weight: .semibold, maxScale: 2)
                     .accessibilityIdentifier("spool.settings.done")
             }
         }
@@ -253,13 +255,13 @@ struct SpoolSettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Text("\(number)")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .lyreFont(size: 12, weight: .bold, design: .rounded, maxScale: 2)
                     .foregroundStyle(Self.paper)
                     .frame(width: 20, height: 20)
                     .background(Self.ink, in: Circle())
                     .accessibilityHidden(true)
                 Text(title.uppercased())
-                    .font(.system(size: 13, weight: .bold))
+                    .lyreFont(size: 13, weight: .bold, maxScale: 2)
                     .tracking(1.5)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -270,10 +272,10 @@ struct SpoolSettingsView: View {
     private func rowLabel(_ title: String, detail: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(.system(size: 16, weight: .medium))
+                .lyreFont(size: 16, weight: .medium, maxScale: 2)
             if let detail {
                 Text(detail)
-                    .font(.system(size: 12))
+                    .lyreFont(size: 12, maxScale: 2)
                     .opacity(0.6)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -289,7 +291,7 @@ struct SpoolSettingsView: View {
                 DesignSketch(model: model, theme: theme)
                     .frame(height: 92)
                 Text(model.displayName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .lyreFont(size: 13, weight: .semibold, maxScale: 2)
             }
             .padding(12)
             .frame(maxWidth: .infinity)
@@ -323,7 +325,7 @@ struct SpoolSettingsView: View {
                     .overlay(Circle().strokeBorder(Self.ink.opacity(isSelected ? 1 : 0), lineWidth: 2))
                     .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
                 Text(finish.displayName)
-                    .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                    .lyreFont(size: 11, weight: isSelected ? .semibold : .regular, maxScale: 2)
                     .multilineTextAlignment(.center)
                     .lineLimit(2, reservesSpace: true)
             }
@@ -344,9 +346,9 @@ struct SpoolSettingsView: View {
             Toggle(isOn: $sendsDiagnosticsAutomatically) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(String(localized: "settings.sendDiagnostics"))
-                        .font(.system(size: 15, weight: .semibold))
+                        .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                     Text(String(localized: "settings.sendDiagnostics.detail"))
-                        .font(.system(size: 12))
+                        .lyreFont(size: 12, maxScale: 2)
                         .opacity(0.7)
                 }
             }
@@ -356,9 +358,9 @@ struct SpoolSettingsView: View {
             Toggle(isOn: $sharesUsageStatistics) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(String(localized: "settings.shareUsage"))
-                        .font(.system(size: 15, weight: .semibold))
+                        .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                     Text(String(localized: "settings.shareUsage.detail"))
-                        .font(.system(size: 12))
+                        .lyreFont(size: 12, maxScale: 2)
                         .opacity(0.7)
                 }
             }
@@ -371,9 +373,9 @@ struct SpoolSettingsView: View {
                         .font(.system(size: 18, weight: .semibold))
                     VStack(alignment: .leading, spacing: 3) {
                         Text(String(localized: "settings.reportProblem"))
-                            .font(.system(size: 15, weight: .semibold))
+                            .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                         Text(String(localized: "settings.reportProblem.detail"))
-                            .font(.system(size: 12))
+                            .lyreFont(size: 12, maxScale: 2)
                             .opacity(0.7)
                     }
                     .multilineTextAlignment(.leading)
@@ -393,9 +395,9 @@ struct SpoolSettingsView: View {
                         .font(.system(size: 18, weight: .semibold))
                     VStack(alignment: .leading, spacing: 3) {
                         Text(String(localized: "settings.shareDiagnostics"))
-                            .font(.system(size: 15, weight: .semibold))
+                            .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                         Text(String(localized: "settings.shareDiagnostics.detail"))
-                            .font(.system(size: 12))
+                            .lyreFont(size: 12, maxScale: 2)
                             .opacity(0.7)
                     }
                     .multilineTextAlignment(.leading)
@@ -410,7 +412,7 @@ struct SpoolSettingsView: View {
             }
             .buttonStyle(LyrePressStyle(isRow: true))
             Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
-                .font(.system(size: 11))
+                .lyreFont(size: 11, maxScale: 2)
                 .opacity(0.5)
                 .frame(maxWidth: .infinity)
         }

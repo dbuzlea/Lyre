@@ -188,15 +188,15 @@ struct LiquidCardStack: View {
                     let item = items[index]
                     VStack(spacing: 4) {
                         Text(item.title)
-                            .font(.system(size: 22, weight: .bold))
+                            .lyreFont(size: 22, weight: .bold, maxScale: 2)
                             .lineLimit(2)
                             .multilineTextAlignment(.center)
                         Text(item.subtitle)
-                            .font(.system(size: 14))
+                            .lyreFont(size: 14, maxScale: 2)
                             .foregroundStyle(.white.opacity(0.65))
                             .lineLimit(1)
                         Text(String(format: String(localized: "liquid.stack.position"), index + 1, items.count))
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .lyreFont(size: 11, weight: .semibold, design: .monospaced, maxScale: 2)
                             .foregroundStyle(.white.opacity(0.4))
                             .padding(.top, 2)
                     }
@@ -415,7 +415,7 @@ struct LiquidLetterRow: View {
             HStack(spacing: 0) {
                 ForEach(letters, id: \.letter) { entry in
                     Text(entry.letter)
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .lyreFont(size: 11, weight: .bold, design: .rounded, maxScale: 2)
                         .foregroundStyle(lastLetter == entry.letter ? Color.black : .white.opacity(0.65))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(lastLetter == entry.letter ? Color.white : .clear, in: Capsule())
@@ -660,11 +660,11 @@ struct LiquidFoldView: View {
                 HStack(alignment: .top, spacing: 8) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(item.title)
-                            .font(.system(size: 22, weight: .bold))
+                            .lyreFont(size: 22, weight: .bold, maxScale: 2)
                             .lineLimit(2)
                             .minimumScaleFactor(0.8)
                         Text(item.subtitle)
-                            .font(.system(size: 13))
+                            .lyreFont(size: 13, maxScale: 2)
                             .foregroundStyle(.white.opacity(0.7))
                             .lineLimit(2)
                     }
@@ -739,7 +739,7 @@ struct LiquidFoldView: View {
                 Text(title)
                     .minimumScaleFactor(0.8)
             }
-                .font(.system(size: 13, weight: .semibold))
+                .lyreFont(size: 13, weight: .semibold, maxScale: 2)
                 .lineLimit(1)
                 .foregroundStyle(isPrimary ? Color.black : .white)
                 .padding(.horizontal, 12)
@@ -827,7 +827,7 @@ struct LiquidFoldView: View {
                 .environment(\.defaultMinListRowHeight, 1)
             } else if tracks != nil {
                 Text(String(localized: "spool.jcard.empty"))
-                    .font(.system(size: 14))
+                    .lyreFont(size: 14, maxScale: 2)
                     .foregroundStyle(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
                     .padding()
@@ -846,7 +846,7 @@ struct LiquidFoldView: View {
                     Image(systemName: "waveform").font(.system(size: 11, weight: .bold))
                 } else {
                     Text("\(index + 1)")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .lyreFont(size: 11, weight: .medium, design: .monospaced, maxScale: 2)
                         .foregroundStyle(.white.opacity(0.45))
                 }
             }
@@ -859,7 +859,7 @@ struct LiquidFoldView: View {
                     .foregroundStyle(.white)
                 if showsArtist {
                     Text(track.artistName)
-                        .font(.system(size: 11))
+                        .lyreFont(size: 11, maxScale: 2)
                         .foregroundStyle(.white.opacity(0.6))
                         .lineLimit(1)
                 }
@@ -871,7 +871,7 @@ struct LiquidFoldView: View {
             }
             if track.duration > 0 {
                 Text(AppHelpers.formatTime(track.duration))
-                    .font(.system(size: 11, design: .monospaced))
+                    .lyreFont(size: 11, design: .monospaced, maxScale: 2)
                     .foregroundStyle(.white.opacity(0.45))
             }
         }

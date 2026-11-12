@@ -704,11 +704,11 @@ struct LiquidGridPage: View {
     private var empty: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
-                .font(.system(size: 16))
+                .lyreFont(size: 16, maxScale: 2)
                 .foregroundStyle(.white.opacity(0.7))
             if let emptyAction, query.isEmpty {
                 Button(emptyAction.title, action: emptyAction.action)
-                    .font(.system(size: 15, weight: .semibold))
+                    .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                     .foregroundStyle(.black)
                     .padding(.horizontal, 18)
                     .frame(height: 44)
@@ -759,11 +759,11 @@ struct LiquidGridPage: View {
                         } else if shown.isEmpty {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
-                                    .font(.system(size: 16))
+                                    .lyreFont(size: 16, maxScale: 2)
                                     .foregroundStyle(.white.opacity(0.7))
                                 if let emptyAction, query.isEmpty {
                                     Button(emptyAction.title, action: emptyAction.action)
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                                         .foregroundStyle(.black)
                                         .padding(.horizontal, 18)
                                         .frame(height: 44)
@@ -852,13 +852,13 @@ struct LiquidCoverTile: View {
                 .shadow(color: .black.opacity(0.45), radius: 10, y: 6)
             HStack(spacing: 5) {
                 Text(album.tapeTitle)
-                    .font(.system(size: 14, weight: .semibold))
+                    .lyreFont(size: 14, weight: .semibold, maxScale: 2)
                     .lineLimit(1)
                 // An explicit album is marked, beside its clean version (LYRE-23).
                 if album.isExplicit { ExplicitBadge() }
             }
             Text(album.caseByline ?? album.artistName)
-                .font(.system(size: 12))
+                .lyreFont(size: 12, maxScale: 2)
                 .foregroundStyle(.white.opacity(0.6))
                 .lineLimit(1)
         }
@@ -912,7 +912,7 @@ struct LiquidPageTitle: View {
             }
             HStack(alignment: .center) {
                 Text(title.lowercasedKeepingAppleMusic)
-                    .font(.system(size: 44, weight: .medium))
+                    .lyreFont(size: 44, weight: .medium, maxScale: 2)
                     .tracking(-1.5)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
@@ -1009,7 +1009,7 @@ struct LiquidLetterBubble: View {
 
     var body: some View {
         Text(letter)
-            .font(.system(size: 26, weight: .bold, design: .rounded))
+            .lyreFont(size: 26, weight: .bold, design: .rounded, maxScale: 2)
             .foregroundStyle(.black)
             .frame(width: 50, height: 50)
             .background(Circle().fill(.white))
@@ -1040,7 +1040,7 @@ struct LiquidLetterStrip: View {
             VStack(spacing: 0) {
                 ForEach(letters, id: \.letter) { entry in
                     Text(entry.letter)
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .lyreFont(size: 10, weight: .bold, design: .rounded, maxScale: 2)
                         .foregroundStyle(ink.opacity(lastLetter == entry.letter ? 1 : 0.6))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -1150,13 +1150,13 @@ struct LiquidArtistsPage: View {
                                         ArtistPhoto(name: artist.name, fallback: artist.album, size: 56)
                                     }
                                     Text(artist.name)
-                                        .font(.system(size: 30, weight: .medium))
+                                        .lyreFont(size: 30, weight: .medium, maxScale: 2)
                                         .tracking(-0.8)
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.6)
                                     Spacer(minLength: 8)
                                     Text("\(artist.count)")
-                                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                        .lyreFont(size: 14, weight: .medium, design: .monospaced, maxScale: 2)
                                         .foregroundStyle(.white.opacity(0.5))
                                 }
                                 .foregroundStyle(.white)
@@ -1244,7 +1244,7 @@ struct LiquidSearchPage: View {
                             ForEach(suggestions, id: \.search) { suggestion in
                                 Button { query = suggestion.search } label: {
                                     Label(suggestion.display, systemImage: "magnifyingglass")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .lyreFont(size: 14, weight: .medium, maxScale: 2)
                                         .lineLimit(1)
                                         .padding(.horizontal, 12)
                                         .frame(minHeight: 36)
@@ -1270,7 +1270,7 @@ struct LiquidSearchPage: View {
                     }
                     ForEach(sections, id: \.0) { section in
                         Text(section.0.lowercasedKeepingAppleMusic)
-                            .font(.system(size: 24, weight: .medium))
+                            .lyreFont(size: 24, weight: .medium, maxScale: 2)
                             .foregroundStyle(.white)
                         LiquidBubbleGrid(albums: section.1, width: gridWidth,
                                          identifier: { "liquid.search.cover.\($0.id)" }) { index in
@@ -1359,7 +1359,7 @@ struct LiquidSongsPage: View {
         if let link {
             Button { linkNavigator.push(link.route) } label: {
                 Label(link.title, systemImage: "chart.bar.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .lyreFont(size: 14, weight: .semibold, maxScale: 2)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .frame(height: 36)
@@ -1408,7 +1408,7 @@ struct LiquidSongsPage: View {
             .padding(.horizontal, 20)
             if shown.isEmpty {
                 Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
-                    .font(.system(size: 16))
+                    .lyreFont(size: 16, maxScale: 2)
                     .foregroundStyle(.white.opacity(0.7))
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
@@ -1444,7 +1444,7 @@ struct LiquidSongsPage: View {
                             playAndShuffle(shown, height: 50)
                         } else {
                             Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
-                                .font(.system(size: 16))
+                                .lyreFont(size: 16, maxScale: 2)
                                 .foregroundStyle(.white.opacity(0.7))
                                 .padding(.top, 8)
                         }
@@ -1526,7 +1526,7 @@ struct LiquidSongsPage: View {
         HStack(spacing: 10) {
             Button { onPlay(shown, 0, true, title) } label: {
                 Label(String(localized: "detail.play"), systemImage: "play.fill")
-                    .font(.system(size: 16, weight: .bold))
+                    .lyreFont(size: 16, weight: .bold, maxScale: 2)
                     .foregroundStyle(Color.liquidGround)
                     .frame(maxWidth: .infinity, minHeight: height)
                     .background(.white, in: Capsule())
@@ -1535,7 +1535,7 @@ struct LiquidSongsPage: View {
             .accessibilityIdentifier("liquid.songs.play")
             Button { onPlay(shown.shuffled(), 0, true, title) } label: {
                 Label(String(localized: "detail.shuffle"), systemImage: "shuffle")
-                    .font(.system(size: 16, weight: .semibold))
+                    .lyreFont(size: 16, weight: .semibold, maxScale: 2)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: height)
                     .overlay(Capsule().strokeBorder(.white.opacity(0.5), lineWidth: 1.5))
@@ -1563,19 +1563,19 @@ struct LiquidSongsPage: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(track.title)
-                            .font(.system(size: 16, weight: isPlaying ? .bold : .regular))
+                            .lyreFont(size: 16, weight: isPlaying ? .bold : .regular, maxScale: 2)
                             .lineLimit(1)
                         if track.isExplicit { ExplicitBadge() }
                     }
                     Text(track.albumTitle.isEmpty ? track.artistName : "\(track.artistName) · \(TapeFormat.displayTitle(track.albumTitle))")
-                        .font(.system(size: 12))
+                        .lyreFont(size: 12, maxScale: 2)
                         .foregroundStyle(.white.opacity(0.6))
                         .lineLimit(1)
                 }
                 Spacer(minLength: 6)
                 if track.duration > 0 {
                     Text(AppHelpers.formatTime(track.duration))
-                        .font(.system(size: 12, design: .monospaced))
+                        .lyreFont(size: 12, design: .monospaced, maxScale: 2)
                         .foregroundStyle(.white.opacity(0.5))
                 }
             }
@@ -1734,12 +1734,12 @@ struct LiquidAlbumPage: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(album.tapeTitle)
-                        .font(.system(size: 30, weight: .bold))
+                        .lyreFont(size: 30, weight: .bold, maxScale: 2)
                         .accessibilityAddTraits(.isHeader)
                     if album.isExplicit { ExplicitBadge() }
                 }
                 Text(detailsText)
-                    .font(.system(size: 14))
+                    .lyreFont(size: 14, maxScale: 2)
                     .foregroundStyle(.white.opacity(0.7))
                 // The audio it comes in, as Apple Music has it (see LiquidCatalog).
                 if let variants = AppleMusicCatalog.shared.details(forAlbum: album)?.variants, !variants.isEmpty {
@@ -1752,7 +1752,7 @@ struct LiquidAlbumPage: View {
                     Button { onPlay(album, tracks, 0, true) } label: {
                         Label(String(localized: album.isPodcast ? "spool.podcast.playLatest" : "detail.play"),
                               systemImage: "play.fill")
-                            .font(.system(size: 16, weight: .bold))
+                            .lyreFont(size: 16, weight: .bold, maxScale: 2)
                             .foregroundStyle(ground)
                             .frame(maxWidth: .infinity, minHeight: 50)
                             .background(.white, in: Capsule())
@@ -1762,7 +1762,7 @@ struct LiquidAlbumPage: View {
                     if !album.isPodcast {
                         Button { onPlay(album, tracks.shuffled(), 0, true) } label: {
                             Label(String(localized: "detail.shuffle"), systemImage: "shuffle")
-                                .font(.system(size: 16, weight: .semibold))
+                                .lyreFont(size: 16, weight: .semibold, maxScale: 2)
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity, minHeight: 50)
                                 .overlay(Capsule().strokeBorder(.white.opacity(0.5), lineWidth: 1.5))
@@ -1806,7 +1806,7 @@ struct LiquidAlbumPage: View {
                         if track.id == playingID {
                             Image(systemName: "waveform").font(.system(size: 12, weight: .bold))
                         } else {
-                            Text("\(index + 1)").font(.system(size: 13, weight: .medium, design: .monospaced))
+                            Text("\(index + 1)").lyreFont(size: 13, weight: .medium, design: .monospaced, maxScale: 2)
                                 .foregroundStyle(.white.opacity(0.5))
                         }
                     }
@@ -1820,7 +1820,7 @@ struct LiquidAlbumPage: View {
                             if track.isExplicit { ExplicitBadge() }
                         }
                         if album.isMixtape {
-                            Text(track.artistName).font(.system(size: 12)).foregroundStyle(.white.opacity(0.6))
+                            Text(track.artistName).lyreFont(size: 12, maxScale: 2).foregroundStyle(.white.opacity(0.6))
                         }
                     }
                     Spacer(minLength: 8)
@@ -1830,7 +1830,7 @@ struct LiquidAlbumPage: View {
                     }
                     if track.duration > 0 {
                         Text(AppHelpers.formatTime(track.duration))
-                            .font(.system(size: 12, design: .monospaced))
+                            .lyreFont(size: 12, design: .monospaced, maxScale: 2)
                             .foregroundStyle(.white.opacity(0.5))
                     }
                 }
@@ -1910,10 +1910,10 @@ struct LiquidDroplet: View {
                 .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(track.title)
-                        .font(.system(size: 15, weight: .bold))
+                        .lyreFont(size: 15, weight: .bold, maxScale: 2)
                         .lineLimit(1)
                     Text(track.artistName)
-                        .font(.system(size: 12))
+                        .lyreFont(size: 12, maxScale: 2)
                         .foregroundStyle(.white.opacity(0.7))
                         .lineLimit(1)
                 }

@@ -347,7 +347,7 @@ struct ArtworkCarouselView: View {
                 // Near-invisible but present in the accessibility tree, which is all the
                 // UI test needs. Never built outside `--uitest`.
                 Text(gatefoldTrace.isEmpty ? "none" : gatefoldTrace.joined(separator: " | "))
-                    .font(.system(size: 1))
+                    .lyreFont(size: 1, maxScale: 2)
                     .opacity(0.01)
                     .allowsHitTesting(false)
                     .accessibilityIdentifier("gatefold.trace")
@@ -405,7 +405,7 @@ struct ArtworkCarouselView: View {
         VStack {
             Spacer()
             Text(message)
-                .font(.system(size: 12, weight: .semibold))
+                .lyreFont(size: 12, weight: .semibold, maxScale: 2)
                 .foregroundColor(.white)
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -432,7 +432,7 @@ struct ArtworkCarouselView: View {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 13, weight: .semibold))
                         Text(isOpen ? backTitle ?? content.backLabel : "Back")
-                            .font(.system(size: 14))
+                            .lyreFont(size: 14, maxScale: 2)
                     }
                     .foregroundColor(.white)
                 }
@@ -440,7 +440,7 @@ struct ArtworkCarouselView: View {
             } else {
                 // Where Back would be, how to get back instead.
                 Label(String(localized: "carousel.closeToGoBack"), systemImage: "iphone.gen3")
-                    .font(.system(size: 12))
+                    .lyreFont(size: 12, maxScale: 2)
                     .foregroundColor(Color(white: 0.5))
                     .accessibilityIdentifier("carousel.closeHint")
             }
@@ -463,11 +463,11 @@ struct ArtworkCarouselView: View {
                 .foregroundColor(Color(white: 0.45))
                 .accessibilityHidden(true)
             Text(content.emptyMessage)
-                .font(.system(size: 17, weight: .semibold))
+                .lyreFont(size: 17, weight: .semibold, maxScale: 2)
                 .foregroundColor(.white)
             if content.isQueueable, !musicService.isAuthorized {
                 Text(String(localized: "empty.enableAccess"))
-                    .font(.system(size: 14))
+                    .lyreFont(size: 14, maxScale: 2)
                     .foregroundColor(Color(white: 0.62))
             }
         }
@@ -484,12 +484,12 @@ struct ArtworkCarouselView: View {
             if content.itemCount > 0, centeredIndex < content.itemCount {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(content.title(at: centeredIndex))
-                        .font(.system(size: verticalSizeClass == .compact ? 16 : 20, weight: .bold))
+                        .lyreFont(size: verticalSizeClass == .compact ? 16 : 20, weight: .bold, maxScale: 2)
                         .foregroundColor(.white)
                         .lineLimit(1)
                     if let subtitle = content.subtitle(at: centeredIndex) {
                         Text(subtitle)
-                            .font(.system(size: verticalSizeClass == .compact ? 12 : 14))
+                            .lyreFont(size: verticalSizeClass == .compact ? 12 : 14, maxScale: 2)
                             .foregroundColor(Color(white: 0.62))
                             .lineLimit(1)
                     }

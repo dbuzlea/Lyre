@@ -24,7 +24,7 @@ struct DiscoverListView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(theme.screenTextColor)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(theme.screenTextColor)
                     .lineLimit(1)
                 Spacer()
@@ -36,7 +36,7 @@ struct DiscoverListView: View {
                 VStack {
                     Spacer()
                     Text(Discover.emptyText)
-                        .font(.system(size: 12))
+                        .lyreFont(size: 12, maxScale: 1.5)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(theme.screenTextColor.opacity(0.5))
                         .accessibilityIdentifier("discover.empty")
@@ -72,12 +72,12 @@ struct DiscoverListView: View {
         HStack {
             VStack(alignment: .leading, spacing: 0) {
                 Text(row.title)
-                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                    .lyreFont(size: 11, weight: isSelected ? .medium : .regular, maxScale: 1.5)
                     .foregroundStyle(isSelected ? theme.highlightTextColor : theme.screenTextColor)
                     .lineLimit(1)
                 if let subtitle = row.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 9))
+                        .lyreFont(size: 9, maxScale: 1.5)
                         .foregroundStyle(isSelected ? theme.highlightTextColor.opacity(0.7) : theme.screenSecondaryTextColor)
                         .lineLimit(1)
                 }

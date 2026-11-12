@@ -166,7 +166,7 @@ struct RecordSleeveView: View {
                 Rectangle().fill(Color(red: 0.12, green: 0.18, blue: 0.3))
                     .overlay(alignment: .top) {
                         Text(String(localized: "gramophone.record.broadcast").uppercased())
-                            .font(.system(size: 14, weight: .black, design: .serif))
+                            .lyreFont(size: 14, weight: .black, design: .serif, maxScale: 2)
                             .tracking(3)
                             .foregroundStyle(theme.metalLight)
                             .padding(.top, side * 0.48)
@@ -191,10 +191,10 @@ struct RecordSleeveView: View {
                         .foregroundStyle(album.isMixtape ? SpoolPalette.pen : SpoolPalette.labelInk)
                         .lineLimit(2)
                     if let byline = album.caseByline {
-                        Text(byline).font(.system(size: 13, design: .serif)).italic().opacity(0.7)
+                        Text(byline).lyreFont(size: 13, design: .serif, maxScale: 2).italic().opacity(0.7)
                     }
                     if let released = album.releaseLine {
-                        Text(released).font(.system(size: 11, design: .serif)).opacity(0.55)
+                        Text(released).lyreFont(size: 11, design: .serif, maxScale: 2).opacity(0.55)
                             .accessibilityIdentifier("gramophone.sleeve.released")
                     }
                 }
@@ -261,7 +261,7 @@ struct RecordSleeveView: View {
         if let tracks {
             if tracks.isEmpty {
                 Text(String(localized: "spool.jcard.empty"))
-                    .font(.system(size: 14))
+                    .lyreFont(size: 14, maxScale: 2)
                     .opacity(0.6)
             } else {
                 let episodes = album.podcast?.episodesNewestFirst
@@ -303,7 +303,7 @@ struct RecordSleeveView: View {
                     } else {
                         // An artist's songs are numbered as on their albums.
                         Text("\(album.isArtist ? track.trackNumber ?? index + 1 : index + 1)")
-                            .font(.system(size: 12, weight: .semibold, design: .serif)).opacity(0.5)
+                            .lyreFont(size: 12, weight: .semibold, design: .serif, maxScale: 2).opacity(0.5)
                     }
                 }
                 .frame(width: 22, alignment: .trailing)
@@ -318,7 +318,7 @@ struct RecordSleeveView: View {
                     }
                     if album.isMixtape || album.isPodcast {
                         Text(album.isPodcast ? (episode?.published.map(CassetteCaseView.episodeDate) ?? "") : track.artistName)
-                            .font(.system(size: 11)).opacity(0.6).lineLimit(1)
+                            .lyreFont(size: 11, maxScale: 2).opacity(0.6).lineLimit(1)
                     }
                 }
                 Spacer(minLength: 4)
@@ -327,7 +327,7 @@ struct RecordSleeveView: View {
                 }
                 if track.duration > 0 {
                     Text(album.isPodcast ? CassetteCaseView.runningTime(track.duration) : AppHelpers.formatTime(track.duration))
-                        .font(.system(size: 12, design: .monospaced))
+                        .lyreFont(size: 12, design: .monospaced, maxScale: 2)
                         .opacity(0.5)
                 }
             }

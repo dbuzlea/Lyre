@@ -245,7 +245,7 @@ struct LiquidLavaMenu: View {
         VStack {
             HStack {
                 Text("LYRE")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 1.5)
                     .tracking(4)
                     .foregroundStyle(.white.opacity(0.55))
                     .accessibilityHidden(true)

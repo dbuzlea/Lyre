@@ -402,7 +402,7 @@ private struct GatefoldPill: View {
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold))
+                    .lyreFont(size: 11, weight: .semibold, maxScale: 2)
             }
             .foregroundColor(filled ? theme.card : theme.ink)
             .padding(.horizontal, 14)
@@ -474,13 +474,13 @@ struct RecordPanel<Label: View>: View {
 
             VStack(spacing: 3) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .lyreFont(size: 17, weight: .semibold, maxScale: 2)
                     .foregroundColor(theme.ink)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
                     .multilineTextAlignment(.center)
 
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .lyreFont(size: 12, maxScale: 2)
                     .foregroundColor(theme.ink.opacity(0.6))
                     .lineLimit(1)
             }
@@ -591,7 +591,7 @@ struct LinerPanel: View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 Text(header)
-                    .font(.system(size: 10, weight: .semibold))
+                    .lyreFont(size: 10, weight: .semibold, maxScale: 2)
                     .tracking(2.8)
                     .foregroundColor(theme.ink)
                     .lineLimit(1)
@@ -599,7 +599,7 @@ struct LinerPanel: View {
                 Spacer(minLength: 6)
 
                 Text(gatefoldDuration(sideDuration))
-                    .font(.system(size: 10, design: .monospaced))
+                    .lyreFont(size: 10, design: .monospaced, maxScale: 2)
                     .foregroundColor(theme.ink.opacity(0.5))
             }
             .padding(.bottom, 5)
@@ -657,7 +657,7 @@ struct LinerPanel: View {
                             .font(.system(size: 9, weight: .semibold))
                     } else {
                         Text("\(row.number)")
-                            .font(.system(size: 10, design: .monospaced))
+                            .lyreFont(size: 10, design: .monospaced, maxScale: 2)
                     }
                 }
                 .foregroundColor(isQueued ? theme.accent : theme.ink.opacity(row.isCurrent ? 0.9 : 0.45))
@@ -673,7 +673,7 @@ struct LinerPanel: View {
                 switch row.download {
                 case .downloading(let progress):
                     Text("\(Int(progress * 100))%")
-                        .font(.system(size: 9, design: .monospaced))
+                        .lyreFont(size: 9, design: .monospaced, maxScale: 2)
                         .foregroundColor(theme.accent)
                 case .downloaded:
                     Image(systemName: "arrow.down.circle.fill")
@@ -685,7 +685,7 @@ struct LinerPanel: View {
                 }
 
                 Text(gatefoldDuration(row.duration))
-                    .font(.system(size: 10, design: .monospaced))
+                    .lyreFont(size: 10, design: .monospaced, maxScale: 2)
                     .foregroundColor(theme.ink.opacity(0.45))
             }
         }
@@ -846,7 +846,7 @@ struct ABControl: View {
                 HStack(spacing: 0) {
                     ForEach(0..<sideCount, id: \.self) { index in
                         Text(vinylSideLabel(index))
-                            .font(.system(size: 11, weight: index == currentSide ? .semibold : .regular))
+                            .lyreFont(size: 11, weight: index == currentSide ? .semibold : .regular, maxScale: 2)
                             .foregroundColor(theme.ink.opacity(index == currentSide ? 0.95 : 0.5))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
@@ -862,7 +862,7 @@ struct ABControl: View {
                        value: currentSide)
 
             Text("Drag the slider, or swipe up on the record")
-                .font(.system(size: 9))
+                .lyreFont(size: 9, maxScale: 2)
                 .foregroundColor(theme.ink.opacity(0.4))
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -973,13 +973,13 @@ struct PlaylistFanPanel<Artwork: View>: View {
 
             VStack(spacing: 3) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .lyreFont(size: 17, weight: .semibold, maxScale: 2)
                     .foregroundColor(theme.ink)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
 
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .lyreFont(size: 12, maxScale: 2)
                     .foregroundColor(theme.ink.opacity(0.6))
                     .lineLimit(1)
             }
@@ -1040,13 +1040,13 @@ struct ShowPanel<Artwork: View>: View {
 
             VStack(spacing: 3) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .lyreFont(size: 17, weight: .semibold, maxScale: 2)
                     .foregroundColor(theme.ink)
                     .lineLimit(3)
                     .multilineTextAlignment(.center)
 
                 Text(subtitle)
-                    .font(.system(size: 12))
+                    .lyreFont(size: 12, maxScale: 2)
                     .foregroundColor(theme.ink.opacity(0.6))
                     .lineLimit(1)
             }

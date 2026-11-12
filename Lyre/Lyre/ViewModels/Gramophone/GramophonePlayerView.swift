@@ -340,7 +340,7 @@ struct GramophonePlayerView: View {
 
             if let notice {
                 Text(notice)
-                    .font(.system(size: 13, weight: .semibold))
+                    .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
@@ -475,7 +475,7 @@ struct GramophonePlayerView: View {
                 stepBackButton
             } else if vantage != .turntable {
                 Text(String(localized: "gramophone.brand").uppercased())
-                    .font(.system(size: 13, weight: .heavy, design: .serif))
+                    .lyreFont(size: 13, weight: .heavy, design: .serif, maxScale: 1.5)
                     .tracking(5)
                     .foregroundStyle(theme.metalLight.opacity(0.85))
                     .accessibilityHidden(true)
@@ -637,7 +637,7 @@ struct GramophonePlayerView: View {
                     .monospacedDigit()
             }
         }
-        .font(.system(size: 9, weight: .heavy, design: .serif))
+        .lyreFont(size: 9, weight: .heavy, design: .serif, maxScale: 1.5)
         .foregroundStyle(theme.plateInk)
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
@@ -727,7 +727,7 @@ struct GramophonePlayerView: View {
                     .frame(width: 60, height: 8)
                     .shadow(color: .black.opacity(0.4), radius: 1, y: 1)
                 Text(String(localized: "gramophone.crate").uppercased())
-                    .font(.system(size: 12, weight: .heavy, design: .serif))
+                    .lyreFont(size: 12, weight: .heavy, design: .serif, maxScale: 1.5)
                     .tracking(3)
                     .foregroundStyle(theme.ink)
             }
@@ -759,7 +759,7 @@ struct GramophonePlayerView: View {
                 Image(systemName: symbol)
                     .font(.system(size: 18, weight: .bold))
                 Text(String(localized: forward ? "gramophone.next" : "gramophone.back").uppercased())
-                    .font(.system(size: 12, weight: .heavy, design: .serif))
+                    .lyreFont(size: 12, weight: .heavy, design: .serif, maxScale: 1.5)
                     .tracking(3)
             }
             .foregroundStyle(theme.ink)
@@ -990,7 +990,7 @@ struct GramophonePlayerView: View {
                                 Image(systemName: "trash")
                                     .font(.system(size: 20, weight: .semibold))
                                 Text(String(localized: "gramophone.rack.remove"))
-                                    .font(.system(size: 13, weight: .bold))
+                                    .lyreFont(size: 13, weight: .bold, maxScale: 1.5)
                             }
                             .foregroundStyle(.white)
                             .frame(width: 84, height: 84)
@@ -1002,7 +1002,7 @@ struct GramophonePlayerView: View {
                     }
                 } else {
                     Text(String(localized: "gramophone.rack.empty"))
-                        .font(.system(size: 15, weight: .medium, design: .serif))
+                        .lyreFont(size: 15, weight: .medium, design: .serif, maxScale: 1.5)
                         .italic()
                         .foregroundStyle(.white.opacity(0.85))
                         .multilineTextAlignment(.center)
@@ -1015,7 +1015,7 @@ struct GramophonePlayerView: View {
                     Spacer()
                     if front != nil {
                         Text(String(localized: "gramophone.rack.instructions"))
-                            .font(.system(size: 13, weight: .medium, design: .serif))
+                            .lyreFont(size: 13, weight: .medium, design: .serif, maxScale: 1.5)
                             .italic()
                             .foregroundStyle(.white.opacity(0.7))
                             .multilineTextAlignment(.center)
@@ -1045,18 +1045,18 @@ struct GramophonePlayerView: View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "spool.queue.title").uppercased())
-                    .font(.system(size: 11, weight: .heavy, design: .serif))
+                    .lyreFont(size: 11, weight: .heavy, design: .serif, maxScale: 1.5)
                     .tracking(2)
                     .foregroundStyle(theme.paper.opacity(0.8))
                 Text(front?.title ?? String(localized: "spool.queue.title"))
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .lyreFont(size: 22, weight: .bold, design: .serif, maxScale: 1.5)
                     .foregroundStyle(.white)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                 if let front {
                     Text([front.artistName, String(format: String(localized: "gramophone.stack.position"), rackIndex + 1, count)]
                             .filter { !$0.isEmpty }.joined(separator: " · "))
-                        .font(.system(size: 15))
+                        .lyreFont(size: 15, maxScale: 1.5)
                         .foregroundStyle(.white.opacity(0.75))
                         .lineLimit(1)
                         .monospacedDigit()
@@ -1323,7 +1323,7 @@ struct GramophonePlayerView: View {
                 // An explicit album is marked, beside its clean version (LYRE-23).
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(front?.tapeTitle ?? String(localized: "gramophone.crate"))
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .lyreFont(size: 22, weight: .bold, design: .serif, maxScale: 1.5)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
                     if front?.isExplicit == true { ExplicitTag() }
@@ -1332,7 +1332,7 @@ struct GramophonePlayerView: View {
                 if let front {
                     Text([front.caseByline, front.tapeTrackCount.map(front.tapeFormat.count)]
                             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
-                        .font(.system(size: 15))
+                        .lyreFont(size: 15, maxScale: 1.5)
                         .foregroundStyle(.white.opacity(0.75))
                         .lineLimit(1)
                 }
@@ -1352,10 +1352,10 @@ struct GramophonePlayerView: View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "spool.shelf.songs"))
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .lyreFont(size: 22, weight: .bold, design: .serif, maxScale: 1.5)
                     .foregroundStyle(.white)
                 Text(TapeFormat.album.count(crateSongs.count))
-                    .font(.system(size: 13, design: .serif))
+                    .lyreFont(size: 13, design: .serif, maxScale: 1.5)
                     .foregroundStyle(.white.opacity(0.75))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1382,7 +1382,7 @@ struct GramophonePlayerView: View {
 
     private var stackInstructions: some View {
         Text(String(localized: "gramophone.stack.instructions"))
-            .font(.system(size: 13, weight: .medium, design: .serif))
+            .lyreFont(size: 13, weight: .medium, design: .serif, maxScale: 1.5)
             .italic()
             .foregroundStyle(.white.opacity(0.7))
             .multilineTextAlignment(.center)
@@ -1396,11 +1396,11 @@ struct GramophonePlayerView: View {
         VStack(spacing: 14) {
             Text(crateMatches == nil ? Self.emptyText(on: shelf) : String(localized: "search.noResults"))
                 .multilineTextAlignment(.center)
-                .font(.system(size: 15, weight: .medium))
+                .lyreFont(size: 15, weight: .medium, maxScale: 1.5)
                 .foregroundStyle(.white.opacity(0.85))
             if shelf == .podcasts, crateMatches == nil {
                 Button(String(localized: "spool.shelf.findShows")) { showPodcastSearch = true }
-                    .font(.system(size: 15, weight: .semibold))
+                    .lyreFont(size: 15, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(theme.spoolTheme.keySymbol)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 9)

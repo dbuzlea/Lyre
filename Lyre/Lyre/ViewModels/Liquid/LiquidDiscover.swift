@@ -47,7 +47,7 @@ struct LiquidDiscoverPage: View {
                         let side: HorizontalAlignment = index.isMultiple(of: 2) ? .leading : .trailing
                         VStack(alignment: side, spacing: 10) {
                             Text(section.title.lowercasedKeepingAppleMusic)
-                                .font(.system(size: 22, weight: .medium))
+                                .lyreFont(size: 22, weight: .medium, maxScale: 2)
                                 .tracking(-0.5)
                                 .foregroundStyle(.white)
                                 .accessibilityAddTraits(.isHeader)
@@ -288,7 +288,7 @@ struct LiquidDiscoverSectionPage: View {
             ForEach(Array(section.items.enumerated()), id: \.element.id) { index, genre in
                 Button { open(index) } label: {
                     Text(genre.title)
-                        .font(.system(size: 15, weight: .medium))
+                        .lyreFont(size: 15, weight: .medium, maxScale: 2)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity, minHeight: 44)
@@ -319,13 +319,13 @@ struct LiquidBubbleTile: View {
             VStack(spacing: 2) {
                 HStack(spacing: 5) {
                     Text(album.tapeTitle)
-                        .font(.system(size: 14, weight: .semibold))
+                        .lyreFont(size: 14, weight: .semibold, maxScale: 2)
                         .lineLimit(1)
                     // An explicit album is marked, beside its clean version (LYRE-23).
                     if album.isExplicit { ExplicitBadge() }
                 }
                 Text(album.caseByline ?? album.artistName)
-                    .font(.system(size: 12))
+                    .lyreFont(size: 12, maxScale: 2)
                     .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
             }

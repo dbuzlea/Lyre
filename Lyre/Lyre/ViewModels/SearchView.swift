@@ -39,7 +39,7 @@ struct SearchView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(theme.screenTextColor)
                 Text(String(localized: "menu.search"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(theme.screenTextColor)
                 Spacer()
             }
@@ -79,7 +79,7 @@ struct SearchView: View {
                 prompt: Text(String(localized: "search.prompt"))
                     .foregroundStyle(theme.screenSecondaryTextColor)
             )
-            .font(.system(size: 12))
+            .lyreFont(size: 12, maxScale: 1.5)
             .foregroundStyle(theme.screenTextColor)
             .tint(theme.highlightColor)
             .focused($isFieldFocused)
@@ -118,7 +118,7 @@ struct SearchView: View {
         VStack {
             Spacer()
             Text(text)
-                .font(.system(size: 12))
+                .lyreFont(size: 12, maxScale: 1.5)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(theme.screenTextColor.opacity(0.5))
                 .padding(.horizontal, 16)
@@ -154,10 +154,10 @@ struct SearchView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(result.title)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .lyreFont(size: 12, weight: isSelected ? .semibold : .regular, maxScale: 1.5)
                     .lineLimit(1)
                 Text(result.subtitle)
-                    .font(.system(size: 9))
+                    .lyreFont(size: 9, maxScale: 1.5)
                     .lineLimit(1)
                     .opacity(0.75)
             }

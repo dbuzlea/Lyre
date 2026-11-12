@@ -214,7 +214,7 @@ struct LiquidPlayerView: View {
 
                 if let notice {
                     Text(notice)
-                        .font(.system(size: 13, weight: .semibold))
+                        .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
@@ -1089,9 +1089,9 @@ struct LiquidPlayerView: View {
     private func bubbleLabel(_ title: String, _ detail: String) -> some View {
         VStack(spacing: 1) {
             Text(title)
-                .font(.system(size: 15, weight: .semibold))
+                .lyreFont(size: 15, weight: .semibold, maxScale: 1.5)
             Text(detail)
-                .font(.system(size: 12))
+                .lyreFont(size: 12, maxScale: 1.5)
                 .opacity(0.75)
         }
         .lineLimit(1)
@@ -1305,7 +1305,7 @@ struct LiquidPlayerView: View {
                         .font(.system(size: 17, weight: .bold))
                 } else {
                     Text("\(slot)")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .lyreFont(size: 17, weight: .bold, design: .rounded, maxScale: 1.5)
                 }
             }
             .foregroundStyle(.white)

@@ -32,7 +32,7 @@ struct ArtistDetailView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(artist.name)
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     .lineLimit(1)
                 Spacer()
@@ -46,7 +46,7 @@ struct ArtistDetailView: View {
                     .accessibilityAddTraits(.isImage)
                     .accessibilityIdentifier("artist.photo")
                 Text(artist.name)
-                    .font(.system(size: 14, weight: .bold))
+                    .lyreFont(size: 14, weight: .bold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     .lineLimit(2)
                     .minimumScaleFactor(0.7)
@@ -60,7 +60,7 @@ struct ArtistDetailView: View {
                     Spacer()
                     ProgressView().scaleEffect(0.8).tint(themeSettings.currentTheme.screenTextColor)
                     Text("Loading albums...")
-                        .font(.system(size: 10))
+                        .lyreFont(size: 10, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                     Spacer()
                 }
@@ -68,24 +68,24 @@ struct ArtistDetailView: View {
                 VStack {
                     Spacer()
                     Text(String(localized: "empty.albumsAvailable"))
-                        .font(.system(size: 12))
+                        .lyreFont(size: 12, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
                     Spacer()
                 }
             } else {
                 if let biography = AppleMusicCatalog.shared.details(forArtist: artist.name)?.biography {
                     Text(biography)
-                        .font(.system(size: 9))
+                        .lyreFont(size: 9, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                         .lineLimit(2)
                         .accessibilityIdentifier("artist.biography")
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Albums")
-                        .font(.system(size: 10, weight: .medium))
+                        .lyreFont(size: 10, weight: .medium, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     Text("\(albums.count) album\(albums.count == 1 ? "" : "s")")
-                        .font(.system(size: 9))
+                        .lyreFont(size: 9, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                 }
                 .padding(.bottom, 4)
@@ -110,12 +110,12 @@ struct ArtistDetailView: View {
                                                 HStack {
                                                     VStack(alignment: .leading, spacing: 0) {
                                                         Text(album.title)
-                                                            .font(.system(size: 11, weight: .medium))
+                                                            .lyreFont(size: 11, weight: .medium, maxScale: 1.5)
                                                             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                             .lineLimit(1)
                                                         if let year = album.releaseDate?.formatted(.dateTime.year()) {
                                                             Text(year)
-                                                                .font(.system(size: 9))
+                                                                .lyreFont(size: 9, maxScale: 1.5)
                                                                 .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.7))
                                                         }
                                                     }
@@ -128,12 +128,12 @@ struct ArtistDetailView: View {
                                         HStack {
                                             VStack(alignment: .leading, spacing: 0) {
                                                 Text(album.title)
-                                                    .font(.system(size: 11))
+                                                    .lyreFont(size: 11, maxScale: 1.5)
                                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                                     .lineLimit(1)
                                                 if let year = album.releaseDate?.formatted(.dateTime.year()) {
                                                     Text(year)
-                                                        .font(.system(size: 9))
+                                                        .lyreFont(size: 9, maxScale: 1.5)
                                                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                                                 }
                                             }
@@ -171,12 +171,12 @@ struct ArtistDetailView: View {
         HStack {
             VStack(alignment: .leading, spacing: 0) {
                 Text(title)
-                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                    .lyreFont(size: 11, weight: isSelected ? .medium : .regular, maxScale: 1.5)
                     .foregroundStyle(isSelected ? theme.highlightTextColor : theme.screenTextColor)
                     .lineLimit(1)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 9))
+                        .lyreFont(size: 9, maxScale: 1.5)
                         .foregroundStyle(isSelected ? theme.highlightTextColor.opacity(0.7) : theme.screenSecondaryTextColor)
                         .lineLimit(1)
                 }

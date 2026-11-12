@@ -85,9 +85,9 @@ struct LiquidVisualizer: View {
                     VStack(spacing: standing ? 14 : 0) {
                         VStack(spacing: 4) {
                             Text(track?.title ?? "")
-                                .font(.system(size: standing ? 22 : 24, weight: .bold))
+                                .lyreFont(size: standing ? 22 : 24, weight: .bold, maxScale: 1.5)
                             Text(track?.artistName ?? "")
-                                .font(.system(size: 15))
+                                .lyreFont(size: 15, maxScale: 1.5)
                                 .opacity(0.7)
                         }
                         .lineLimit(1)

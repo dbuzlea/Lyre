@@ -62,7 +62,7 @@ struct NowPlayingView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(String(localized: "nowPlaying.title"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
                 AirPlayButton(themeSettings: themeSettings)
@@ -88,11 +88,11 @@ struct NowPlayingView: View {
                         VStack(spacing: 8) {
                             VStack(spacing: 2) {
                                 Text(title)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     .lineLimit(2).multilineTextAlignment(.center)
                                 Text(subtitle)
-                                    .font(.system(size: 11))
+                                    .lyreFont(size: 11, maxScale: 1.5)
                                     .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                                     .lineLimit(1)
                             }
@@ -116,7 +116,7 @@ struct NowPlayingView: View {
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     .accessibilityHidden(true)
                                 Text(musicService.isPlaying ? String(localized: "nowPlaying.playing") : String(localized: "nowPlaying.paused"))
-                                    .font(.system(size: 10))
+                                    .lyreFont(size: 10, maxScale: 1.5)
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                             }
                             .accessibilityLabel(musicService.isPlaying ? "Now playing" : "Paused")
@@ -128,7 +128,7 @@ struct NowPlayingView: View {
                                         .font(.system(size: 8))
                                         .accessibilityHidden(true)
                                     Text(device)
-                                        .font(.system(size: 9))
+                                        .lyreFont(size: 9, maxScale: 1.5)
                                         .lineLimit(1)
                                 }
                                 .foregroundStyle(themeSettings.currentTheme.highlightColor)
@@ -171,7 +171,7 @@ struct NowPlayingView: View {
                         .font(.system(size: 50))
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.3))
                     Text(String(localized: "nowPlaying.nothingPlaying"))
-                        .font(.system(size: 14))
+                        .lyreFont(size: 14, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
                     Spacer()
                 }
@@ -232,10 +232,10 @@ struct NowPlayingView: View {
                         HStack {
                             Image(systemName: icon).font(.system(size: 10))
                                 .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
-                            Text(label).font(.system(size: 11, weight: .medium))
+                            Text(label).lyreFont(size: 11, weight: .medium, maxScale: 1.5)
                                 .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                             Spacer()
-                            Text(value).font(.system(size: 10))
+                            Text(value).lyreFont(size: 10, maxScale: 1.5)
                                 .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.8))
                         }
                         .padding(.horizontal, 8).padding(.vertical, 4)
@@ -245,10 +245,10 @@ struct NowPlayingView: View {
                 HStack {
                     Image(systemName: icon).font(.system(size: 10))
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
-                    Text(label).font(.system(size: 11))
+                    Text(label).lyreFont(size: 11, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     Spacer()
-                    Text(value).font(.system(size: 10))
+                    Text(value).lyreFont(size: 10, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 4)
@@ -303,7 +303,7 @@ private struct PlaybackProgressView: View {
         VStack(spacing: 2) {
             if isScrubbing {
                 Text(String(localized: "nowPlaying.scrubbing"))
-                    .font(.system(size: 8, weight: .medium))
+                    .lyreFont(size: 8, weight: .medium, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.highlightColor)
                     .accessibilityHidden(true)
             }
@@ -328,14 +328,14 @@ private struct PlaybackProgressView: View {
             .accessibilityValue("\(AppHelpers.formatTime(clock.time)) of \(AppHelpers.formatTime(duration))")
             HStack {
                 Text(AppHelpers.formatTime(clock.time))
-                    .font(.system(size: 9, design: .monospaced))
+                    .lyreFont(size: 9, design: .monospaced, maxScale: 1.5)
                     .foregroundStyle(isScrubbing
                         ? themeSettings.currentTheme.highlightColor
                         : themeSettings.currentTheme.screenTextColor)
                     .accessibilityHidden(true)
                 Spacer()
                 Text("-\(AppHelpers.formatTime(duration - clock.time))")
-                    .font(.system(size: 9, design: .monospaced))
+                    .lyreFont(size: 9, design: .monospaced, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     .accessibilityHidden(true)
             }

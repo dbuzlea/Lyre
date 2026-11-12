@@ -30,7 +30,7 @@ struct AlbumDetailView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(album.title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     .lineLimit(1)
                 Spacer()
@@ -43,7 +43,7 @@ struct AlbumDetailView: View {
                     Spacer()
                     ProgressView().scaleEffect(0.8).tint(themeSettings.currentTheme.screenTextColor)
                     Text("Loading tracks...")
-                        .font(.system(size: 10))
+                        .lyreFont(size: 10, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                     Spacer()
                 }
@@ -51,7 +51,7 @@ struct AlbumDetailView: View {
                 VStack {
                     Spacer()
                     Text(String(localized: "empty.tracks"))
-                        .font(.system(size: 12))
+                        .lyreFont(size: 12, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
                     Spacer()
                 }
@@ -61,15 +61,15 @@ struct AlbumDetailView: View {
                     artworkView
                     VStack(alignment: .leading, spacing: 2) {
                         Text(album.artistName)
-                            .font(.system(size: 10, weight: .medium))
+                            .lyreFont(size: 10, weight: .medium, maxScale: 1.5)
                             .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                             .lineLimit(1)
                         Text("\(tracks.count) song\(tracks.count == 1 ? "" : "s")")
-                            .font(.system(size: 9))
+                            .lyreFont(size: 9, maxScale: 1.5)
                             .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                         if let released = album.releaseLine {
                             Text([released, album.genre].compactMap { $0 }.joined(separator: " · "))
-                                .font(.system(size: 9))
+                                .lyreFont(size: 9, maxScale: 1.5)
                                 .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                                 .lineLimit(1)
                                 .accessibilityIdentifier("album.released")
@@ -92,7 +92,7 @@ struct AlbumDetailView: View {
                                 let isSelected = selection == index + PlayShuffleRows.count
                                 HStack {
                                     Text("\(index + 1)")
-                                        .font(.system(size: 9, weight: isSelected ? .medium : .regular))
+                                        .lyreFont(size: 9, weight: isSelected ? .medium : .regular, maxScale: 1.5)
                                         .foregroundStyle(isSelected
                                             ? themeSettings.currentTheme.highlightTextColor.opacity(0.7)
                                             : themeSettings.currentTheme.screenTextColor.opacity(0.5))
@@ -100,7 +100,7 @@ struct AlbumDetailView: View {
                                     VStack(alignment: .leading, spacing: 0) {
                                         HStack(spacing: 4) {
                                             Text(track.title)
-                                                .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                                                .lyreFont(size: 11, weight: isSelected ? .medium : .regular, maxScale: 1.5)
                                                 .lineLimit(1)
                                             if track.isExplicit { ExplicitTag().scaleEffect(0.85) }
                                         }
@@ -108,7 +108,7 @@ struct AlbumDetailView: View {
                                             ? themeSettings.currentTheme.highlightTextColor
                                             : themeSettings.currentTheme.screenTextColor)
                                         Text(formatDuration(track.duration))
-                                            .font(.system(size: 9))
+                                            .lyreFont(size: 9, maxScale: 1.5)
                                             .foregroundStyle(isSelected
                                                 ? themeSettings.currentTheme.highlightTextColor.opacity(0.7)
                                                 : themeSettings.currentTheme.screenSecondaryTextColor)

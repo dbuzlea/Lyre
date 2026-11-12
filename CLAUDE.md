@@ -73,6 +73,16 @@ Every new action, gesture, transition or animation follows Apple's "Designing Fl
 - **Respect Reduce Motion:** a crossfade or an instant change with the same outcome.
 - Add or extend a UI test for each new gesture, and check its screenshots. Reusable motion helpers belong in `LyreMotion.swift`.
 
+## Dynamic Type (every piece of text)
+
+Text people read grows with their text size (Settings > Display & Brightness > Text Size), as Apple's guidelines ask. Use `lyreFont(size:weight:design:maxScale:)` (`ViewModels/LyreType.swift`), not `.font(.system(size:))`:
+
+- The size is the design's size at the standard text size; it scales along the curve of the nearest system text style.
+- `maxScale: 2` for reading pages (settings, lists, cards, cases, sleeves, booklets, Liquid's pages); `maxScale: 1.5` for text inside a player or the Classic's screen, where room is tight.
+- Leave as drawn only words that are part of an object's picture (a cassette's or record's label, the Discman's display, the click wheel, tape spines, index strips, the tutorials' animations). Fonts sized from the object (`size * 0.1`) count as these.
+- Titles that mustn't break mid-word get `.lineLimit(1).minimumScaleFactor(0.5)`; rows and lists should grow, not clip (no fixed heights around text).
+- Check new screens at a large size: `DynamicTypeUITests` launches each player at Accessibility Large (`-UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL`); look at the screenshots.
+
 ## iPhone Duo
 
 - Closed, the status bar sits in a column down the right edge. `SideRail` (`ViewModels/SideRail.swift`) puts each player's header buttons in that column, with a "…" menu past its capacity. Keep new header buttons working with it.
