@@ -803,6 +803,21 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(app.alerts["New Playlist"].waitForExistence(timeout: 3), "New Playlist didn't ask for a name")
         attachScreenshot(app, named: "liquid-new-playlist")
         app.alerts["New Playlist"].buttons["Cancel"].tap()
+
+        // Beside it, a sort: by last played, by name, by last added.
+        let sort = element(app, "liquid.playlists.sort")
+        XCTAssertTrue(sort.waitForExistence(timeout: 3), "The playlists page can't be sorted")
+        sort.tap()
+        for option in ["Recently Played", "Alphabetical", "Recently Added"] {
+            XCTAssertTrue(app.buttons[option].firstMatch.waitForExistence(timeout: 3), "No \(option) in the sort menu")
+        }
+        attachScreenshot(app, named: "liquid-playlists-sort")
+        app.buttons["Recently Added"].firstMatch.tap()
+        XCTAssertTrue(sort.waitForExistence(timeout: 3))
+        XCTAssertEqual(sort.value as? String, "Recently Added", "The sort didn't change")
+        // Back to name order for later runs.
+        sort.tap()
+        app.buttons["Alphabetical"].firstMatch.tap()
     }
 
     /// Discover has a blob of its own; its page shows each of Apple Music's sections as
@@ -1162,6 +1177,25 @@ final class LiquidUITests: XCTestCase {
         element(app, "liquid.spread.track.2").tap()
         XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Tapping a song didn't play it")
         XCTAssertTrue(waitForGone(element(app, "liquid.spread")), "The songs stayed out")
+    }
+
+    /// A held bubble's song carried onto Up Next's bulge, at Now Playing's foot, joins Up
+    /// Next: the bulge swallows it and the songs go away.
+    @MainActor
+    func testASpreadSongDraggedOntoUpNextIsQueued() throws {
+        let app = try launchBook(["--spool-sample-queue"])
+        let bubble = element(app, "liquid.bubble.sample-1")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10))
+        let upNext = element(app, "liquid.upNext")
+        XCTAssertTrue(upNext.waitForExistence(timeout: 5), "Now Playing has no Up Next bulge")
+        bubble.press(forDuration: 0.8)
+        let song = element(app, "liquid.spread.track.2")
+        XCTAssertTrue(song.waitForExistence(timeout: 5), "Holding didn't spread its songs")
+        sleep(1)
+        song.press(forDuration: 0.1, thenDragTo: upNext, withVelocity: .slow, thenHoldForDuration: 0.6)
+        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Dropping on Up Next didn't queue the song")
+        XCTAssertTrue(waitForGone(element(app, "liquid.spread")), "The songs stayed out")
+        attachScreenshot(app, named: "duo-book-dropped-in-up-next")
     }
 
     /// The album's page is the first of a held bubble's little bubbles; and a tap beside

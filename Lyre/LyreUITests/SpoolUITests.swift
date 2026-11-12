@@ -513,9 +513,7 @@ final class SpoolUITests: XCTestCase {
     @MainActor
     func testTheOwnersManualHasATutorialToStepThrough() throws {
         let app = try launchSpool()
-        let settings = element(app, "spool.settings")
-        XCTAssertTrue(settings.waitForExistence(timeout: 10))
-        settings.tap()
+        openSettings(app)
 
         let lesson = element(app, "spool.tour.lesson")
         XCTAssertTrue(lesson.waitForExistence(timeout: 5), "The manual has no tutorial")
@@ -534,6 +532,29 @@ final class SpoolUITests: XCTestCase {
         attachScreenshot(app, named: "manual-tutorial-load")
         element(app, "spool.tour.replay").tap()
         XCTAssertTrue(lesson.label.contains("Load It"), "Play Again changed the lesson")
+    }
+
+    /// A swipe up that starts on the tutorial scrolls the manual (it used to stick there);
+    /// a swipe across still turns the lessons.
+    @MainActor
+    func testTheManualScrollsFromOnTheTutorial() throws {
+        let app = try launchSpool()
+        openSettings(app)
+        let lesson = element(app, "spool.tour.lesson")
+        XCTAssertTrue(lesson.waitForExistence(timeout: 5))
+        sleep(1)
+
+        lesson.swipeLeft()
+        let turned = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Find a Tape'"), object: lesson)
+        XCTAssertEqual(XCTWaiter().wait(for: [turned], timeout: 3), .completed, "A swipe across didn't turn the lesson")
+
+        let top = lesson.frame.minY
+        // From the miniature itself, above the lesson's words.
+        lesson.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -1.5))
+            .press(forDuration: 0.05, thenDragTo: lesson.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: -6)))
+        sleep(1)
+        XCTAssertLessThan(lesson.frame.minY, top - 100, "Swiping up on the tutorial didn't scroll the manual")
+        XCTAssertTrue(lesson.label.contains("Find a Tape"), "Scrolling turned the lesson")
     }
 
     @MainActor
@@ -1254,6 +1275,19 @@ final class SpoolUITests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// Settings: its key, or on an iPhone Duo closed, the side column's "…" menu.
+    private func openSettings(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let settings = element(app, "spool.settings")
+        let more = element(app, "spool.more")
+        XCTAssertTrue(settings.waitForExistence(timeout: 10) || more.exists, "No way to Settings", file: file, line: line)
+        if settings.exists {
+            settings.tap()
+        } else {
+            more.tap()
+            app.buttons["Settings"].firstMatch.tap()
+        }
+    }
 
     private func launchSpool(model: String = "original", finish: String = "blue",
                              extraArguments: [String] = []) throws -> XCUIApplication {

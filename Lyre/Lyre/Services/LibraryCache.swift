@@ -153,6 +153,8 @@ nonisolated struct CacheFile: Codable {
         var name: String
         var curatorName: String?
         var trackIDs: [String]
+        var lastPlayed: Date?
+        var dateAdded: Date?
     }
 
     init(snapshot: LibrarySnapshot, source: MusicLibrarySource, formatVersion: Int) {
@@ -186,7 +188,8 @@ nonisolated struct CacheFile: Codable {
             CachedArtist(id: $0.id, name: $0.name, albums: $0.preloadedAlbums.map(album))
         }
         self.playlists         = snapshot.playlists.map {
-            CachedPlaylist(id: $0.id, name: $0.name, curatorName: $0.curatorName, trackIDs: ids($0.preloadedTracks))
+            CachedPlaylist(id: $0.id, name: $0.name, curatorName: $0.curatorName, trackIDs: ids($0.preloadedTracks),
+                           lastPlayed: $0.lastPlayed, dateAdded: $0.dateAdded)
         }
         // Sorted so the same library always encodes to the same bytes, which is what
         // lets `save` skip rewriting an unchanged file.
@@ -223,7 +226,8 @@ nonisolated struct CacheFile: Codable {
             AppArtist(id: $0.id, name: $0.name, preloadedAlbums: $0.albums.map(album))
         }
         snapshot.playlists      = playlists.map {
-            AppPlaylist(id: $0.id, name: $0.name, curatorName: $0.curatorName, preloadedTracks: resolve($0.trackIDs))
+            AppPlaylist(id: $0.id, name: $0.name, curatorName: $0.curatorName, preloadedTracks: resolve($0.trackIDs),
+                        lastPlayed: $0.lastPlayed, dateAdded: $0.dateAdded)
         }
         return LibraryCache.Restored(snapshot: snapshot, source: source)
     }

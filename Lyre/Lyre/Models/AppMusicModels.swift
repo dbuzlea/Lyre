@@ -342,17 +342,23 @@ nonisolated struct AppPlaylist: Identifiable, Hashable {
     let musicKitPlaylist: Playlist?
     let mpArtwork: MPMediaItemArtwork?
     var preloadedTracks: [AppTrack]
+    /// When it was last played and when it came into the library, where known: Liquid's
+    /// playlists sort by them (LiquidPlaylistSort).
+    var lastPlayed: Date?
+    var dateAdded: Date?
 
     init(
         id: String, name: String,
         curatorName: String? = nil, musicKitPlaylist: Playlist? = nil,
         mpArtwork: MPMediaItemArtwork? = nil,
-        preloadedTracks: [AppTrack] = []
+        preloadedTracks: [AppTrack] = [],
+        lastPlayed: Date? = nil, dateAdded: Date? = nil
     ) {
         self.id = id; self.name = name
         self.curatorName = curatorName; self.musicKitPlaylist = musicKitPlaylist
         self.mpArtwork = mpArtwork
         self.preloadedTracks = preloadedTracks
+        self.lastPlayed = lastPlayed; self.dateAdded = dateAdded
     }
 
     /// One of Apple Music's playlists (Discover), not the library's: the catalogue's
@@ -449,7 +455,9 @@ nonisolated extension AppPlaylist {
         self.init(
             id: playlist.id.rawValue, name: playlist.name,
             curatorName: playlist.curatorName,
-            musicKitPlaylist: playlist
+            musicKitPlaylist: playlist,
+            lastPlayed: playlist.lastPlayedDate,
+            dateAdded: playlist.libraryAddedDate
         )
     }
 }
@@ -520,7 +528,11 @@ nonisolated extension AppPlaylist {
             name: playlist.name ?? "Untitled Playlist",
             curatorName: nil,
             mpArtwork: playlist.representativeItem?.artwork,
-            preloadedTracks: tracks
+            preloadedTracks: tracks,
+            // The media library keeps no playlist dates of its own: the last play of any of
+            // its songs, and the first time one of them was added.
+            lastPlayed: playlist.items.compactMap(\.lastPlayedDate).max(),
+            dateAdded: playlist.items.map(\.dateAdded).min()
         )
     }
 }

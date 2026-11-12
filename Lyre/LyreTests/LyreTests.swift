@@ -1091,6 +1091,38 @@ struct QueueRuleTests {
         #expect(!lessons.learned(.insert))
     }
 
+    @Test func liquidsPlaylistsSortWithLyresListsFirst() {
+        let now = Date()
+        func mix(_ id: String, _ name: String, played: TimeInterval?, added: TimeInterval?) -> AppAlbum {
+            AppAlbum(mixtape: AppPlaylist(id: id, name: name,
+                                          lastPlayed: played.map { now.addingTimeInterval(-$0) },
+                                          dateAdded: added.map { now.addingTimeInterval(-$0) }))
+        }
+        let items = [mix("smart:recentlyPlayed", "Recently Played", played: nil, added: nil),
+                     mix("p.1", "Beta", played: 100, added: 5_000),
+                     mix("p.2", "Alpha", played: nil, added: 10),
+                     mix("p.3", "Gamma", played: 10, added: nil)]
+        #expect(LiquidPlaylistSort.name.sorted(items).map(\.title) == ["Recently Played", "Alpha", "Beta", "Gamma"])
+        #expect(LiquidPlaylistSort.recentlyPlayed.sorted(items).map(\.title) == ["Recently Played", "Gamma", "Beta", "Alpha"])
+        #expect(LiquidPlaylistSort.recentlyAdded.sorted(items).map(\.title) == ["Recently Played", "Alpha", "Beta", "Gamma"])
+    }
+
+    @Test func upNextsBulgeIsDrawnTowardASongCarriedNear() {
+        let frame = CGRect(x: 100, y: 500, width: 200, height: 56)
+        // Over it: caught, full pull, leaning toward the song.
+        #expect(LiquidUpNextWell.catches(CGPoint(x: 200, y: 520), frame: frame))
+        #expect(LiquidUpNextWell.draw(toward: CGPoint(x: 290, y: 520), frame: frame).pull == 1)
+        #expect(LiquidUpNextWell.draw(toward: CGPoint(x: 290, y: 520), frame: frame).lean > 0.8)
+        // Just round its edge still counts.
+        #expect(LiquidUpNextWell.catches(CGPoint(x: 200, y: 480), frame: frame))
+        // Nearer draws harder; out of reach, not at all; and nothing with no bulge showing.
+        let near = LiquidUpNextWell.draw(toward: CGPoint(x: 200, y: 430), frame: frame).pull
+        let far = LiquidUpNextWell.draw(toward: CGPoint(x: 200, y: 360), frame: frame).pull
+        #expect(near > far && far > 0 && near < 1)
+        #expect(LiquidUpNextWell.draw(toward: CGPoint(x: 200, y: 100), frame: frame).pull == 0)
+        #expect(!LiquidUpNextWell.catches(CGPoint(x: 200, y: 520), frame: .zero))
+    }
+
     @Test func clearingAnEmptyUpNextOffersNothing() {
         let service = MusicService()
         service.seedQueueForUITests(tracks(1))
