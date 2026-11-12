@@ -137,18 +137,20 @@ struct LiquidWaveShape: Shape {
 /// The small bulge on the bottom edge that Up Next is pulled up by: the same liquid
 /// shape, lying on its side and kept small.
 struct LiquidBottomBulge: Shape {
-    /// 0 resting; grows a little as a finger pulls it.
+    /// 0 resting; grows a little as a finger pulls it, or a song is carried to it.
     var lift: CGFloat
+    /// Leaning toward a song carried near it: -1 left … 1 right.
+    var lean: CGFloat = 0
 
-    var animatableData: CGFloat {
-        get { lift }
-        set { lift = newValue }
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(lift, lean) }
+        set { lift = newValue.first; lean = newValue.second }
     }
 
     func path(in rect: CGRect) -> Path {
         let height = 7 + 22 * (1 + lift)
         let half: CGFloat = 46 + 30 * lift
-        let mid = rect.midX
+        let mid = rect.midX + lean * 26
         var path = Path()
         path.move(to: CGPoint(x: 0, y: rect.maxY))
         path.addLine(to: CGPoint(x: mid - half * 2, y: rect.maxY))

@@ -85,22 +85,17 @@ struct TourPager<Lesson: TourLesson, Scene: View>: View {
         }
         .clipped()
         .contentShape(Rectangle())
-        // A swipe across turns the lessons, as the arrows do. Simultaneous, so a tap on
-        // the miniature still replays it and a page around the pager still scrolls.
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 20)
-                .onEnded { value in
-                    let dx = value.translation.width
-                    let flung = value.predictedEndTranslation.width
-                    guard abs(dx) > abs(value.translation.height) * 1.4,
-                          abs(dx) > 50 || abs(flung) > 160 else { return }
-                    if dx < 0, index < lessons.count - 1 {
-                        go(by: 1)
-                    } else if dx > 0, index > 0 {
-                        go(by: -1)
-                    }
-                }
-        )
+        // A swipe across turns the lessons, as the arrows do. A UIKit pan that only begins
+        // for a sideways swipe: an up or down one never reaches it, so the manual around
+        // the pager scrolls from anywhere on it (a SwiftUI drag here held the scroll back).
+        .modifier(TourSwipe { dx, flung in
+            guard abs(dx) > 50 || abs(flung) > 160 else { return }
+            if dx < 0, index < lessons.count - 1 {
+                go(by: 1)
+            } else if dx > 0, index > 0 {
+                go(by: -1)
+            }
+        })
         .accessibilityAction(named: String(localized: "spool.tour.next")) {
             if index < lessons.count - 1 { go(by: 1) }
         }
@@ -139,6 +134,48 @@ struct TourPager<Lesson: TourLesson, Scene: View>: View {
         UISelectionFeedbackGenerator().selectionChanged()
         forward = step > 0
         withAnimation(.easeInOut(duration: 0.28)) { index += step }
+    }
+}
+
+/// The pager's swipe: begins only when the finger moves clearly sideways, and runs
+/// alongside the page's scroll rather than in its way. Reports the distance across and
+/// where a fling would have carried it.
+private struct TourSwipe: ViewModifier {
+    let onEnd: (CGFloat, CGFloat) -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.gesture(TourSwipePan(onEnd: onEnd))
+        } else {
+            content
+        }
+    }
+}
+
+@available(iOS 18.0, *)
+private struct TourSwipePan: UIGestureRecognizerRepresentable {
+    let onEnd: (CGFloat, CGFloat) -> Void
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        return pan
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        guard recognizer.state == .ended else { return }
+        let dx = recognizer.translation(in: recognizer.view).x
+        onEnd(dx, dx + LyreMotion.project(recognizer.velocity(in: recognizer.view).x))
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = recognizer as? UIPanGestureRecognizer else { return false }
+            let velocity = pan.velocity(in: pan.view)
+            return abs(velocity.x) > abs(velocity.y) * 1.4
+        }
     }
 }
 

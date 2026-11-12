@@ -630,25 +630,12 @@ struct LiquidNowPlayingView: View {
     /// The bulge on the bottom edge: tapped, or pulled up, it raises Up Next.
     private var upNextHandle: some View {
         let count = musicService.upcoming.count
-        return VStack(spacing: 2) {
-            Text(count > 0 ? String(format: String(localized: "liquid.upNext.count"), count)
-                           : String(localized: "liquid.upNext"))
-                .lyreFont(size: 11, weight: .semibold, maxScale: 1.5)
-                .tracking(1.5)
-                .textCase(.uppercase)
-                .lyreInk(.white, 0.8)
-            LiquidBottomBulge(lift: bottomLift)
-                .fill(.white.opacity(0.22))
-                .frame(height: 34)
-                .overlay(alignment: .bottom) {
-                    Image(systemName: "chevron.up")
-                        .font(.system(size: 12, weight: .heavy))
-                        .foregroundStyle(.white)
-                        .padding(.bottom, 6)
-                }
-        }
+        return UpNextBulge(count: count, bottomLift: bottomLift)
         .frame(maxWidth: .infinity, minHeight: 56)
         .contentShape(Rectangle())
+        // Where the bulge is, for a song carried to it (LiquidUpNextWell).
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { LiquidUpNextWell.shared.frame = $0 }
+        .onDisappear { LiquidUpNextWell.shared.frame = .zero }
         .onTapGesture(perform: onOpenQueue)
         // Pulled up, Up Next rises after the finger like a sheet.
         .gesture(
@@ -766,6 +753,45 @@ struct LiquidProgress: View {
         .accessibilityValue(AppHelpers.formatTime(clock.time))
         .accessibilityAdjustableAction { direction in
             Task { await musicService.jump(by: direction == .increment ? 15 : -15) }
+        }
+    }
+}
+
+/// Up Next's label and the bulge under it: drawn up toward a song carried near, as the
+/// fold's water is, brighter as it comes, and a gulp as one's dropped in
+/// (LiquidUpNextWell). Its own view, so a song carried about redraws only this.
+private struct UpNextBulge: View {
+    let count: Int
+    let bottomLift: CGFloat
+    @State private var well = LiquidUpNextWell.shared
+    @State private var gulp: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(count > 0 ? String(format: String(localized: "liquid.upNext.count"), count)
+                           : String(localized: "liquid.upNext"))
+                .lyreFont(size: 11, weight: .semibold, maxScale: 1.5)
+                .tracking(1.5)
+                .textCase(.uppercase)
+                .lyreInk(.white, 0.8)
+                .scaleEffect(1 + gulp * 0.12)
+            // Drawn up toward a song carried near (LiquidUpNextWell), as the fold's water
+            // is; brighter as it comes; and a gulp as one's dropped in.
+            LiquidBottomBulge(lift: max(bottomLift, well.pull) + gulp, lean: well.lean)
+                .fill(.white.opacity(0.22 + 0.2 * well.pull))
+                .frame(height: 34)
+                .overlay(alignment: .bottom) {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundStyle(.white)
+                        .padding(.bottom, 6)
+                }
+        }
+        .onChange(of: well.gulps) {
+            guard !reduceMotion else { return }
+            withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) { gulp = 0.7 }
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.45).delay(0.16)) { gulp = 0 }
         }
     }
 }

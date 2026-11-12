@@ -1150,6 +1150,7 @@ struct LiquidPlayerView: View {
         }
         if moved.carried != nil {
             moved.carriedAt = finger
+            moved.isOverUpNext = followUpNext(finger, was: moved.isOverUpNext)
             let past = pastFold(finger) > -10
             if past != spreadPastFold {
                 spreadPastFold = past
@@ -1189,8 +1190,48 @@ struct LiquidPlayerView: View {
         }
     }
 
-    /// A song carried and let go: over the fold, played; short of it, back to its place.
+    /// A song carried near Up Next's bulge: the bulge drawn toward it; over it, felt once.
+    /// Returns whether it's over it.
+    private func followUpNext(_ finger: CGPoint, was: Bool) -> Bool {
+        let well = LiquidUpNextWell.shared
+        well.follow(finger)
+        let over = well.catches(finger)
+        if over != was {
+            if over { UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.8) }
+            withAnimation(LyreMotion.tap) { spread?.isOverUpNext = over }
+        }
+        return over
+    }
+
+    /// A song let go on Up Next's bulge: it goes down into it, the bulge gulps and the
+    /// cover ripples there, and it joins the end of Up Next.
+    private func dropIntoUpNext(_ slot: Int) {
+        guard let dropped = spread, let song = dropped.track(atSlot: slot) else { return }
+        let well = LiquidUpNextWell.shared
+        let mouth = CGPoint(x: well.frame.midX, y: well.frame.maxY - 14)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeIn(duration: 0.22)) {
+            spread?.carriedAt = mouth
+            spread?.swallowed = slot
+        }
+        well.swallow()
+        let page = nowPlayingPage
+        splash = LiquidSplash(point: CGPoint(x: mouth.x - page.minX, y: mouth.y - page.minY), strength: 0.6)
+        queue([song.track], .last, song.track.title)
+        Task {
+            try? await Task.sleep(for: .milliseconds(220))
+            closeSpread()
+        }
+    }
+
+    /// A song carried and let go: on Up Next's bulge, added to Up Next; over the fold,
+    /// played; short of it, back to its place.
     private func finishCarry(_ slot: Int, at point: CGPoint) {
+        if LiquidUpNextWell.shared.catches(point), slot != TrackSpread.pageSlot {
+            dropIntoUpNext(slot)
+            return
+        }
+        LiquidUpNextWell.shared.release()
         if pastFold(point) > -10 {
             choose(slot)
         } else {
@@ -1215,6 +1256,7 @@ struct LiquidPlayerView: View {
 
     /// The songs gone back into their bubble.
     private func closeSpread() {
+        LiquidUpNextWell.shared.release()
         let id = spread?.album.id
         withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : LyreMotion.light) {
             spread?.isOut = false
@@ -1249,10 +1291,12 @@ struct LiquidPlayerView: View {
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                 ForEach(Array(spread.slots.enumerated()), id: \.offset) { slot, place in
-                    let at = spread.carried == slot ? spread.carriedAt : (spread.isOut ? place : spread.center)
+                    let at = spread.carried == slot || spread.swallowed == slot
+                        ? spread.carriedAt : (spread.isOut ? place : spread.center)
+                    let isSwallowed = spread.swallowed == slot
                     spreadBubble(spread, slot: slot)
-                        .scaleEffect(spread.isOut ? (named == slot ? 1.3 : 1) : 0.2)
-                        .opacity(spread.isOut ? 1 : 0)
+                        .scaleEffect(isSwallowed ? 0.15 : spread.isOut ? (named == slot ? 1.3 : 1) : 0.2)
+                        .opacity(isSwallowed || !spread.isOut ? 0 : 1)
                         .position(x: at.x - origin.x, y: at.y - origin.y)
                         .animation(reduceMotion ? nil : LyreMotion.light.delay(spread.isOut ? Double(slot) * 0.012 : 0),
                                    value: spread.isOut)
@@ -1263,6 +1307,8 @@ struct LiquidPlayerView: View {
                                 var carried = self.spread
                                 carried?.carried = slot
                                 carried?.carriedAt = value.location
+                                carried?.isOverUpNext = followUpNext(value.location,
+                                                                     was: self.spread?.isOverUpNext ?? false)
                                 withTransaction(Transaction(animation: nil)) { self.spread = carried }
                             }
                             .onEnded { value in
@@ -1271,12 +1317,14 @@ struct LiquidPlayerView: View {
                             })
                 }
                 // What the chosen one is, above it.
-                if spread.isOut, let named, spread.slots.indices.contains(named) {
+                if spread.isOut, spread.swallowed == nil, let named, spread.slots.indices.contains(named) {
                     let place = spread.carried == named ? spread.carriedAt : spread.slots[named]
                     let song = spread.track(atSlot: named)
                     bubbleLabel(song?.track.title ?? String(localized: "liquid.spread.allSongs"),
-                                song.map { String(format: String(localized: "liquid.spread.track"), $0.index + 1) }
-                                    ?? spread.album.title)
+                                spread.isOverUpNext && spread.carried == named
+                                    ? String(localized: "liquid.spread.toUpNext")
+                                    : song.map { String(format: String(localized: "liquid.spread.track"), $0.index + 1) }
+                                        ?? spread.album.title)
                         .position(x: min(max(place.x - origin.x, 120), proxy.size.width - SideRail.column(safeArea) - 120),
                                   y: max(place.y - origin.y - TrackSpreadLayout.bubble * 0.65 - 30, 30))
                         .allowsHitTesting(false)

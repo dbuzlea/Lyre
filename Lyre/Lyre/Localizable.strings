@@ -743,6 +743,10 @@
 "liquid.menu.albums" = "albums";
 "liquid.menu.artists" = "artists";
 "liquid.menu.playlists" = "playlists";
+"liquid.sort" = "Sort";
+"liquid.sort.recentlyPlayed" = "Recently Played";
+"liquid.sort.name" = "Alphabetical";
+"liquid.sort.recentlyAdded" = "Recently Added";
 "liquid.menu.podcasts" = "podcasts";
 "liquid.menu.search" = "search";
 "liquid.search.in" = "Search %@";
@@ -768,6 +772,7 @@
 "liquid.bubbles.hint.show" = "Opens its episodes.";
 "liquid.bubbles.open" = "Open";
 "liquid.spread.allSongs" = "All Songs";
+"liquid.spread.toUpNext" = "Let go to add to Up Next";
 "liquid.spread.track" = "Track %d";
 "liquid.spread.close" = "Put the songs away";
 "catalog.explicit" = "Explicit";

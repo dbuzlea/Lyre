@@ -10,7 +10,8 @@ import SwiftUI
 // An iPhone Duo open, an album's or a playlist's bubble held: its songs burst out around
 // it as little bubbles, numbered, with one for the whole album's page first. The finger
 // that held it slides to one and lets go to play the album from that song; or carries
-// one on across the fold to play it in Now Playing. Lifted over none, they stay out to
+// one on across the fold to play it in Now Playing, or onto Up Next's bulge at Now
+// Playing's foot to add it to Up Next (LiquidUpNextWell). Lifted over none, they stay out to
 // be tapped or carried; a tap anywhere else puts them away.
 //
 // Here, where the little bubbles go (kept apart from the drawing, so it can be tested);
@@ -83,6 +84,10 @@ struct TrackSpread {
     var isHeld = true
     /// Out (for their burst out of the held bubble, and back into it).
     var isOut = false
+    /// The one let go on Up Next's bulge, swallowed by it (LiquidUpNextWell).
+    var swallowed: Int?
+    /// The carried one is over Up Next's bulge: let go, it joins Up Next.
+    var isOverUpNext = false
 
     /// The first slot is the album's page.
     static let pageSlot = 0

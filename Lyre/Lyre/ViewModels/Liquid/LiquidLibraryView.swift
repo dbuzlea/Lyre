@@ -506,7 +506,8 @@ struct LiquidLibraryView: View {
                                emptyText: String(localized: "spool.shelf.mixtapes.empty"), bottomInset: bottomInset,
                                layout: layout, musicService: musicService, opensInDeck: true,
                                searchAction: (String(localized: "playlist.new.action"), "plus", "liquid.newPlaylist",
-                                              { PlaylistAdder.shared.promptNewPlaylist() }))
+                                              { PlaylistAdder.shared.promptNewPlaylist() }),
+                               sorts: true)
             }
         case .podcasts:
             LiquidRememberedLayout("podcasts") { layout in
@@ -632,6 +633,13 @@ struct LiquidGridPage: View {
     var opensInDeck = false
     /// A button beside the search: Find Shows, on the podcasts page.
     var searchAction: (title: String, symbol: String, id: String, action: () -> Void)?
+    /// The playlists page: a menu beside the search sorts them by name, last played or
+    /// last added (LiquidPlaylistSort). Lyre's own lists stay first.
+    var sorts = false
+    @AppStorage("LiquidPlaylistSort") private var sortRaw = LiquidPlaylistSort.name.rawValue
+    private var sort: LiquidPlaylistSort { LiquidPlaylistSort(rawValue: sortRaw) ?? .name }
+    /// The A–Z strip, and the stack's letters: only while the covers are in name order.
+    private var lettered: Bool { showsIndex && (!sorts || sort == .name) }
 
     @Environment(\.liquidCard) private var card
     @Environment(\.liquidListKey) private var listKey
@@ -644,6 +652,7 @@ struct LiquidGridPage: View {
     @State private var gridWidth: CGFloat = 0
 
     private var shown: [AppAlbum] {
+        let items = sorts ? sort.sorted(self.items) : self.items
         let terms = query.lowercased().split(separator: " ").map(String.init)
         guard !terms.isEmpty else { return items }
         return items.filter { album in
@@ -677,7 +686,7 @@ struct LiquidGridPage: View {
                 empty.padding(.horizontal, 20)
                 Spacer()
             } else {
-                LiquidCardStack(items: shown.map { .album($0) }, isAlphabetical: showsIndex,
+                LiquidCardStack(items: shown.map { .album($0) }, isAlphabetical: lettered,
                                 musicService: musicService, bottomInset: bottomInset)
             }
         }
@@ -687,6 +696,7 @@ struct LiquidGridPage: View {
     private var searchRow: some View {
         HStack(spacing: 10) {
             LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
+            if sorts { sortMenu }
             if let searchAction {
                 Button(action: searchAction.action) {
                     Image(systemName: searchAction.symbol)
@@ -699,6 +709,26 @@ struct LiquidGridPage: View {
                 .accessibilityIdentifier(searchAction.id)
             }
         }
+    }
+
+    /// How the playlists are ordered: by name, last played or last added.
+    private var sortMenu: some View {
+        Menu {
+            Picker(String(localized: "liquid.sort"), selection: $sortRaw) {
+                ForEach(LiquidPlaylistSort.allCases, id: \.rawValue) { option in
+                    Label(option.title, systemImage: option.symbol).tag(option.rawValue)
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 46, height: 46)
+                .lyreFill(.white, 0.1, in: Circle())
+        }
+        .accessibilityLabel(String(localized: "liquid.sort"))
+        .accessibilityValue(sort.title)
+        .accessibilityIdentifier("liquid.playlists.sort")
     }
 
     private var empty: some View {
@@ -731,6 +761,7 @@ struct LiquidGridPage: View {
                             if !(isArtist && items.isEmpty) {
                             HStack(spacing: 10) {
                                 LiquidSearchField(query: $query, prompt: String(format: String(localized: "liquid.search.in"), title))
+                                if sorts { sortMenu }
                                 if let searchAction {
                                     Button(action: searchAction.action) {
                                         Image(systemName: searchAction.symbol)
@@ -783,7 +814,7 @@ struct LiquidGridPage: View {
                     }
                     .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { gridWidth = $0 }
                     .padding(.leading, 20)
-                    .padding(.trailing, showsIndex && shown.count >= 12 ? 40 : 20)
+                    .padding(.trailing, lettered && shown.count >= 12 ? 40 : 20)
                     .padding(.bottom, bottomInset + 20)
                 }
                 .scrollDismissesKeyboard(.immediately)
@@ -798,7 +829,7 @@ struct LiquidGridPage: View {
                     DispatchQueue.main.async { proxy.scrollTo(id, anchor: .top) }
                 }
 
-                if showsIndex, shown.count >= 12 {
+                if lettered, shown.count >= 12 {
                     LiquidLetterStrip(titles: shown.map(\.title)) { index in
                         proxy.scrollTo(shown[index].id, anchor: .top)
                     }
@@ -1625,7 +1656,7 @@ struct LiquidAlbumPage: View {
         // A list, so each song can be swiped right to queue it.
         GeometryReader { page in
         List {
-            header(ground: ground, page: page.size)
+            header(ground: ground, page: page.size, pageMidX: page.frame(in: .global).midX)
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
@@ -1678,29 +1709,29 @@ struct LiquidAlbumPage: View {
     /// opposite it, the album's queue menu. On a page shorter than that (below the fold of
     /// an iPhone Duo open in portrait), as tall as the page: the bubble in its middle, as
     /// big as fits between top and bottom, and the two buttons in its top corners.
-    private func header(ground: Color, page: CGSize) -> some View {
+    private func header(ground: Color, page: CGSize, pageMidX: CGFloat) -> some View {
         let usual = page.width * 0.9
         let fitsPage = page.height > 0 && page.height < usual
         let height = fitsPage ? page.height : usual
         let diameter = fitsPage ? min(page.width * 0.7, page.height - 48) : page.width * 0.7
         return ZStack(alignment: .topLeading) {
-            // The cover as one big bubble on the page's colour, floating, wobbling and
-            // answering to the phone's tilt as every bubble in Liquid does.
+            // The cover as one big bubble on the page's colour, wobbling where it is. It
+            // stays put, centred on the page: no float, no tilt drift. The page's middle,
+            // not the row's: a list row can be narrower than the page (an iPhone Duo's
+            // side column), which left it off to one side.
             Color.clear
                 .frame(height: max(1, height))
                 .overlay {
                     GeometryReader { proxy in
+                        let rowMinX = proxy.frame(in: .global).minX
                         LiquidSoapBubble(diameter: max(1, diameter.rounded()), wobbles: true, flattens: true,
-                                         tilts: true, seed: album.id) {
+                                         seed: album.id) {
                             LiquidCover(source: .album(album))
                         }
-                        .modifier(BubbleFloat(seed: album.id, reach: 4))
-                        .position(x: proxy.size.width / 2,
+                        .position(x: pageMidX.isFinite && pageMidX > 0 ? pageMidX - rowMinX : proxy.size.width / 2,
                                   y: proxy.size.height * (fitsPage ? 0.5 : card == nil ? 0.58 : 0.52))
                     }
                 }
-                .onAppear { BubbleTilt.shared.attach() }
-                .onDisappear { BubbleTilt.shared.detach() }
             if !SideRail.holdsPageButtons(safeArea, railHoldsPageButtons), navigator.canGoBack {
                 Button { navigator.back() } label: {
                     Image(systemName: card == nil ? "chevron.left" : "chevron.down")
@@ -2119,6 +2150,59 @@ private struct LiquidGridPlace: ViewModifier {
             }
         } else {
             content
+        }
+    }
+}
+
+
+// MARK: - Playlist Order
+
+/// How Liquid's playlists page orders the listener's playlists. Lyre's own lists (Recently
+/// Played, Recently Added, Most Played) stay first, in their order, whichever is chosen;
+/// a playlist with no date to go by goes after those that have one, by name.
+enum LiquidPlaylistSort: String, CaseIterable {
+    case recentlyPlayed, name, recentlyAdded
+
+    var title: String {
+        switch self {
+        case .recentlyPlayed: String(localized: "liquid.sort.recentlyPlayed")
+        case .name: String(localized: "liquid.sort.name")
+        case .recentlyAdded: String(localized: "liquid.sort.recentlyAdded")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .recentlyPlayed: "clock.arrow.circlepath"
+        case .name: "textformat"
+        case .recentlyAdded: "calendar.badge.plus"
+        }
+    }
+
+    func sorted(_ items: [AppAlbum]) -> [AppAlbum] {
+        let isLyres: (AppAlbum) -> Bool = { $0.mixtape?.id.hasPrefix("smart:") == true }
+        let lyres = items.filter(isLyres)
+        let theirs = items.filter { !isLyres($0) }
+        let byName: (AppAlbum, AppAlbum) -> Bool = { AppHelpers.sortsBefore($0.title, $1.title) }
+        let ordered: [AppAlbum]
+        switch self {
+        case .name:
+            ordered = theirs.sorted(by: byName)
+        case .recentlyPlayed:
+            ordered = theirs.sorted { Self.newerFirst($0.mixtape?.lastPlayed, $1.mixtape?.lastPlayed) ?? byName($0, $1) }
+        case .recentlyAdded:
+            ordered = theirs.sorted { Self.newerFirst($0.mixtape?.dateAdded, $1.mixtape?.dateAdded) ?? byName($0, $1) }
+        }
+        return lyres + ordered
+    }
+
+    /// Newer first, a date before none; nil where they're alike, for the name to decide.
+    private static func newerFirst(_ a: Date?, _ b: Date?) -> Bool? {
+        switch (a, b) {
+        case let (a?, b?): a == b ? nil : a > b
+        case (_?, nil): true
+        case (nil, _?): false
+        case (nil, nil): nil
         }
     }
 }
