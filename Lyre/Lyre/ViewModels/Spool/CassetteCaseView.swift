@@ -229,7 +229,7 @@ struct CassetteCaseView: View {
                     if let byline = album.caseByline {
                         Text(byline)
                             .lyreFont(size: 14, maxScale: 2)
-                            .opacity(0.7)
+                            .lyreFaded(0.7)
                             .lineLimit(1)
                             .padding(.top, 2)
                     }
@@ -238,7 +238,7 @@ struct CassetteCaseView: View {
                         Text(released.uppercased())
                             .lyreFont(size: 10, weight: .semibold, design: .monospaced, maxScale: 2)
                             .tracking(0.5)
-                            .opacity(0.55)
+                            .lyreFaded(0.55)
                             .padding(.top, 3)
                             .accessibilityIdentifier("spool.jcard.released")
                     }
@@ -303,7 +303,7 @@ struct CassetteCaseView: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(SpoolPalette.labelInk)
                     .frame(width: 30, height: 30)
-                    .background(.white.opacity(0.75), in: Circle())
+                    .lyreFill(.white, 0.75, in: Circle())
                     .frame(width: 44, height: 44)
             }
             .accessibilityLabel(String(localized: "spool.case.close"))
@@ -358,7 +358,7 @@ struct CassetteCaseView: View {
             if tracks.isEmpty {
                 Text(String(localized: "spool.jcard.empty"))
                     .lyreFont(size: 14, maxScale: 2)
-                    .opacity(0.6)
+                    .lyreFaded(0.6)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else if scrolls {
                 ScrollViewReader { reader in
@@ -405,7 +405,7 @@ struct CassetteCaseView: View {
         Text(String(localized: key).uppercased())
             .lyreFont(size: 11, weight: .heavy, design: .rounded, maxScale: 2)
             .tracking(1.5)
-            .opacity(0.55)
+            .lyreFaded(0.55)
             .padding(.top, 10)
             .padding(.bottom, 2)
             .accessibilityAddTraits(.isHeader)
@@ -439,7 +439,7 @@ struct CassetteCaseView: View {
                         // An artist's songs are numbered as on their albums.
                         Text("\(album.isArtist ? track.trackNumber ?? index + 1 : index + 1)")
                             .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 2)
-                            .opacity(0.5)
+                            .lyreFaded(0.5)
                             .frame(width: 20, alignment: .trailing)
                     }
                     if let episodes, episodes.indices.contains(index) {
@@ -453,7 +453,7 @@ struct CassetteCaseView: View {
                                 .lineLimit(2)
                             Text(track.artistName)
                                 .lyreFont(size: 12, maxScale: 2)
-                                .opacity(0.6)
+                                .lyreFaded(0.6)
                                 .lineLimit(1)
                         }
                     } else {
@@ -470,7 +470,7 @@ struct CassetteCaseView: View {
                     } else if track.duration > 0 {
                         Text(AppHelpers.formatTime(track.duration))
                             .lyreFont(size: 12, design: .monospaced, maxScale: 2)
-                            .opacity(0.5)
+                            .lyreFaded(0.5)
                     }
                 }
                 .padding(.vertical, 9)
@@ -543,7 +543,7 @@ struct CassetteCaseView: View {
             Text([episode.published.map(Self.episodeDate), episode.duration > 0 ? Self.runningTime(episode.duration) : nil]
                     .compactMap { $0 }.joined(separator: " · "))
                 .lyreFont(size: 12, maxScale: 2)
-                .opacity(0.55)
+                .lyreFaded(0.55)
         }
     }
 
@@ -793,7 +793,7 @@ struct EpisodeDownloadMark: View {
         case .downloading(let progress):
             Text("\(Int(progress * 100))%")
                 .lyreFont(size: 11, design: .monospaced, maxScale: 2)
-                .opacity(0.6)
+                .lyreFaded(0.6)
         case nil:
             EmptyView()
         }
@@ -882,7 +882,7 @@ struct ClosedCaseFront: View {
                 if let byline = album.caseByline {
                     Text(byline)
                         .font(.system(size: h * 0.075))
-                        .opacity(0.75)
+                        .lyreFaded(0.75)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
@@ -958,7 +958,7 @@ struct ClosedCaseFront: View {
             Text(detail.uppercased())
                 .font(.system(size: h * 0.06, weight: .bold, design: .rounded))
                 .tracking(1)
-                .opacity(0.65)
+                .lyreFaded(0.65)
         }
     }
 }
@@ -995,7 +995,8 @@ private struct PlasticPanel<Content: View>: View {
             .background(
                 shape.fill(LinearGradient(colors: [.white.opacity(0.32), .white.opacity(0.14)],
                                           startPoint: .top, endPoint: .bottom))
-                    .background(.ultraThinMaterial, in: shape)
+                    // The clear plastic, frosted; a pale grey, solid, with Reduce Transparency.
+                    .lyreMaterial(.ultraThinMaterial, in: shape, solid: Color(white: 0.84))
             )
             .overlay(shape.strokeBorder(.white.opacity(0.7), lineWidth: 2))
             .overlay(

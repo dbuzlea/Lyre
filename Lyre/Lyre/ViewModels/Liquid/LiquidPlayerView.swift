@@ -218,7 +218,7 @@ struct LiquidPlayerView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(.black.opacity(0.75), in: Capsule())
+                        .lyreFill(.black, 0.75, in: Capsule())
                         .frame(maxHeight: .infinity, alignment: .top)
                         .padding(.top, safeArea.top + 60)
                         .transition(.opacity)
@@ -1092,7 +1092,7 @@ struct LiquidPlayerView: View {
                 .lyreFont(size: 15, weight: .semibold, maxScale: 1.5)
             Text(detail)
                 .lyreFont(size: 12, maxScale: 1.5)
-                .opacity(0.75)
+                .lyreFaded(0.75)
         }
         .lineLimit(1)
         // As wide as its words, up to a limit.
@@ -1101,7 +1101,7 @@ struct LiquidPlayerView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
-        .background(.ultraThinMaterial, in: Capsule())
+        .lyreMaterial(.ultraThinMaterial, in: Capsule(), solid: Color(white: 0.16))
         .environment(\.colorScheme, .dark)
         .accessibilityElement(children: .combine)
     }

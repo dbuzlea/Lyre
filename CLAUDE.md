@@ -35,7 +35,7 @@ The developer works alone on Lyre and is building experience in software QA. Exp
   ```
 - Check that a new test appears in the results (if not, the bundle is stale). For anything visual, export the screenshots (`xcrun xcresulttool export attachments`) and look at them before reporting.
 - UI tests reset state with `--uitest-complete-onboarding` (it forgets the player and Liquid's open-Duo section). Values written with `simctl spawn … defaults write` land in the simulator's device-wide preferences, which the app reads as a fallback; remove them the same way when done.
-- Known failures that aren't regressions (they fail on `main` too): Disc `testChoosingASongFromACasePutsTheDiscOnAndShutsTheLid` (taps on an opened case don't land in the simulator); Gramophone `testTheUpNextBinFlipsRemovesReordersAndPlays`; Liquid `testDraggingABubbleIntoNowPlayingPlaysIt` (simulated drags), `testSettingsOpenAndOfferTheOtherPlayers`, `testTurningThePhoneOpensTheArtworkCarousel…`; Spool `testSwipingATapeRightQueuesIt`, `testSwipingInFromTheRightEdgeOpensTheCarousel`, `testTappingTheGripBringsUpUpNextAndASwipeRemovesASong`, `testWithAnEpisodeInTheKeysJumpTheSpeedKnob…`, `testOnAnOpenDuoACaseOpensOverTheRack…` (flaky); unit LYRE-4 `SpoolSoundTests/theGramophonesSoundsAreShortEnoughToKeepUp`. Report these as known.
+- Known failures that aren't regressions (they fail on `main` too): Disc `testChoosingASongFromACasePutsTheDiscOnAndShutsTheLid` (taps on an opened case don't land in the simulator); Gramophone `testTheUpNextBinFlipsRemovesReordersAndPlays`; Liquid `testDraggingABubbleIntoNowPlayingPlaysIt` (simulated drags), `testSettingsOpenAndOfferTheOtherPlayers`, `testTurningThePhoneOpensTheArtworkCarousel…`; Spool `testSwipingATapeRightQueuesIt`, `testSwipingInFromTheRightEdgeOpensTheCarousel`, `testTappingTheGripBringsUpUpNextAndASwipeRemovesASong`, `testWithAnEpisodeInTheKeysJumpTheSpeedKnob…`, `testOnAnOpenDuoACaseOpensOverTheRack…` (flaky); unit LYRE-4 `SpoolSoundTests/theGramophonesSoundsAreShortEnoughToKeepUp`; also Liquid `testDiscoverOpensItsCoversAndGenres`, PlayerSwitch `testDiscChangePlayerButtonSwitchesToSpool`, Search `testClassicSearchLowersTheWheelWhileTypingAndBringsItBack` (failing on main as of 2026-11-12). Report these as known.
 
 ## Test phones
 
@@ -82,6 +82,16 @@ Text people read grows with their text size (Settings > Display & Brightness > T
 - Leave as drawn only words that are part of an object's picture (a cassette's or record's label, the Discman's display, the click wheel, tape spines, index strips, the tutorials' animations). Fonts sized from the object (`size * 0.1`) count as these.
 - Titles that mustn't break mid-word get `.lineLimit(1).minimumScaleFactor(0.5)`; rows and lists should grow, not clip (no fixed heights around text).
 - Check new screens at a large size: `DynamicTypeUITests` launches each player at Accessibility Large (`-UIPreferredContentSizeCategoryName UICTContentSizeCategoryAccessibilityL`); look at the screenshots.
+
+## Contrast and transparency (every faded word, faint fill and frosted panel)
+
+Follow Increase Contrast and Reduce Transparency (Settings > Accessibility > Display & Text Size) with the helpers in `ViewModels/LyreContrast.swift`:
+
+- `lyreFaded(0.6)` for text faded back, and `lyreInk(.white, 0.6)` for faded text or symbols, instead of `.opacity` or `.foregroundStyle(color.opacity)`: at least 90% with Increase Contrast.
+- `lyreFill(.white, 0.1, in: Circle())` for a faint fill behind a control: firmer and outlined with Increase Contrast, solid with Reduce Transparency.
+- `lyreMaterial(.ultraThinMaterial, in:solid:)` for frosted glass, with a solid colour that suits where it is.
+- Text laid over artwork needs a scrim that darkens further with Increase Contrast (see Liquid's Now Playing).
+- Check with `ContrastUITests`, which turns both on (`--lyre-increase-contrast`, `--lyre-reduce-transparency`, debug builds), and look at its screenshots.
 
 ## iPhone Duo
 

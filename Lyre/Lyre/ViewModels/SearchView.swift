@@ -159,7 +159,7 @@ struct SearchView: View {
                 Text(result.subtitle)
                     .lyreFont(size: 9, maxScale: 1.5)
                     .lineLimit(1)
-                    .opacity(0.75)
+                    .lyreFaded(0.75)
             }
             Spacer(minLength: 0)
         }

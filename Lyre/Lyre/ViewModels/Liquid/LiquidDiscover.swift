@@ -39,7 +39,7 @@ struct LiquidDiscoverPage: View {
                     LiquidPageTitle(title: String(localized: "discover.title"))
                     if sections.isEmpty {
                         Text(Discover.emptyText)
-                            .foregroundStyle(.white.opacity(0.7))
+                            .lyreInk(.white, 0.7)
                             .accessibilityIdentifier("liquid.discover.empty")
                     }
                     ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
@@ -293,7 +293,7 @@ struct LiquidDiscoverSectionPage: View {
                         .minimumScaleFactor(0.8)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .padding(.horizontal, 10)
-                        .background(.white.opacity(0.12), in: Capsule())
+                        .lyreFill(.white, 0.12, in: Capsule())
                 }
                 .foregroundStyle(.white)
                 .buttonStyle(LyrePressStyle())
@@ -326,7 +326,7 @@ struct LiquidBubbleTile: View {
                 }
                 Text(album.caseByline ?? album.artistName)
                     .lyreFont(size: 12, maxScale: 2)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .lyreInk(.white, 0.6)
                     .lineLimit(1)
             }
             .multilineTextAlignment(.center)

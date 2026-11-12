@@ -195,7 +195,7 @@ struct DiscPlayerView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(.black.opacity(0.75), in: Capsule())
+                    .lyreFill(.black, 0.75, in: Capsule())
                     .frame(maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, safeArea.bottom + 24)
                     .transition(.opacity)
@@ -599,7 +599,7 @@ struct DiscPlayerView: View {
                 Text(String(localized: "disc.subtitle"))
                     .lyreFont(size: 9, weight: .bold, maxScale: 1.5)
                     .tracking(1.5)
-                    .opacity(0.7)
+                    .lyreFaded(0.7)
             }
             .foregroundStyle(theme.ink)
             .lineLimit(1)
@@ -773,7 +773,7 @@ struct DiscPlayerView: View {
             .overlay {
                 Image(systemName: "chevron.up")
                     .font(.system(size: max(6, side * 0.022), weight: .black))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .lyreInk(.white, 0.9)
             }
             .frame(width: side * 0.12, height: side * 0.04)
             .shadow(color: .black.opacity(0.4), radius: 2, y: 1.5)
@@ -832,14 +832,14 @@ struct DiscPlayerView: View {
                 .font(.system(size: side * 0.07, weight: .heavy, design: .rounded))
                 .italic()
                 .tracking(side * 0.01)
-                .foregroundStyle(.white.opacity(0.75))
+                .lyreInk(.white, 0.75)
                 .shadow(color: .black.opacity(0.4), radius: 0, y: 1)
                 .offset(y: -side * 0.32)
             // Printed round the bottom of the window, just inside its edge.
             ArcText(text: String(localized: "disc.lid.print"),
                     radius: window / 2 - side * 0.035,
                     fontSize: side * 0.028, tracking: side * 0.006)
-                .foregroundStyle(.white.opacity(0.6))
+                .lyreInk(.white, 0.6)
 
             // The hub cap, which presses the disc onto the spindle: a domed metal
             // button with turned rings.

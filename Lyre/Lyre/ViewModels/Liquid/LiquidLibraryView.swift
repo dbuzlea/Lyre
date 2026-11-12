@@ -296,7 +296,7 @@ struct LiquidLibraryView: View {
             Image(systemName: symbol)
                 .font(.system(size: 17, weight: .semibold))
                 .frame(width: 44, height: 44)
-                .background(.white.opacity(0.14), in: Circle())
+                .lyreFill(.white, 0.14, in: Circle())
         }
         .buttonStyle(LyrePressStyle())
         .foregroundStyle(.white)
@@ -693,7 +693,7 @@ struct LiquidGridPage: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 46, height: 46)
-                        .background(.white.opacity(0.1), in: Circle())
+                        .lyreFill(.white, 0.1, in: Circle())
                 }
                 .accessibilityLabel(searchAction.title)
                 .accessibilityIdentifier(searchAction.id)
@@ -705,7 +705,7 @@ struct LiquidGridPage: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
                 .lyreFont(size: 16, maxScale: 2)
-                .foregroundStyle(.white.opacity(0.7))
+                .lyreInk(.white, 0.7)
             if let emptyAction, query.isEmpty {
                 Button(emptyAction.title, action: emptyAction.action)
                     .lyreFont(size: 15, weight: .semibold, maxScale: 2)
@@ -737,7 +737,7 @@ struct LiquidGridPage: View {
                                             .font(.system(size: 17, weight: .semibold))
                                             .foregroundStyle(.white)
                                             .frame(width: 46, height: 46)
-                                            .background(.white.opacity(0.1), in: Circle())
+                                            .lyreFill(.white, 0.1, in: Circle())
                                     }
                                     .accessibilityLabel(searchAction.title)
                                     .accessibilityIdentifier(searchAction.id)
@@ -760,7 +760,7 @@ struct LiquidGridPage: View {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
                                     .lyreFont(size: 16, maxScale: 2)
-                                    .foregroundStyle(.white.opacity(0.7))
+                                    .lyreInk(.white, 0.7)
                                 if let emptyAction, query.isEmpty {
                                     Button(emptyAction.title, action: emptyAction.action)
                                         .lyreFont(size: 15, weight: .semibold, maxScale: 2)
@@ -859,7 +859,7 @@ struct LiquidCoverTile: View {
             }
             Text(album.caseByline ?? album.artistName)
                 .lyreFont(size: 12, maxScale: 2)
-                .foregroundStyle(.white.opacity(0.6))
+                .lyreInk(.white, 0.6)
                 .lineLimit(1)
         }
         .foregroundStyle(.white)
@@ -890,7 +890,7 @@ struct LiquidPageTitle: View {
                     Image(systemName: card == nil ? "chevron.left" : "chevron.down")
                         .font(.system(size: 17, weight: .semibold))
                         .frame(width: 44, height: 44)
-                        .background(.white.opacity(0.1), in: Circle())
+                        .lyreFill(.white, 0.1, in: Circle())
                 }
                 .foregroundStyle(.white)
                 // Its own button: on a list's first row, a tap elsewhere on the row isn't one.
@@ -931,13 +931,14 @@ struct LiquidPageTitle: View {
 struct LiquidSearchField: View {
     @Binding var query: String
     let prompt: String
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.white.opacity(0.6))
+                .lyreInk(.white, 0.6)
                 .accessibilityHidden(true)
-            TextField("", text: $query, prompt: Text(prompt).foregroundStyle(.white.opacity(0.45)))
+            TextField("", text: $query, prompt: Text(prompt).foregroundStyle(.white.opacity(LyreContrast.faded(0.45, increased: LyreContrast.isIncreased(contrast)))))
                 .foregroundStyle(.white)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
@@ -945,7 +946,7 @@ struct LiquidSearchField: View {
                 .accessibilityIdentifier("liquid.search.field")
             if !query.isEmpty {
                 Button { query = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.white.opacity(0.6))
+                    Image(systemName: "xmark.circle.fill").lyreInk(.white, 0.6)
                 }
                 .accessibilityLabel(String(localized: "search.clear"))
             }
@@ -953,7 +954,7 @@ struct LiquidSearchField: View {
         .font(.system(size: 16))
         .padding(.horizontal, 16)
         .frame(height: 46)
-        .background(.white.opacity(0.1), in: Capsule())
+        .lyreFill(.white, 0.1, in: Capsule())
     }
 }
 
@@ -1139,7 +1140,7 @@ struct LiquidArtistsPage: View {
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
                         if shown.isEmpty {
                             Text(String(localized: query.isEmpty ? "spool.shelf.empty" : "search.noResults"))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .lyreInk(.white, 0.7)
                         }
                         ForEach(Array(shown.enumerated()), id: \.element.name) { index, artist in
                             Button {
@@ -1157,7 +1158,7 @@ struct LiquidArtistsPage: View {
                                     Spacer(minLength: 8)
                                     Text("\(artist.count)")
                                         .lyreFont(size: 14, weight: .medium, design: .monospaced, maxScale: 2)
-                                        .foregroundStyle(.white.opacity(0.5))
+                                        .lyreInk(.white, 0.5)
                                 }
                                 .foregroundStyle(.white)
                                 .frame(minHeight: 64)
@@ -1248,7 +1249,7 @@ struct LiquidSearchPage: View {
                                         .lineLimit(1)
                                         .padding(.horizontal, 12)
                                         .frame(minHeight: 36)
-                                        .background(.white.opacity(0.12), in: Capsule())
+                                        .lyreFill(.white, 0.12, in: Capsule())
                                 }
                                 .foregroundStyle(.white)
                                 .buttonStyle(LyrePressStyle())
@@ -1266,7 +1267,7 @@ struct LiquidSearchPage: View {
                     ].filter { !$0.1.isEmpty }
                     if sections.isEmpty, catalog?.isEmpty != false {
                         Text(String(localized: "search.noResults"))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .lyreInk(.white, 0.7)
                     }
                     ForEach(sections, id: \.0) { section in
                         Text(section.0.lowercasedKeepingAppleMusic)
@@ -1363,7 +1364,7 @@ struct LiquidSongsPage: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .frame(height: 36)
-                    .background(.white.opacity(0.14), in: Capsule())
+                    .lyreFill(.white, 0.14, in: Capsule())
             }
             .buttonStyle(LyrePressStyle())
             .accessibilityIdentifier("liquid.link.\(link.title)")
@@ -1409,7 +1410,7 @@ struct LiquidSongsPage: View {
             if shown.isEmpty {
                 Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
                     .lyreFont(size: 16, maxScale: 2)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .lyreInk(.white, 0.7)
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
                 Spacer()
@@ -1445,7 +1446,7 @@ struct LiquidSongsPage: View {
                         } else {
                             Text(query.isEmpty ? emptyText : String(localized: "search.noResults"))
                                 .lyreFont(size: 16, maxScale: 2)
-                                .foregroundStyle(.white.opacity(0.7))
+                                .lyreInk(.white, 0.7)
                                 .padding(.top, 8)
                         }
                     }
@@ -1557,7 +1558,7 @@ struct LiquidSongsPage: View {
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundStyle(.white)
                                 .frame(width: 48, height: 48)
-                                .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .lyreFill(.black, 0.45, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                     }
                 VStack(alignment: .leading, spacing: 2) {
@@ -1569,14 +1570,14 @@ struct LiquidSongsPage: View {
                     }
                     Text(track.albumTitle.isEmpty ? track.artistName : "\(track.artistName) · \(TapeFormat.displayTitle(track.albumTitle))")
                         .lyreFont(size: 12, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .lyreInk(.white, 0.6)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 6)
                 if track.duration > 0 {
                     Text(AppHelpers.formatTime(track.duration))
                         .lyreFont(size: 12, design: .monospaced, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.5))
+                        .lyreInk(.white, 0.5)
                 }
             }
             .frame(minHeight: 62)
@@ -1705,7 +1706,7 @@ struct LiquidAlbumPage: View {
                     Image(systemName: card == nil ? "chevron.left" : "chevron.down")
                         .font(.system(size: 17, weight: .semibold))
                         .frame(width: 44, height: 44)
-                        .background(.black.opacity(0.3), in: Circle())
+                        .lyreFill(.black, 0.3, in: Circle())
                 }
                 .buttonStyle(LyrePressStyle())
                 .foregroundStyle(.white)
@@ -1740,7 +1741,7 @@ struct LiquidAlbumPage: View {
                 }
                 Text(detailsText)
                     .lyreFont(size: 14, maxScale: 2)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .lyreInk(.white, 0.7)
                 // The audio it comes in, as Apple Music has it (see LiquidCatalog).
                 if let variants = AppleMusicCatalog.shared.details(forAlbum: album)?.variants, !variants.isEmpty {
                     AudioVariantBadges(variants: variants)
@@ -1774,7 +1775,7 @@ struct LiquidAlbumPage: View {
             } else if tracks == nil {
                 ProgressView().tint(.white).frame(maxWidth: .infinity, minHeight: 80)
             } else {
-                Text(String(localized: "spool.jcard.empty")).foregroundStyle(.white.opacity(0.7))
+                Text(String(localized: "spool.jcard.empty")).lyreInk(.white, 0.7)
             }
         }
     }
@@ -1807,7 +1808,7 @@ struct LiquidAlbumPage: View {
                             Image(systemName: "waveform").font(.system(size: 12, weight: .bold))
                         } else {
                             Text("\(index + 1)").lyreFont(size: 13, weight: .medium, design: .monospaced, maxScale: 2)
-                                .foregroundStyle(.white.opacity(0.5))
+                                .lyreInk(.white, 0.5)
                         }
                     }
                     .frame(width: 26, alignment: .leading)
@@ -1820,7 +1821,7 @@ struct LiquidAlbumPage: View {
                             if track.isExplicit { ExplicitBadge() }
                         }
                         if album.isMixtape {
-                            Text(track.artistName).lyreFont(size: 12, maxScale: 2).foregroundStyle(.white.opacity(0.6))
+                            Text(track.artistName).lyreFont(size: 12, maxScale: 2).lyreInk(.white, 0.6)
                         }
                     }
                     Spacer(minLength: 8)
@@ -1831,7 +1832,7 @@ struct LiquidAlbumPage: View {
                     if track.duration > 0 {
                         Text(AppHelpers.formatTime(track.duration))
                             .lyreFont(size: 12, design: .monospaced, maxScale: 2)
-                            .foregroundStyle(.white.opacity(0.5))
+                            .lyreInk(.white, 0.5)
                     }
                 }
                 .frame(minHeight: 52)
@@ -1914,7 +1915,7 @@ struct LiquidDroplet: View {
                         .lineLimit(1)
                     Text(track.artistName)
                         .lyreFont(size: 12, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .lyreInk(.white, 0.7)
                         .lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -2059,7 +2060,7 @@ struct LiquidAlbumActions: View {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
                     .frame(width: 44, height: 44)
-                    .background(.black.opacity(0.3), in: Circle())
+                    .lyreFill(.black, 0.3, in: Circle())
             }
             .buttonStyle(LyrePressStyle())
             .foregroundStyle(.white)
@@ -2071,7 +2072,7 @@ struct LiquidAlbumActions: View {
             Image(systemName: "pencil")
                 .font(.system(size: 17, weight: .semibold))
                 .frame(width: 44, height: 44)
-                .background(.black.opacity(0.3), in: Circle())
+                .lyreFill(.black, 0.3, in: Circle())
                 .foregroundStyle(.white)
         }
         if !album.isPodcast {
@@ -2086,7 +2087,7 @@ struct LiquidAlbumActions: View {
                 Image(systemName: "text.badge.plus")
                     .font(.system(size: 17, weight: .semibold))
                     .frame(width: 44, height: 44)
-                    .background(.black.opacity(0.3), in: Circle())
+                    .lyreFill(.black, 0.3, in: Circle())
             }
             .foregroundStyle(.white)
             .accessibilityLabel(String(localized: "liquid.album.queueMenu"))

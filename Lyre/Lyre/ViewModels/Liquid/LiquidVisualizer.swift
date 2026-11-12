@@ -88,7 +88,7 @@ struct LiquidVisualizer: View {
                                 .lyreFont(size: standing ? 22 : 24, weight: .bold, maxScale: 1.5)
                             Text(track?.artistName ?? "")
                                 .lyreFont(size: 15, maxScale: 1.5)
-                                .opacity(0.7)
+                                .lyreFaded(0.7)
                         }
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
@@ -153,7 +153,7 @@ struct LiquidVisualizer: View {
                 .font(.system(size: size * 0.38, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: size, height: size)
-                .background(.white.opacity(0.14), in: Circle())
+                .lyreFill(.white, 0.14, in: Circle())
                 // A touch target no smaller than 44 points, however small the key looks.
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())

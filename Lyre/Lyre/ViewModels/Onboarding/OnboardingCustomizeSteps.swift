@@ -120,7 +120,7 @@ struct ChoiceRow<Leading: View>: View {
                     if let detail {
                         Text(detail)
                             .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.8))
+                            .lyreInk(.white, 0.8)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -418,7 +418,7 @@ struct WheelFeelStep: View {
                     .pickerStyle(.segmented)
                     Text(speedDetail)
                         .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.8))
+                        .lyreInk(.white, 0.8)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -442,7 +442,7 @@ struct WheelFeelStep: View {
                         Text(String(localized: "onboarding.feel.click")).font(.headline).foregroundStyle(.white)
                         Text(String(localized: "onboarding.feel.click.detail"))
                             .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.8))
+                            .lyreInk(.white, 0.8)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -475,7 +475,7 @@ struct BacklightStep: View {
             VStack(spacing: 10) {
                 Text(String(localized: "onboarding.backlight.demo"))
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .lyreInk(.white, 0.75)
                     .multilineTextAlignment(.center)
                     .padding(.bottom, 4)
                 ForEach(BacklightDuration.allCases, id: \.self) { duration in
@@ -547,7 +547,7 @@ struct DoneStep: View {
 
                 Text(String(localized: "onboarding.done.liquid.hint"))
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .lyreInk(.white, 0.75)
                     .multilineTextAlignment(.center)
             }
         } footer: {
@@ -571,7 +571,7 @@ struct DoneStep: View {
 
                 Text(String(localized: "onboarding.done.disc.hint"))
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .lyreInk(.white, 0.75)
                     .multilineTextAlignment(.center)
             }
         } footer: {
@@ -596,7 +596,7 @@ struct DoneStep: View {
 
                 Text(String(localized: "onboarding.done.gramophone.hint"))
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .lyreInk(.white, 0.75)
                     .multilineTextAlignment(.center)
             }
         } footer: {
@@ -621,7 +621,7 @@ struct DoneStep: View {
 
                 Text(String(localized: "onboarding.done.spool.replay"))
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .lyreInk(.white, 0.75)
                     .multilineTextAlignment(.center)
             }
         } footer: {
@@ -649,7 +649,7 @@ struct DoneStep: View {
 
                 Text(String(localized: "onboarding.done.replay"))
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .lyreInk(.white, 0.75)
                     .multilineTextAlignment(.center)
             }
         } footer: {
@@ -660,7 +660,7 @@ struct DoneStep: View {
     private func summaryRow(_ label: String.LocalizationValue, _ value: String, last: Bool = false) -> some View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text(String(localized: label)).font(.body).foregroundStyle(.white.opacity(0.8))
+                Text(String(localized: label)).font(.body).lyreInk(.white, 0.8)
                 Spacer(minLength: 12)
                 Text(value).font(.body.weight(.semibold)).foregroundStyle(.white).multilineTextAlignment(.trailing)
             }

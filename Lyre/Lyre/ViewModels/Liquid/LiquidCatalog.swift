@@ -29,9 +29,9 @@ struct ExplicitBadge: View {
     var body: some View {
         Text("E")
             .lyreFont(size: 10, weight: .bold, maxScale: 2)
-            .foregroundStyle(.black.opacity(0.8))
+            .lyreInk(.black, 0.8)
             .frame(width: 15, height: 15)
-            .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 3, style: .continuous))
+            .lyreFill(.white, 0.7, in: RoundedRectangle(cornerRadius: 3, style: .continuous))
             .accessibilityLabel(String(localized: "catalog.explicit"))
     }
 }
@@ -47,7 +47,7 @@ struct AudioVariantBadges: View {
                     .lyreFont(size: 12, weight: .semibold, maxScale: 2)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(.white.opacity(0.14), in: Capsule())
+                    .lyreFill(.white, 0.14, in: Capsule())
             }
         }
         .foregroundStyle(.white)
@@ -80,14 +80,14 @@ private struct ExpandableText: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(text)
                     .lyreFont(size: 15, maxScale: 2)
-                    .foregroundStyle(.white.opacity(0.85))
+                    .lyreInk(.white, 0.85)
                     .lineLimit(isExpanded ? nil : lines)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if !isExpanded {
                     Text(String(localized: "catalog.more"))
                         .lyreFont(size: 13, weight: .semibold, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .lyreInk(.white, 0.6)
                 }
             }
         }
@@ -136,7 +136,7 @@ struct LiquidCatalogSongRow: View {
                 if let rank {
                     Text("\(rank)")
                         .lyreFont(size: 14, weight: .semibold, design: .monospaced, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.55))
+                        .lyreInk(.white, 0.55)
                         .frame(width: 26, alignment: .trailing)
                 }
                 artwork
@@ -145,7 +145,7 @@ struct LiquidCatalogSongRow: View {
                         Text(song.title).lyreFont(size: 16, maxScale: 2).lineLimit(1)
                         if song.contentRating == .explicit { ExplicitBadge() }
                     }
-                    Text(song.artistName).lyreFont(size: 12, maxScale: 2).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+                    Text(song.artistName).lyreFont(size: 12, maxScale: 2).lyreInk(.white, 0.6).lineLimit(1)
                 }
                 Spacer(minLength: 6)
             }
@@ -192,7 +192,7 @@ struct LiquidCatalogSongRow: View {
         if isAdded || navigator.librarySong(song) != nil {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 18))
-                .foregroundStyle(.white.opacity(0.5))
+                .lyreInk(.white, 0.5)
                 .frame(width: 44, height: 44)
                 .accessibilityLabel(String(localized: "catalog.inLibrary"))
         } else if isAdding {
@@ -203,7 +203,7 @@ struct LiquidCatalogSongRow: View {
             Button { addSong() } label: {
                 Image(systemName: "plus.circle")
                     .font(.system(size: 18))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .lyreInk(.white, 0.8)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -247,7 +247,7 @@ struct LiquidCatalogAlbumTile: View {
                 }
                 .modifier(BubbleFloat(seed: album.id.rawValue, reach: 3))
                 Text(album.title).lyreFont(size: 14, weight: .medium, maxScale: 2).lineLimit(1)
-                Text(album.artistName).lyreFont(size: 12, maxScale: 2).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+                Text(album.artistName).lyreFont(size: 12, maxScale: 2).lyreInk(.white, 0.6).lineLimit(1)
             }
             .frame(width: side, alignment: .leading)
             .foregroundStyle(.white)
@@ -283,7 +283,7 @@ struct LiquidArtistIntro: View {
                             withAnimation(.easeInOut(duration: 0.25)) { showsAll.toggle() }
                         }
                         .lyreFont(size: 14, weight: .semibold, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .lyreInk(.white, 0.7)
                         .padding(.top, 4)
                     }
                 }
@@ -398,7 +398,7 @@ struct LiquidAlbumCredits: View {
             if !credits.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(credits, id: \.self) { line in
-                        Text(line).lyreFont(size: 12, maxScale: 2).foregroundStyle(.white.opacity(0.55))
+                        Text(line).lyreFont(size: 12, maxScale: 2).lyreInk(.white, 0.55)
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -462,7 +462,7 @@ struct LiquidCatalogSearch: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(String(localized: "liquid.menu.albums").lowercased())
                         .lyreFont(size: 18, weight: .medium, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.8))
+                        .lyreInk(.white, 0.8)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(alignment: .top, spacing: 14) {
                             ForEach(results.albums) {
@@ -476,7 +476,7 @@ struct LiquidCatalogSearch: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(String(localized: "liquid.menu.artists").lowercased())
                         .lyreFont(size: 18, weight: .medium, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.8))
+                        .lyreInk(.white, 0.8)
                     LiquidCatalogArtistStrip(artists: results.artists, title: String(localized: "liquid.menu.artists"))
                 }
             }

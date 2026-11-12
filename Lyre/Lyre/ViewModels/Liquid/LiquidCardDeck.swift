@@ -274,7 +274,7 @@ struct LiquidCardDeckView<Content: View>: View {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 16, weight: .semibold))
                         .frame(width: 40, height: 40)
-                        .background(.white.opacity(0.15), in: Circle())
+                        .lyreFill(.white, 0.15, in: Circle())
                 }
                 .buttonStyle(LyrePressStyle())
                 .accessibilityLabel(String(localized: "liquid.card.close"))
@@ -292,7 +292,7 @@ struct LiquidCardDeckView<Content: View>: View {
         .padding(.horizontal, 16)
         .padding(.top, safeArea.top + 4)
         .padding(.bottom, 8)
-        .background(.ultraThinMaterial)
+        .lyreMaterial(.ultraThinMaterial, in: Rectangle(), solid: Color(white: 0.1))
         .environment(\.colorScheme, .dark)
         .transition(.opacity)
         .accessibilityIdentifier("liquid.card.bar")

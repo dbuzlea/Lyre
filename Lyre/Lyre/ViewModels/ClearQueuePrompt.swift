@@ -129,7 +129,8 @@ private struct ReplaceQueueDialog: View {
                 .padding(.bottom, 16)
             }
             .frame(maxWidth: 300)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .lyreMaterial(.regularMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous),
+                          solid: Color(uiColor: .secondarySystemBackground))
             .overlay(alignment: .topTrailing) {
                 Button { onChoose(.cancel) } label: {
                     Image(systemName: "xmark")
@@ -159,7 +160,7 @@ private struct ReplaceQueueDialog: View {
             Text(title)
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity, minHeight: 46)
-                .background(.thinMaterial, in: Capsule())
+                .lyreMaterial(.thinMaterial, in: Capsule(), solid: Color(uiColor: .tertiarySystemFill))
         }
         .buttonStyle(LyrePressStyle())
         .foregroundStyle(role == .destructive ? Color.red : Color.accentColor)

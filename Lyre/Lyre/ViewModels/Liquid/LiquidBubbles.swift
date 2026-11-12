@@ -232,7 +232,7 @@ struct LiquidBubbleField: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 46, height: 46)
-                        .background(.white.opacity(0.1), in: Circle())
+                        .lyreFill(.white, 0.1, in: Circle())
                 }
                 .buttonStyle(LyrePressStyle())
                 .accessibilityLabel(action.title)
@@ -291,7 +291,7 @@ struct LiquidBubbleField: View {
                         if items.isEmpty {
                             Text(query.isEmpty ? tab.emptyText : String(localized: "search.noResults"))
                                 .lyreFont(size: 15, maxScale: 1.5)
-                                .foregroundStyle(.white.opacity(0.6))
+                                .lyreInk(.white, 0.6)
                                 .padding(.horizontal, 20)
                                 .padding(.top, 40)
                         } else if packing.centers.count == items.count {

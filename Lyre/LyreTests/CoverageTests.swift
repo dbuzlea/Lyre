@@ -2156,6 +2156,23 @@ struct BubbleTiltTests {
     }
 }
 
+/// Contrast and transparency as the reader has set them (LyreContrast): faded words and
+/// faint fills come forward with Increase Contrast, and are as they were without.
+@MainActor
+struct LyreContrastTests {
+    @Test func fadedWordsComeForwardWithIncreaseContrast() {
+        #expect(LyreContrast.faded(0.5, increased: false) == 0.5)
+        #expect(LyreContrast.faded(0.5, increased: true) == LyreContrast.fadedFloor)
+        #expect(LyreContrast.faded(0.95, increased: true) == 0.95)
+    }
+
+    @Test func faintFillsFirmUpWithIncreaseContrast() {
+        #expect(LyreContrast.fill(0.1, increased: false) == 0.1)
+        #expect(LyreContrast.fill(0.1, increased: true) >= 0.3)
+        #expect(LyreContrast.fill(0.2, increased: true) == 0.5)
+    }
+}
+
 /// Lyre's type at the reader's text size (LyreType): as designed at the standard size,
 /// growing with a larger one along the nearest text style's curve, never past its cap.
 @MainActor

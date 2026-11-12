@@ -41,7 +41,7 @@ struct ArtistCatalogHeader: View {
                         .lyreFont(size: 13, maxScale: 2)
                         .lineLimit(showsAllNotes ? nil : 3)
                         .multilineTextAlignment(.leading)
-                        .opacity(0.8)
+                        .lyreFaded(0.8)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(LyrePressStyle(isRow: true))
@@ -55,7 +55,7 @@ struct ArtistCatalogHeader: View {
                         HStack(spacing: 8) {
                             Text("\(index + 1)")
                                 .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 2)
-                                .opacity(0.5)
+                                .lyreFaded(0.5)
                                 .frame(width: 18, alignment: .trailing)
                             if let art = songs[index].artwork {
                                 ArtworkImage(art, width: 30, height: 30)
@@ -179,7 +179,7 @@ private struct ArtistSectionTitle: View {
         Text(text.uppercasedKeepingAppleMusic)
             .lyreFont(size: 11, weight: .heavy, design: .rounded, maxScale: 2)
             .tracking(0.6)
-            .opacity(0.6)
+            .lyreFaded(0.6)
             .padding(.top, 6)
             .accessibilityAddTraits(.isHeader)
     }

@@ -56,7 +56,7 @@ struct SpoolSettingsView: View {
                                 .lyreFont(size: 16, weight: .semibold, maxScale: 2)
                             Text(String(localized: "settings.allowMusicAccess.detail"))
                                 .lyreFont(size: 12, maxScale: 2)
-                                .opacity(0.7)
+                                .lyreFaded(0.7)
                         }
                         .multilineTextAlignment(.leading)
                         Spacer(minLength: 8)
@@ -232,7 +232,7 @@ struct SpoolSettingsView: View {
                 Text(String(localized: "spool.settings.manual"))
                     .lyreFont(size: 11, weight: .semibold, maxScale: 2)
                     .tracking(2)
-                    .opacity(0.6)
+                    .lyreFaded(0.6)
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
@@ -276,7 +276,7 @@ struct SpoolSettingsView: View {
             if let detail {
                 Text(detail)
                     .lyreFont(size: 12, maxScale: 2)
-                    .opacity(0.6)
+                    .lyreFaded(0.6)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -349,7 +349,7 @@ struct SpoolSettingsView: View {
                         .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                     Text(String(localized: "settings.sendDiagnostics.detail"))
                         .lyreFont(size: 12, maxScale: 2)
-                        .opacity(0.7)
+                        .lyreFaded(0.7)
                 }
             }
             .padding(14)
@@ -361,7 +361,7 @@ struct SpoolSettingsView: View {
                         .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                     Text(String(localized: "settings.shareUsage.detail"))
                         .lyreFont(size: 12, maxScale: 2)
-                        .opacity(0.7)
+                        .lyreFaded(0.7)
                 }
             }
             .padding(14)
@@ -376,7 +376,7 @@ struct SpoolSettingsView: View {
                             .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                         Text(String(localized: "settings.reportProblem.detail"))
                             .lyreFont(size: 12, maxScale: 2)
-                            .opacity(0.7)
+                            .lyreFaded(0.7)
                     }
                     .multilineTextAlignment(.leading)
                     Spacer(minLength: 8)
@@ -398,7 +398,7 @@ struct SpoolSettingsView: View {
                             .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                         Text(String(localized: "settings.shareDiagnostics.detail"))
                             .lyreFont(size: 12, maxScale: 2)
-                            .opacity(0.7)
+                            .lyreFaded(0.7)
                     }
                     .multilineTextAlignment(.leading)
                     Spacer(minLength: 8)
@@ -413,7 +413,7 @@ struct SpoolSettingsView: View {
             .buttonStyle(LyrePressStyle(isRow: true))
             Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
                 .lyreFont(size: 11, maxScale: 2)
-                .opacity(0.5)
+                .lyreFaded(0.5)
                 .frame(maxWidth: .infinity)
         }
     }

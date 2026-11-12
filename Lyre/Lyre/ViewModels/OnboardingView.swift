@@ -404,7 +404,7 @@ private struct OnboardingTopBar: View {
 
                 Text(stepLabel)
                     .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.8))
+                    .lyreInk(.white, 0.8)
                     .contentTransition(.numericText(value: Double(number)))
             }
 
@@ -468,7 +468,7 @@ struct OnboardingPage<Content: View, Footer: View>: View {
                     if let message {
                         Text(message)
                             .font(.body)
-                            .foregroundStyle(.white.opacity(0.8))
+                            .lyreInk(.white, 0.8)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                             .onboardingEntrance(2)
@@ -523,7 +523,7 @@ struct OnboardingSecondaryButton: View {
         Button(action: action) {
             Text(title)
                 .font(.body.weight(.medium))
-                .foregroundStyle(.white.opacity(0.85))
+                .lyreInk(.white, 0.85)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .contentShape(Rectangle())
         }
@@ -546,7 +546,7 @@ struct OnboardingInfoRow<Icon: View>: View {
                 Text(title).font(.headline).foregroundStyle(.white)
                 Text(detail)
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .lyreInk(.white, 0.8)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
@@ -603,7 +603,7 @@ private struct WelcomeStep: View {
                     ZStack {
                         Text(shown.displayName)
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.8))
+                            .lyreInk(.white, 0.8)
                             .id(shown)
                             .transition(reduceMotion ? .opacity : .push(from: .bottom))
                     }
@@ -637,7 +637,7 @@ private struct WelcomeStep: View {
             OnboardingPrimaryButton(title: String(localized: "onboarding.getStarted"), action: onNext)
             Text(String(localized: "onboarding.welcome.duration"))
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.75))
+                .lyreInk(.white, 0.75)
         }
     }
 
@@ -757,7 +757,7 @@ private struct PermissionsStep: View {
                             ? "onboarding.permissions.onlyOne"
                             : "onboarding.permissions.nextPrompt"))
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .lyreInk(.white, 0.75)
                     .fixedSize(horizontal: false, vertical: true)
             }
         } footer: {
@@ -876,7 +876,7 @@ private struct MusicAccessStep: View {
                 ProgressView().tint(.white)
                 Text(String(localized: "onboarding.loadingLibraryStatus"))
                     .font(.callout)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .lyreInk(.white, 0.8)
             }
         } else if isFinishedLoading {
             HStack(spacing: 8) {
@@ -886,7 +886,7 @@ private struct MusicAccessStep: View {
                     .accessibilityHidden(true)
                 Text(librarySummary)
                     .font(.callout.weight(.medium).monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.9))
+                    .lyreInk(.white, 0.9)
                     .contentTransition(.numericText(value: Double(shownSongCount)))
             }
             .accessibilityElement(children: .combine)

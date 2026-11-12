@@ -49,7 +49,7 @@ final class DynamicTypeUITests: XCTestCase {
         XCTAssertTrue(open.waitForExistence(timeout: 10))
         shot(app, "type-disc")
         open.tap()
-        XCTAssertTrue(element(app, "spool.tape.sample-1").waitForExistence(timeout: 5), "The shelf didn't open")
+        XCTAssertTrue(element(app, "shelf.search.field").waitForExistence(timeout: 5), "The shelf didn't open")
         shot(app, "type-disc-shelf")
         app.terminate()
 
@@ -88,7 +88,7 @@ final class DynamicTypeUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = [
             "--uitest", "--uitest-complete-onboarding", "--uitest-hide-library-errors",
-            "-LyrePlayerStyle", style, "-SpoolSampleTapes", "YES", "--spool-sample-queue",
+            "-LyrePlayerStyle", style, "-SpoolSampleTapes", "YES", "--spool-sample-queue", "--spool-reset-rack",
             "-LyreSpoolModel", "original", "-LyreGramophoneModel", "horn",
             // Accessibility Large: the largest but one.
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL",
