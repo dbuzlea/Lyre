@@ -1178,6 +1178,11 @@ final class GramophoneStage {
         let back = SIMD3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
         let tanH = tan(Self.fieldOfView * .pi / 360)
         var distance = (Self.rackSleeveSide / 2 + 0.035) / tanH
+        // On a screen wider than tall (an iPhone Duo held open), the record at the front
+        // filled the whole height, too close to see it's in the bin: stand back, so it
+        // takes about two thirds of the height, the bin's walls and the records behind
+        // it around it.
+        if viewSize.width > viewSize.height { distance *= 1.5 }
         var rackTarget = binTarget
         // With the covers taking the bottom half (an iPhone Duo opened upright), the bin
         // fits the half above them: the camera stands back as far again as the screen is
