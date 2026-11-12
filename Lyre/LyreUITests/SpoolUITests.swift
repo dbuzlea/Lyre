@@ -1090,8 +1090,8 @@ final class SpoolUITests: XCTestCase {
     @MainActor
     func testTheHotlineButtonOpensSettingsAndAFinishAppliesStraightAway() throws {
         let app = try launchSpool(finish: "blue")
-        let settings = element(app, "spool.settings")
-        XCTAssertTrue(settings.waitForExistence(timeout: 10), "No settings button on the rail")
+        XCTAssertTrue(element(app, "spool.settings").waitForExistence(timeout: 10) || element(app, "spool.more").exists,
+                      "No settings button on the rail")
         // The simulator's missing library is reported in an alert that can cover the button.
         let dismiss = app.alerts.buttons["Dismiss"]
         if dismiss.waitForExistence(timeout: 3) {
@@ -1100,7 +1100,7 @@ final class SpoolUITests: XCTestCase {
             sleep(1)
         }
 
-        settings.tap()
+        openSpoolSettings(app)
         XCTAssertTrue(element(app, "spool.settings.done").waitForExistence(timeout: 3), "Settings did not open")
         // The tutorial and the designs come first; the finishes are under them, and
         // aren't made until they're scrolled to.
@@ -1118,8 +1118,8 @@ final class SpoolUITests: XCTestCase {
     @MainActor
     func testPickingTheSlimDesignInSettingsChangesTheDeck() throws {
         let app = try launchSpool(model: "original")
-        XCTAssertTrue(element(app, "spool.settings").waitForExistence(timeout: 10))
-        element(app, "spool.settings").tap()
+        XCTAssertTrue(element(app, "spool.settings").waitForExistence(timeout: 10) || element(app, "spool.more").exists)
+        openSpoolSettings(app)
 
         let slim = element(app, "spool.settings.design.slim")
         XCTAssertTrue(slim.waitForExistence(timeout: 3))
@@ -1237,3 +1237,19 @@ final class SpoolUITests: XCTestCase {
         add(attachment)
     }
 }
+
+
+extension SpoolUITests {
+    /// Settings, from the rail: its own button, or "…" where the rail is short (an
+    /// iPhone Duo's status column, under the Dynamic Island and any Live Activities).
+    func openSpoolSettings(_ app: XCUIApplication) {
+        let settings = app.descendants(matching: .any)["spool.settings"].firstMatch
+        if settings.exists {
+            settings.tap()
+        } else {
+            app.descendants(matching: .any)["spool.more"].firstMatch.tap()
+            app.buttons["Settings"].firstMatch.tap()
+        }
+    }
+}
+
