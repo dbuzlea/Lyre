@@ -1432,14 +1432,9 @@ struct ArtworkCarouselView: View {
             downloads.download(episode)
             impact(.light, 0.7)
             showToast(String(format: String(localized: "download.started"), episode.title))
-        case .downloading:
-            downloads.remove(episode.id)
+        case .downloading, .downloaded:
+            downloads.removeOfferingUndo(episode)
             impact(.rigid, 0.4)
-            showToast(String(localized: "download.cancelled"))
-        case .downloaded:
-            downloads.remove(episode.id)
-            impact(.rigid, 0.4)
-            showToast(String(format: String(localized: "download.removed"), episode.title))
         }
     }
 

@@ -810,16 +810,19 @@ struct SpoolPlayerView: View {
             .accessibilityIdentifier("spool.door")
             .accessibilityValue(deckLoad.map { $0.album.tapeTitle } ?? "")
             Spacer(minLength: 0)
-            Text(String(localized: deckLoad == nil ? "spool.open.hint" : "spool.closeToPlay"))
-                .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
-                .foregroundStyle(theme.ink)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(theme.ink.opacity(0.12), in: Capsule())
-                .contentTransition(.opacity)
-                .animation(.easeInOut(duration: 0.2), value: deckLoad == nil)
-                .accessibilityIdentifier("spool.open.hint")
+            // How a tape goes in, until it's gone in a few times (GestureLessons).
+            if deckLoad != nil || !GestureLessons.shared.learned(.insert) {
+                Text(String(localized: deckLoad == nil ? "spool.open.hint" : "spool.closeToPlay"))
+                    .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
+                    .foregroundStyle(theme.ink)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(theme.ink.opacity(0.12), in: Capsule())
+                    .contentTransition(.opacity)
+                    .animation(.easeInOut(duration: 0.2), value: deckLoad == nil)
+                    .accessibilityIdentifier("spool.open.hint")
+            }
         }
         .padding(.vertical, 12)
     }

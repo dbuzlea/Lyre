@@ -562,8 +562,10 @@ struct ScrollWheelView: View {
             if queueMoveOffset != nil {
                 bumpFeedback()
             } else if placement == .last, musicService.canEditUpcoming {
+                GestureLessons.shared.did(.classicQueue)
                 removeSelectedFromQueue()
             } else if placement == .next, musicService.upcoming.indices.contains(songSelection) {
+                GestureLessons.shared.did(.classicQueue)
                 successFeedback()
                 musicService.playUpcoming(at: songSelection)
             } else {
@@ -600,14 +602,9 @@ struct ScrollWheelView: View {
             downloads.download(episode)
             successFeedback()
             onBanner(String(format: String(localized: "download.started"), episode.title))
-        case .downloading:
-            downloads.remove(episode.id)
+        case .downloading, .downloaded:
+            downloads.removeOfferingUndo(episode)
             bumpFeedback()
-            onBanner(String(localized: "download.cancelled"))
-        case .downloaded:
-            downloads.remove(episode.id)
-            bumpFeedback()
-            onBanner(String(format: String(localized: "download.removed"), episode.title))
         }
     }
 
@@ -670,6 +667,7 @@ struct ScrollWheelView: View {
     private func dropCarriedQueueRow() {
         guard let offset = queueMoveOffset else { return }
         queueMoveOffset = nil
+        GestureLessons.shared.did(.classicQueue)
         musicService.commitQueueMove(to: offset)
         onBanner(String(localized: "queue.reordered"))
     }

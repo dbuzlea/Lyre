@@ -112,6 +112,9 @@ struct TapeCarousel: View {
     @State private var motion = RackMotion()
     /// How far the front tape has been swiped sideways.
     @State private var swipeX: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The front tape's lean toward the deck, shown once a launch (`nudgeTowardTheDeck`).
+    private static var nudged = false
     /// The rack's frame in SpoolPlayerView's coordinate space.
     @State private var rackFrame: CGRect = .zero
     @Environment(\.spoolTheme) private var theme
@@ -160,6 +163,7 @@ struct TapeCarousel: View {
                     GeometryReader { geometry in
                         rack(Rack(size: geometry.size, count: albums.count, aspectRatio: cardAspectRatio))
                     }
+                    .task { await nudgeTowardTheDeck() }
                     .onGeometryChange(for: CGRect.self) { proxy in
                         proxy.frame(in: .named(SpoolPlayerView.coordinateSpace))
                     } action: { rackFrame = $0 }
@@ -220,6 +224,7 @@ struct TapeCarousel: View {
                         } else if !isFront {
                             bringForward(index)
                         } else {
+                            GestureLessons.shared.did(.insert)
                             insert(album, rack)
                         }
                     }
@@ -374,6 +379,15 @@ struct TapeCarousel: View {
     /// What holding a tape offers.
     @ViewBuilder
     private func holdMenu(_ album: AppAlbum, _ index: Int, _ rack: Rack) -> some View {
+        // What a swipe left does, in words too (agency: no action only a gesture finds).
+        if !opensToChoose(album) || swipeLeftLoads {
+            Button {
+                jump(to: index)
+                insert(album, rack)
+            } label: {
+                Label(String(localized: "spool.play"), systemImage: "play.fill")
+            }
+        }
         if !album.isPodcast {
             Button { onQueue(album, .next) } label: {
                 Label(String(localized: "queue.action.playNext"), systemImage: "text.insert")
@@ -390,6 +404,23 @@ struct TapeCarousel: View {
                     Label(String(localized: "albumInfo.action"), systemImage: "info.circle")
                 }
         }
+    }
+
+    /// Until tapes have gone in a few times (GestureLessons), the front tape leans toward
+    /// the deck and springs back, once a launch: the way a swipe sends it, shown.
+    private func nudgeTowardTheDeck() async {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard !Self.nudged, !reduceMotion, !GestureLessons.shared.learned(.insert),
+              !arguments.contains("--uitest") || arguments.contains("--lyre-nudge"),
+              albums.indices.contains(frontIndex),
+              !opensToChoose(albums[frontIndex]) || swipeLeftLoads else { return }
+        try? await Task.sleep(for: .seconds(1.2))
+        guard !Task.isCancelled, swipeX == 0 else { return }
+        Self.nudged = true
+        withAnimation(.easeOut(duration: 0.22)) { swipeX = -28 }
+        try? await Task.sleep(for: .milliseconds(240))
+        guard swipeX == -28 else { return }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) { swipeX = 0 }
     }
 
     /// Puts the tape at `index` at the front at once, from the index down the side.
@@ -470,6 +501,7 @@ struct TapeCarousel: View {
                         showSongs(frontIndex, rack)
                     } else if width < -Self.commitDistance || predicted < -Self.commitVelocityDistance {
                         // Hand over where the card is now; the flying copy takes it from here.
+                        GestureLessons.shared.did(.insert)
                         insert(album, rack)
                         var reset = Transaction()
                         reset.disablesAnimations = true

@@ -499,7 +499,7 @@ struct CassetteCaseView: View {
                                 onQueue: onQueue,
                                 // Only from the whole list: a search's matches aren't in the playlist's places.
                                 onRemove: shown.count == tracks.count
-                                    ? PlaylistAdder.shared.removeAction(track, at: index, from: album) { self.tracks?.remove(at: index) }
+                                    ? PlaylistAdder.shared.removeAction(track, at: index, from: album, in: $tracks)
                                     : nil))
             .accessibilityActions {
                 if !album.isPodcast {

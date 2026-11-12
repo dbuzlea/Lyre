@@ -1842,7 +1842,7 @@ struct LiquidAlbumPage: View {
             .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track,
                                 episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil },
                                 onQueue: { onQueue($0, $1, $0.count == 1 ? $0[0].title : album.tapeTitle) },
-                                onRemove: PlaylistAdder.shared.removeAction(track, at: index, from: album) { self.tracks?.remove(at: index) }))
+                                onRemove: PlaylistAdder.shared.removeAction(track, at: index, from: album, in: $tracks)))
             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                 if !album.isPodcast {
                     Button {

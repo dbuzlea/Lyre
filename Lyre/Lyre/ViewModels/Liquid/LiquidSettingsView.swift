@@ -100,6 +100,7 @@ struct LiquidSettingsView: View {
                     // How Lyre's used, counted without names, only if this is on (UsageStats).
                     Toggle(String(localized: "settings.shareUsage"), isOn: $sharesUsageStatistics)
                         .accessibilityIdentifier("settings.shareUsage")
+                    GestureTipsButton(card: false)
                     ReportProblemButton {
                         Label(String(localized: "settings.reportProblem"), systemImage: "exclamationmark.bubble")
                     }

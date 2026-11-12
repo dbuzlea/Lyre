@@ -58,12 +58,31 @@ extension PodcastDownloads {
         case nil:
             download(episode)
             return String(format: String(localized: "download.started"), episode.title)
-        case .downloading:
-            remove(episode.id)
-            return String(localized: "download.cancelled")
-        case .downloaded:
-            remove(episode.id)
-            return String(format: String(localized: "download.removed"), episode.title)
+        case .downloading, .downloaded:
+            return removeOfferingUndo(episode)
+        }
+    }
+
+    /// Cancels or removes `episode`'s download, offering to put it back (LyreUndo).
+    /// Returns what happened, which the Undo banner says.
+    @discardableResult
+    func removeOfferingUndo(_ episode: PodcastEpisode) -> String {
+        let message = state(for: episode.id) == .downloaded
+            ? String(format: String(localized: "download.removed"), episode.title)
+            : String(localized: "download.cancelled")
+        let aside = setAside([episode])
+        if !aside.isEmpty {
+            LyreUndo.shared.offer(message) { [weak self] in self?.putBack(aside) }
+        }
+        return message
+    }
+
+    /// Remove All Downloads, offering to put the finished ones back.
+    func removeAllOfferingUndo() {
+        let aside = setAsideAll()
+        guard !aside.isEmpty else { return }
+        LyreUndo.shared.offer(String(localized: "download.removedAll")) { [weak self] in
+            self?.putBack(aside)
         }
     }
 

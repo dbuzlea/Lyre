@@ -32,6 +32,9 @@ final class LyreUndo {
 
     /// What the banner shows now, if anything.
     private(set) var banner: Offer?
+    /// Where the banner is on screen: the only place its window takes touches.
+    @ObservationIgnored var bannerFrame: CGRect = .zero
+    @ObservationIgnored private var window: UIWindow?
     /// The last thing that can be undone, by the banner or by a shake.
     private var latest: Offer?
     private var expiry: Task<Void, Never>?
@@ -43,6 +46,7 @@ final class LyreUndo {
     func offer(_ message: String, undo: @escaping () async -> Void) {
         let offer = Offer(message: message, action: undo)
         latest = offer
+        showWindow()
         withAnimation(LyreMotion.light) { banner = offer }
         if let manager = Self.undoManager {
             manager.removeAllActions(withTarget: self)
@@ -77,12 +81,40 @@ final class LyreUndo {
         withAnimation(LyreMotion.light) { self.banner = nil }
     }
 
+    /// The banner's own window, over the app's (sheets and covers included), passing
+    /// every touch but those on the banner through to the app beneath.
+    private func showWindow() {
+        guard let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive }) ?? UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene }).first else { return }
+        if let window, window.windowScene === scene { return }
+        let window = UndoWindow(windowScene: scene)
+        window.windowLevel = .normal + 1
+        let host = UIHostingController(rootView: UndoBanner())
+        host.view.backgroundColor = .clear
+        window.rootViewController = host
+        window.isHidden = false
+        self.window = window
+    }
+
     /// The key window's undo manager, which a shake asks.
     private static var undoManager: UndoManager? {
         UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.keyWindow }
-            .first?.undoManager
+            .first { !($0 is UndoWindow) }?.undoManager
     }
+}
+
+/// The banner's window: touches land on it only where the banner is.
+private final class UndoWindow: UIWindow {
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let frame = MainActor.assumeIsolated { LyreUndo.shared.banner == nil ? .zero : LyreUndo.shared.bannerFrame }
+        guard frame.contains(point) else { return nil }
+        return super.hitTest(point, with: event)
+    }
+
+    override var canBecomeKey: Bool { false }
 }
 
 /// The undo banner, over every player at the bottom of the screen: what went, and Undo.
@@ -90,7 +122,6 @@ final class LyreUndo {
 struct UndoBanner: View {
     @State private var undo = LyreUndo.shared
     @State private var drag: CGFloat = 0
-    @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -118,8 +149,9 @@ struct UndoBanner: View {
                 .background(Color.black.opacity(0.55), in: Capsule())
                 .environment(\.colorScheme, .dark)
                 .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { undo.bannerFrame = $0 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, safeArea.bottom + 96)
+                .padding(.bottom, 96)
                 .offset(y: max(0, drag))
                 .gesture(DragGesture(minimumDistance: 6)
                     .onChanged { value in
@@ -144,7 +176,6 @@ struct UndoBanner: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .ignoresSafeArea()
     }
 }
 
