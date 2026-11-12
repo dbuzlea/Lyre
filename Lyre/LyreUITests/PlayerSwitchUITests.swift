@@ -169,10 +169,19 @@ final class PlayerSwitchUITests: XCTestCase {
                       "Choosing \(target) from the \(style) player should switch to it")
     }
 
+    /// Change Player: its own button, or in "…" where the rail is short (the Spool's,
+    /// down an iPhone Duo's status column under the Dynamic Island).
     private func openSwitchMenu(in app: XCUIApplication, prefix: String) {
         let button = app.buttons["\(prefix).playerSwitch"].firstMatch
-        XCTAssertTrue(button.waitForExistence(timeout: 10),
-                      "The \(prefix) player should have a Change Player button")
+        let more = app.descendants(matching: .any)["\(prefix).more"].firstMatch
+        if !button.waitForExistence(timeout: 10), more.exists {
+            more.tap()
+            let item = app.buttons["Change Player"].firstMatch
+            XCTAssertTrue(item.waitForExistence(timeout: 3), "… has no Change Player")
+            item.tap()
+            return
+        }
+        XCTAssertTrue(button.exists, "The \(prefix) player should have a Change Player button")
         button.tap()
     }
 

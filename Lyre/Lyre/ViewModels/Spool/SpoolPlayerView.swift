@@ -193,9 +193,11 @@ struct SpoolPlayerView: View {
             // the rack away, stand there one under the other.
             if foldMonitor.posture != .tent, SideRail.isOn(safeArea) {
                 if foldMonitor.posture == .closed, model == .original, !isBrowsing {
-                    keyStrip(axis: .vertical, inColumn: true)
+                    // Under the status bar's reserve, as every rail in the column: clear of
+                    // the Dynamic Island, any Live Activities under it, and the clock below.
+                    columnStrip
                         .frame(width: SideRail.column(safeArea) - 6)
-                        .padding(.top, SideRail.stripTop)
+                        .padding(.top, SideRail.statusReserve)
                         .padding(.bottom, safeArea.bottom + 10)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
                         .padding(.trailing, 3)
@@ -1003,6 +1005,92 @@ struct SpoolPlayerView: View {
                 )
                 .shadow(color: .black.opacity(0.25), radius: 6, x: -2, y: 0)
         )
+    }
+
+    /// The original's rail down an iPhone Duo's status column, under the status bar's
+    /// reserve: as much of it as fits above the transport keys, which always stand. All
+    /// of it; else Settings, Change Player and the star folded into "…"; else the time
+    /// readout gone too (Up Next is still under the tape).
+    private var columnStrip: some View {
+        ViewThatFits(in: .vertical) {
+            columnKeys(.all)
+            columnKeys(.folded)
+            columnKeys(.fewest)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(railBackground)
+    }
+
+    private enum ColumnFit { case all, folded, fewest }
+
+    private func columnKeys(_ fit: ColumnFit) -> some View {
+        VStack(spacing: 8) {
+            switch fit {
+            case .all:
+                hotlineMenu
+                playerSwitchKey
+                loveKey
+                airPlayKey
+                counter
+            case .folded:
+                columnMore
+                airPlayKey
+                counter
+            case .fewest:
+                columnMore
+                airPlayKey
+            }
+            Spacer(minLength: 8)
+            keyBank(axis: .vertical, compact: true)
+                .offset(x: -Self.keyOverhang)
+            Spacer(minLength: 8)
+        }
+        .padding(.vertical, 18)
+        .padding(.horizontal, 10)
+    }
+
+    /// The column's "…": the star, Change Player and Settings, each with its name.
+    private var columnMore: some View {
+        Menu {
+            let loves = Loves.shared
+            let track = musicService.nowPlayingTrack
+            if loves.canLove(track) {
+                let isLoved = loves.isLoved(track)
+                Button { Task { await loves.toggle(track) } } label: {
+                    Label(String(localized: isLoved ? "love.loved" : "love.label"),
+                          systemImage: LoveButton<EmptyView>.symbol(isLoved))
+                }
+            }
+            PlayerSwitchMenu(themeSettings: themeSettings, identifier: "spool.more.playerSwitch") { symbol in
+                Label(String(localized: "playerSwitch.title"), systemImage: symbol)
+            }
+            Button { showSettings = true } label: {
+                Label(String(localized: "settings.title"), systemImage: "gearshape")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(theme.keySymbol)
+                .frame(width: 36, height: 36)
+                .background(theme.keyLight.opacity(0.7), in: Circle())
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Circle())
+        }
+        .accessibilityLabel(String(localized: "sideRail.more"))
+        .accessibilityIdentifier("spool.more")
+    }
+
+    /// The rail's brushed metal.
+    private var railBackground: some View {
+        RoundedRectangle(cornerRadius: 28)
+            .fill(theme.railGradient)
+            // Brushed grain.
+            .overlay(
+                LinearGradient(colors: [.white.opacity(0.12), .clear, .white.opacity(0.08), .clear],
+                               startPoint: .top, endPoint: .bottom)
+                    .clipShape(RoundedRectangle(cornerRadius: 28))
+            )
+            .shadow(color: .black.opacity(0.25), radius: 6, x: -2, y: 0)
     }
 
     /// How far the keys stand out past the rail's edge.

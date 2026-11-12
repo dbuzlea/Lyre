@@ -20,7 +20,14 @@ final class DuoSafeAreaUITests: XCTestCase {
 
     @MainActor
     func testSpoolsKeysStandInTheStatusColumn() throws {
-        try assertSides(style: "spool", inColumn: ["spool.settings", "spool.playerSwitch", "spool.airplay"])
+        // Under the status bar's reserve (the Dynamic Island, Live Activities and the
+        // clock), as much of the rail as fits: Settings and Change Player, or "…".
+        let app = try assertSides(style: "spool", inColumn: ["spool.airplay"], below: 250)
+        let settings = app.descendants(matching: .any)["spool.settings"].firstMatch
+        let more = app.descendants(matching: .any)["spool.more"].firstMatch
+        XCTAssertTrue(settings.exists || more.exists, "Neither Settings nor … is in the rail")
+        XCTAssertGreaterThanOrEqual((settings.exists ? settings : more).frame.minY, app.windows.firstMatch.frame.minY + 250,
+                                    "The rail's top key is under the status bar")
     }
 
     @MainActor
@@ -56,7 +63,9 @@ final class DuoSafeAreaUITests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func assertSides(style: String, extra: [String] = [], inColumn: [String], clear: [String] = []) throws {
+    @discardableResult
+    private func assertSides(style: String, extra: [String] = [], inColumn: [String], clear: [String] = [],
+                             below: CGFloat = 140) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
             "--uitest", "--uitest-complete-onboarding", "--uitest-hide-library-errors",
@@ -77,7 +86,7 @@ final class DuoSafeAreaUITests: XCTestCase {
             XCTAssertGreaterThanOrEqual(element.frame.minX, edge - 20,
                                         "\(id) isn't in the status column (\(element.frame), column from \(edge))")
             XCTAssertLessThanOrEqual(element.frame.maxX, window.frame.maxX + 1, "\(id) runs off the screen")
-            XCTAssertGreaterThanOrEqual(element.frame.minY, window.frame.minY + 140,
+            XCTAssertGreaterThanOrEqual(element.frame.minY, window.frame.minY + below,
                                         "\(id) is under the status bar (\(element.frame))")
         }
         for id in clear {
@@ -90,5 +99,6 @@ final class DuoSafeAreaUITests: XCTestCase {
         attachment.name = "duo-closed-\(style)"
         attachment.lifetime = .keepAlways
         add(attachment)
+        return app
     }
 }
