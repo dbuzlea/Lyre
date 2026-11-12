@@ -118,7 +118,13 @@ struct LiquidCover: View {
                     switch source {
                 case .track(let track): TrackArtwork(track: track, size: side)
                 case .album(let album):
-                    if album.isMixtape {
+                    if let named = Self.namedCover(album) {
+                        // Apple Music's own cover for a playlist of the listener's: its
+                        // name in the top corner, which a round bubble cuts off; drawn
+                        // instead in its colours with the name in the middle.
+                        LiquidTitleCover(title: album.title, background: Color(cgColor: named.background),
+                                         ink: Color(cgColor: named.ink), side: side)
+                    } else if album.isMixtape {
                         MixtapeArtwork(album: album, size: side)
                     } else {
                         TapeArtwork(album: album, size: side)
@@ -131,6 +137,18 @@ struct LiquidCover: View {
             .clipped()
         }
         .accessibilityHidden(true)
+    }
+
+    /// A playlist of the listener's whose cover is the one Apple Music makes from its name
+    /// (colours, and the name written in the top corner), rather than a picture chosen for
+    /// it or the collage of its albums: its colours, where Apple says them. A cover that's a
+    /// picture has no text colour of its own.
+    static func namedCover(_ album: AppAlbum) -> (background: CGColor, ink: CGColor)? {
+        guard let playlist = album.mixtape, !playlist.isCatalog,
+              let artwork = playlist.musicKitPlaylist?.artwork,
+              let background = artwork.backgroundColor, let ink = artwork.primaryTextColor,
+              MixtapeArtwork.covers(album.preloadedTracks).count != 4 else { return nil }
+        return (background, ink)
     }
 
     /// The Apple Music cover, when there is one (a playlist's own, not a mixtape's
@@ -151,5 +169,29 @@ struct LiquidCover: View {
     private func artworkAspect(_ artwork: Artwork) -> CGFloat {
         guard artwork.maximumWidth > 0, artwork.maximumHeight > 0 else { return 1 }
         return CGFloat(artwork.maximumWidth) / CGFloat(artwork.maximumHeight)
+    }
+}
+
+/// A playlist's cover made from its name, for a round bubble: its colours, deepening
+/// downward, and the name in the middle, as big as it fits.
+struct LiquidTitleCover: View {
+    let title: String
+    let background: Color
+    let ink: Color
+    let side: CGFloat
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [background.opacity(0.85), background], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .background(Color.black)
+            Text(title)
+                .font(.system(size: side * 0.2, weight: .heavy, design: .rounded))
+                .foregroundStyle(ink)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .minimumScaleFactor(0.35)
+                .padding(side * 0.18)
+        }
+        .frame(width: side, height: side)
     }
 }
