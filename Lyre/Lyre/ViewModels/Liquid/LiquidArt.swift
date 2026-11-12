@@ -119,9 +119,9 @@ struct LiquidCover: View {
                 case .track(let track): TrackArtwork(track: track, size: side)
                 case .album(let album):
                     if let named = Self.namedCover(album) {
-                        // Apple Music's own cover for a playlist of the listener's: its
-                        // name in the top corner, which a round bubble cuts off; drawn
-                        // instead in its colours with the name in the middle.
+                        // A playlist with no artwork of its own: Apple Music's cover writes
+                        // its name in the top corner, which a round bubble cuts off; drawn
+                        // instead in the same colours with the name in the middle.
                         LiquidTitleCover(title: album.title, background: Color(cgColor: named.background),
                                          ink: Color(cgColor: named.ink), side: side)
                     } else if album.isMixtape {
@@ -139,15 +139,17 @@ struct LiquidCover: View {
         .accessibilityHidden(true)
     }
 
-    /// A playlist of the listener's whose cover is the one Apple Music makes from its name
-    /// (colours, and the name written in the top corner), rather than a picture chosen for
-    /// it or the collage of its albums: its colours, where Apple says them. A cover that's a
-    /// picture has no text colour of its own.
+    /// A playlist of the listener's with no artwork of its own, whose cover is the one
+    /// Apple Music writes from its name (its colours, and the name in the top corner):
+    /// its colours. Told by the cover's source, which Apple marks `rt` (a rendered title)
+    /// for those; a picture chosen for it (one of Apple's, the listener's own photo, or
+    /// a curator's) is marked otherwise and keeps its artwork.
     static func namedCover(_ album: AppAlbum) -> (background: CGColor, ink: CGColor)? {
         guard let playlist = album.mixtape, !playlist.isCatalog,
               let artwork = playlist.musicKitPlaylist?.artwork,
               let background = artwork.backgroundColor, let ink = artwork.primaryTextColor,
-              MixtapeArtwork.covers(album.preloadedTracks).count != 4 else { return nil }
+              let source = artwork.url(width: 8, height: 8)?.absoluteString,
+              source.contains("aat=rt%2E") || source.contains("aat=rt.") else { return nil }
         return (background, ink)
     }
 
