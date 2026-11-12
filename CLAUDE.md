@@ -4,6 +4,18 @@ Lyre is an iOS music player with five players: Classic (a click wheel), Spool (c
 
 The developer works alone on Lyre and is building experience in software QA. Explain QA practice briefly as it comes up (the why, not only the what), and keep the QA setup close to how real teams work.
 
+## The players and what each is for
+
+Decided 2026-11-12 (Apple's Purpose and Simplicity principles). The emotion Lyre is built around is **connection**: with the music, the artists, and the app. Every player keeps the shared features (podcasts, Discover, Up Next, search, both models of the Spool and the Gramophone), but each is *for* one thing, and new work is weighed against it. A feature that serves a player's purpose is polished there first; one that doesn't is kept simple there.
+
+| Player | What it's for |
+|---|---|
+| Classic | Fast, familiar control of the whole library with one thumb. |
+| Spool | Making and playing mixtapes: the personal, handmade side of music. |
+| Disc | Sitting with an album from first track to last, booklet in hand. |
+| Gramophone | Listening as an occasion: slow, deliberate, one record at a time. |
+| Liquid | Wandering and discovering your library and Apple Music. |
+
 ## Git, merging and shipping
 
 - Work in `~/Developer/Lyre`. The repo left iCloud Drive on 2026-11-10 after offloaded files stalled git and a commit half-completed. If a git command ever fails oddly, check `git reflog`, `git log`, `.git/HEAD` and the working tree before retrying; never assume it didn't happen. `find . -flags +dataless` lists offloaded files.
