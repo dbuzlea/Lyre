@@ -91,7 +91,7 @@ struct LiquidLayoutSwitch: View {
                 .contentTransition(.symbolEffect(.replace))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
-                .background(.white.opacity(0.1), in: Circle())
+                .lyreFill(.white, 0.1, in: Circle())
         }
         .buttonStyle(LyrePressStyle())
         .accessibilityLabel(String(localized: layout == .stack ? "liquid.layout.grid" : "liquid.layout.stack"))
@@ -193,11 +193,11 @@ struct LiquidCardStack: View {
                             .multilineTextAlignment(.center)
                         Text(item.subtitle)
                             .lyreFont(size: 14, maxScale: 2)
-                            .foregroundStyle(.white.opacity(0.65))
+                            .lyreInk(.white, 0.65)
                             .lineLimit(1)
                         Text(String(format: String(localized: "liquid.stack.position"), index + 1, items.count))
                             .lyreFont(size: 11, weight: .semibold, design: .monospaced, maxScale: 2)
-                            .foregroundStyle(.white.opacity(0.4))
+                            .lyreInk(.white, 0.4)
                             .padding(.top, 2)
                     }
                     .foregroundStyle(.white)
@@ -261,7 +261,7 @@ struct LiquidCardStack: View {
                         .symbolEffect(.variableColor.iterative, isActive: musicService.isPlaying)
                         .foregroundStyle(.white)
                         .frame(width: 40, height: 40)
-                        .background(.black.opacity(0.55), in: Circle())
+                        .lyreFill(.black, 0.55, in: Circle())
                         .padding(12)
                         .accessibilityHidden(true)
                 }
@@ -449,7 +449,7 @@ struct LiquidLetterRow: View {
             }
         }
         .frame(height: 30)
-        .background(.white.opacity(0.07), in: Capsule())
+        .lyreFill(.white, 0.07, in: Capsule())
         .onChange(of: titles) { letters = LiquidLetterEntry.index(titles) }
         .accessibilityElement()
         .accessibilityLabel(String(localized: "liquid.index"))
@@ -665,7 +665,7 @@ struct LiquidFoldView: View {
                             .minimumScaleFactor(0.8)
                         Text(item.subtitle)
                             .lyreFont(size: 13, maxScale: 2)
-                            .foregroundStyle(.white.opacity(0.7))
+                            .lyreInk(.white, 0.7)
                             .lineLimit(2)
                     }
                     Spacer(minLength: 4)
@@ -673,7 +673,7 @@ struct LiquidFoldView: View {
                         Image(systemName: "xmark")
                             .font(.system(size: 12, weight: .bold))
                             .frame(width: 30, height: 30)
-                            .background(.white.opacity(0.15), in: Circle())
+                            .lyreFill(.white, 0.15, in: Circle())
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(LyrePressStyle())
@@ -828,7 +828,7 @@ struct LiquidFoldView: View {
             } else if tracks != nil {
                 Text(String(localized: "spool.jcard.empty"))
                     .lyreFont(size: 14, maxScale: 2)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .lyreInk(.white, 0.7)
                     .multilineTextAlignment(.center)
                     .padding()
             } else {
@@ -847,7 +847,7 @@ struct LiquidFoldView: View {
                 } else {
                     Text("\(index + 1)")
                         .lyreFont(size: 11, weight: .medium, design: .monospaced, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.45))
+                        .lyreInk(.white, 0.45)
                 }
             }
             .frame(width: 20, alignment: .trailing)
@@ -860,7 +860,7 @@ struct LiquidFoldView: View {
                 if showsArtist {
                     Text(track.artistName)
                         .lyreFont(size: 11, maxScale: 2)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .lyreInk(.white, 0.6)
                         .lineLimit(1)
                 }
             }
@@ -872,7 +872,7 @@ struct LiquidFoldView: View {
             if track.duration > 0 {
                 Text(AppHelpers.formatTime(track.duration))
                     .lyreFont(size: 11, design: .monospaced, maxScale: 2)
-                    .foregroundStyle(.white.opacity(0.45))
+                    .lyreInk(.white, 0.45)
             }
         }
         .frame(minHeight: 40)

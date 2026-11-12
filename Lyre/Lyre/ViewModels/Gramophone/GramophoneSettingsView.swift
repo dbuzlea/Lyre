@@ -50,7 +50,7 @@ struct GramophoneSettingsView: View {
                                 .lyreFont(size: 16, weight: .semibold, maxScale: 2)
                             Text(String(localized: "settings.allowMusicAccess.detail"))
                                 .lyreFont(size: 12, maxScale: 2)
-                                .opacity(0.7)
+                                .lyreFaded(0.7)
                         }
                         .multilineTextAlignment(.leading)
                         Spacer(minLength: 8)
@@ -160,7 +160,7 @@ struct GramophoneSettingsView: View {
                             .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                         Text(String(localized: "settings.sendDiagnostics.detail"))
                             .lyreFont(size: 12, maxScale: 2)
-                            .opacity(0.7)
+                            .lyreFaded(0.7)
                     }
                 }
                 .padding(14)
@@ -172,7 +172,7 @@ struct GramophoneSettingsView: View {
                             .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                         Text(String(localized: "settings.shareUsage.detail"))
                             .lyreFont(size: 12, maxScale: 2)
-                            .opacity(0.7)
+                            .lyreFaded(0.7)
                     }
                 }
                 .padding(14)
@@ -187,7 +187,7 @@ struct GramophoneSettingsView: View {
                                 .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                             Text(String(localized: "settings.reportProblem.detail"))
                                 .lyreFont(size: 12, maxScale: 2)
-                                .opacity(0.7)
+                                .lyreFaded(0.7)
                         }
                         .multilineTextAlignment(.leading)
                         Spacer(minLength: 8)
@@ -209,7 +209,7 @@ struct GramophoneSettingsView: View {
                                 .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                             Text(String(localized: "settings.shareDiagnostics.detail"))
                                 .lyreFont(size: 12, maxScale: 2)
-                                .opacity(0.7)
+                                .lyreFaded(0.7)
                         }
                         .multilineTextAlignment(.leading)
                         Spacer(minLength: 8)
@@ -224,7 +224,7 @@ struct GramophoneSettingsView: View {
                 .buttonStyle(LyrePressStyle(isRow: true))
                 Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
                     .lyreFont(size: 11, maxScale: 2)
-                    .opacity(0.5)
+                    .lyreFaded(0.5)
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("gramophone.settings.version")
             }
@@ -251,7 +251,7 @@ struct GramophoneSettingsView: View {
                 Text(String(localized: "gramophone.settings.booklet"))
                     .lyreFont(size: 12, weight: .semibold, design: .serif, maxScale: 2)
                     .italic()
-                    .opacity(0.65)
+                    .lyreFaded(0.65)
             }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
@@ -309,7 +309,7 @@ struct GramophoneSettingsView: View {
             if let detail {
                 Text(detail)
                     .lyreFont(size: 12, maxScale: 2)
-                    .opacity(0.65)
+                    .lyreFaded(0.65)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

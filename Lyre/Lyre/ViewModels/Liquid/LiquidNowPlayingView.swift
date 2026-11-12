@@ -92,6 +92,7 @@ struct LiquidNowPlayingView: View {
     @State private var isHoldingCover = false
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
 
     private var library: ShelfLibrary { ShelfLibrary(musicService: musicService) }
 
@@ -343,12 +344,15 @@ struct LiquidNowPlayingView: View {
         }
     }
 
-    /// Dark at the top and the bottom, so the controls and the name read over any cover.
+    /// Dark at the top and the bottom, so the controls and the name read over any cover;
+    /// darker, and reaching further up, with Increase Contrast, so they read over a bright
+    /// one too.
     private var scrim: some View {
-        LinearGradient(stops: [.init(color: .black.opacity(0.45), location: 0),
-                               .init(color: .black.opacity(0), location: 0.2),
-                               .init(color: .black.opacity(0), location: 0.5),
-                               .init(color: .black.opacity(0.75), location: 1)],
+        let increased = LyreContrast.isIncreased(contrast)
+        return LinearGradient(stops: [.init(color: .black.opacity(increased ? 0.7 : 0.45), location: 0),
+                               .init(color: .black.opacity(0), location: increased ? 0.28 : 0.2),
+                               .init(color: .black.opacity(increased ? 0.25 : 0), location: increased ? 0.4 : 0.5),
+                               .init(color: .black.opacity(increased ? 0.92 : 0.75), location: 1)],
                        startPoint: .top, endPoint: .bottom)
             .allowsHitTesting(false)
     }
@@ -545,7 +549,7 @@ struct LiquidNowPlayingView: View {
                             .minimumScaleFactor(0.7)
                         Text(subtitle(for: track))
                             .lyreFont(size: 16, maxScale: 1.5)
-                            .foregroundStyle(.white.opacity(0.8))
+                            .lyreInk(.white, 0.8)
                             .lineLimit(1)
                     }
                     .multilineTextAlignment(.leading)
@@ -565,7 +569,7 @@ struct LiquidNowPlayingView: View {
                         .contentTransition(.symbolEffect(.replace))
                         .foregroundStyle(.black)
                         .frame(width: 60, height: 60)
-                        .background(.white.opacity(0.94), in: Circle())
+                        .lyreFill(.white, 0.94, in: Circle())
                 }
                 .accessibilityLabel(String(localized: musicService.isPlaying ? "spool.pause" : "spool.play"))
                 .accessibilityIdentifier("liquid.playPause")
@@ -610,7 +614,7 @@ struct LiquidNowPlayingView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .frame(minWidth: 56, minHeight: 36)
-                .background(.white.opacity(0.16), in: Capsule())
+                .lyreFill(.white, 0.16, in: Capsule())
                 .frame(minHeight: 44)
         }
         .accessibilityLabel(String(localized: "spool.speed"))
@@ -632,7 +636,7 @@ struct LiquidNowPlayingView: View {
                 .lyreFont(size: 11, weight: .semibold, maxScale: 1.5)
                 .tracking(1.5)
                 .textCase(.uppercase)
-                .foregroundStyle(.white.opacity(0.8))
+                .lyreInk(.white, 0.8)
             LiquidBottomBulge(lift: bottomLift)
                 .fill(.white.opacity(0.22))
                 .frame(height: 34)
@@ -688,7 +692,7 @@ struct LiquidNowPlayingView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
-                .background(.black.opacity(0.28), in: Circle())
+                .lyreFill(.black, 0.28, in: Circle())
         }
         .accessibilityLabel(String(localized: label))
         .accessibilityIdentifier(id)
@@ -755,7 +759,7 @@ struct LiquidProgress: View {
                 Text("-" + AppHelpers.formatTime(max(0, duration - (scrub ?? clock.time))))
             }
             .lyreFont(size: 12, weight: .medium, design: .monospaced, maxScale: 1.5)
-            .foregroundStyle(.white.opacity(0.75))
+            .lyreInk(.white, 0.75)
         }
         .accessibilityElement()
         .accessibilityLabel(String(localized: "liquid.position"))
@@ -810,7 +814,7 @@ struct LiquidNowPlayingButtons: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(isActive ? Color.accentColor : .white)
                 .frame(width: 44, height: 44)
-                .background(.black.opacity(0.28), in: Circle())
+                .lyreFill(.black, 0.28, in: Circle())
         }
     }
 
@@ -841,7 +845,7 @@ struct LiquidNowPlayingButtons: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
-                .background(.black.opacity(0.28), in: Circle())
+                .lyreFill(.black, 0.28, in: Circle())
         }
         .accessibilityLabel(String(localized: "sideRail.more"))
         .accessibilityIdentifier("liquid.more")
@@ -857,21 +861,21 @@ struct LiquidNowPlayingButtons: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(isLoved ? Color.pink : .white)
                     .frame(width: 44, height: 44)
-                    .background(.black.opacity(0.28), in: Circle())
+                    .lyreFill(.black, 0.28, in: Circle())
             }
             AirPlayRouteButton(identifier: "liquid.airplay") { isActive in
                 Image(systemName: "airplayaudio")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(isActive ? Color.accentColor : .white)
                     .frame(width: 44, height: 44)
-                    .background(.black.opacity(0.28), in: Circle())
+                    .lyreFill(.black, 0.28, in: Circle())
             }
             PlayerSwitchMenu(themeSettings: themeSettings, identifier: "liquid.playerSwitch") { symbol in
                 Image(systemName: symbol)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
-                    .background(.black.opacity(0.28), in: Circle())
+                    .lyreFill(.black, 0.28, in: Circle())
             }
             round("gearshape.fill", label: "settings.title", id: "liquid.settings", action: onOpenSettings)
         }
@@ -884,7 +888,7 @@ struct LiquidNowPlayingButtons: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
-                .background(.black.opacity(0.28), in: Circle())
+                .lyreFill(.black, 0.28, in: Circle())
         }
         .accessibilityLabel(String(localized: label))
         .accessibilityIdentifier(id)

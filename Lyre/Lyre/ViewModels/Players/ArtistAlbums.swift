@@ -87,7 +87,7 @@ struct ArtistAlbumStrip: View {
                             if let date = album.releaseDate {
                                 Text(ArtistAlbums.year(date))
                                     .lyreFont(size: 10, maxScale: 2)
-                                    .opacity(0.6)
+                                    .lyreFaded(0.6)
                             }
                         }
                         .frame(width: 64, alignment: .leading)

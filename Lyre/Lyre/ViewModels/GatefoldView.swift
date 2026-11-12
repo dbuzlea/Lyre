@@ -925,8 +925,8 @@ private struct GlassKnob: View {
             Color.clear
                 .glassEffect(.regular.interactive(), in: Capsule())
         } else {
-            Capsule()
-                .fill(.ultraThinMaterial)
+            Color.clear
+                .lyreMaterial(.ultraThinMaterial, in: Capsule(), solid: Color(uiColor: .systemGray4))
                 .overlay { Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.5) }
                 .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
         }

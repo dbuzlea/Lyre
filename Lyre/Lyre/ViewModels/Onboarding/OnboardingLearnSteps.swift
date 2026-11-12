@@ -226,7 +226,7 @@ struct PracticeStep: View {
                 if let hint {
                     Text(hint)
                         .font(.callout)
-                        .foregroundStyle(.white.opacity(0.85))
+                        .lyreInk(.white, 0.85)
                         .multilineTextAlignment(.center)
                         .transition(.opacity)
                 }
@@ -265,7 +265,7 @@ struct PracticeStep: View {
                 }
                 Text(String(localized: "onboarding.practice.doneDetail"))
                     .font(.body)
-                    .foregroundStyle(.white.opacity(0.85))
+                    .lyreInk(.white, 0.85)
             } else {
                 progressDots
                 Text(instruction(for: lesson))
@@ -286,7 +286,7 @@ struct PracticeStep: View {
         HStack(spacing: 10) {
             Text(String(format: String(localized: "onboarding.practice.stepOf"), lesson.rawValue + 1, Lesson.allCases.count))
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.75))
+                .lyreInk(.white, 0.75)
             ForEach(Lesson.allCases, id: \.self) { item in
                 let done = item.rawValue < lesson.rawValue
                 Image(systemName: done ? "checkmark.circle.fill" : (item == lesson ? "circle.inset.filled" : "circle"))

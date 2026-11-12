@@ -110,7 +110,7 @@ struct SpoolQueueTray: View {
                     if !upNext.isEmpty {
                         Text(String(format: String(localized: "queue.upNextCount"), upNext.count))
                             .lyreFont(size: 12, weight: .medium, maxScale: 1.5)
-                            .opacity(0.7)
+                            .lyreFaded(0.7)
                     }
                 }
                 Spacer(minLength: 8)
@@ -169,7 +169,7 @@ struct SpoolQueueTray: View {
                 Text(String(localized: "queue.nowPlaying"))
                     .lyreFont(size: 10, weight: .bold, maxScale: 1.5)
                     .tracking(1.5)
-                    .foregroundStyle(.white.opacity(0.55))
+                    .lyreInk(.white, 0.55)
                 label(for: nowPlaying, number: nil, isPlaying: true)
                     .accessibilityIdentifier("spool.queue.nowPlaying")
             }
@@ -177,7 +177,7 @@ struct SpoolQueueTray: View {
             if musicService.shuffleMode != .off, !upNext.isEmpty, canEdit {
                 Label(String(localized: "queue.shuffleOn"), systemImage: "shuffle")
                     .lyreFont(size: 11, maxScale: 1.5)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .lyreInk(.white, 0.6)
             }
 
             if upNext.isEmpty {
@@ -186,7 +186,7 @@ struct SpoolQueueTray: View {
                 list
                 Text(String(localized: canEdit ? "spool.queue.hint" : "spool.queue.hint.episodes"))
                     .lyreFont(size: 11, maxScale: 1.5)
-                    .foregroundStyle(.white.opacity(0.45))
+                    .lyreInk(.white, 0.45)
                     .frame(maxWidth: .infinity)
                     .accessibilityHidden(true)
             }
@@ -214,9 +214,9 @@ struct SpoolQueueTray: View {
             Text(String(localized: "spool.queue.empty.hint"))
                 .lyreFont(size: 13, maxScale: 1.5)
                 .multilineTextAlignment(.center)
-                .opacity(0.7)
+                .lyreFaded(0.7)
         }
-        .foregroundStyle(.white.opacity(0.8))
+        .lyreInk(.white, 0.8)
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
@@ -262,7 +262,7 @@ struct SpoolQueueTray: View {
             if let number {
                 Text("\(number)")
                     .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 1.5)
-                    .opacity(0.5)
+                    .lyreFaded(0.5)
                     .frame(minWidth: 18, alignment: .trailing)
             }
             TrackArtwork(track: track, size: 36)
@@ -273,7 +273,7 @@ struct SpoolQueueTray: View {
                     .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                 Text(track.artistName)
                     .lyreFont(size: 12, maxScale: 1.5)
-                    .opacity(0.65)
+                    .lyreFaded(0.65)
             }
             .lineLimit(1)
             Spacer(minLength: 6)
@@ -284,7 +284,7 @@ struct SpoolQueueTray: View {
             } else if track.duration > 0 {
                 Text(AppHelpers.formatTime(track.duration))
                     .lyreFont(size: 12, design: .monospaced, maxScale: 1.5)
-                    .opacity(0.55)
+                    .lyreFaded(0.55)
             }
         }
         .foregroundStyle(SpoolPalette.labelInk)

@@ -102,7 +102,7 @@ struct LiquidTideView: View {
             Image(systemName: "chevron.down")
                 .font(.system(size: 15, weight: .bold))
                 .frame(width: 40, height: 40)
-                .background(.white.opacity(0.12), in: Circle())
+                .lyreFill(.white, 0.12, in: Circle())
                 .frame(width: 44, height: 44)
                 .contentShape(Circle())
         }
@@ -119,7 +119,7 @@ struct LiquidTideView: View {
             if !upNext.isEmpty {
                 Text(String(format: String(localized: "queue.upNextCount"), upNext.count))
                     .lyreFont(size: 13, weight: .medium, maxScale: 2)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .lyreInk(.white, 0.6)
             }
             Spacer(minLength: 8)
             if !upNext.isEmpty, canEdit {
@@ -150,7 +150,7 @@ struct LiquidTideView: View {
                     .lyreFont(size: 18, weight: .semibold, maxScale: 2)
                 Text(String(localized: "liquid.upNext.empty.hint"))
                     .lyreFont(size: 14, maxScale: 2)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .lyreInk(.white, 0.6)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, 32)
@@ -229,7 +229,7 @@ private struct LiquidBand: View {
                             .lineLimit(1)
                         Text(track.duration > 0 ? "\(track.artistName) · \(AppHelpers.formatTime(track.duration))" : track.artistName)
                             .lyreFont(size: 12, maxScale: 2)
-                            .opacity(0.75)
+                            .lyreFaded(0.75)
                             .lineLimit(1)
                     }
                     Spacer(minLength: 4)

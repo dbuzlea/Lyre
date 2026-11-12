@@ -348,7 +348,7 @@ struct ArtworkCarouselView: View {
                 // UI test needs. Never built outside `--uitest`.
                 Text(gatefoldTrace.isEmpty ? "none" : gatefoldTrace.joined(separator: " | "))
                     .lyreFont(size: 1, maxScale: 2)
-                    .opacity(0.01)
+                    .lyreFaded(0.01)
                     .allowsHitTesting(false)
                     .accessibilityIdentifier("gatefold.trace")
             }

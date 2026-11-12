@@ -33,13 +33,13 @@ struct DiscBooklet: View {
                     if let byline = album.caseByline ?? (album.artistName.isEmpty ? nil : album.artistName) {
                         Text(byline)
                             .lyreFont(size: 12, maxScale: 2)
-                            .opacity(0.6)
+                            .lyreFaded(0.6)
                             .lineLimit(1)
                     }
                     if let released = album.releaseLine {
                         Text(released)
                             .lyreFont(size: 11, maxScale: 2)
-                            .opacity(0.5)
+                            .lyreFaded(0.5)
                             .accessibilityIdentifier("disc.booklet.released")
                     }
                 }
@@ -64,7 +64,7 @@ struct DiscBooklet: View {
                 Text(emptyText)
                     .lyreFont(size: 14, maxScale: 2)
                     .multilineTextAlignment(.center)
-                    .opacity(0.65)
+                    .lyreFaded(0.65)
                     .padding(20)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -99,7 +99,7 @@ struct DiscBooklet: View {
                     } else {
                         Text(String(format: "%02d", index + 1))
                             .lyreFont(size: 11, weight: .semibold, design: .monospaced, maxScale: 2)
-                            .opacity(0.5)
+                            .lyreFaded(0.5)
                     }
                 }
                 .frame(width: 22, alignment: .trailing)
@@ -110,7 +110,7 @@ struct DiscBooklet: View {
                 if track.duration > 0 {
                     Text(AppHelpers.formatTime(track.duration))
                         .lyreFont(size: 11, design: .monospaced, maxScale: 2)
-                        .opacity(0.5)
+                        .lyreFaded(0.5)
                 }
             }
             .padding(.horizontal, 14)

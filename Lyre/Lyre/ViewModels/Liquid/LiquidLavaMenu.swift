@@ -228,13 +228,13 @@ struct LiquidLavaMenu: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 44, height: 44)
-                .background(.white.opacity(0.1), in: Circle())
+                .lyreFill(.white, 0.1, in: Circle())
         }
         Button(action: onOpenSettings) {
             Image(systemName: "gearshape.fill")
                 .font(.system(size: 16, weight: .semibold))
                 .frame(width: 44, height: 44)
-                .background(.white.opacity(0.1), in: Circle())
+                .lyreFill(.white, 0.1, in: Circle())
         }
         .foregroundStyle(.white)
         .accessibilityLabel(String(localized: "settings.title"))
@@ -247,7 +247,7 @@ struct LiquidLavaMenu: View {
                 Text("LYRE")
                     .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 1.5)
                     .tracking(4)
-                    .foregroundStyle(.white.opacity(0.55))
+                    .lyreInk(.white, 0.55)
                     .accessibilityHidden(true)
                 Spacer()
                 // Down the side, on an iPhone Duo with its status bar there (SideRail).

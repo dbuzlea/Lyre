@@ -85,7 +85,7 @@ struct AccessRecoveryView: View {
                         if !musicService.isAuthorized {
                             Text(String(localized: "accessRecovery.message"))
                                 .font(.body)
-                                .foregroundStyle(.white.opacity(0.8))
+                                .lyreInk(.white, 0.8)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -97,7 +97,7 @@ struct AccessRecoveryView: View {
                                 .frame(maxWidth: 220)
                             Text(String(localized: "accessRecovery.reloading"))
                                 .font(.callout)
-                                .foregroundStyle(.white.opacity(0.8))
+                                .lyreInk(.white, 0.8)
                         }
                     }
                 }
@@ -230,7 +230,7 @@ private struct CoverIntakeAnimation: View {
             .overlay(
                 Image(systemName: "music.note")
                     .font(.system(size: 16))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .lyreInk(.white, 0.6)
             )
     }
 

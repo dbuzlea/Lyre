@@ -320,7 +320,7 @@ struct SpoolPlayerView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(.black.opacity(0.75), in: Capsule())
+                    .lyreFill(.black, 0.75, in: Capsule())
                     .frame(maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, safeArea.bottom + 24)
                     .transition(.opacity)
@@ -946,7 +946,7 @@ struct SpoolPlayerView: View {
                 .lyreFont(size: titleSize, weight: .semibold, maxScale: 1.5)
             Text(nowPlayingTitle == nil ? String(localized: "spool.noTape.hint") : nowPlayingSubtitle ?? "")
                 .lyreFont(size: subtitleSize, maxScale: 1.5)
-                .opacity(0.75)
+                .lyreFaded(0.75)
         }
         .lineLimit(1)
         .foregroundStyle(theme.ink)

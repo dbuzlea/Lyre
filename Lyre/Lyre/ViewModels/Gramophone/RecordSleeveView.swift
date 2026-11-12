@@ -262,7 +262,7 @@ struct RecordSleeveView: View {
             if tracks.isEmpty {
                 Text(String(localized: "spool.jcard.empty"))
                     .lyreFont(size: 14, maxScale: 2)
-                    .opacity(0.6)
+                    .lyreFaded(0.6)
             } else {
                 let episodes = album.podcast?.episodesNewestFirst
                 ScrollView(showsIndicators: false) {
@@ -328,7 +328,7 @@ struct RecordSleeveView: View {
                 if track.duration > 0 {
                     Text(album.isPodcast ? CassetteCaseView.runningTime(track.duration) : AppHelpers.formatTime(track.duration))
                         .lyreFont(size: 12, design: .monospaced, maxScale: 2)
-                        .opacity(0.5)
+                        .lyreFaded(0.5)
                 }
             }
             .padding(.vertical, 8)

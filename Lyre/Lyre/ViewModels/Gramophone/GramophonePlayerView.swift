@@ -344,7 +344,7 @@ struct GramophonePlayerView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(.black.opacity(0.75), in: Capsule())
+                    .lyreFill(.black, 0.75, in: Capsule())
                     .frame(maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, safeArea.bottom + 24)
                     .transition(.opacity)
@@ -1004,10 +1004,10 @@ struct GramophonePlayerView: View {
                     Text(String(localized: "gramophone.rack.empty"))
                         .lyreFont(size: 15, weight: .medium, design: .serif, maxScale: 1.5)
                         .italic()
-                        .foregroundStyle(.white.opacity(0.85))
+                        .lyreInk(.white, 0.85)
                         .multilineTextAlignment(.center)
                         .padding(18)
-                        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
+                        .lyreFill(.black, 0.55, in: RoundedRectangle(cornerRadius: 12))
                         .position(x: rect.midX - bounds.minX, y: rect.midY - bounds.minY)
                 }
                 VStack(spacing: 0) {
@@ -1017,7 +1017,7 @@ struct GramophonePlayerView: View {
                         Text(String(localized: "gramophone.rack.instructions"))
                             .lyreFont(size: 13, weight: .medium, design: .serif, maxScale: 1.5)
                             .italic()
-                            .foregroundStyle(.white.opacity(0.7))
+                            .lyreInk(.white, 0.7)
                             .multilineTextAlignment(.center)
                             .accessibilityHidden(true)
                     }
@@ -1057,7 +1057,7 @@ struct GramophonePlayerView: View {
                     Text([front.artistName, String(format: String(localized: "gramophone.stack.position"), rackIndex + 1, count)]
                             .filter { !$0.isEmpty }.joined(separator: " · "))
                         .lyreFont(size: 15, maxScale: 1.5)
-                        .foregroundStyle(.white.opacity(0.75))
+                        .lyreInk(.white, 0.75)
                         .lineLimit(1)
                         .monospacedDigit()
                 }
@@ -1333,7 +1333,7 @@ struct GramophonePlayerView: View {
                     Text([front.caseByline, front.tapeTrackCount.map(front.tapeFormat.count)]
                             .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
                         .lyreFont(size: 15, maxScale: 1.5)
-                        .foregroundStyle(.white.opacity(0.75))
+                        .lyreInk(.white, 0.75)
                         .lineLimit(1)
                 }
             }
@@ -1356,7 +1356,7 @@ struct GramophonePlayerView: View {
                     .foregroundStyle(.white)
                 Text(TapeFormat.album.count(crateSongs.count))
                     .lyreFont(size: 13, design: .serif, maxScale: 1.5)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .lyreInk(.white, 0.75)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
@@ -1384,7 +1384,7 @@ struct GramophonePlayerView: View {
         Text(String(localized: "gramophone.stack.instructions"))
             .lyreFont(size: 13, weight: .medium, design: .serif, maxScale: 1.5)
             .italic()
-            .foregroundStyle(.white.opacity(0.7))
+            .lyreInk(.white, 0.7)
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .minimumScaleFactor(0.8)
@@ -1397,7 +1397,7 @@ struct GramophonePlayerView: View {
             Text(crateMatches == nil ? Self.emptyText(on: shelf) : String(localized: "search.noResults"))
                 .multilineTextAlignment(.center)
                 .lyreFont(size: 15, weight: .medium, maxScale: 1.5)
-                .foregroundStyle(.white.opacity(0.85))
+                .lyreInk(.white, 0.85)
             if shelf == .podcasts, crateMatches == nil {
                 Button(String(localized: "spool.shelf.findShows")) { showPodcastSearch = true }
                     .lyreFont(size: 15, weight: .semibold, maxScale: 1.5)
@@ -1409,7 +1409,7 @@ struct GramophonePlayerView: View {
             }
         }
         .padding(18)
-        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 12))
+        .lyreFill(.black, 0.55, in: RoundedRectangle(cornerRadius: 12))
     }
 
     /// Where the top record in the drawer is on screen: where the stage says, once the
