@@ -28,7 +28,7 @@ struct PodcastDetailView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(show.title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                     .lineLimit(1)
                 Spacer()
@@ -57,11 +57,11 @@ struct PodcastDetailView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(show.title)
-                        .font(.system(size: 10, weight: .medium))
+                        .lyreFont(size: 10, weight: .medium, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                         .lineLimit(2)
                     Text("\(episodes.count) episode\(episodes.count == 1 ? "" : "s")")
-                        .font(.system(size: 9))
+                        .lyreFont(size: 9, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                 }
                 Spacer()
@@ -89,7 +89,7 @@ struct PodcastDetailView: View {
                                                         .lineLimit(1)
                                                         .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
                                                     Text(formatDuration(episode.duration))
-                                                        .font(.system(size: 9))
+                                                        .lyreFont(size: 9, maxScale: 1.5)
                                                         .foregroundStyle(themeSettings.currentTheme.highlightTextColor.opacity(0.7))
                                                 }
                                                 Spacer()
@@ -109,7 +109,7 @@ struct PodcastDetailView: View {
                                                 .lineLimit(1)
                                                 .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                             Text(formatDuration(episode.duration))
-                                                .font(.system(size: 9))
+                                                .lyreFont(size: 9, maxScale: 1.5)
                                                 .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                                         }
                                         Spacer()
@@ -156,7 +156,7 @@ struct PodcastDetailView: View {
                 .accessibilityLabel("Downloaded")
         case .downloading(let progress):
             Text("\(Int(progress * 100))%")
-                .font(.system(size: 9, design: .monospaced))
+                .lyreFont(size: 9, design: .monospaced, maxScale: 1.5)
                 .foregroundStyle(color)
                 .accessibilityLabel("Downloading")
         case nil:

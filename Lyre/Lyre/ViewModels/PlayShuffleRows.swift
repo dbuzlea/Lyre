@@ -31,7 +31,7 @@ struct PlayShuffleRows: View {
                 .font(.system(size: 10))
                 .frame(width: 20, alignment: .trailing)
             Text(label)
-                .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                .lyreFont(size: 11, weight: isSelected ? .semibold : .medium, maxScale: 1.5)
                 .lineLimit(1)
             Spacer()
         }

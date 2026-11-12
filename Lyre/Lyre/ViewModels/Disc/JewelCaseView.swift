@@ -374,7 +374,7 @@ struct JewelCaseView: View {
                         .foregroundStyle(album.isMixtape ? SpoolPalette.pen : SpoolPalette.labelInk)
                         .lineLimit(2)
                     if let byline = album.caseByline {
-                        Text(byline).font(.system(size: 13)).opacity(0.7)
+                        Text(byline).lyreFont(size: 13, maxScale: 2).opacity(0.7)
                     }
                 }
                 Spacer(minLength: 8)
@@ -441,7 +441,7 @@ struct JewelCaseView: View {
         if let tracks {
             if tracks.isEmpty {
                 Text(String(localized: "spool.jcard.empty"))
-                    .font(.system(size: 14))
+                    .lyreFont(size: 14, maxScale: 2)
                     .opacity(0.6)
             } else {
                 let episodes = album.podcast?.episodesNewestFirst
@@ -483,7 +483,7 @@ struct JewelCaseView: View {
                     } else {
                         // An artist's songs are numbered as on their albums.
                         Text(String(format: "%02d", album.isArtist ? track.trackNumber ?? index + 1 : index + 1))
-                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 2)
                             .opacity(0.5)
                     }
                 }
@@ -499,7 +499,7 @@ struct JewelCaseView: View {
                     }
                     if album.isMixtape || album.isPodcast {
                         Text(album.isPodcast ? (episode?.published.map(CassetteCaseView.episodeDate) ?? "") : track.artistName)
-                            .font(.system(size: 11)).opacity(0.6).lineLimit(1)
+                            .lyreFont(size: 11, maxScale: 2).opacity(0.6).lineLimit(1)
                     }
                 }
                 Spacer(minLength: 4)
@@ -508,7 +508,7 @@ struct JewelCaseView: View {
                 }
                 if track.duration > 0 {
                     Text(album.isPodcast ? CassetteCaseView.runningTime(track.duration) : AppHelpers.formatTime(track.duration))
-                        .font(.system(size: 12, design: .monospaced))
+                        .lyreFont(size: 12, design: .monospaced, maxScale: 2)
                         .opacity(0.5)
                 }
             }

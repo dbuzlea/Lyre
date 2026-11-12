@@ -279,7 +279,7 @@ struct LiquidBubbleField: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(tab.title)
-                            .font(.system(size: 30, weight: .bold))
+                            .lyreFont(size: 30, weight: .bold, maxScale: 1.5)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                             .foregroundStyle(.white)
@@ -290,7 +290,7 @@ struct LiquidBubbleField: View {
                         searchRow
                         if items.isEmpty {
                             Text(query.isEmpty ? tab.emptyText : String(localized: "search.noResults"))
-                                .font(.system(size: 15))
+                                .lyreFont(size: 15, maxScale: 1.5)
                                 .foregroundStyle(.white.opacity(0.6))
                                 .padding(.horizontal, 20)
                                 .padding(.top, 40)

@@ -104,12 +104,12 @@ struct SpoolQueueTray: View {
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "spool.queue.title").uppercased())
-                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .lyreFont(size: 17, weight: .heavy, design: .rounded, maxScale: 1.5)
                         .tracking(2)
                         .accessibilityAddTraits(.isHeader)
                     if !upNext.isEmpty {
                         Text(String(format: String(localized: "queue.upNextCount"), upNext.count))
-                            .font(.system(size: 12, weight: .medium))
+                            .lyreFont(size: 12, weight: .medium, maxScale: 1.5)
                             .opacity(0.7)
                     }
                 }
@@ -117,7 +117,7 @@ struct SpoolQueueTray: View {
                 if !upNext.isEmpty, canEdit {
                     // Asked first: emptying Up Next can't be undone.
                     Button(String(localized: "spool.queue.clear")) { isConfirmingClear = true }
-                    .font(.system(size: 13, weight: .semibold))
+                    .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                     .padding(.horizontal, 12)
                     .frame(height: 30)
                     .background(theme.keyLight, in: Capsule())
@@ -167,7 +167,7 @@ struct SpoolQueueTray: View {
         VStack(alignment: .leading, spacing: 10) {
             if let nowPlaying {
                 Text(String(localized: "queue.nowPlaying"))
-                    .font(.system(size: 10, weight: .bold))
+                    .lyreFont(size: 10, weight: .bold, maxScale: 1.5)
                     .tracking(1.5)
                     .foregroundStyle(.white.opacity(0.55))
                 label(for: nowPlaying, number: nil, isPlaying: true)
@@ -176,7 +176,7 @@ struct SpoolQueueTray: View {
 
             if musicService.shuffleMode != .off, !upNext.isEmpty, canEdit {
                 Label(String(localized: "queue.shuffleOn"), systemImage: "shuffle")
-                    .font(.system(size: 11))
+                    .lyreFont(size: 11, maxScale: 1.5)
                     .foregroundStyle(.white.opacity(0.6))
             }
 
@@ -185,7 +185,7 @@ struct SpoolQueueTray: View {
             } else {
                 list
                 Text(String(localized: canEdit ? "spool.queue.hint" : "spool.queue.hint.episodes"))
-                    .font(.system(size: 11))
+                    .lyreFont(size: 11, maxScale: 1.5)
                     .foregroundStyle(.white.opacity(0.45))
                     .frame(maxWidth: .infinity)
                     .accessibilityHidden(true)
@@ -210,9 +210,9 @@ struct SpoolQueueTray: View {
             Image(systemName: "list.bullet")
                 .font(.system(size: 28, weight: .light))
             Text(String(localized: "spool.queue.empty"))
-                .font(.system(size: 16, weight: .semibold))
+                .lyreFont(size: 16, weight: .semibold, maxScale: 1.5)
             Text(String(localized: "spool.queue.empty.hint"))
-                .font(.system(size: 13))
+                .lyreFont(size: 13, maxScale: 1.5)
                 .multilineTextAlignment(.center)
                 .opacity(0.7)
         }
@@ -261,7 +261,7 @@ struct SpoolQueueTray: View {
         HStack(spacing: 10) {
             if let number {
                 Text("\(number)")
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 1.5)
                     .opacity(0.5)
                     .frame(minWidth: 18, alignment: .trailing)
             }
@@ -270,9 +270,9 @@ struct SpoolQueueTray: View {
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             VStack(alignment: .leading, spacing: 1) {
                 Text(track.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .lyreFont(size: 14, weight: .semibold, maxScale: 1.5)
                 Text(track.artistName)
-                    .font(.system(size: 12))
+                    .lyreFont(size: 12, maxScale: 1.5)
                     .opacity(0.65)
             }
             .lineLimit(1)
@@ -283,7 +283,7 @@ struct SpoolQueueTray: View {
                     .foregroundStyle(theme.isLight ? theme.logo : theme.accent)
             } else if track.duration > 0 {
                 Text(AppHelpers.formatTime(track.duration))
-                    .font(.system(size: 12, design: .monospaced))
+                    .lyreFont(size: 12, design: .monospaced, maxScale: 1.5)
                     .opacity(0.55)
             }
         }

@@ -191,7 +191,7 @@ struct DiscPlayerView: View {
 
             if let notice {
                 Text(notice)
-                    .font(.system(size: 13, weight: .semibold))
+                    .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
@@ -379,7 +379,7 @@ struct DiscPlayerView: View {
                     lcd
                     Spacer(minLength: 0)
                     Text(String(localized: deckLoad == nil ? "disc.open.hint" : "spool.closeToPlay"))
-                        .font(.system(size: 13, weight: .semibold))
+                        .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                         .foregroundStyle(theme.ink)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 14)
@@ -499,7 +499,7 @@ struct DiscPlayerView: View {
                     .frame(maxHeight: .infinity)
                     if deckLoad != nil {
                         Text(String(localized: "disc.discman.waiting"))
-                            .font(.system(size: 12, weight: .semibold))
+                            .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                             .foregroundStyle(theme.ink)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -593,11 +593,11 @@ struct DiscPlayerView: View {
         HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(String(localized: "disc.brand"))
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                    .lyreFont(size: 26, weight: .heavy, design: .rounded, maxScale: 1.5)
                     .italic()
                     .tracking(3)
                 Text(String(localized: "disc.subtitle"))
-                    .font(.system(size: 9, weight: .bold))
+                    .lyreFont(size: 9, weight: .bold, maxScale: 1.5)
                     .tracking(1.5)
                     .opacity(0.7)
             }

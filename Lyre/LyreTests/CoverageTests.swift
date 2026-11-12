@@ -2156,6 +2156,35 @@ struct BubbleTiltTests {
     }
 }
 
+/// Lyre's type at the reader's text size (LyreType): as designed at the standard size,
+/// growing with a larger one along the nearest text style's curve, never past its cap.
+@MainActor
+struct LyreTypeTests {
+    @Test func atTheStandardSizeTheDesignsSizesStand() {
+        for size: CGFloat in [11, 13, 15, 17, 22, 30, 40] {
+            #expect(abs(LyreType.scaled(size, at: .large) - size) < 0.01)
+        }
+    }
+
+    @Test func largerTextGrowsItUpToItsCap() {
+        let body: CGFloat = 16
+        let bigger = LyreType.scaled(body, at: .xxxLarge)
+        let accessible = LyreType.scaled(body, at: .accessibility3)
+        #expect(bigger > body)
+        #expect(accessible > bigger)
+        #expect(LyreType.scaled(body, at: .accessibility5) <= body * 2 + 0.01)
+        #expect(LyreType.scaled(body, at: .accessibility5, maxScale: 1.5) <= body * 1.5 + 0.01)
+        // Smaller text shrinks a little, for a reader who's asked for it.
+        #expect(LyreType.scaled(body, at: .xSmall) < body)
+    }
+
+    @Test func smallTextGrowsFasterThanALargeTitle() {
+        let caption = LyreType.scaled(12, at: .accessibility2, maxScale: 10) / 12
+        let title = LyreType.scaled(34, at: .accessibility2, maxScale: 10) / 34
+        #expect(caption > title)
+    }
+}
+
 /// A held bubble's songs, spread around it: packed close, nearest first from the top,
 /// clockwise, all on the
 /// page and none over another; and the one a finger's on.

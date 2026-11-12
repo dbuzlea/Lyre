@@ -121,7 +121,7 @@ struct LiquidCardDeckView<Content: View>: View {
             ZStack(alignment: .top) {
                 Color.black.opacity(isExpanded ? 1 : 0.55)
                 Text(deck.title.lowercasedKeepingAppleMusic)
-                    .font(.system(size: 16, weight: .semibold))
+                    .lyreFont(size: 16, weight: .semibold, maxScale: 2)
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .padding(.horizontal, 40)
@@ -283,7 +283,7 @@ struct LiquidCardDeckView<Content: View>: View {
             Spacer(minLength: 8)
             barArt(item)
             Text(item.title)
-                .font(.system(size: 15, weight: .semibold))
+                .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                 .lineLimit(1)
             Spacer(minLength: 8)
             Color.clear.frame(width: 40, height: 40)

@@ -196,7 +196,7 @@ struct CassetteCaseView: View {
                         .accessibilityHidden(true)
                     if let stamp = album.tapeFormat.stamp {
                         Text(stamp.uppercased())
-                            .font(.system(size: 11, weight: .black, design: .rounded))
+                            .lyreFont(size: 11, weight: .black, design: .rounded, maxScale: 2)
                             .tracking(1)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
@@ -205,7 +205,7 @@ struct CassetteCaseView: View {
                     }
                     if let blank = album.tapeBlank {
                         Text(blank)
-                            .font(.system(size: 11, weight: .black, design: .rounded))
+                            .lyreFont(size: 11, weight: .black, design: .rounded, maxScale: 2)
                             .foregroundStyle(SpoolPalette.label)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -228,7 +228,7 @@ struct CassetteCaseView: View {
                         .padding(.trailing, 28)
                     if let byline = album.caseByline {
                         Text(byline)
-                            .font(.system(size: 14))
+                            .lyreFont(size: 14, maxScale: 2)
                             .opacity(0.7)
                             .lineLimit(1)
                             .padding(.top, 2)
@@ -236,7 +236,7 @@ struct CassetteCaseView: View {
                     // When it came out, typed along the J-card under the name.
                     if let released = album.releaseLine {
                         Text(released.uppercased())
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .lyreFont(size: 10, weight: .semibold, design: .monospaced, maxScale: 2)
                             .tracking(0.5)
                             .opacity(0.55)
                             .padding(.top, 3)
@@ -357,7 +357,7 @@ struct CassetteCaseView: View {
         if let tracks {
             if tracks.isEmpty {
                 Text(String(localized: "spool.jcard.empty"))
-                    .font(.system(size: 14))
+                    .lyreFont(size: 14, maxScale: 2)
                     .opacity(0.6)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else if scrolls {
@@ -403,7 +403,7 @@ struct CassetteCaseView: View {
     /// "SIDE A", "SIDE B": a mixtape's listing is split where the tape was turned over.
     private func sideHeading(_ key: String.LocalizationValue) -> some View {
         Text(String(localized: key).uppercased())
-            .font(.system(size: 11, weight: .heavy, design: .rounded))
+            .lyreFont(size: 11, weight: .heavy, design: .rounded, maxScale: 2)
             .tracking(1.5)
             .opacity(0.55)
             .padding(.top, 10)
@@ -438,7 +438,7 @@ struct CassetteCaseView: View {
                     } else if !album.isPodcast {
                         // An artist's songs are numbered as on their albums.
                         Text("\(album.isArtist ? track.trackNumber ?? index + 1 : index + 1)")
-                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 2)
                             .opacity(0.5)
                             .frame(width: 20, alignment: .trailing)
                     }
@@ -452,14 +452,14 @@ struct CassetteCaseView: View {
                                 .foregroundStyle(SpoolPalette.pen)
                                 .lineLimit(2)
                             Text(track.artistName)
-                                .font(.system(size: 12))
+                                .lyreFont(size: 12, maxScale: 2)
                                 .opacity(0.6)
                                 .lineLimit(1)
                         }
                     } else {
                         HStack(spacing: 6) {
                             Text(track.title)
-                                .font(.system(size: 14))
+                                .lyreFont(size: 14, maxScale: 2)
                                 .lineLimit(2)
                             if track.isExplicit { ExplicitTag() }
                         }
@@ -469,7 +469,7 @@ struct CassetteCaseView: View {
                         EpisodeDownloadMark(episodeID: track.id)
                     } else if track.duration > 0 {
                         Text(AppHelpers.formatTime(track.duration))
-                            .font(.system(size: 12, design: .monospaced))
+                            .lyreFont(size: 12, design: .monospaced, maxScale: 2)
                             .opacity(0.5)
                     }
                 }
@@ -542,7 +542,7 @@ struct CassetteCaseView: View {
                 .lineLimit(2)
             Text([episode.published.map(Self.episodeDate), episode.duration > 0 ? Self.runningTime(episode.duration) : nil]
                     .compactMap { $0 }.joined(separator: " · "))
-                .font(.system(size: 12))
+                .lyreFont(size: 12, maxScale: 2)
                 .opacity(0.55)
         }
     }
@@ -792,7 +792,7 @@ struct EpisodeDownloadMark: View {
                 .accessibilityLabel(String(localized: "spool.podcast.downloaded"))
         case .downloading(let progress):
             Text("\(Int(progress * 100))%")
-                .font(.system(size: 11, design: .monospaced))
+                .lyreFont(size: 11, design: .monospaced, maxScale: 2)
                 .opacity(0.6)
         case nil:
             EmptyView()

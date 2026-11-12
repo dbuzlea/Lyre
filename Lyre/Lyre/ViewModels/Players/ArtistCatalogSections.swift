@@ -38,7 +38,7 @@ struct ArtistCatalogHeader: View {
             if let biography = details?.biography {
                 Button { withAnimation(.easeInOut(duration: 0.2)) { showsAllNotes.toggle() } } label: {
                     Text(biography)
-                        .font(.system(size: 13))
+                        .lyreFont(size: 13, maxScale: 2)
                         .lineLimit(showsAllNotes ? nil : 3)
                         .multilineTextAlignment(.leading)
                         .opacity(0.8)
@@ -54,14 +54,14 @@ struct ArtistCatalogHeader: View {
                     Button { onPlay(Array(tracks), index) } label: {
                         HStack(spacing: 8) {
                             Text("\(index + 1)")
-                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                .lyreFont(size: 12, weight: .semibold, design: .monospaced, maxScale: 2)
                                 .opacity(0.5)
                                 .frame(width: 18, alignment: .trailing)
                             if let art = songs[index].artwork {
                                 ArtworkImage(art, width: 30, height: 30)
                                     .clipShape(RoundedRectangle(cornerRadius: 3))
                             }
-                            Text(track.title).font(.system(size: 14)).lineLimit(1)
+                            Text(track.title).lyreFont(size: 14, maxScale: 2).lineLimit(1)
                             if track.isExplicit { ExplicitTag() }
                             Spacer(minLength: 4)
                             // Streamed from Apple Music, the library hasn't it.
@@ -90,9 +90,9 @@ struct ArtistCatalogHeader: View {
                         .frame(width: 52, height: 52)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(latest.title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
+                            Text(latest.title).lyreFont(size: 13, weight: .semibold, maxScale: 2).lineLimit(2)
                             if let date = latest.releaseDate {
-                                Text(AppAlbum.releaseText(date)).font(.system(size: 11)).opacity(0.6)
+                                Text(AppAlbum.releaseText(date)).lyreFont(size: 11, maxScale: 2).opacity(0.6)
                             }
                         }
                         Spacer(minLength: 0)
@@ -145,7 +145,7 @@ struct ArtistCatalogFooter: View {
                                     .frame(width: 64, height: 64)
                                     .clipShape(RoundedRectangle(cornerRadius: ArtistPhoto.cornerRadius(for: 64)))
                                     Text(artist.name)
-                                        .font(.system(size: 11, weight: .medium))
+                                        .lyreFont(size: 11, weight: .medium, maxScale: 2)
                                         .lineLimit(2)
                                         .multilineTextAlignment(.center)
                                         .frame(width: 70)
@@ -177,7 +177,7 @@ private struct ArtistSectionTitle: View {
     let text: String
     var body: some View {
         Text(text.uppercasedKeepingAppleMusic)
-            .font(.system(size: 11, weight: .heavy, design: .rounded))
+            .lyreFont(size: 11, weight: .heavy, design: .rounded, maxScale: 2)
             .tracking(0.6)
             .opacity(0.6)
             .padding(.top, 6)
@@ -189,7 +189,7 @@ private struct ArtistSectionTitle: View {
 struct ExplicitTag: View {
     var body: some View {
         Text("E")
-            .font(.system(size: 9, weight: .bold))
+            .lyreFont(size: 9, weight: .bold, maxScale: 2)
             .frame(width: 13, height: 13)
             .overlay(RoundedRectangle(cornerRadius: 2.5).strokeBorder(lineWidth: 1))
             .opacity(0.6)

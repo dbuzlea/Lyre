@@ -275,7 +275,7 @@ private struct AlbumInfoPage: View {
 private struct ExplicitMark: View {
     var body: some View {
         Text("E")
-            .font(.system(size: 10, weight: .bold))
+            .lyreFont(size: 10, weight: .bold, maxScale: 2)
             .foregroundStyle(Color(.systemBackground))
             .frame(width: 15, height: 15)
             .background(Color.secondary, in: RoundedRectangle(cornerRadius: 3, style: .continuous))

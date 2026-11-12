@@ -56,11 +56,11 @@ struct ArtistListView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text("Artists")
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
                 Text("\(artists.count) artist\(artists.count == 1 ? "" : "s")")
-                    .font(.system(size: 10))
+                    .lyreFont(size: 10, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
             }
 
@@ -70,11 +70,11 @@ struct ArtistListView: View {
                 VStack(spacing: 6) {
                     Spacer()
                     Text(String(localized: "empty.artists"))
-                        .font(.system(size: 14))
+                        .lyreFont(size: 14, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
                     if !isAuthorized {
                         Text(String(localized: "empty.enableAccess"))
-                            .font(.system(size: 11))
+                            .lyreFont(size: 11, maxScale: 1.5)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.4))
                             .padding(.horizontal, 24)
@@ -93,7 +93,7 @@ struct ArtistListView: View {
                                     if index == 0 || sectionLetter(at: index) != sectionLetter(at: index - 1) {
                                         HStack(spacing: 4) {
                                             Text(sectionLetter(at: index))
-                                                .font(.system(size: 8, weight: .bold))
+                                                .lyreFont(size: 8, weight: .bold, maxScale: 1.5)
                                                 .foregroundStyle(themeSettings.currentTheme.highlightColor)
                                                 .frame(width: 10, alignment: .center)
                                             Rectangle()
@@ -105,7 +105,7 @@ struct ArtistListView: View {
                                     }
 
                                     Text(artist.name)
-                                        .font(.system(size: 12))
+                                        .lyreFont(size: 12, maxScale: 1.5)
                                         .foregroundStyle(selection == index
                                             ? themeSettings.currentTheme.highlightTextColor
                                             : themeSettings.currentTheme.screenTextColor)

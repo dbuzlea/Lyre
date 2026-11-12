@@ -27,7 +27,7 @@ struct PlaylistListView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text("Playlists")
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -40,11 +40,11 @@ struct PlaylistListView: View {
                 VStack(spacing: 6) {
                     Spacer()
                     Text(String(localized: "empty.playlists"))
-                        .font(.system(size: 14))
+                        .lyreFont(size: 14, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
                     if !isAuthorized {
                         Text(String(localized: "empty.enableAccess"))
-                            .font(.system(size: 11))
+                            .lyreFont(size: 11, maxScale: 1.5)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.4))
                             .padding(.horizontal, 24)
@@ -73,7 +73,7 @@ struct PlaylistListView: View {
 
     private func row(_ title: String, isSelected: Bool) -> some View {
         Text(title)
-            .font(.system(size: 12))
+            .lyreFont(size: 12, maxScale: 1.5)
             .foregroundStyle(isSelected
                 ? themeSettings.currentTheme.highlightTextColor
                 : themeSettings.currentTheme.screenTextColor)

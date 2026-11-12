@@ -60,11 +60,11 @@ struct SongListView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
                 Text("\(songs.count) songs")
-                    .font(.system(size: 10))
+                    .lyreFont(size: 10, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
             }
 
@@ -74,11 +74,11 @@ struct SongListView: View {
                 VStack(spacing: 6) {
                     Spacer()
                     Text(String(localized: "empty.songs"))
-                        .font(.system(size: 14))
+                        .lyreFont(size: 14, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
                     if !musicService.isAuthorized {
                         Text(String(localized: "empty.enableAccess"))
-                            .font(.system(size: 11))
+                            .lyreFont(size: 11, maxScale: 1.5)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.4))
                             .padding(.horizontal, 24)
@@ -97,7 +97,7 @@ struct SongListView: View {
                                     if index == 0 || sectionLetter(at: index) != sectionLetter(at: index - 1) {
                                         HStack(spacing: 4) {
                                             Text(sectionLetter(at: index))
-                                                .font(.system(size: 8, weight: .bold))
+                                                .lyreFont(size: 8, weight: .bold, maxScale: 1.5)
                                                 .foregroundStyle(themeSettings.currentTheme.highlightColor)
                                                 .frame(width: 10, alignment: .center)
                                             Rectangle()
@@ -111,7 +111,7 @@ struct SongListView: View {
                                     VStack(alignment: .leading, spacing: 1) {
                                         HStack(spacing: 4) {
                                             Text(song.title)
-                                                .font(.system(size: 12))
+                                                .lyreFont(size: 12, maxScale: 1.5)
                                                 .lineLimit(1)
                                             if song.isExplicit { ExplicitTag().scaleEffect(0.85) }
                                         }
@@ -119,7 +119,7 @@ struct SongListView: View {
                                             ? themeSettings.currentTheme.highlightTextColor
                                             : themeSettings.currentTheme.screenTextColor)
                                         Text(song.artistName)
-                                            .font(.system(size: 10))
+                                            .lyreFont(size: 10, maxScale: 1.5)
                                             .foregroundStyle(selection == index
                                                 ? themeSettings.currentTheme.highlightTextColor.opacity(0.8)
                                                 : themeSettings.currentTheme.screenSecondaryTextColor)

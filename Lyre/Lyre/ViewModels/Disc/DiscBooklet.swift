@@ -28,17 +28,17 @@ struct DiscBooklet: View {
             if let album {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(album.tapeTitle)
-                        .font(.system(size: 16, weight: .bold))
+                        .lyreFont(size: 16, weight: .bold, maxScale: 2)
                         .lineLimit(2)
                     if let byline = album.caseByline ?? (album.artistName.isEmpty ? nil : album.artistName) {
                         Text(byline)
-                            .font(.system(size: 12))
+                            .lyreFont(size: 12, maxScale: 2)
                             .opacity(0.6)
                             .lineLimit(1)
                     }
                     if let released = album.releaseLine {
                         Text(released)
-                            .font(.system(size: 11))
+                            .lyreFont(size: 11, maxScale: 2)
                             .opacity(0.5)
                             .accessibilityIdentifier("disc.booklet.released")
                     }
@@ -62,7 +62,7 @@ struct DiscBooklet: View {
                 }
             } else {
                 Text(emptyText)
-                    .font(.system(size: 14))
+                    .lyreFont(size: 14, maxScale: 2)
                     .multilineTextAlignment(.center)
                     .opacity(0.65)
                     .padding(20)
@@ -98,7 +98,7 @@ struct DiscBooklet: View {
                         Image(systemName: "speaker.wave.2.fill").font(.system(size: 10))
                     } else {
                         Text(String(format: "%02d", index + 1))
-                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .lyreFont(size: 11, weight: .semibold, design: .monospaced, maxScale: 2)
                             .opacity(0.5)
                     }
                 }
@@ -109,7 +109,7 @@ struct DiscBooklet: View {
                 Spacer(minLength: 4)
                 if track.duration > 0 {
                     Text(AppHelpers.formatTime(track.duration))
-                        .font(.system(size: 11, design: .monospaced))
+                        .lyreFont(size: 11, design: .monospaced, maxScale: 2)
                         .opacity(0.5)
                 }
             }

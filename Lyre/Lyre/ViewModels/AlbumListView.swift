@@ -55,7 +55,7 @@ struct AlbumListView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Text("Albums")
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
             }
@@ -66,11 +66,11 @@ struct AlbumListView: View {
                 VStack(spacing: 6) {
                     Spacer()
                     Text(String(localized: "empty.albums"))
-                        .font(.system(size: 14))
+                        .lyreFont(size: 14, maxScale: 1.5)
                         .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.5))
                     if !isAuthorized {
                         Text(String(localized: "empty.enableAccess"))
-                            .font(.system(size: 11))
+                            .lyreFont(size: 11, maxScale: 1.5)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(themeSettings.currentTheme.screenTextColor.opacity(0.4))
                             .padding(.horizontal, 24)
@@ -89,7 +89,7 @@ struct AlbumListView: View {
                                     if index == 0 || sectionLetter(at: index) != sectionLetter(at: index - 1) {
                                         HStack(spacing: 4) {
                                             Text(sectionLetter(at: index))
-                                                .font(.system(size: 8, weight: .bold))
+                                                .lyreFont(size: 8, weight: .bold, maxScale: 1.5)
                                                 .foregroundStyle(themeSettings.currentTheme.highlightColor)
                                                 .frame(width: 10, alignment: .center)
                                             Rectangle()
@@ -106,7 +106,7 @@ struct AlbumListView: View {
                                         Text(album.title)
                                         if album.isExplicit { ExplicitTag() }
                                     }
-                                        .font(.system(size: 12))
+                                        .lyreFont(size: 12, maxScale: 1.5)
                                         .foregroundStyle(selection == index
                                             ? themeSettings.currentTheme.highlightTextColor
                                             : themeSettings.currentTheme.screenTextColor)

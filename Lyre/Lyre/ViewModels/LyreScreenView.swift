@@ -242,7 +242,7 @@ struct LyreScreenView: View {
     // feedback beyond a haptic. Sits above the now-playing footer when both are shown.
     private func bannerView(_ message: String) -> some View {
         Text(message)
-            .font(.system(size: 9, weight: .semibold))
+            .lyreFont(size: 9, weight: .semibold, maxScale: 1.5)
             .foregroundStyle(themeSettings.currentTheme.highlightTextColor)
             .lineLimit(1)
             .truncationMode(.tail)
@@ -263,12 +263,12 @@ struct LyreScreenView: View {
                     .font(.system(size: 7))
                     .foregroundStyle(themeSettings.currentTheme.highlightColor)
                 Text(nowPlayingTitle)
-                    .font(.system(size: 9, weight: .medium))
+                    .lyreFont(size: 9, weight: .medium, maxScale: 1.5)
                     .lineLimit(1)
                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                 Spacer()
                 Text(nowPlayingArtist)
-                    .font(.system(size: 9))
+                    .lyreFont(size: 9, maxScale: 1.5)
                     .lineLimit(1)
                     .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
                 // Sized to the footer's 9pt text so it does not grow the footer.

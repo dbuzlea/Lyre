@@ -227,19 +227,19 @@ struct ShelfSongList: View {
             switch style {
             case .jCard:
                 Text(letter)
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .lyreFont(size: 18, weight: .heavy, design: .rounded, maxScale: 2)
                     .foregroundStyle(Self.jCardRed)
                     .padding(.top, 12)
                     .padding(.bottom, 2)
             case .booklet:
                 Text(letter)
-                    .font(.system(size: 22, weight: .light))
+                    .lyreFont(size: 22, weight: .light, maxScale: 2)
                     .foregroundStyle(ink.opacity(0.45))
                     .padding(.top, 14)
                     .padding(.bottom, 2)
             case .sleeve:
                 Text(letter)
-                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .lyreFont(size: 22, weight: .semibold, design: .serif, maxScale: 2)
                     .italic()
                     .foregroundStyle(Self.sleeveRed)
                     .padding(.top, 12)
@@ -257,14 +257,14 @@ struct ShelfSongList: View {
         case .jCard:
             HStack(alignment: .firstTextBaseline) {
                 Text(String(localized: "spool.shelf.songs").uppercased())
-                    .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                    .lyreFont(size: 12, weight: .heavy, design: .monospaced, maxScale: 2)
                     .tracking(2)
                     .foregroundStyle(ink.opacity(0.75))
                     .accessibilityHidden(true)
                 Spacer(minLength: 6)
                 shuffleButton {
                     Label(String(localized: "detail.shuffle").uppercased(), systemImage: "shuffle")
-                        .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                        .lyreFont(size: 11, weight: .heavy, design: .monospaced, maxScale: 2)
                         .foregroundStyle(Self.jCardRed)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -276,7 +276,7 @@ struct ShelfSongList: View {
         case .booklet:
             shuffleButton {
                 Label(String(localized: "detail.shuffle"), systemImage: "shuffle")
-                    .font(.system(size: 14, weight: .semibold))
+                    .lyreFont(size: 14, weight: .semibold, maxScale: 2)
                     .foregroundStyle(Color(white: 0.98))
                     .frame(maxWidth: .infinity, minHeight: 36)
                     .background(Color(white: 0.15), in: Capsule())
@@ -285,7 +285,7 @@ struct ShelfSongList: View {
         case .sleeve:
             shuffleButton {
                 Label(String(localized: "detail.shuffle"), systemImage: "shuffle")
-                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .lyreFont(size: 15, weight: .semibold, design: .serif, maxScale: 2)
                     .foregroundStyle(Self.sleevePaper)
                     .frame(maxWidth: .infinity, minHeight: 36)
                     .background(Self.sleeveRed, in: Capsule())
@@ -305,7 +305,7 @@ struct ShelfSongList: View {
 
     private func duration(_ track: AppTrack) -> some View {
         Text(track.duration > 0 ? AppHelpers.formatTime(track.duration) : "")
-            .font(.system(size: 11, design: .monospaced))
+            .lyreFont(size: 11, design: .monospaced, maxScale: 2)
             .foregroundStyle(ink.opacity(0.5))
     }
 

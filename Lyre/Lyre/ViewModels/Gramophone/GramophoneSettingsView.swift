@@ -47,9 +47,9 @@ struct GramophoneSettingsView: View {
                             .font(.system(size: 20, weight: .semibold))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(String(localized: "settings.allowMusicAccess"))
-                                .font(.system(size: 16, weight: .semibold))
+                                .lyreFont(size: 16, weight: .semibold, maxScale: 2)
                             Text(String(localized: "settings.allowMusicAccess.detail"))
-                                .font(.system(size: 12))
+                                .lyreFont(size: 12, maxScale: 2)
                                 .opacity(0.7)
                         }
                         .multilineTextAlignment(.leading)
@@ -157,9 +157,9 @@ struct GramophoneSettingsView: View {
                 Toggle(isOn: $sendsDiagnosticsAutomatically) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(String(localized: "settings.sendDiagnostics"))
-                            .font(.system(size: 15, weight: .semibold))
+                            .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                         Text(String(localized: "settings.sendDiagnostics.detail"))
-                            .font(.system(size: 12))
+                            .lyreFont(size: 12, maxScale: 2)
                             .opacity(0.7)
                     }
                 }
@@ -169,9 +169,9 @@ struct GramophoneSettingsView: View {
                 Toggle(isOn: $sharesUsageStatistics) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(String(localized: "settings.shareUsage"))
-                            .font(.system(size: 15, weight: .semibold))
+                            .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                         Text(String(localized: "settings.shareUsage.detail"))
-                            .font(.system(size: 12))
+                            .lyreFont(size: 12, maxScale: 2)
                             .opacity(0.7)
                     }
                 }
@@ -184,9 +184,9 @@ struct GramophoneSettingsView: View {
                             .font(.system(size: 18, weight: .semibold))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(String(localized: "settings.reportProblem"))
-                                .font(.system(size: 15, weight: .semibold))
+                                .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                             Text(String(localized: "settings.reportProblem.detail"))
-                                .font(.system(size: 12))
+                                .lyreFont(size: 12, maxScale: 2)
                                 .opacity(0.7)
                         }
                         .multilineTextAlignment(.leading)
@@ -206,9 +206,9 @@ struct GramophoneSettingsView: View {
                             .font(.system(size: 18, weight: .semibold))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(String(localized: "settings.shareDiagnostics"))
-                                .font(.system(size: 15, weight: .semibold))
+                                .lyreFont(size: 15, weight: .semibold, maxScale: 2)
                             Text(String(localized: "settings.shareDiagnostics.detail"))
-                                .font(.system(size: 12))
+                                .lyreFont(size: 12, maxScale: 2)
                                 .opacity(0.7)
                         }
                         .multilineTextAlignment(.leading)
@@ -223,7 +223,7 @@ struct GramophoneSettingsView: View {
                 }
                 .buttonStyle(LyrePressStyle(isRow: true))
                 Text(String(localized: "about.version").replacingOccurrences(of: "%@", with: versionString))
-                    .font(.system(size: 11))
+                    .lyreFont(size: 11, maxScale: 2)
                     .opacity(0.5)
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("gramophone.settings.version")
@@ -243,10 +243,13 @@ struct GramophoneSettingsView: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(String(localized: "gramophone.brand").uppercased())
-                    .font(.system(size: 30, weight: .heavy, design: .serif))
+                    .lyreFont(size: 30, weight: .heavy, design: .serif, maxScale: 2)
                     .tracking(4)
+                    // One line, however large the text: the maker's name isn't broken.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                 Text(String(localized: "gramophone.settings.booklet"))
-                    .font(.system(size: 12, weight: .semibold, design: .serif))
+                    .lyreFont(size: 12, weight: .semibold, design: .serif, maxScale: 2)
                     .italic()
                     .opacity(0.65)
             }
@@ -256,7 +259,7 @@ struct GramophoneSettingsView: View {
             // Down the side column instead, on an iPhone Duo with its status bar there.
             if !SideRail.isOn(safeArea) {
                 Button(String(localized: "spool.settings.done"), action: onDone)
-                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .lyreFont(size: 16, weight: .semibold, design: .serif, maxScale: 2)
                     .accessibilityIdentifier("gramophone.settings.done")
             }
         }
@@ -276,11 +279,11 @@ struct GramophoneSettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Text(Self.roman(number))
-                    .font(.system(size: 13, weight: .bold, design: .serif))
+                    .lyreFont(size: 13, weight: .bold, design: .serif, maxScale: 2)
                     .frame(minWidth: 22, alignment: .leading)
                     .accessibilityHidden(true)
                 Text(title.uppercased())
-                    .font(.system(size: 13, weight: .bold, design: .serif))
+                    .lyreFont(size: 13, weight: .bold, design: .serif, maxScale: 2)
                     .tracking(1.5)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -302,10 +305,10 @@ struct GramophoneSettingsView: View {
 
     private func rowLabel(_ title: String, detail: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.system(size: 16, weight: .medium, design: .serif))
+            Text(title).lyreFont(size: 16, weight: .medium, design: .serif, maxScale: 2)
             if let detail {
                 Text(detail)
-                    .font(.system(size: 12))
+                    .lyreFont(size: 12, maxScale: 2)
                     .opacity(0.65)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -321,7 +324,7 @@ struct GramophoneSettingsView: View {
                 GramophoneSketch(model: model, theme: theme)
                     .frame(height: 92)
                 Text(model.displayName)
-                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .lyreFont(size: 13, weight: .semibold, design: .serif, maxScale: 2)
             }
             .padding(12)
             .frame(maxWidth: .infinity)
@@ -351,7 +354,7 @@ struct GramophoneSettingsView: View {
                     .overlay(Circle().strokeBorder(ink.opacity(isSelected ? 1 : 0), lineWidth: 2))
                     .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
                 Text(finish.displayName)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular, design: .serif))
+                    .lyreFont(size: 13, weight: isSelected ? .semibold : .regular, design: .serif, maxScale: 2)
                 Spacer(minLength: 0)
             }
             .contentShape(Rectangle())

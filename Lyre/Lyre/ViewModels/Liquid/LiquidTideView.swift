@@ -113,18 +113,18 @@ struct LiquidTideView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(String(localized: "liquid.upNext").lowercased())
-                .font(.system(size: 30, weight: .medium))
+                .lyreFont(size: 30, weight: .medium, maxScale: 2)
                 .tracking(-1)
                 .accessibilityAddTraits(.isHeader)
             if !upNext.isEmpty {
                 Text(String(format: String(localized: "queue.upNextCount"), upNext.count))
-                    .font(.system(size: 13, weight: .medium))
+                    .lyreFont(size: 13, weight: .medium, maxScale: 2)
                     .foregroundStyle(.white.opacity(0.6))
             }
             Spacer(minLength: 8)
             if !upNext.isEmpty, canEdit {
                 Button(String(localized: "spool.queue.clear")) { isConfirmingClear = true }
-                    .font(.system(size: 14, weight: .semibold))
+                    .lyreFont(size: 14, weight: .semibold, maxScale: 2)
                     .padding(.horizontal, 14)
                     .frame(height: 36)
                     .overlay(Capsule().strokeBorder(.white.opacity(0.4), lineWidth: 1.5))
@@ -147,9 +147,9 @@ struct LiquidTideView: View {
         if upNext.isEmpty {
             VStack(spacing: 8) {
                 Text(String(localized: "liquid.upNext.empty"))
-                    .font(.system(size: 18, weight: .semibold))
+                    .lyreFont(size: 18, weight: .semibold, maxScale: 2)
                 Text(String(localized: "liquid.upNext.empty.hint"))
-                    .font(.system(size: 14))
+                    .lyreFont(size: 14, maxScale: 2)
                     .foregroundStyle(.white.opacity(0.6))
                     .multilineTextAlignment(.center)
             }
@@ -225,10 +225,10 @@ private struct LiquidBand: View {
                     LiquidSoapBubble(diameter: 48, flattens: true) { LiquidCover(source: .track(track)) }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(track.title)
-                            .font(.system(size: 16, weight: .bold))
+                            .lyreFont(size: 16, weight: .bold, maxScale: 2)
                             .lineLimit(1)
                         Text(track.duration > 0 ? "\(track.artistName) · \(AppHelpers.formatTime(track.duration))" : track.artistName)
-                            .font(.system(size: 12))
+                            .lyreFont(size: 12, maxScale: 2)
                             .opacity(0.75)
                             .lineLimit(1)
                     }

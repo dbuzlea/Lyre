@@ -82,11 +82,11 @@ struct ArtistAlbumStrip: View {
                                 .frame(width: 64, height: 64)
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                             Text(album.tapeTitle)
-                                .font(.system(size: 11, weight: .semibold))
+                                .lyreFont(size: 11, weight: .semibold, maxScale: 2)
                                 .lineLimit(2)
                             if let date = album.releaseDate {
                                 Text(ArtistAlbums.year(date))
-                                    .font(.system(size: 10))
+                                    .lyreFont(size: 10, maxScale: 2)
                                     .opacity(0.6)
                             }
                         }
@@ -121,10 +121,10 @@ struct ArtistAlbumHeading: View {
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     Text(section.title)
-                        .font(.system(size: 13, weight: .bold))
+                        .lyreFont(size: 13, weight: .bold, maxScale: 2)
                         .lineLimit(1)
                     if let year = section.year {
-                        Text(year).font(.system(size: 10)).opacity(0.55)
+                        Text(year).lyreFont(size: 10, maxScale: 2).opacity(0.55)
                     }
                 }
                 Spacer(minLength: 4)

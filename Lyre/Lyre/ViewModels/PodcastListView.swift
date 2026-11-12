@@ -48,7 +48,7 @@ struct PodcastListView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(theme.screenTextColor)
                 Text(mode == .all ? String(localized: "menu.podcasts") : String(localized: "podcasts.downloaded"))
-                    .font(.system(size: 12, weight: .semibold))
+                    .lyreFont(size: 12, weight: .semibold, maxScale: 1.5)
                     .foregroundStyle(theme.screenTextColor)
                 Spacer()
             }
@@ -69,7 +69,7 @@ struct PodcastListView: View {
 
                         if podcastShows.isEmpty {
                             Text(mode == .all ? String(localized: "empty.podcasts") : String(localized: "empty.downloads"))
-                                .font(.system(size: 11))
+                                .lyreFont(size: 11, maxScale: 1.5)
                                 .foregroundStyle(theme.screenTextColor.opacity(0.5))
                                 .padding(.horizontal, 8)
                                 .padding(.top, 8)
@@ -115,11 +115,11 @@ struct PodcastListView: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(show.title)
-                    .font(.system(size: 12))
+                    .lyreFont(size: 12, maxScale: 1.5)
                     .foregroundStyle(selection == index ? theme.highlightTextColor : theme.screenTextColor)
                     .lineLimit(1)
                 Text(episodeCount(show.episodes.count))
-                    .font(.system(size: 9))
+                    .lyreFont(size: 9, maxScale: 1.5)
                     .foregroundStyle(selection == index ? theme.highlightTextColor.opacity(0.7) : theme.screenSecondaryTextColor)
             }
             Spacer()
@@ -151,11 +151,11 @@ struct PodcastListView: View {
                 }
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
+                    .lyreFont(size: 12, weight: .medium, maxScale: 1.5)
                     .foregroundStyle(isSelected ? theme.highlightTextColor : theme.screenTextColor)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 9))
+                        .lyreFont(size: 9, maxScale: 1.5)
                         .foregroundStyle(isSelected ? theme.highlightTextColor.opacity(0.7) : theme.screenSecondaryTextColor)
                 }
             }
