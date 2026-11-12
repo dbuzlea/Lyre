@@ -1021,6 +1021,42 @@ struct QueueRuleTests {
         #expect(outcome == .podcastPlaying)
     }
 
+    // MARK: Undo (agency)
+
+    @Test func aSongTakenOutOfUpNextGoesBackWhereItWas() async {
+        let service = MusicService()
+        service.seedQueueForUITests(tracks(5))
+        #expect(service.upNext.map(\.id) == ["2", "3", "4", "5"])
+        let removed = service.removeFromQueueOfferingUndo(at: 1)
+        #expect(removed?.id == "3")
+        #expect(service.upNext.map(\.id) == ["2", "4", "5"])
+        #expect(LyreUndo.shared.banner?.message == String(format: String(localized: "queue.removed"), removed!.title))
+        await service.restoreToQueue(removed!, at: 1, wasListenerQueued: false)
+        #expect(service.upNext.map(\.id) == ["2", "3", "4", "5"])
+        #expect(!service.isListenerQueued(removed!))
+        LyreUndo.shared.hideBanner()
+    }
+
+    @Test func aClearedUpNextComesBackWhole() async {
+        let service = MusicService()
+        service.seedQueueForUITests(tracks(5))
+        let before = service.snapshotUpNext()
+        #expect(service.clearQueueOfferingUndo() == 4)
+        #expect(service.upNext.isEmpty)
+        #expect(LyreUndo.shared.banner?.message == String(format: String(localized: "queue.cleared.count"), 4))
+        await service.restoreUpNext(before)
+        #expect(service.upNext.map(\.id) == ["2", "3", "4", "5"])
+        LyreUndo.shared.hideBanner()
+    }
+
+    @Test func clearingAnEmptyUpNextOffersNothing() {
+        let service = MusicService()
+        service.seedQueueForUITests(tracks(1))
+        LyreUndo.shared.hideBanner()
+        #expect(service.clearQueueOfferingUndo() == 0)
+        #expect(LyreUndo.shared.banner == nil)
+    }
+
     @Test func anOnDevicePodcastsEpisodesCantBeEdited() {
         let service = MusicService()
         service.seedQueueForUITests(tracks(4))

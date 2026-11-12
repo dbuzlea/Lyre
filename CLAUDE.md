@@ -103,6 +103,10 @@ Follow Increase Contrast and Reduce Transparency (Settings > Accessibility > Dis
 - `lyreFill(.white, 0.1, in: Circle())` for a faint fill behind a control: firmer and outlined with Increase Contrast, solid with Reduce Transparency.
 - `lyreMaterial(.ultraThinMaterial, in:solid:)` for frosted glass, with a solid colour that suits where it is.
 - Text laid over artwork needs a scrim that darkens further with Increase Contrast (see Liquid's Now Playing).
+
+## Agency: anything taken away can be put back
+
+Removing a song from Up Next, clearing Up Next, taking a song out of a playlist, unsubscribing and removing a download all offer Undo through `LyreUndo.shared.offer(message) { ... }` (`Services/LyreUndo.swift`). That shows the bottom banner (`lyre.undo.button`) for 6 seconds and registers shake-to-undo. For Up Next, use `removeFromQueueOfferingUndo(at:)` and `clearQueueOfferingUndo()`, not the bare calls. Don't show a separate "Removed" notice as well. A step that can't be taken back still asks first (Clear the Queue? asks and also offers Undo).
 - Check with `ContrastUITests`, which turns both on (`--lyre-increase-contrast`, `--lyre-reduce-transparency`, debug builds), and look at its screenshots.
 
 ## iPhone Duo

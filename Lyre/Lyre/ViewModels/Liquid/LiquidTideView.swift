@@ -130,8 +130,7 @@ struct LiquidTideView: View {
                     .overlay(Capsule().strokeBorder(.white.opacity(0.4), lineWidth: 1.5))
                     .accessibilityIdentifier("liquid.tide.clear")
                     .clearQueuePrompt(isPresented: $isConfirmingClear, count: upNext.count) {
-                        musicService.clearQueue()
-                        onNotice(String(localized: "queue.cleared"))
+                        musicService.clearQueueOfferingUndo()
                     }
             }
             // Down the side column instead, on an iPhone Duo with its status bar there.
@@ -197,10 +196,7 @@ struct LiquidTideView: View {
     }
 
     private func remove(_ offsets: IndexSet) {
-        let removed = offsets.sorted(by: >).compactMap { musicService.removeFromQueue(at: $0) }
-        if removed.count == 1 {
-            onNotice(String(format: String(localized: "queue.removed"), removed[0].title))
-        }
+        for offset in offsets.sorted(by: >) { musicService.removeFromQueueOfferingUndo(at: offset) }
     }
 }
 
