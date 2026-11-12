@@ -115,7 +115,7 @@ struct SpoolQueueTray: View {
                 }
                 Spacer(minLength: 8)
                 if !upNext.isEmpty, canEdit {
-                    // Asked first: emptying Up Next can't be undone.
+                    // Asked first, and then undoable too (LyreUndo).
                     Button(String(localized: "spool.queue.clear")) { isConfirmingClear = true }
                     .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                     .padding(.horizontal, 12)
@@ -124,8 +124,7 @@ struct SpoolQueueTray: View {
                     .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 1)
                     .accessibilityIdentifier("spool.queue.clear")
                     .clearQueuePrompt(isPresented: $isConfirmingClear, count: upNext.count) {
-                        musicService.clearQueue()
-                        onNotice(String(localized: "queue.cleared"))
+                        musicService.clearQueueOfferingUndo()
                     }
                 }
                 Button(action: onClose) {
@@ -340,9 +339,6 @@ struct SpoolQueueTray: View {
 
     private func remove(_ offsets: IndexSet) {
         // From the bottom up, so the offsets still to go stay valid.
-        let removed = offsets.sorted(by: >).compactMap { musicService.removeFromQueue(at: $0) }
-        if removed.count == 1 {
-            onNotice(String(format: String(localized: "queue.removed"), removed[0].title))
-        }
+        for offset in offsets.sorted(by: >) { musicService.removeFromQueueOfferingUndo(at: offset) }
     }
 }

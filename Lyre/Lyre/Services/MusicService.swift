@@ -1811,6 +1811,62 @@ class MusicService: ObservableObject {
         return removed
     }
 
+    // MARK: Undo
+
+    /// Up Next as it was before it was cleared, to put back (LyreUndo): its songs, which
+    /// of them were queued by hand, and where the refill was taking songs from.
+    struct ClearedUpNext {
+        let tracks: [AppTrack]
+        let listenerQueued: [String: Int]
+        let sourceTracks: [AppTrack]
+        let sourceNextIndex: Int
+    }
+
+    func snapshotUpNext() -> ClearedUpNext {
+        ClearedUpNext(tracks: upNext, listenerQueued: listenerQueued,
+                      sourceTracks: queueSourceTracks, sourceNextIndex: queueSourceNextIndex)
+    }
+
+    /// Up Next put back as it was before it was cleared.
+    func restoreUpNext(_ cleared: ClearedUpNext) async {
+        guard !cleared.tracks.isEmpty, await putBackUpNext(cleared.tracks) else { return }
+        listenerQueued = cleared.listenerQueued
+        queueSourceTracks = cleared.sourceTracks
+        queueSourceNextIndex = cleared.sourceNextIndex
+        logger.info("Put back \(cleared.tracks.count) track(s) cleared from the queue")
+    }
+
+    /// Songs put back at the front of Up Next, in the player as well as the model.
+    private func putBackUpNext(_ tracks: [AppTrack]) async -> Bool {
+        #if DEBUG
+        // A seeded queue has nothing behind it to give the player: the model is all there is.
+        if queueSeededForUITests {
+            playbackQueue.insertUpNext(tracks)
+            return true
+        }
+        #endif
+        return await addToQueue(tracks: tracks, placement: .next).succeeded
+    }
+
+    /// Whether a song in Up Next was queued by hand (not by the album or list playing).
+    func isListenerQueued(_ track: AppTrack) -> Bool { listenerQueued[track.id] != nil }
+
+    /// A song taken out of Up Next put back where it was, and queued by hand or not as it was.
+    func restoreToQueue(_ track: AppTrack, at offset: Int, wasListenerQueued: Bool) async {
+        let prior = listenerQueued[track.id]
+        guard await putBackUpNext([track]) else { return }
+        // Adding may count it as queued by hand; it's counted as it was before.
+        listenerQueued[track.id] = wasListenerQueued ? (prior ?? 0) + 1 : prior
+        let target = min(offset, max(0, upNext.count - 1))
+        guard target > 0 else { return }
+        reorderUpNext(from: 0, to: target)
+        #if DEBUG
+        if queueSeededForUITests { return }
+        #endif
+        commitQueueMove(to: target)
+        logger.info("Put '\(track.title)' back in the queue")
+    }
+
     /// Empties Up Next, leaving the current track playing. Returns how many tracks
     /// were dropped. Main thread only.
     @discardableResult
@@ -1825,6 +1881,12 @@ class MusicService: ObservableObject {
         // which is not what "clear the queue" can reasonably mean.
         queueSourceTracks = []
         queueSourceNextIndex = 0
+
+        #if DEBUG
+        // A seeded queue has nothing behind it in the player, whose empty queue would
+        // otherwise wipe the model, the current song too.
+        if queueSeededForUITests { return removed }
+        #endif
 
         // Read on the main thread: a music player must not be touched from inside the
         // transaction block.
@@ -1890,10 +1952,14 @@ class MusicService: ObservableObject {
     }
 
     #if DEBUG
+    /// The queue was filled by `seedQueueForUITests`: nothing behind it in the player.
+    private(set) var queueSeededForUITests = false
+
     /// Fills the queue model with tracks that have nothing behind them, so Up Next can be
     /// shown and UI-tested on a simulator with no music. The player is left alone.
     func seedQueueForUITests(_ tracks: [AppTrack], startingAt index: Int = 0) {
         playbackQueue = PlaybackQueue(tracks: tracks, currentIndex: index)
+        queueSeededForUITests = true
         // `--queued-by-hand` makes Up Next songs the listener queued, so starting
         // something new asks first.
         if ProcessInfo.processInfo.arguments.contains("--queued-by-hand") {

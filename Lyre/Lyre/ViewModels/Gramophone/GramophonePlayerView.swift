@@ -1169,9 +1169,7 @@ struct GramophonePlayerView: View {
         stage.setRackSlide(-0.4, animated: !reduceMotion)
         Task {
             try? await Task.sleep(for: .milliseconds(reduceMotion ? 0 : 260))
-            if let removed = musicService.removeFromQueue(at: index) {
-                showNotice(String(format: String(localized: "queue.removed"), removed.title))
-            } else {
+            if musicService.removeFromQueueOfferingUndo(at: index) == nil {
                 stage.setRackSlide(0, animated: true)
             }
         }

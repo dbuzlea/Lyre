@@ -85,6 +85,9 @@
 "queue.action.addToQueue" = "Add to Queue";
 "queue.removed" = "Removed: %@";
 "queue.cleared" = "Queue cleared";
+"queue.cleared.count" = "Cleared %d from Up Next";
+"undo.action" = "Undo";
+"undo.available" = "Undo is available.";
 "queue.reordered" = "Queue updated";
 "queue.unavailable" = "That song can't be queued";
 "queue.podcastPlaying" = "Songs can't be queued while a podcast plays";

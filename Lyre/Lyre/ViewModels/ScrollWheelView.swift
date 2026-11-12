@@ -634,7 +634,7 @@ struct ScrollWheelView: View {
     }
 
     private func removeSelectedFromQueue() {
-        guard let removed = musicService.removeFromQueue(at: songSelection) else {
+        guard musicService.removeFromQueueOfferingUndo(at: songSelection) != nil else {
             bumpFeedback()
             return
         }
@@ -643,18 +643,16 @@ struct ScrollWheelView: View {
         // Keep the cursor on the row that slid up into the removed one's place.
         songSelection = min(songSelection, max(0, musicService.upNext.count - 1))
         successFeedback()
-        onBanner(String(format: String(localized: "queue.removed"), removed.title))
     }
 
     private func clearQueue() {
-        let removed = musicService.clearQueue()
+        let removed = musicService.clearQueueOfferingUndo()
         guard removed > 0 else {
             bumpFeedback()
             return
         }
         songSelection = 0
         successFeedback()
-        onBanner(String(localized: "queue.cleared"))
     }
 
     /// Moves the carried row by one position, returning false at the ends of the list.

@@ -1008,6 +1008,29 @@ final class SpoolUITests: XCTestCase {
                       "Up Next did not go away")
     }
 
+    /// Agency: Up Next cleared (still asked first) comes back with Undo. (A single song
+    /// swiped out is covered in QueueRuleTests: List swipes don't land in the simulator.)
+    @MainActor
+    func testUndoPutsBackAClearedUpNext() throws {
+        let app = try launchSpool(extraArguments: ["--spool-sample-queue"])
+        let grip = element(app, "spool.queue.grip")
+        XCTAssertTrue(grip.waitForExistence(timeout: 10))
+        grip.tap()
+        let first = element(app, "spool.queue.row.0")
+        XCTAssertTrue(first.waitForExistence(timeout: 3))
+        let undo = element(app, "lyre.undo.button")
+        element(app, "spool.queue.clear").tap()
+        let prompt = app.alerts["Clear the Queue?"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 3))
+        prompt.buttons["Clear Queue"].tap()
+        XCTAssertTrue(waitForDisappearance(of: first, timeout: 3), "Clear Queue didn't empty Up Next")
+        XCTAssertTrue(undo.waitForExistence(timeout: 3), "No Undo after clearing")
+        attachScreenshot(app, named: "undo-banner")
+        undo.tap()
+        XCTAssertTrue(app.staticTexts["8 up next"].waitForExistence(timeout: 3), "Undo didn't bring Up Next back")
+        XCTAssertTrue(waitForDisappearance(of: undo, timeout: 3), "The banner stayed after Undo")
+    }
+
     @MainActor
     func testPickingASongFromUpNextLoadsItsCassetteIntoTheDeck() throws {
         let app = try launchSpool(extraArguments: ["--spool-sample-queue"])
