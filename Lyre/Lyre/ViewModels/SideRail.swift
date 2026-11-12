@@ -91,7 +91,7 @@ struct SideRailButtons<Content: View>: View {
     }
 }
 
-/// A sheet's Done, for the side rail: the same word, on a capsule that fits the column.
+/// A sheet's Done, for the side rail: the same word, on a solid capsule that fits the column.
 struct SideRailDone: View {
     let identifier: String
     var font: Font = .system(size: 15, weight: .semibold)
@@ -99,13 +99,17 @@ struct SideRailDone: View {
 
     var body: some View {
         Button(action: action) {
+            // Solid, so it reads at a glance in the column: there it stands over the
+            // dimmed screen behind the sheet, where a clear capsule all but vanished.
             Text(String(localized: "spool.settings.done"))
-                .font(font)
+                .font(font.weight(.bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .padding(.horizontal, 10)
+                .foregroundStyle(.black)
+                .padding(.horizontal, 12)
                 .frame(minWidth: 44, minHeight: 44)
-                .background(.primary.opacity(0.08), in: Capsule())
+                .background(.white, in: Capsule())
+                .shadow(color: .black.opacity(0.3), radius: 6, y: 2)
         }
         .buttonStyle(LyrePressStyle())
         .accessibilityIdentifier(identifier)
