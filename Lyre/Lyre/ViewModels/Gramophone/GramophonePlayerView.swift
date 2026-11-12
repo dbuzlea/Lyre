@@ -1013,7 +1013,8 @@ struct GramophonePlayerView: View {
                 VStack(spacing: 0) {
                     rackHeader(front, count: tracks.count)
                     Spacer()
-                    if front != nil {
+                    // How the bin is worked, until it's been worked a few times (GestureLessons).
+                    if front != nil, !GestureLessons.shared.learned(.gramophoneRack) {
                         Text(String(localized: "gramophone.rack.instructions"))
                             .lyreFont(size: 13, weight: .medium, design: .serif, maxScale: 1.5)
                             .italic()
@@ -1076,9 +1077,13 @@ struct GramophonePlayerView: View {
         Color.clear
             .contentShape(Rectangle())
             .onTapGesture {
-                if isRemoveShown { showRemove(false) } else { playFromQueue(at: rackIndex) }
+                if isRemoveShown { showRemove(false) } else {
+                    GestureLessons.shared.did(.gramophoneRack)
+                    playFromQueue(at: rackIndex)
+                }
             }
             .onLongPressGesture(minimumDuration: 0.45, maximumDistance: 8) {
+                GestureLessons.shared.did(.gramophoneRack)
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 showRemove(false)
                 openQueue()
@@ -1149,6 +1154,7 @@ struct GramophonePlayerView: View {
         guard (0..<count).contains(rackIndex + step) else { return }
         GramophoneSound.flip.play()
         UISelectionFeedbackGenerator().selectionChanged()
+        GestureLessons.shared.did(.gramophoneRack)
         showRemove(false)
         rackIndex += step
         stage.setRackIndex(rackIndex, animated: !reduceMotion)

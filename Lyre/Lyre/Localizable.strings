@@ -69,6 +69,7 @@
 "queue.replace.confirm" = "Clear and Play";
 "queue.shuffleOn" = "Shuffle is on — play order will vary";
 "queue.hint.browse" = "Select to move · Swipe left to play · Swipe right to remove";
+"queue.hint.browse.learned" = "";
 "queue.hint.moving" = "Scroll to move · Select to drop";
 "queue.hint.clear" = "Select to empty the queue";
 "queue.hint.episodes" = "Select to play an episode";
@@ -140,6 +141,7 @@
 "gramophone.needle.letGo" = "Let go to play from here";
 "gramophone.needle.stop" = "Let go here to stop the record";
 "gramophone.needle.hint" = "Band %d of %d · Drag the needle to change songs";
+"gramophone.needle.band" = "Band %d of %d";
 "gramophone.needle.hintParked" = "Drag the needle onto the record to play";
 "gramophone.crank" = "Crank";
 "gramophone.crank.hint" = "Wind it a full turn to shuffle all your songs.";
@@ -529,6 +531,9 @@
 "download.started" = "Downloading “%@”";
 "download.cancelled" = "Download cancelled";
 "download.removed" = "Removed download of “%@”";
+"download.removedAll" = "Removed all downloads";
+"podcast.unsubscribed" = "Unsubscribed from “%@”";
+"playlist.songRemoved" = "Took “%@” out of “%@”";
 "download.action.download" = "Download";
 "download.action.cancel" = "Cancel Download";
 "download.action.remove" = "Remove Download";
@@ -925,6 +930,9 @@
 "diagnostics.ask.done" = "Done";
 "diagnostics.ask.privacyPolicy" = "Privacy Policy";
 "settings.reportProblem" = "Report a Problem";
+"settings.gestureTips" = "Show Gesture Tips Again";
+"settings.gestureTips.detail" = "The lines that say how to swipe, flip and drag fade once you know them. This brings them back.";
+"settings.gestureTips.back" = "Gesture tips are back";
 "settings.reportProblem.detail" = "Tell us what went wrong. Lyre's diagnostics go with it; nothing personal.";
 "report.title" = "Report a Problem";
 "report.what" = "What happened?";

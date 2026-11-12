@@ -343,7 +343,7 @@ struct RecordSleeveView: View {
                          captionColor: SpoolPalette.labelInk.opacity(0.65))
         // Holding a song offers to queue it; holding an episode, its download.
         .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track, episode: episode, onQueue: onQueue,
-                            onRemove: PlaylistAdder.shared.removeAction(track, at: index, from: album) { self.tracks?.remove(at: index) }))
+                            onRemove: PlaylistAdder.shared.removeAction(track, at: index, from: album, in: $tracks)))
         .accessibilityIdentifier("gramophone.sleeve.track.\(index)")
         .overlay(alignment: .bottom) {
             Rectangle().fill(SpoolPalette.labelInk.opacity(0.12)).frame(height: 1)

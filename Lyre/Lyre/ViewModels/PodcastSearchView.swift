@@ -154,7 +154,7 @@ struct PodcastSearchView: View {
                 .onDelete { offsets in
                     for index in offsets {
                         if let feedURL = subscribedShows[index].feedURL {
-                            musicService.unsubscribe(from: feedURL)
+                            musicService.unsubscribeOfferingUndo(from: feedURL)
                         }
                     }
                 }
@@ -169,7 +169,7 @@ struct PodcastSearchView: View {
             Toggle(String(localized: "download.removeAfterPlaying"), isOn: $removeAfterPlaying)
             if downloads.hasDownloads {
                 Button(String(localized: "podcastSearch.removeDownloads"), role: .destructive) {
-                    downloads.removeAll()
+                    downloads.removeAllOfferingUndo()
                 }
             }
         } header: {

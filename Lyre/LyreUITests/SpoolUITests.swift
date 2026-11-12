@@ -82,6 +82,31 @@ final class SpoolUITests: XCTestCase {
         attachScreenshot(app, named: "duo-closed")
     }
 
+    /// Agency: once tapes have gone in a few times the "Swipe a tape" line goes
+    /// (GestureLessons), and holding a tape offers Play, what the swipe does.
+    @MainActor
+    func testOnceLearnedTheSwipeLineGoesAndHoldingATapeOffersPlay() throws {
+        let app = try launchSpool(extraArguments: ["-SpoolFoldPosture", "open", "--lyre-gestures-learned"])
+        let single = element(app, ID.single)
+        XCTAssertTrue(single.waitForExistence(timeout: 10), "The rack isn't beside the deck")
+        sleep(1)
+        let hint = element(app, "spool.open.hint")
+        XCTAssertFalse(hint.exists, "The swipe line stayed though it's been learned")
+        attachScreenshot(app, named: "duo-learned")
+
+        // Held where it sits (a tap would bring it forward, or put it in at the front).
+        single.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).press(forDuration: 1.0)
+        let play = app.buttons["Play"].firstMatch
+        XCTAssertTrue(play.waitForExistence(timeout: 3), "Holding a tape didn't offer Play")
+        XCTAssertTrue(app.buttons["Play Next"].exists, "The hold menu lost Play Next")
+        attachScreenshot(app, named: "tape-hold-menu")
+        play.tap()
+        // In the door, the line comes back to say what's next.
+        XCTAssertTrue(hint.waitForExistence(timeout: 4), "Play from the hold menu didn't put the tape in")
+        expectation(for: NSPredicate(format: "label CONTAINS 'Close your iPhone'"), evaluatedWith: hint)
+        waitForExpectations(timeout: 4)
+    }
+
     /// On an unfolded Duo a case opens over the rack, not the whole screen, so the deck
     /// stays in view; a song picked from it goes into the open door and waits there.
     @MainActor
@@ -643,7 +668,7 @@ final class SpoolUITests: XCTestCase {
     }
 
     /// Holding a song in one of the listener's playlists offers Remove from Playlist,
-    /// which takes it out of the list.
+    /// which takes it out of the list; Undo, over the open case, puts it back.
     @MainActor
     func testHoldingASongInAMixtapeRemovesItFromThePlaylist() throws {
         let app = try launchSpool()
@@ -669,6 +694,13 @@ final class SpoolUITests: XCTestCase {
         let moved = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Mix Song 2'"), object: first)
         XCTAssertEqual(XCTWaiter().wait(for: [moved], timeout: 3), .completed, "The song wasn't taken out: \(first.label)")
         XCTAssertTrue(element(app, "spool.jcard.track.1").label.contains("Mix Song 3"), "More than one song went")
+
+        let undo = element(app, "lyre.undo.button")
+        XCTAssertTrue(undo.waitForExistence(timeout: 3), "No Undo after taking a song out")
+        attachScreenshot(app, named: "spool-playlist-undo")
+        undo.tap()
+        let back = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Mix Song 1'"), object: first)
+        XCTAssertEqual(XCTWaiter().wait(for: [back], timeout: 3), .completed, "Undo didn't put the song back: \(first.label)")
     }
 
     /// LYRE-25: a playlist Lyre made has an Edit button in its case, which opens Edit
@@ -1026,7 +1058,12 @@ final class SpoolUITests: XCTestCase {
         XCTAssertTrue(waitForDisappearance(of: first, timeout: 3), "Clear Queue didn't empty Up Next")
         XCTAssertTrue(undo.waitForExistence(timeout: 3), "No Undo after clearing")
         attachScreenshot(app, named: "undo-banner")
+        // The banner's window lets touches past it through to the app beneath.
+        element(app, "spool.queue.close").tap()
+        XCTAssertTrue(waitForDisappearance(of: element(app, "spool.queue.close"), timeout: 3),
+                      "A tap beside the banner didn't reach the tray")
         undo.tap()
+        grip.tap()
         XCTAssertTrue(app.staticTexts["8 up next"].waitForExistence(timeout: 3), "Undo didn't bring Up Next back")
         XCTAssertTrue(waitForDisappearance(of: undo, timeout: 3), "The banner stayed after Undo")
     }

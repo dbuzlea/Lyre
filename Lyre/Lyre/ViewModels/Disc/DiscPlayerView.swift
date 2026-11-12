@@ -378,16 +378,19 @@ struct DiscPlayerView: View {
                         .accessibilityIdentifier("disc.lid")
                     lcd
                     Spacer(minLength: 0)
-                    Text(String(localized: deckLoad == nil ? "disc.open.hint" : "spool.closeToPlay"))
-                        .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
-                        .foregroundStyle(theme.ink)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(theme.ink.opacity(0.12), in: Capsule())
-                        .contentTransition(.opacity)
-                        .animation(.easeInOut(duration: 0.2), value: deckLoad == nil)
-                        .accessibilityIdentifier("disc.open.hint")
+                    // How a disc goes in, until one has gone in a few times (GestureLessons).
+                    if deckLoad != nil || !GestureLessons.shared.learned(.insert) {
+                        Text(String(localized: deckLoad == nil ? "disc.open.hint" : "spool.closeToPlay"))
+                            .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
+                            .foregroundStyle(theme.ink)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(theme.ink.opacity(0.12), in: Capsule())
+                            .contentTransition(.opacity)
+                            .animation(.easeInOut(duration: 0.2), value: deckLoad == nil)
+                            .accessibilityIdentifier("disc.open.hint")
+                    }
                 }
                 .frame(width: geometry.size.width * 0.46)
                 shelfColumn(showsClose: false)

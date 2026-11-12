@@ -1049,6 +1049,48 @@ struct QueueRuleTests {
         LyreUndo.shared.hideBanner()
     }
 
+    @Test func theLatestUndoReplacesTheLastAndRunsOnce() async {
+        let undo = LyreUndo.shared
+        var ran: [String] = []
+        undo.offer("first") { ran.append("first") }
+        undo.offer("second") { ran.append("second") }
+        #expect(undo.banner?.message == "second")
+        // The banner put away, a shake still undoes the latest.
+        undo.hideBanner()
+        #expect(undo.banner == nil)
+        undo.perform()
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(ran == ["second"])
+        undo.perform()
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(ran == ["second"])
+    }
+
+    @Test func anOldBannersUndoDoesNothingOnceReplaced() async {
+        let undo = LyreUndo.shared
+        var ran = 0
+        undo.offer("old") { ran += 1 }
+        let old = undo.banner!.id
+        undo.offer("new") { ran += 10 }
+        undo.perform(old)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(ran == 0)
+        undo.hideBanner()
+    }
+
+    @Test func aGesturesLineGoesOnceItsBeenDoneAFewTimes() {
+        let lessons = GestureLessons.shared
+        lessons.forget()
+        #expect(!lessons.learned(.insert))
+        for _ in 1..<GestureLessons.learnedAfter { lessons.did(.insert) }
+        #expect(!lessons.learned(.insert))
+        lessons.did(.insert)
+        #expect(lessons.learned(.insert))
+        #expect(!lessons.learned(.needle), "One gesture learned teaches no other")
+        lessons.forget()
+        #expect(!lessons.learned(.insert))
+    }
+
     @Test func clearingAnEmptyUpNextOffersNothing() {
         let service = MusicService()
         service.seedQueueForUITests(tracks(1))

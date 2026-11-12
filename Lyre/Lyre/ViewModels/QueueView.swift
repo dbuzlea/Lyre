@@ -247,6 +247,9 @@ struct QueueView: View {
             key = "queue.hint.moving"
         } else if selection == Self.clearRowOffset {
             key = "queue.hint.clear"
+        } else if GestureLessons.shared.learned(.classicQueue) {
+            // Done often enough: the screen's left to the songs (LyreUndo's agency notes).
+            key = "queue.hint.browse.learned"
         } else {
             key = "queue.hint.browse"
         }

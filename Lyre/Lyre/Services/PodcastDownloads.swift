@@ -60,9 +60,16 @@ final class PodcastDownloads: NSObject, ObservableObject {
         URL.applicationSupportDirectory.appending(path: "PodcastDownloads", directoryHint: .isDirectory)
     }
 
+    /// Where removed downloads wait while they can still be put back (LyreUndo).
+    private nonisolated static var asideDirectory: URL {
+        URL.temporaryDirectory.appending(path: "PodcastDownloadsAside", directoryHint: .isDirectory)
+    }
+
     private override init() {
         files = UserDefaults.standard.dictionary(forKey: Self.filesKey) as? [String: String] ?? [:]
         super.init()
+        // Anything set aside last time can no longer be undone.
+        try? FileManager.default.removeItem(at: Self.asideDirectory)
 
         // Forget files that have gone missing, so they don't claim to be playable.
         files = files.filter { FileManager.default.fileExists(atPath: Self.directory.appending(path: $0.value).path) }
@@ -144,6 +151,88 @@ final class PodcastDownloads: NSObject, ObservableObject {
 
     func remove(episodeIDs: [String]) {
         for id in episodeIDs { remove(id) }
+    }
+
+    // MARK: - Set Aside, for Undo
+
+    /// Downloads taken away so they can be put back: files moved aside rather than
+    /// deleted, and downloads that were running, to start again.
+    struct SetAside {
+        let files: [String: String]
+        let running: [PodcastEpisode]
+        var isEmpty: Bool { files.isEmpty && running.isEmpty }
+    }
+
+    /// Removes the downloads of `episodes` (running or done) as `remove` does, but keeps
+    /// the files aside, until the next set-aside or launch, for `putBack`.
+    func setAside(_ episodes: [PodcastEpisode]) -> SetAside {
+        let fm = FileManager.default
+        // Only the latest removal can be undone: what was set aside before goes now.
+        try? fm.removeItem(at: Self.asideDirectory)
+        try? fm.createDirectory(at: Self.asideDirectory, withIntermediateDirectories: true)
+        var moved: [String: String] = [:]
+        var running: [PodcastEpisode] = []
+        for episode in episodes {
+            switch states[episode.id] {
+            case .downloaded:
+                if let name = files[episode.id],
+                   (try? fm.moveItem(at: Self.directory.appending(path: name),
+                                     to: Self.asideDirectory.appending(path: name))) != nil {
+                    moved[episode.id] = name
+                    files[episode.id] = nil
+                    states[episode.id] = nil
+                } else {
+                    remove(episode.id)
+                }
+            case .downloading:
+                running.append(episode)
+                remove(episode.id)
+            case nil:
+                break
+            }
+        }
+        UserDefaults.standard.set(files, forKey: Self.filesKey)
+        return SetAside(files: moved, running: running)
+    }
+
+    /// Downloads set aside put back: the files where they were, the running ones restarted.
+    func putBack(_ aside: SetAside) {
+        let fm = FileManager.default
+        for (id, name) in aside.files where states[id] == nil {
+            if (try? fm.moveItem(at: Self.asideDirectory.appending(path: name),
+                                 to: Self.directory.appending(path: name))) != nil {
+                files[id] = name
+                states[id] = .downloaded
+            }
+        }
+        UserDefaults.standard.set(files, forKey: Self.filesKey)
+        for episode in aside.running { download(episode) }
+        logger.info("Put back \(aside.files.count + aside.running.count) download(s)")
+    }
+
+    /// Every finished download set aside (Remove All Downloads), running ones cancelled.
+    func setAsideAll() -> SetAside {
+        let fm = FileManager.default
+        try? fm.removeItem(at: Self.asideDirectory)
+        try? fm.createDirectory(at: Self.asideDirectory, withIntermediateDirectories: true)
+        session.getAllTasks { tasks in tasks.forEach { $0.cancel() } }
+        var moved: [String: String] = [:]
+        for (id, name) in files {
+            if (try? fm.moveItem(at: Self.directory.appending(path: name),
+                                 to: Self.asideDirectory.appending(path: name))) != nil {
+                moved[id] = name
+            }
+        }
+        files = [:]
+        states = [:]
+        UserDefaults.standard.set(files, forKey: Self.filesKey)
+        logger.notice("Set aside all podcast downloads")
+        return SetAside(files: moved, running: [])
+    }
+
+    /// Every episode with a download, done or running, from `episodes`.
+    func withDownloads(_ episodes: [PodcastEpisode]) -> [PodcastEpisode] {
+        episodes.filter { states[$0.id] != nil }
     }
 
     func removeAll() {

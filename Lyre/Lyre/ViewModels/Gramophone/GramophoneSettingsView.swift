@@ -178,6 +178,7 @@ struct GramophoneSettingsView: View {
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).strokeBorder(lineWidth: 1.5).opacity(0.5))
                 .accessibilityIdentifier("settings.shareUsage")
+                GestureTipsButton()
                 ReportProblemButton {
                     HStack(spacing: 12) {
                         Image(systemName: "exclamationmark.bubble")

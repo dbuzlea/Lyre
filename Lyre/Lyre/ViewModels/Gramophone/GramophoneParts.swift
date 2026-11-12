@@ -538,8 +538,10 @@ struct TurntableView: View {
                 .accessibilityIdentifier("gramophone.needle.readout")
                 .allowsHitTesting(false)
             } else {
+                // "Drag the needle" until it's been dragged a few times (GestureLessons).
                 Text(isArmParked ? String(localized: "gramophone.needle.hintParked")
-                     : String(format: String(localized: "gramophone.needle.hint"),
+                     : String(format: String(localized: GestureLessons.shared.learned(.needle)
+                                                ? "gramophone.needle.band" : "gramophone.needle.hint"),
                               record.currentIndex + 1, record.grooves.durations.count))
                     .font(.system(size: 11, design: .serif))
                     .italic()
@@ -596,6 +598,7 @@ struct TurntableView: View {
                 // groove, or goes to its rest.
                 carriedAngle = nil
                 carriedBand = nil
+                if fraction != nil { GestureLessons.shared.did(.needle) }
                 onDrop(fraction)
             }
     }

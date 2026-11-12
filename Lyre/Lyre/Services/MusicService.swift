@@ -2380,6 +2380,21 @@ class MusicService: ObservableObject {
         logger.notice("Subscribed to '\(feed.title)' (\(feed.episodes.count) episodes)")
     }
 
+    /// Unsubscribes, offering to put the show back as it was, its downloads too.
+    func unsubscribeOfferingUndo(from feedURL: URL) {
+        guard let feed = podcastSubscriptions.feeds.first(where: { $0.feedURL == feedURL }) else { return }
+        let aside = podcastDownloads.setAside(PodcastShow(feed: feed).episodes)
+        podcastSubscriptions.remove(feedURL)
+        publishPodcastShows()
+        logger.notice("Unsubscribed from \(feedURL.absoluteString)")
+        LyreUndo.shared.offer(String(format: String(localized: "podcast.unsubscribed"), feed.title)) { [weak self] in
+            guard let self else { return }
+            self.podcastSubscriptions.store(feed)
+            self.podcastDownloads.putBack(aside)
+            self.publishPodcastShows()
+        }
+    }
+
     func unsubscribe(from feedURL: URL) {
         // Saved episodes of a show the user has dropped would only waste space.
         if let feed = podcastSubscriptions.feeds.first(where: { $0.feedURL == feedURL }) {

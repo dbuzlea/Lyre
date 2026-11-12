@@ -183,11 +183,15 @@ struct SpoolQueueTray: View {
                 emptyState
             } else {
                 list
-                Text(String(localized: canEdit ? "spool.queue.hint" : "spool.queue.hint.episodes"))
-                    .lyreFont(size: 11, maxScale: 1.5)
-                    .lyreInk(.white, 0.45)
-                    .frame(maxWidth: .infinity)
-                    .accessibilityHidden(true)
+                // How the list is worked, until it's been worked a few times (GestureLessons).
+                if !canEdit || !GestureLessons.shared.learned(.upNextList) {
+                    Text(String(localized: canEdit ? "spool.queue.hint" : "spool.queue.hint.episodes"))
+                        .lyreFont(size: 11, maxScale: 1.5)
+                        .lyreInk(.white, 0.45)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
+                }
             }
         }
         .padding(12)
@@ -313,6 +317,7 @@ struct SpoolQueueTray: View {
 
     /// Pulls the song's label out of the stack, then hands it over to be loaded.
     private func pick(_ entry: Entry) {
+        GestureLessons.shared.did(.upNextList)
         guard pulledID == nil else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         withAnimation(.spring(response: 0.26, dampingFraction: 0.7)) {
@@ -324,8 +329,12 @@ struct SpoolQueueTray: View {
     }
 
     /// Moving and removing, for a queue that can be edited; none for a show's episodes.
-    private var moveAction: ((IndexSet, Int) -> Void)? { canEdit ? { move($0, $1) } : nil }
-    private var removeAction: ((IndexSet) -> Void)? { canEdit ? { remove($0) } : nil }
+    private var moveAction: ((IndexSet, Int) -> Void)? {
+        canEdit ? { GestureLessons.shared.did(.upNextList); move($0, $1) } : nil
+    }
+    private var removeAction: ((IndexSet) -> Void)? {
+        canEdit ? { GestureLessons.shared.did(.upNextList); remove($0) } : nil
+    }
 
     private func move(_ source: IndexSet, _ destination: Int) {
         guard let origin = source.first else { return }

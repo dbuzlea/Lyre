@@ -103,11 +103,14 @@ Follow Increase Contrast and Reduce Transparency (Settings > Accessibility > Dis
 - `lyreFill(.white, 0.1, in: Circle())` for a faint fill behind a control: firmer and outlined with Increase Contrast, solid with Reduce Transparency.
 - `lyreMaterial(.ultraThinMaterial, in:solid:)` for frosted glass, with a solid colour that suits where it is.
 - Text laid over artwork needs a scrim that darkens further with Increase Contrast (see Liquid's Now Playing).
+- Check with `ContrastUITests`, which turns both on (`--lyre-increase-contrast`, `--lyre-reduce-transparency`, debug builds), and look at its screenshots.
 
 ## Agency: anything taken away can be put back
 
 Removing a song from Up Next, clearing Up Next, taking a song out of a playlist, unsubscribing and removing a download all offer Undo through `LyreUndo.shared.offer(message) { ... }` (`Services/LyreUndo.swift`). That shows the bottom banner (`lyre.undo.button`) for 6 seconds and registers shake-to-undo. For Up Next, use `removeFromQueueOfferingUndo(at:)` and `clearQueueOfferingUndo()`, not the bare calls. Don't show a separate "Removed" notice as well. A step that can't be taken back still asks first (Clear the Queue? asks and also offers Undo).
-- Check with `ContrastUITests`, which turns both on (`--lyre-increase-contrast`, `--lyre-reduce-transparency`, debug builds), and look at its screenshots.
+
+- Every gesture has a button, a menu item or a VoiceOver action as well. Holding a tape or case offers Play, Play Next and Add to Queue.
+- An on-screen line saying how a gesture works fades once the person has done it 3 times. Use `GestureLessons.shared.learned(.x)` to hide it and `did(.x)` where the gesture lands. Settings' "Show Gesture Tips Again" (`GestureTipsButton`) brings the lines back. UI-test launches start fresh; `--lyre-gestures-learned` starts with everything learned. A one-time hint motion, like the tape leaning toward the deck, shows once per launch until learned, never with Reduce Motion, and in UI tests only with `--lyre-nudge`.
 
 ## iPhone Duo
 

@@ -124,7 +124,7 @@ struct DiscBooklet: View {
                          captionColor: SpoolPalette.labelInk.opacity(0.65))
         .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track, episode: episode,
                             onQueue: { tracks, placement in onQueue(tracks, placement) },
-                            onRemove: PlaylistAdder.shared.removeAction(track, at: index, from: album) { self.tracks?.remove(at: index) }))
+                            onRemove: PlaylistAdder.shared.removeAction(track, at: index, from: album, in: $tracks)))
         .accessibilityIdentifier("disc.booklet.track.\(index)")
     }
 }

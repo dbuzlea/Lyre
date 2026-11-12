@@ -7,6 +7,7 @@ import Foundation
 import MusicKit
 import MediaPlayer
 import UIKit
+import SwiftUI
 import OSLog
 
 private let logger = Logger(subsystem: "com.pinkhatcreations.lyreapp", category: "PlaylistAdder")
@@ -269,11 +270,13 @@ final class PlaylistAdder {
     /// Takes the song at `index` (`track`) out of `album`'s playlist. Checks the playlist
     /// still has that song there first, so a playlist changed elsewhere since it was
     /// shown loses nothing it shouldn't.
-    func remove(_ track: AppTrack, at index: Int, from album: AppAlbum) async throws {
-        guard let playlist = album.mixtape else { return }
+    /// Returns the playlist's entry taken out, to put back (`putBack`).
+    @discardableResult
+    func remove(_ track: AppTrack, at index: Int, from album: AppAlbum) async throws -> Track? {
+        guard let playlist = album.mixtape else { return nil }
         #if DEBUG
         // The sample mixtapes are only in Lyre: the song goes from the list alone.
-        if Self.isSample(playlist) { return }
+        if Self.isSample(playlist) { return nil }
         #endif
         let target = try await musicKitPlaylist(for: playlist)
         var items = Array(try await target.with([.tracks]).tracks ?? [])
@@ -281,11 +284,12 @@ final class PlaylistAdder {
               DeezerTempo.normalized(items[index].title) == DeezerTempo.normalized(track.title) else {
             throw AddError.playlistChanged
         }
-        items.remove(at: index)
+        let removed = items.remove(at: index)
         do {
             _ = try await MusicLibrary.shared.edit(target, items: items)
             noteEdited(playlist.id)
             logger.debug("Took a song out of a playlist")
+            return removed
         } catch {
             // Offline isn't a refusal; anything else from Apple is.
             if error is URLError || error is CancellationError { throw error }
@@ -296,20 +300,44 @@ final class PlaylistAdder {
         }
     }
 
+    /// A song taken out (`removed`, at `index`) put back into `album`'s playlist (Undo).
+    func putBack(_ removed: Track?, at index: Int, in album: AppAlbum) async throws {
+        guard let removed, let playlist = album.mixtape else { return }
+        let target = try await musicKitPlaylist(for: playlist)
+        var items = Array(try await target.with([.tracks]).tracks ?? [])
+        items.insert(removed, at: min(index, items.count))
+        _ = try await MusicLibrary.shared.edit(target, items: items)
+        noteEdited(playlist.id)
+        logger.debug("Put a song back in a playlist")
+    }
+
     /// Why the last removal didn't happen, for the app's root to say (NewPlaylistPrompt).
     var removalFailure: String?
 
     /// A hold menu's Remove from Playlist, for the song at `index` of `album`: nil where
-    /// it can't be taken out. `onRemoved` takes the row out of the list showing.
+    /// it can't be taken out. The row goes from `tracks`, the list showing, and Undo
+    /// (LyreUndo) puts it back, in the playlist and the list.
     func removeAction(_ track: AppTrack, at index: Int, from album: AppAlbum,
-                      onRemoved: @escaping () -> Void) -> (() -> Void)? {
+                      in tracks: Binding<[AppTrack]?>) -> (() -> Void)? {
         guard canRemove(from: album) else { return nil }
         return {
             Task {
                 do {
-                    try await self.remove(track, at: index, from: album)
+                    let removed = try await self.remove(track, at: index, from: album)
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    onRemoved()
+                    if tracks.wrappedValue?.indices.contains(index) == true { tracks.wrappedValue?.remove(at: index) }
+                    let message = String(format: String(localized: "playlist.songRemoved"), track.title, album.title)
+                    LyreUndo.shared.offer(message) {
+                        do {
+                            try await self.putBack(removed, at: index, in: album)
+                            if var list = tracks.wrappedValue {
+                                list.insert(track, at: min(index, list.count))
+                                tracks.wrappedValue = list
+                            }
+                        } catch {
+                            self.removalFailure = error.localizedDescription
+                        }
+                    }
                 } catch {
                     self.removalFailure = error.localizedDescription
                 }
