@@ -1876,15 +1876,21 @@ class MusicService: ObservableObject {
         upNext.lastIndex { listenerQueued[$0.id] != nil }.map { $0 + 1 } ?? 0
     }
 
-    /// A song added to Up Next at `quickQueueOffset`. Returns how it went, and whether it
-    /// went after other queued songs (true) or next.
-    func quickQueue(_ track: AppTrack) async -> (outcome: QueueAddOutcome, afterOthers: Bool) {
+    /// Songs added to Up Next at `quickQueueOffset`, in their order. Returns how it went,
+    /// and whether they went after other queued songs (true) or next.
+    func quickQueue(_ tracks: [AppTrack]) async -> (outcome: QueueAddOutcome, afterOthers: Bool) {
         let target = quickQueueOffset
-        let outcome = await addToQueue(track, placement: .next)
-        guard case .queued = outcome, target > 0, target < upNext.count else { return (outcome, false) }
-        reorderUpNext(from: 0, to: target)
-        commitQueueMove(to: target)
-        logger.info("Quick-queued '\(track.title)' after \(target) queued song(s)")
+        let outcome = await addToQueue(tracks: tracks, placement: .next)
+        guard case .queued(let count, _) = outcome, target > 0, target + count <= upNext.count else {
+            return (outcome, false)
+        }
+        // In at the front; then each, first to last, moved on past the hand-queued songs,
+        // which keeps their order: the front one goes behind those already moved.
+        for _ in 0..<count {
+            reorderUpNext(from: 0, to: target + count - 1)
+            commitQueueMove(to: target + count - 1)
+        }
+        logger.info("Quick-queued \(count) song(s) after \(target) queued song(s)")
         return (outcome, true)
     }
 

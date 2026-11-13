@@ -1133,6 +1133,25 @@ struct QueueRuleTests {
         #expect(byHand.quickQueueOffset == 2)
     }
 
+    @Test func upNextsBubbleFindsOpenRoomClearOfTheSongs() {
+        let room = CGRect(x: 0, y: 0, width: 400, height: 700)
+        let held = CGPoint(x: 200, y: 400)
+        let slots = TrackSpreadLayout.slots(count: 18, around: held, diameter: 120, within: room)
+        let d = TrackSpread.upNextDiameter
+        let spot = TrackSpreadLayout.openSpot(for: d, avoiding: slots, held: held, heldDiameter: 120, within: room)
+        #expect(spot != nil)
+        if let spot {
+            #expect(room.insetBy(dx: d / 2, dy: d / 2).contains(spot))
+            #expect(hypot(spot.x - held.x, spot.y - held.y) >= (d + 120) / 2)
+            for slot in slots {
+                #expect(hypot(slot.x - spot.x, slot.y - spot.y) >= d / 2 + TrackSpreadLayout.bubble / 2)
+            }
+        }
+        // No room at all: none.
+        #expect(TrackSpreadLayout.openSpot(for: d, avoiding: slots, held: held, heldDiameter: 120,
+                                           within: CGRect(x: 0, y: 0, width: 80, height: 80)) == nil)
+    }
+
     @Test func clearingAnEmptyUpNextOffersNothing() {
         let service = MusicService()
         service.seedQueueForUITests(tracks(1))
