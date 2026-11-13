@@ -565,12 +565,18 @@ struct GramophonePlayerView: View {
                         .accessibilityHint(String(localized: "gramophone.lookInside.hint"))
                         .accessibilityIdentifier("gramophone.lookInside")
                 }
+                // The plate's words are painted on it: tapped, it offers the artist and the
+                // album, to go to (NowPlayingCreditsMenu).
                 spot(.plate, origin) {
-                    Color.clear
-                        .accessibilityElement()
-                        .accessibilityLabel(nowPlayingTitle)
-                        .accessibilityValue(nowPlayingSubtitle)
-                        .accessibilityIdentifier("gramophone.nameplate")
+                    NowPlayingCreditsMenu(info: nowPlayingCredits, idPrefix: "gramophone",
+                                          onArtist: openPlayingArtist, onAlbum: showSleeveOfRecord) {
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .accessibilityElement()
+                            .accessibilityLabel(nowPlayingTitle)
+                            .accessibilityValue(nowPlayingSubtitle)
+                            .accessibilityIdentifier("gramophone.nameplate")
+                    }
                 }
                 spot(.playSwitch, origin) {
                     Button(action: flipSwitch) { Color.clear.contentShape(Rectangle()) }
@@ -683,7 +689,8 @@ struct GramophonePlayerView: View {
             VStack(spacing: 12) {
                 HStack(alignment: .center, spacing: 10) {
                     BrakeLever(isPlaying: musicService.isPlaying, action: brake)
-                    Nameplate(title: nowPlayingTitle, subtitle: nowPlayingSubtitle)
+                    Nameplate(title: nowPlayingTitle, subtitle: nowPlayingSubtitle, credits: nowPlayingCredits,
+                              onArtist: openPlayingArtist, onAlbum: showSleeveOfRecord)
                     if isDuoSplit, !musicService.isPlayingPodcast {
                         // Opened with the fold across the middle, the deck's keys are Back and
                         // Next, so Up Next stands where the speed is (wanted only for a show).
@@ -1112,7 +1119,15 @@ struct GramophonePlayerView: View {
         DragGesture(minimumDistance: 10)
             .onChanged { value in
                 let move = value.translation
-                if rackAxis == nil { rackAxis = abs(move.width) > abs(move.height) ? .horizontal : .vertical }
+                // Read for what it means (as GestureIntent reads a touch): sideways reveals
+                // Remove only when it's clearly sideways (within 30°); anything less clear
+                // flips through the bin, which takes nothing away.
+                if rackAxis == nil {
+                    let clearlyLeft = move.width < 0 && abs(move.width) > abs(move.height) * 1.73
+                    // Remove showing: sideways (either way) slides it back.
+                    let sideways = isRemoveShown && abs(move.width) > abs(move.height)
+                    rackAxis = clearlyLeft || sideways ? .horizontal : .vertical
+                }
                 switch rackAxis {
                 case .vertical:
                     if isRemoveShown { showRemove(false) }
@@ -1847,6 +1862,18 @@ struct GramophonePlayerView: View {
 
     private var nowPlayingTitle: String {
         musicService.currentTrack?.title ?? musicService.currentEpisode?.title ?? String(localized: "gramophone.noRecord.title")
+    }
+
+    private var nowPlayingCredits: NowPlayingCreditsInfo? {
+        NowPlayingCreditsInfo(track: musicService.currentTrack, episode: musicService.currentEpisode)
+    }
+
+    /// The artist on the plate chosen: the drawer opened, searched for them.
+    private func openPlayingArtist() {
+        guard let name = library.playingAlbum?.artistName ?? musicService.currentTrack?.artistName,
+              !name.isEmpty else { return }
+        crateQuery = name
+        openCrate()
     }
 
     private var nowPlayingSubtitle: String {

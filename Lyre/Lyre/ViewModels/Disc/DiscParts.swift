@@ -392,6 +392,11 @@ struct DiscLCD: View {
     /// Said where the time goes while a disc spins up or the lid is open.
     var status: String?
     @Binding var showsRemaining: Bool
+    /// What's playing, and where its artist and album take you: tapping the title offers
+    /// both (NowPlayingCreditsMenu). Nil with nothing to offer.
+    var credits: NowPlayingCreditsInfo?
+    var onArtist: () -> Void = {}
+    var onAlbum: () -> Void = {}
     @Environment(\.discTheme) private var theme
 
     var body: some View {
@@ -422,12 +427,18 @@ struct DiscLCD: View {
                 .accessibilityIdentifier("disc.lcd.time")
             }
 
-            DiscMarquee(text: title.uppercased(), isRunning: isPlaying)
-                // Takes the display's width, however long the title is.
-                .frame(minWidth: 0, maxWidth: .infinity)
-                .frame(height: 18)
-                .accessibilityLabel(title)
-                .accessibilityIdentifier("disc.lcd.title")
+            // The title running along the display; tapped, it offers the artist and the
+            // album, to go to (a display's letters can't be told apart by a finger).
+            NowPlayingCreditsMenu(info: credits, idPrefix: "disc", onArtist: onArtist, onAlbum: onAlbum) {
+                DiscMarquee(text: title.uppercased(), isRunning: isPlaying)
+                    // Takes the display's width, however long the title is.
+                    .frame(minWidth: 0, maxWidth: .infinity)
+                    .frame(height: 18)
+                    .contentShape(Rectangle())
+                    .accessibilityLabel(title)
+                    .accessibilityIdentifier("disc.lcd.title")
+            }
+            .foregroundStyle(theme.lcdInk)
 
             HStack(spacing: 8) {
                 indicator(isPlaying ? "▶" : "❚❚", lit: true)

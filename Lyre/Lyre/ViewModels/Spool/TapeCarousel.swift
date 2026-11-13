@@ -108,6 +108,9 @@ struct TapeCarousel: View {
     /// The vertical translation already applied to `position` during this pull.
     @State private var lastPull: CGFloat = 0
     @State private var dragAxis: Axis?
+    /// The front tape rested on and lifted (GestureIntent): moved now, it's the tape's
+    /// swipe, any way the finger goes, never the rack's.
+    @State private var isFrontLifted = false
     /// The glide after a release, stopped when a finger lands on the rack.
     @State private var motion = RackMotion()
     /// How far the front tape has been swiped sideways.
@@ -192,6 +195,11 @@ struct TapeCarousel: View {
                 let slots = CGFloat(index) - position
                 let isFront = index == front
                 cardView(album, rack.cardSize)
+                    // Rested on, the front tape lifts: it rises, and is the finger's to
+                    // swipe in or queue at whatever angle (GestureIntent).
+                    .scaleEffect(isFront && isFrontLifted ? 1.05 : 1)
+                    .shadow(color: .black.opacity(isFront && isFrontLifted ? 0.4 : 0), radius: 12, y: 6)
+                    .modifier(RackLift(isEnabled: isFront, isLifted: $isFrontLifted))
                     // Holding a tape queues it, as holding an album does on every player.
                     .contextMenu { holdMenu(album, index, rack) }
                     // Stuck on over the top corner, sticking out a little past the edge;
@@ -448,14 +456,20 @@ struct TapeCarousel: View {
                 if dragAxis == nil {
                     // A finger on the rack catches it wherever it has coasted to.
                     stopCoasting(settle: false)
+                    if isFrontLifted, rack.frontRect.contains(value.startLocation) {
+                        // Lifted first: the tape's, whichever way it goes.
+                        dragAxis = .horizontal
+                    } else {
                     guard max(abs(dx), abs(dy)) >= Self.axisSlop else { return }
-                    if abs(dx) > abs(dy) * 1.3, rack.frontRect.contains(value.startLocation),
+                    // Off at once: within 40° of across, the tape's swipe; else the rack's.
+                    if abs(dx) > abs(dy) * 1.19, rack.frontRect.contains(value.startLocation),
                        position == position.rounded() {
                         dragAxis = .horizontal
                     } else {
                         dragAxis = .vertical
                         // Start from here, so the slop doesn't land as a jump.
                         lastPull = dy
+                    }
                     }
                 }
                 switch dragAxis {
@@ -482,7 +496,11 @@ struct TapeCarousel: View {
                 }
             }
             .onEnded { value in
-                defer { dragAxis = nil; lastPull = 0 }
+                defer {
+                    dragAxis = nil
+                    lastPull = 0
+                    withAnimation(LyreMotion.light) { isFrontLifted = false }
+                }
                 switch dragAxis {
                 case .horizontal:
                     let width = value.translation.width
@@ -925,5 +943,34 @@ struct SectionTab: View {
         let value = Int(scalar.value)
         let index = (97...122).contains(value) ? value - 97 : value
         return palette[index % palette.count]
+    }
+}
+
+/// The front tape's pause-to-lift (GestureIntent): rested on a moment it's lifted, felt as
+/// a tap; let go, or held on for its menu, it settles. Its tap and the rack's drag are
+/// their own.
+private struct RackLift: ViewModifier {
+    let isEnabled: Bool
+    @Binding var isLifted: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled, #available(iOS 18.0, *) {
+            content.gesture(GestureIntentTouch(diameter: 0, pullDirection: nil, canCarry: true,
+                                               isFieldMoving: { false }) { phase, _, _, _, _ in
+                switch phase {
+                case .lifted:
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(LyreMotion.tap) { isLifted = true }
+                case .held, .tapped, .released:
+                    // The finger's up (the rack's drag, if it swiped, has ended with it), or
+                    // held on for the tape's menu.
+                    withAnimation(LyreMotion.light) { isLifted = false }
+                case .moved:
+                    break
+                }
+            })
+        } else {
+            content
+        }
     }
 }

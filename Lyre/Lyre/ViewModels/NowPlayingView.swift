@@ -40,6 +40,9 @@ struct NowPlayingView: View {
     @ObservedObject var musicService: MusicService
     let themeSettings: ThemeSettings
     @Binding var selection: Int
+    /// The artist's name tapped: their screen. The album's: its songs.
+    var onOpenArtist: () -> Void = {}
+    var onOpenAlbum: () -> Void = {}
     @ObservedObject private var routeMonitor = AudioRouteMonitor.shared
 
     /// Height of everything under the artwork, measured so the artwork can take the rest.
@@ -91,13 +94,22 @@ struct NowPlayingView: View {
                                     .lyreFont(size: 13, weight: .semibold, maxScale: 1.5)
                                     .foregroundStyle(themeSettings.currentTheme.screenTextColor)
                                     .lineLimit(2).multilineTextAlignment(.center)
-                                Text(subtitle)
-                                    .lyreFont(size: 11, maxScale: 1.5)
-                                    .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
-                                    .lineLimit(1)
+                                // The artist and the album, each a way to them (NowPlayingCredits).
+                                if let credits = NowPlayingCreditsInfo(track: track, episode: episode) {
+                                    NowPlayingCredits(info: credits, idPrefix: "classic", onArtist: onOpenArtist,
+                                                      onAlbum: onOpenAlbum, touchPadding: 2) { text in
+                                        Text(text)
+                                            .lyreFont(size: 11, maxScale: 1.5)
+                                            .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
+                                    }
+                                } else {
+                                    Text(subtitle)
+                                        .lyreFont(size: 11, maxScale: 1.5)
+                                        .foregroundStyle(themeSettings.currentTheme.screenSecondaryTextColor)
+                                        .lineLimit(1)
+                                }
                             }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityLabel("\(title), by \(subtitle)")
+                            .accessibilityElement(children: .contain)
 
                             // Progress bar. A separate view observing only the clock, so the
                             // position ticking does not redraw the rest of the screen.

@@ -81,9 +81,15 @@ nonisolated struct GestureIntent {
     }
 
     var thresholds = Thresholds()
-    /// The way a flick carries it to be dropped (a unit vector), if that isn't the way
-    /// the field scrolls; nil where it is (then only a pause lifts it).
-    var pullDirection: CGVector?
+    /// The ways a flick carries it (unit vectors), none of them the way the field scrolls:
+    /// a bubble's toward Now Playing; a rack's tape left into the deck or right to queue.
+    /// Empty where the only way is the scroll's (then only a pause lifts it).
+    var pullDirections: [CGVector] = []
+    /// The one way a flick carries it, for a single drop target.
+    var pullDirection: CGVector? {
+        get { pullDirections.first }
+        set { pullDirections = newValue.map { [$0] } ?? [] }
+    }
     /// Whether it can be lifted and carried at all (a show's bubble can't, only held).
     var canCarry = true
 
@@ -98,7 +104,7 @@ nonisolated struct GestureIntent {
     private var lastTime: TimeInterval = 0
 
     init(pullDirection: CGVector? = nil, canCarry: Bool = true, thresholds: Thresholds = Thresholds()) {
-        self.pullDirection = pullDirection
+        self.pullDirections = pullDirection.map { [$0] } ?? []
         self.canCarry = canCarry
         self.thresholds = thresholds
     }
@@ -162,7 +168,8 @@ nonisolated struct GestureIntent {
             if moved > t.slop {
                 // Off at once: toward where it's dropped, a flick carries it; any other way
                 // is the field's.
-                if canCarry, let pull = pullDirection, angle(between: offset(from: start), and: pull) <= t.pullCone {
+                let way = offset(from: start)
+                if canCarry, pullDirections.contains(where: { angle(between: way, and: $0) <= t.pullCone }) {
                     intent = .pull
                 } else {
                     intent = .scroll
