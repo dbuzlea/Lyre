@@ -1217,6 +1217,44 @@ final class LiquidUITests: XCTestCase {
         XCTAssertTrue(waitForGone(element(app, "liquid.spread")), "The songs stayed out")
     }
 
+    /// A song in a list, rested on a moment, lifts (GestureIntent); carried across the fold
+    /// into Now Playing, it plays as tapping it would. The list doesn't scroll meanwhile.
+    @MainActor
+    func testASongRestedOnAndCarriedIntoNowPlayingPlays() throws {
+        let app = try launchBook(["--spool-sample-queue"])
+        XCTAssertTrue(element(app, "liquid.book.songs").waitForExistence(timeout: 10))
+        element(app, "liquid.book.songs").tap()
+        let song = element(app, "liquid.songs.track.2")
+        XCTAssertTrue(song.waitForExistence(timeout: 5), "Songs didn't open")
+        sleep(1)
+        let before = song.frame
+        // Rest a moment (lifted), then carry it left, across the fold, into Now Playing.
+        let nowPlaying = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.45))
+        song.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.3, thenDragTo: nowPlaying, withVelocity: .slow, thenHoldForDuration: 0.3)
+        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Carrying the song into Now Playing didn't play it")
+        XCTAssertEqual(song.frame.minY, before.minY, accuracy: 4, "The list scrolled while the song was carried")
+
+        // A swipe straight up still scrolls the list, lifting nothing.
+        let first = element(app, "liquid.songs.track.0")
+        first.swipeUp()
+        XCTAssertFalse(element(app, "liquid.carriedSong.title").exists, "A swipe lifted a song")
+    }
+
+    /// A single's bubble held opens nothing (no page of its one song, no spread): it stays
+    /// lifted, to be carried.
+    @MainActor
+    func testHoldingASinglesBubbleOpensNothing() throws {
+        let app = try launchBook()
+        let single = element(app, "liquid.bubble.sample-3")
+        XCTAssertTrue(single.waitForExistence(timeout: 10), "No single among the bubbles")
+        single.press(forDuration: 1.0)
+        sleep(1)
+        XCTAssertFalse(element(app, "liquid.album.play").exists, "Holding a single opened its page")
+        XCTAssertFalse(element(app, "liquid.spread").exists, "Holding a single spread its song")
+        XCTAssertTrue(single.exists, "The bubbles went")
+    }
+
     /// The album's page is the first of a held bubble's little bubbles; and a tap beside
     /// them puts them away.
     @MainActor
