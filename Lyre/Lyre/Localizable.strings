@@ -847,6 +847,7 @@
 "liquid.recentlyPlayed.empty" = "Songs you play show up here.";
 "liquid.recentlyAdded.empty" = "Songs you add to your library show up here.";
 "liquid.openAlbum.hint" = "Opens the album playing.";
+"liquid.openArtist.hint" = "Opens the artist's page.";
 "liquid.tour.changeSongs.title" = "Change Songs";
 "liquid.tour.changeSongs.detail" = "Pull the wave on the right edge for the next song, or the left for the one before. Tapping a wave works too.";
 "liquid.tour.notches.title" = "Just the Cover";

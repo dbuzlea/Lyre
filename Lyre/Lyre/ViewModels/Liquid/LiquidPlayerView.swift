@@ -165,6 +165,7 @@ struct LiquidPlayerView: View {
                                         speed: speed / tideHeight)
                         },
                         onOpenPlayingAlbum: openPlayingAlbum,
+            onOpenPlayingArtist: openPlayingArtist,
                         onDismissDrag: { drop in nowPlayingDrop = drop },
                         onDismissDragEnd: { drop, heading, speed in endDismiss(drop: drop, heading: heading, speed: speed) }
                     )
@@ -509,6 +510,7 @@ struct LiquidPlayerView: View {
                 }
             },
             onOpenPlayingAlbum: openPlayingAlbum,
+            onOpenPlayingArtist: openPlayingArtist,
             lean: lean,
             splash: splash,
             railEdge: railEdge,
@@ -1746,6 +1748,19 @@ struct LiquidPlayerView: View {
                 screen = .library
                 path = [.album(album)]
             }
+        }
+    }
+
+    /// Floods from Now Playing into the page of the artist playing (their name tapped).
+    private func openPlayingArtist() {
+        // The album's artist where it's known (a song's own name can carry its guests too).
+        guard let name = playingAlbum?.artistName ?? musicService.nowPlayingTrack?.artistName, !name.isEmpty else {
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.4)
+            return
+        }
+        floodAction(nowPlayingColor.liquidDeep, nil) {
+            screen = .library
+            path = [.artists, .artist(name)]
         }
     }
 
