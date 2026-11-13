@@ -10,8 +10,8 @@ import SwiftUI
 // An iPhone Duo open, an album's or a playlist's bubble held: its songs burst out around
 // it as little bubbles, numbered, with one for the whole album's page first. The finger
 // that held it slides to one and lets go to play the album from that song; or carries
-// one on across the fold to play it in Now Playing. Picked up, an Up Next bubble comes
-// up among them, in the next place free: let go on it (or on Up Next's bulge at Now
+// one on across the fold to play it in Now Playing. Picked up, a big Up Next bubble comes
+// up among them, in the nearest open place: let go on it (or on Up Next's bulge at Now
 // Playing's foot), the song joins Up Next, after any queued by hand (LiquidUpNextWell). Lifted over none, they stay out to
 // be tapped or carried; a tap anywhere else puts them away.
 //
@@ -54,6 +54,39 @@ enum TrackSpreadLayout {
         return places.prefix(count).map(\.point)
     }
 
+    /// Where a bubble `diameter` wide fits among the little bubbles (`slots`) without
+    /// touching any of them or the held bubble: the open place nearest the held bubble,
+    /// with room below for its label. Nil if there's none.
+    static func openSpot(for diameter: CGFloat, avoiding slots: [CGPoint], held center: CGPoint,
+                         heldDiameter: CGFloat, within bounds: CGRect) -> CGPoint? {
+        let label: CGFloat = 26
+        let width = bounds.width - diameter - 12, height = bounds.height - diameter - 12 - label
+        // (Checked before making the rect: a CGRect turns a negative size positive.)
+        guard width > 0, height > 0 else { return nil }
+        let area = CGRect(x: bounds.minX + diameter / 2 + 6, y: bounds.minY + diameter / 2 + 6,
+                          width: width, height: height)
+        let clearOfSlot = diameter / 2 + bubble / 2 + gap
+        let clearOfHeld = diameter / 2 + heldDiameter / 2 + gap
+        var best: (point: CGPoint, distance: CGFloat)?
+        var y = area.minY
+        while y <= area.maxY {
+            var x = area.minX
+            while x <= area.maxX {
+                let point = CGPoint(x: x, y: y)
+                let toHeld = hypot(x - center.x, y - center.y)
+                // Its label hangs below it: keep that clear of the songs too.
+                if toHeld >= clearOfHeld, toHeld < (best?.distance ?? .infinity),
+                   slots.allSatisfy({ hypot($0.x - x, $0.y - y) >= clearOfSlot
+                       && hypot($0.x - x, $0.y - (y + diameter / 2 + label / 2)) >= bubble / 2 + label / 2 }) {
+                    best = (point, toHeld)
+                }
+                x += 8
+            }
+            y += 8
+        }
+        return best?.point
+    }
+
     /// The place nearest `point`, if it's on (or near enough) one of them.
     static func slot(at point: CGPoint, in slots: [CGPoint]) -> Int? {
         let reach = bubble * 0.75
@@ -89,19 +122,22 @@ struct TrackSpread {
     var swallowed: Int?
     /// The carried one is over Up Next (the bubble here, or the bulge): let go, it joins.
     var isOverUpNext = false
-    /// Where the Up Next bubble comes up while a song's carried: the next place free
-    /// after the songs; nil if the page has no room for it.
+    /// Where the Up Next bubble comes up while a song's carried: the open place nearest
+    /// the held bubble (TrackSpreadLayout.openSpot); nil if the page has no room for it.
     var upNextSpot: CGPoint?
     /// Bumped as the Up Next bubble swallows a song, for its gulp.
     var upNextGulps = 0
+    /// How wide it is here: as big as it goes (`upNextDiameter`), smaller where the
+    /// songs leave less room, never as small as a song's.
+    var upNextSize: CGFloat = TrackSpread.upNextDiameter
 
-    /// How wide the Up Next bubble is: a little bigger than a song's.
-    static let upNextDiameter: CGFloat = 60
+    /// How wide the Up Next bubble is: twice a song's, so it stands out among them.
+    static let upNextDiameter: CGFloat = 96
 
     /// The Up Next bubble on screen, for a song carried to it.
     var upNextFrame: CGRect {
         guard let upNextSpot else { return .zero }
-        let d = Self.upNextDiameter
+        let d = upNextSize
         return CGRect(x: upNextSpot.x - d / 2, y: upNextSpot.y - d / 2, width: d, height: d)
     }
 

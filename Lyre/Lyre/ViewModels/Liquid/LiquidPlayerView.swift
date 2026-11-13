@@ -82,6 +82,8 @@ struct LiquidPlayerView: View {
     /// A held bubble's songs spread around it (TrackSpread); where the finger had gone
     /// before they'd come; and whether a carried one is over the fold, felt once.
     @State private var spread: TrackSpread?
+    /// Bumped as Up Next's bubble swallows a carried bubble, for its gulp.
+    @State private var fieldUpNextGulps = 0
     @State private var pendingSpreadFinger: CGPoint?
     @State private var spreadPastFold = false
     /// `-LiquidInkShot`: the ink held this far through its spread, for screenshots.
@@ -752,6 +754,12 @@ struct LiquidPlayerView: View {
         var hasTouched = false
         /// Its album's colour, for the ink it becomes in Now Playing.
         var color: Color?
+        /// Carried by a finger (not flown there by a tap): Up Next's bubble comes up.
+        var isDragged = false
+        /// Over Up Next's bubble: let go, it joins Up Next (felt once on the way in).
+        var isOverUpNext = false
+        /// Let go on Up Next's bubble, and going down into it.
+        var isQueued = false
 
         init(album: AppAlbum, diameter: CGFloat, center: CGPoint, origin: CGPoint) {
             self.album = album
@@ -822,6 +830,13 @@ struct LiquidPlayerView: View {
         }
         moved.movedAt = now
         moved.finger = center
+        moved.isDragged = true
+        // Over Up Next's bubble (not a show's: its episodes don't queue): felt once.
+        let overUpNext = !album.isPodcast && fieldUpNextCatches(center)
+        if overUpNext != moved.isOverUpNext {
+            moved.isOverUpNext = overUpNext
+            if overUpNext { UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.8) }
+        }
         let raw = pastFold(center) + r
         // Through the surface, it goes where the finger takes it, under the water, until
         // it's let go; carried all the way back out, the surface closes behind it.
@@ -889,6 +904,11 @@ struct LiquidPlayerView: View {
     private func drop(_ album: AppAlbum, heading: CGPoint, velocity: CGPoint) {
         guard var carried, !carried.isTakenIn, carried.album.id == album.id else { return }
         let r = carried.diameter / 2
+        // Let go on Up Next's bubble: down into it, and into Up Next.
+        if !carried.isThrough, !album.isPodcast, fieldUpNextCatches(carried.finger) {
+            queueCarried()
+            return
+        }
         // Let go in the water, or flung through the surface: taken in, and only now.
         if carried.isThrough || FoldWater.breaks(pastFold(heading) + r, radius: r) {
             takeIn()
@@ -909,6 +929,58 @@ struct LiquidPlayerView: View {
             self.carried?.velocity = .zero
         } completion: {
             if self.carried?.isTakenIn == false { self.carried = nil }
+        }
+    }
+
+    /// Where Up Next's bubble comes up while a bubble is carried from the field: at the
+    /// foot of the section's page, in the middle, clear of the side bar.
+    private var fieldUpNextSpot: CGPoint? {
+        guard sectionFrame.width > 0 else { return nil }
+        let room = spreadRoom
+        let d = TrackSpread.upNextDiameter
+        return CGPoint(x: room.midX, y: room.maxY - d / 2 - 40)
+    }
+
+    /// The section's page less the side bar down its edge and the top: where a held
+    /// bubble's songs, and Up Next's bubble, go.
+    private var spreadRoom: CGRect {
+        var room = sectionFrame
+        room.size.width -= foldIsAcross || !SideRail.isOn(safeArea) ? 58 : SideRail.column(safeArea)
+        room.origin.y += 60
+        room.size.height -= 60
+        return room
+    }
+
+    private func fieldUpNextCatches(_ point: CGPoint) -> Bool {
+        guard let spot = fieldUpNextSpot else { return false }
+        let d = TrackSpread.upNextDiameter
+        return LiquidUpNextWell.catches(point, frame: CGRect(x: spot.x - d / 2, y: spot.y - d / 2, width: d, height: d))
+    }
+
+    /// A carried bubble let go on Up Next's bubble: it goes down into it, which gulps, and
+    /// its songs join Up Next, after any queued by hand.
+    private func queueCarried() {
+        guard var queued = carried, let spot = fieldUpNextSpot else { return }
+        queued.isTakenIn = true
+        queued.isQueued = true
+        queued.velocity = .zero
+        _ = queued.neck.release()
+        withTransaction(Transaction(animation: nil)) { carried = queued }
+        FoldHaptics.shared.release()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        fieldUpNextGulps += 1
+        let album = queued.album
+        Task {
+            let loaded = await library.tracks(for: album)
+            let tracks = loaded.isEmpty ? album.tapeSongs(album.preloadedTracks) : loaded
+            quickQueue(tracks, name: album.title)
+        }
+        withAnimation(.easeIn(duration: reduceMotion ? 0.01 : 0.3)) {
+            carried?.center = spot
+            carried?.takenIn = 1
+            carried?.opacity = 0
+        } completion: {
+            carried = nil
         }
     }
 
@@ -1010,6 +1082,21 @@ struct LiquidPlayerView: View {
         }
         return ZStack(alignment: .topLeading) {
             if let ink { inkLayer(ink, origin: origin, now: now) }
+            // Up Next's bubble, come up at the foot of the page while a bubble's carried:
+            // drawn toward it as it nears, gulping it down when it's let go on it.
+            if let carried, let spot = fieldUpNextSpot, !carried.album.isPodcast,
+               (carried.isDragged && !carried.isTakenIn) || carried.isQueued {
+                let d = TrackSpread.upNextDiameter
+                let frame = CGRect(x: spot.x - d / 2, y: spot.y - d / 2, width: d, height: d)
+                let draw = carried.isQueued ? (pull: CGFloat(0), lean: CGFloat(0))
+                    : LiquidUpNextWell.draw(toward: carried.finger, frame: frame)
+                let toward = CGVector(dx: carried.finger.x - spot.x, dy: carried.finger.y - spot.y)
+                let length = max(1, hypot(toward.dx, toward.dy))
+                UpNextDropBubble(diameter: d, pull: draw.pull, lean: CGVector(dx: toward.dx / length, dy: toward.dy / length),
+                                 gulps: fieldUpNextGulps)
+                    .position(local(spot))
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.3).combined(with: .opacity))
+            }
             if let carried {
                 let r = carried.diameter / 2
                 let pressure = carried.isTakenIn || carried.isThrough ? 0 : FoldWater.pressure(carried.push, radius: r)
@@ -1127,16 +1214,20 @@ struct LiquidPlayerView: View {
             }
             // Within the section's page, clear of the side bar down its edge and of the top,
             // where a finger reaches badly and a tap can be taken for the status bar's.
-            var room = sectionFrame
-            room.size.width -= foldIsAcross || !SideRail.isOn(safeArea) ? 58 : SideRail.column(safeArea)
-            room.origin.y += 60
-            room.size.height -= 60
+            let room = spreadRoom
             spread?.tracks = tracks
-            // The page's bubble, the songs', and one more place for Up Next's bubble.
-            let places = TrackSpreadLayout.slots(count: tracks.count + 2, around: center,
-                                                 diameter: diameter, within: room)
-            spread?.slots = Array(places.prefix(tracks.count + 1))
-            spread?.upNextSpot = places.count == tracks.count + 2 ? places.last : nil
+            let slots = TrackSpreadLayout.slots(count: tracks.count + 1, around: center,
+                                                diameter: diameter, within: room)
+            spread?.slots = slots
+            // Up Next's bubble, big, in the open place nearest the held one; smaller if
+            // that's what fits; or, with no room at all, at the foot of the page.
+            let open = [1, 0.8, 0.64].lazy.compactMap { scale -> (CGPoint, CGFloat)? in
+                let size = TrackSpread.upNextDiameter * scale
+                return TrackSpreadLayout.openSpot(for: size, avoiding: slots, held: center,
+                                                  heldDiameter: diameter, within: room).map { ($0, size) }
+            }.first
+            spread?.upNextSpot = open?.0 ?? fieldUpNextSpot
+            spread?.upNextSize = open?.1 ?? TrackSpread.upNextDiameter
             withAnimation(reduceMotion ? .easeInOut(duration: 0.2) : LyreMotion.light) { spread?.isOut = true }
             if let finger = pendingSpreadFinger { moveSpread(finger) }
             if spread?.isHeld == false, let finger = pendingSpreadFinger { endSpread(finger) }
@@ -1237,7 +1328,7 @@ struct LiquidPlayerView: View {
             let page = nowPlayingPage
             splash = LiquidSplash(point: CGPoint(x: mouth.x - page.minX, y: mouth.y - page.minY), strength: 0.6)
         }
-        quickQueue(song.track)
+        quickQueue([song.track], name: song.track.title)
         Task {
             // Long enough to see it gulped.
             try? await Task.sleep(for: .milliseconds(intoBubble ? 420 : 220))
@@ -1245,15 +1336,16 @@ struct LiquidPlayerView: View {
         }
     }
 
-    /// A song dropped on Up Next: after those queued by hand, or next with none.
-    private func quickQueue(_ track: AppTrack) {
+    /// Songs dropped on Up Next: after those queued by hand, or next with none.
+    private func quickQueue(_ tracks: [AppTrack], name: String) {
+        guard !tracks.isEmpty else { return }
         Task {
-            let (outcome, afterOthers) = await musicService.quickQueue(track)
+            let (outcome, afterOthers) = await musicService.quickQueue(tracks)
             if !outcome.succeeded {
                 UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.4)
             }
-            showNotice(outcome.message(name: track.title, requested: 1,
-                                       placement: afterOthers ? .last : .next, isCollection: false))
+            showNotice(outcome.message(name: name, requested: tracks.count,
+                                       placement: afterOthers ? .last : .next, isCollection: tracks.count > 1))
         }
     }
 
@@ -1363,7 +1455,7 @@ struct LiquidPlayerView: View {
                         : (pull: CGFloat(0), lean: CGFloat(0))
                     let toward = CGVector(dx: spread.carriedAt.x - spot.x, dy: spread.carriedAt.y - spot.y)
                     let length = max(1, hypot(toward.dx, toward.dy))
-                    SpreadUpNextBubble(pull: draw.pull,
+                    UpNextDropBubble(diameter: spread.upNextSize, pull: draw.pull,
                                        lean: CGVector(dx: toward.dx / length, dy: toward.dy / length),
                                        gulps: spread.upNextGulps)
                         .position(x: spot.x - origin.x, y: spot.y - origin.y)
@@ -1842,51 +1934,62 @@ enum BookSection: String, CaseIterable, Identifiable {
 }
 
 
-/// The Up Next bubble among a held bubble's songs while one's carried (TrackSpread): it
-/// swells and leans toward the song as it comes, as the fold's water does, rims brighter,
-/// and gulps when the song's let go on it.
-private struct SpreadUpNextBubble: View {
+/// Up Next, as a bubble to drop on: among a held bubble's songs while one's carried
+/// (TrackSpread), or at the foot of the page while a bubble is (Liquid's open layouts).
+/// Twice a song bubble's size and lit, so it stands out from them: a pale film with the
+/// symbol dark on it, a glow, and a slow breath while it waits. It swells and leans toward
+/// what's carried as it comes, as the fold's water does, and gulps when it's let go on it.
+private struct UpNextDropBubble: View {
+    var diameter: CGFloat = TrackSpread.upNextDiameter
     /// 0 out of reach … 1 over it.
     let pull: CGFloat
-    /// Toward the song, a unit vector.
+    /// Toward what's carried, a unit vector.
     let lean: CGVector
     let gulps: Int
     @State private var gulp: CGFloat = 0
+    @State private var breath = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let d = TrackSpread.upNextDiameter
-        VStack(spacing: 4) {
-            LiquidSoapBubble(diameter: d, isLight: true, flattens: true, seed: "up-next") {
+        let d = diameter
+        VStack(spacing: 6) {
+            LiquidSoapBubble(diameter: d, wobbles: !reduceMotion, flattens: true, seed: "up-next") {
                 ZStack {
-                    Color(white: 0.16)
+                    LinearGradient(colors: [Color(white: 0.97), Color(white: 0.78)],
+                                   startPoint: .top, endPoint: .bottom)
                     Image(systemName: "text.line.last.and.arrowtriangle.forward")
-                        .font(.system(size: 21, weight: .bold))
-                        .foregroundStyle(.white)
+                        .font(.system(size: d * 0.35, weight: .bold))
+                        .foregroundStyle(.black)
                 }
             }
-            .overlay(Circle().strokeBorder(.white.opacity(0.35 + 0.6 * pull), lineWidth: 2 + pull))
             .frame(width: d, height: d)
-            .scaleEffect(1 + 0.3 * pull + gulp)
-            .offset(x: lean.dx * 9 * pull, y: lean.dy * 9 * pull)
+            .background(Circle().fill(.white.opacity(0.25 + 0.35 * pull)).blur(radius: 18 + 10 * pull))
+            .overlay(Circle().strokeBorder(.white.opacity(0.6 + 0.4 * pull), lineWidth: 2.5 + 1.5 * pull))
+            .scaleEffect((breath ? 1.04 : 1) + 0.22 * pull + gulp)
+            .offset(x: lean.dx * 12 * pull, y: lean.dy * 12 * pull)
             .animation(.spring(response: 0.25, dampingFraction: 0.6), value: pull)
             Text(String(localized: "liquid.upNext"))
-                .lyreFont(size: 11, weight: .semibold, maxScale: 1.5)
-                .tracking(1)
+                .lyreFont(size: 13, weight: .heavy, maxScale: 1.5)
+                .tracking(1.2)
                 .textCase(.uppercase)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .lyreFill(.black, 0.5, in: Capsule())
+                .foregroundStyle(.black)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(.white, in: Capsule())
                 .fixedSize()
         }
         // The label hangs below; the bubble is what sits on the spot.
-        .offset(y: 11)
+        .offset(y: 15)
+        .onAppear {
+            guard !reduceMotion, !AppEnvironment.isUITesting else { return }
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { breath = true }
+        }
         .onChange(of: gulps) {
             guard !reduceMotion else { return }
-            withAnimation(.spring(response: 0.16, dampingFraction: 0.5)) { gulp = 0.35 }
+            withAnimation(.spring(response: 0.16, dampingFraction: 0.5)) { gulp = 0.3 }
             withAnimation(.spring(response: 0.45, dampingFraction: 0.45).delay(0.14)) { gulp = 0 }
         }
+        .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(String(localized: "liquid.upNext"))
         .accessibilityIdentifier("liquid.spread.upNext")
