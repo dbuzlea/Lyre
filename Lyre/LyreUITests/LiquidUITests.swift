@@ -104,6 +104,34 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "liquid-hold-opens-album")
     }
 
+    /// Under the song's name in Now Playing, the artist's name opens their page and the
+    /// album's name its songs.
+    @MainActor
+    func testNowPlayingsArtistAndAlbumNamesOpenTheirPages() throws {
+        let app = try launchLiquid(["-LiquidShot", "nowPlaying"])
+        let artist = element(app, "liquid.nowPlaying.artist")
+        XCTAssertTrue(artist.waitForExistence(timeout: 10), "Now Playing's artist isn't a link")
+        let dismiss = app.alerts.buttons["Dismiss"]
+        if dismiss.waitForExistence(timeout: 5) { dismiss.tap() }
+        sleep(1)
+        XCTAssertTrue(element(app, "liquid.nowPlaying.album").exists, "Now Playing's album isn't a link")
+        attachScreenshot(app, named: "liquid-now-playing-credits")
+        artist.tap()
+        XCTAssertTrue(element(app, "liquid.artist.photo").waitForExistence(timeout: 5),
+                      "The artist's name didn't open their page")
+        app.terminate()
+
+        let again = try launchLiquid(["-LiquidShot", "nowPlaying"])
+        let album = element(again, "liquid.nowPlaying.album")
+        XCTAssertTrue(album.waitForExistence(timeout: 10))
+        let dismissAgain = again.alerts.buttons["Dismiss"]
+        if dismissAgain.waitForExistence(timeout: 5) { dismissAgain.tap() }
+        sleep(1)
+        album.tap()
+        XCTAssertTrue(element(again, "liquid.album.play").waitForExistence(timeout: 5),
+                      "The album's name didn't open its songs")
+    }
+
     @MainActor
     func testPullingUpNextUpRaisesItLikeASheet() throws {
         let app = try launchLiquid(["-LiquidShot", "nowPlaying"])

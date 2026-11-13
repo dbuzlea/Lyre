@@ -48,6 +48,8 @@ struct LiquidNowPlayingView: View {
     /// The cover dragged down, to go back to the library: the same two.
     /// Opens the page of the album (or playlist, or show) playing.
     var onOpenPlayingAlbum: () -> Void = {}
+    /// The artist's name tapped: their page.
+    var onOpenPlayingArtist: () -> Void = {}
     var onDismissDrag: (CGFloat) -> Void = { _ in }
     var onDismissDragEnd: (CGFloat, CGFloat, CGFloat) -> Void = { _, _, _ in }
     /// iPhone Duo, partly open: which way the fold is, and how far the waves lean
@@ -540,26 +542,24 @@ struct LiquidNowPlayingView: View {
         let isPodcast = musicService.isPlayingPodcast
         return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 16) {
-                // The name opens its album.
-                Button(action: onOpenPlayingAlbum) {
-                    VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 0) {
+                    // The name opens its album.
+                    Button(action: onOpenPlayingAlbum) {
                         Text(track.title)
                             .lyreFont(size: 28, weight: .bold, maxScale: 1.5)
                             .lineLimit(2)
                             .minimumScaleFactor(0.7)
-                        Text(subtitle(for: track))
-                            .lyreFont(size: 16, maxScale: 1.5)
-                            .lyreInk(.white, 0.8)
-                            .lineLimit(1)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                     }
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                    .buttonStyle(LyrePressStyle(isRow: true))
+                    .accessibilityHint(String(localized: "liquid.openAlbum.hint"))
+                    .accessibilityIdentifier("liquid.nowPlaying")
+                    // Under it, who and what it's from, each a way to them: the artist to
+                    // their page, the album to its songs (a show's name, to the show).
+                    credits(for: track)
                 }
-                .buttonStyle(LyrePressStyle(isRow: true))
-                .accessibilityElement(children: .combine)
-                .accessibilityHint(String(localized: "liquid.openAlbum.hint"))
-                .accessibilityIdentifier("liquid.nowPlaying")
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     Task { await musicService.togglePlayPause() }
@@ -622,9 +622,46 @@ struct LiquidNowPlayingView: View {
         .accessibilityIdentifier("liquid.speed")
     }
 
-    private func subtitle(for track: AppTrack) -> String {
-        if let episode = musicService.currentEpisode, episode.id == track.id { return episode.showTitle }
-        return track.albumTitle.isEmpty ? track.artistName : "\(track.artistName) — \(TapeFormat.displayTitle(track.albumTitle))"
+    /// "Artist — Album" under the song's name: the artist opens their page, the album its
+    /// songs. A show's episode: the show's name, opening the show.
+    @ViewBuilder
+    private func credits(for track: AppTrack) -> some View {
+        if let episode = musicService.currentEpisode, episode.id == track.id {
+            creditLink(episode.showTitle, id: "liquid.nowPlaying.album", hint: "liquid.openAlbum.hint",
+                       action: onOpenPlayingAlbum)
+        } else if track.albumTitle.isEmpty {
+            creditLink(track.artistName, id: "liquid.nowPlaying.artist", hint: "liquid.openArtist.hint",
+                       action: onOpenPlayingArtist)
+        } else {
+            HStack(spacing: 0) {
+                creditLink(track.artistName, id: "liquid.nowPlaying.artist", hint: "liquid.openArtist.hint",
+                           action: onOpenPlayingArtist)
+                    .layoutPriority(1)
+                Text(" — ")
+                    .lyreFont(size: 16, maxScale: 1.5)
+                    .lyreInk(.white, 0.8)
+                    .accessibilityHidden(true)
+                creditLink(TapeFormat.displayTitle(track.albumTitle), id: "liquid.nowPlaying.album",
+                           hint: "liquid.openAlbum.hint", action: onOpenPlayingAlbum)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func creditLink(_ text: String, id: String, hint: String.LocalizationValue,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(text)
+                .lyreFont(size: 16, maxScale: 1.5)
+                .lyreInk(.white, 0.8)
+                .lineLimit(1)
+                // Room for a finger above and below the words.
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(LyrePressStyle(isRow: true))
+        .accessibilityHint(String(localized: hint))
+        .accessibilityIdentifier(id)
     }
 
     /// The bulge on the bottom edge: tapped, or pulled up, it raises Up Next.
