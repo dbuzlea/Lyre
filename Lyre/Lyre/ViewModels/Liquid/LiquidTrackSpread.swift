@@ -10,8 +10,9 @@ import SwiftUI
 // An iPhone Duo open, an album's or a playlist's bubble held: its songs burst out around
 // it as little bubbles, numbered, with one for the whole album's page first. The finger
 // that held it slides to one and lets go to play the album from that song; or carries
-// one on across the fold to play it in Now Playing, or onto Up Next's bulge at Now
-// Playing's foot to add it to Up Next (LiquidUpNextWell). Lifted over none, they stay out to
+// one on across the fold to play it in Now Playing. Picked up, an Up Next bubble comes
+// up among them, in the next place free: let go on it (or on Up Next's bulge at Now
+// Playing's foot), the song joins Up Next, after any queued by hand (LiquidUpNextWell). Lifted over none, they stay out to
 // be tapped or carried; a tap anywhere else puts them away.
 //
 // Here, where the little bubbles go (kept apart from the drawing, so it can be tested);
@@ -86,8 +87,23 @@ struct TrackSpread {
     var isOut = false
     /// The one let go on Up Next's bulge, swallowed by it (LiquidUpNextWell).
     var swallowed: Int?
-    /// The carried one is over Up Next's bulge: let go, it joins Up Next.
+    /// The carried one is over Up Next (the bubble here, or the bulge): let go, it joins.
     var isOverUpNext = false
+    /// Where the Up Next bubble comes up while a song's carried: the next place free
+    /// after the songs; nil if the page has no room for it.
+    var upNextSpot: CGPoint?
+    /// Bumped as the Up Next bubble swallows a song, for its gulp.
+    var upNextGulps = 0
+
+    /// How wide the Up Next bubble is: a little bigger than a song's.
+    static let upNextDiameter: CGFloat = 60
+
+    /// The Up Next bubble on screen, for a song carried to it.
+    var upNextFrame: CGRect {
+        guard let upNextSpot else { return .zero }
+        let d = Self.upNextDiameter
+        return CGRect(x: upNextSpot.x - d / 2, y: upNextSpot.y - d / 2, width: d, height: d)
+    }
 
     /// The first slot is the album's page.
     static let pageSlot = 0

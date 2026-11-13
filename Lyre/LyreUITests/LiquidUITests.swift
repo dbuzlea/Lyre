@@ -1198,6 +1198,25 @@ final class LiquidUITests: XCTestCase {
         attachScreenshot(app, named: "duo-book-dropped-in-up-next")
     }
 
+    /// Carried, a song brings up an Up Next bubble among the others; let go on it, the song
+    /// joins Up Next and the songs go away.
+    @MainActor
+    func testASpreadSongDroppedOnItsUpNextBubbleIsQueued() throws {
+        let app = try launchBook(["--spool-sample-queue"])
+        let bubble = element(app, "liquid.bubble.sample-1")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 10))
+        bubble.press(forDuration: 0.8)
+        let song = element(app, "liquid.spread.track.4")
+        let well = element(app, "liquid.spread.upNext")
+        XCTAssertTrue(song.waitForExistence(timeout: 5), "Holding didn't spread its songs")
+        XCTAssertTrue(well.waitForExistence(timeout: 3), "No Up Next bubble among the songs")
+        sleep(1)
+        attachScreenshot(app, named: "duo-book-spread-up-next")
+        song.press(forDuration: 0.1, thenDragTo: well, withVelocity: .slow, thenHoldForDuration: 0.6)
+        XCTAssertTrue(element(app, "liquid.notice").waitForExistence(timeout: 5), "Dropping on Up Next didn't queue the song")
+        XCTAssertTrue(waitForGone(element(app, "liquid.spread")), "The songs stayed out")
+    }
+
     /// The album's page is the first of a held bubble's little bubbles; and a tap beside
     /// them puts them away.
     @MainActor

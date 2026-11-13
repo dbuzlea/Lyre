@@ -1867,6 +1867,27 @@ class MusicService: ObservableObject {
         logger.info("Put '\(track.title)' back in the queue")
     }
 
+    // MARK: Quick Queue
+
+    /// Where a song dropped on Up Next goes (Liquid's quick drop): after the songs already
+    /// queued by hand, or, with none, next. The rest of the album or list playing, which
+    /// Up Next carries on with, stays after it either way.
+    var quickQueueOffset: Int {
+        upNext.lastIndex { listenerQueued[$0.id] != nil }.map { $0 + 1 } ?? 0
+    }
+
+    /// A song added to Up Next at `quickQueueOffset`. Returns how it went, and whether it
+    /// went after other queued songs (true) or next.
+    func quickQueue(_ track: AppTrack) async -> (outcome: QueueAddOutcome, afterOthers: Bool) {
+        let target = quickQueueOffset
+        let outcome = await addToQueue(track, placement: .next)
+        guard case .queued = outcome, target > 0, target < upNext.count else { return (outcome, false) }
+        reorderUpNext(from: 0, to: target)
+        commitQueueMove(to: target)
+        logger.info("Quick-queued '\(track.title)' after \(target) queued song(s)")
+        return (outcome, true)
+    }
+
     /// Empties Up Next, leaving the current track playing. Returns how many tracks
     /// were dropped. Main thread only.
     @discardableResult
@@ -1957,9 +1978,10 @@ class MusicService: ObservableObject {
 
     /// Fills the queue model with tracks that have nothing behind them, so Up Next can be
     /// shown and UI-tested on a simulator with no music. The player is left alone.
-    func seedQueueForUITests(_ tracks: [AppTrack], startingAt index: Int = 0) {
+    func seedQueueForUITests(_ tracks: [AppTrack], startingAt index: Int = 0, queuedByHand: [String] = []) {
         playbackQueue = PlaybackQueue(tracks: tracks, currentIndex: index)
         queueSeededForUITests = true
+        for id in queuedByHand { listenerQueued[id, default: 0] += 1 }
         // `--queued-by-hand` makes Up Next songs the listener queued, so starting
         // something new asks first.
         if ProcessInfo.processInfo.arguments.contains("--queued-by-hand") {
