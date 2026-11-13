@@ -1269,6 +1269,25 @@ final class LiquidUITests: XCTestCase {
         XCTAssertFalse(element(app, "liquid.carriedSong.title").exists, "A swipe lifted a song")
     }
 
+    /// A song lifted and carried, let go back over the list (short of Now Playing), plays
+    /// nothing: only a drop across the fold plays it. (Its row's button used to take the
+    /// finger lifting as a tap.)
+    @MainActor
+    func testASongCarriedAndLetGoOverTheListDoesntPlay() throws {
+        let app = try launchBook(["--spool-sample-queue"])
+        XCTAssertTrue(element(app, "liquid.book.songs").waitForExistence(timeout: 10))
+        element(app, "liquid.book.songs").tap()
+        let song = element(app, "liquid.songs.track.2")
+        XCTAssertTrue(song.waitForExistence(timeout: 5), "Songs didn't open")
+        sleep(1)
+        // Rest (lifted), carry it a little down the list, and let go there.
+        let start = song.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.3, thenDragTo: start.withOffset(CGVector(dx: 10, dy: 60)),
+                    withVelocity: .slow, thenHoldForDuration: 0.2)
+        sleep(2)
+        XCTAssertFalse(element(app, "liquid.notice").exists, "Letting go over the list played the song")
+    }
+
     /// A single's bubble held opens nothing (no page of its one song, no spread): it stays
     /// lifted, to be carried.
     @MainActor

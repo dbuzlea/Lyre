@@ -325,6 +325,16 @@ struct LyreView: View {
             resetBacklightTimer()
             UIDevice.current.beginGeneratingDeviceOrientationNotifications()
             #if DEBUG
+            // `--spool-sample-queue` fills the queue with the first sample album's songs, and
+            // `--uitest-open-now-playing` starts on Now Playing: something to show there on a
+            // simulator with no music.
+            if ProcessInfo.processInfo.arguments.contains("--spool-sample-queue"),
+               musicService.upNext.isEmpty, let album = ShelfLibrary(musicService: musicService).albums.first {
+                musicService.seedQueueForUITests(album.preloadedTracks)
+            }
+            if ProcessInfo.processInfo.arguments.contains("--uitest-open-now-playing") {
+                navigateTo(.nowPlaying)
+            }
             // `--uitest-open-search` starts on the Search screen, for UI tests: turning
             // the wheel to it with synthesized drags is not reliable enough to test with.
             if ProcessInfo.processInfo.arguments.contains("--uitest-open-search") {
@@ -543,7 +553,9 @@ struct LyreView: View {
                     banner: banner,
                     searchQuery: $searchQuery,
                     searchResults: searchResults,
-                    onHoldNowPlaying: openPlayingAlbum
+                    onHoldNowPlaying: openPlayingAlbum,
+                    onOpenPlayingArtist: openPlayingArtist,
+                    onOpenPlayingAlbum: openPlayingAlbum
                 )
                 .frame(width: displayedLayout(in: containerSize).dimensions.width,
                        height: displayedLayout(in: containerSize).dimensions.height)
@@ -970,6 +982,24 @@ struct LyreView: View {
         } else {
             navigateTo(.albumDetail(album))
         }
+    }
+
+    /// Now Playing's artist tapped: their screen, as chosen from Artists.
+    private func openPlayingArtist() {
+        let library = ShelfLibrary(musicService: musicService)
+        let names = [library.playingAlbum?.artistName, musicService.currentTrack?.artistName].compactMap { $0 }
+        guard let artist = names.lazy.compactMap({ name in musicService.artists.first { $0.name == name } }).first
+                ?? names.first.map({ name in
+                    // Not among the library's artists (a song streamed from Apple Music): their
+                    // albums in the library, if any, under their name.
+                    AppArtist(id: "name:" + name, name: name,
+                              preloadedAlbums: library.albums.filter { $0.artistName == name })
+                }) else {
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.4)
+            return
+        }
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        navigateTo(.artistDetail(artist))
     }
 
     private func navigateTo(_ screen: LyreScreen) {

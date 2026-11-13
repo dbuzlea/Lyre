@@ -832,6 +832,11 @@ struct UpNextPile: View {
 struct Nameplate: View {
     let title: String
     let subtitle: String
+    /// What's playing, as ways to its artist and album (NowPlayingCredits); nil to just
+    /// say `subtitle`.
+    var credits: NowPlayingCreditsInfo?
+    var onArtist: () -> Void = {}
+    var onAlbum: () -> Void = {}
     @Environment(\.gramophoneTheme) private var theme
 
     var body: some View {
@@ -843,10 +848,20 @@ struct Nameplate: View {
             VStack(spacing: 1) {
                 Text(title)
                     .font(.system(size: 13, weight: .semibold, design: .serif))
-                Text(subtitle)
-                    .font(.system(size: 11, design: .serif))
-                    .italic()
-                    .opacity(0.75)
+                if let credits {
+                    NowPlayingCredits(info: credits, idPrefix: "gramophone", onArtist: onArtist,
+                                      onAlbum: onAlbum, touchPadding: 3) { text in
+                        Text(text)
+                            .font(.system(size: 11, design: .serif))
+                            .italic()
+                            .opacity(0.75)
+                    }
+                } else {
+                    Text(subtitle)
+                        .font(.system(size: 11, design: .serif))
+                        .italic()
+                        .opacity(0.75)
+                }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.8)
@@ -864,7 +879,7 @@ struct Nameplate: View {
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.metalDark, lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.35), radius: 3, y: 2)
         )
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: credits == nil ? .combine : .contain)
         .accessibilityIdentifier("gramophone.nameplate")
     }
 }

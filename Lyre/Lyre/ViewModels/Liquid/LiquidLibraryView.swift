@@ -1366,6 +1366,8 @@ struct LiquidSearchPage: View {
 /// added (newest first). Each row has its cover; tapped, it plays from there through the
 /// rest of the list, and swiped right, it offers Play Next and Add to Queue.
 struct LiquidSongsPage: View {
+    /// A song lifted out of a row and carried (LiquidSongCarry), for its row's tap.
+    @Environment(\.liquidSongCarry) private var songCarry
     let title: String
     let tracks: [AppTrack]
     let emptyText: String
@@ -1487,7 +1489,10 @@ struct LiquidSongsPage: View {
                     .listRowBackground(Color.clear)
 
                     ForEach(Array(shown.enumerated()), id: \.offset) { index, track in
-                        row(track, isPlaying: track.id == playingID) { onPlay(shown, index, false, title) }
+                        row(track, isPlaying: track.id == playingID) {
+                            // Not when the finger lifting ends a carry (LiquidSongCarry).
+                            if songCarry?.allowsTap ?? true { onPlay(shown, index, false, title) }
+                        }
                             // Rested on, lifted, to carry into Now Playing or Up Next.
                             .modifier(LiquidSongLift(track: track) { onPlay(shown, index, false, title) })
                             .id(index)
@@ -1625,6 +1630,8 @@ struct LiquidSongsPage: View {
 /// An album (or playlist, or show) opened: its cover across the top, melting into its own
 /// colour, then its name, Play and Shuffle, and its songs.
 struct LiquidAlbumPage: View {
+    /// A song lifted out of a row and carried (LiquidSongCarry), for its row's tap.
+    @Environment(\.liquidSongCarry) private var songCarry
     let album: AppAlbum
     let library: ShelfLibrary
     @ObservedObject var musicService: MusicService
@@ -1834,7 +1841,9 @@ struct LiquidAlbumPage: View {
         let playingID = musicService.currentEpisode?.id ?? musicService.currentTrack?.id
         let episodes = album.podcast?.episodesNewestFirst
         ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
-            Button { onPlay(album, tracks, index, false) } label: {
+            // Not when the finger lifting ends a carry (LiquidSongCarry): only a drop on Now
+            // Playing plays it then.
+            Button { if songCarry?.allowsTap ?? true { onPlay(album, tracks, index, false) } } label: {
                 HStack(spacing: 14) {
                     Group {
                         if track.id == playingID {

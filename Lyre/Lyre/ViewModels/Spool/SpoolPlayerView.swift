@@ -584,6 +584,9 @@ struct SpoolPlayerView: View {
             showCaseInDeck()
         } onPressingChanged: { isHoldingDoor = $0 }
         .accessibilityElement(children: .combine)
+        // The artist and album printed on the door, as ways to them (NowPlayingCredits).
+        .accessibilityAction(named: String(localized: "nowPlaying.goToArtist")) { openPlayingArtist() }
+        .accessibilityAction(named: String(localized: "nowPlaying.goToAlbum")) { showCaseInDeck() }
         .accessibilityIdentifier("spool.door")
         .accessibilityAddTraits(.isButton)
         .accessibilityHint(isBrowsing
@@ -947,9 +950,19 @@ struct SpoolPlayerView: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(nowPlayingTitle ?? String(localized: "spool.noTape"))
                 .lyreFont(size: titleSize, weight: .semibold, maxScale: 1.5)
-            Text(nowPlayingTitle == nil ? String(localized: "spool.noTape.hint") : nowPlayingSubtitle ?? "")
-                .lyreFont(size: subtitleSize, maxScale: 1.5)
-                .lyreFaded(0.75)
+            // The artist and the album, each a way to them (NowPlayingCredits).
+            if nowPlayingTitle != nil, let credits = nowPlayingCredits {
+                NowPlayingCredits(info: credits, idPrefix: "spool", onArtist: openPlayingArtist,
+                                  onAlbum: showCaseInDeck, touchPadding: 3) { text in
+                    Text(text)
+                        .lyreFont(size: subtitleSize, maxScale: 1.5)
+                        .lyreFaded(0.75)
+                }
+            } else {
+                Text(nowPlayingTitle == nil ? String(localized: "spool.noTape.hint") : nowPlayingSubtitle ?? "")
+                    .lyreFont(size: subtitleSize, maxScale: 1.5)
+                    .lyreFaded(0.75)
+            }
         }
         .lineLimit(1)
         .foregroundStyle(theme.ink)
@@ -1433,6 +1446,20 @@ struct SpoolPlayerView: View {
     /// The song on the door: a song from Up Next going in, or else what's playing.
     private var nowPlayingTitle: String? {
         pendingTrack?.title ?? musicService.currentTrack?.title ?? musicService.currentEpisode?.title
+    }
+
+    private var nowPlayingCredits: NowPlayingCreditsInfo? {
+        NowPlayingCreditsInfo(track: pendingTrack ?? musicService.currentTrack,
+                              episode: pendingTrack == nil ? musicService.currentEpisode : nil)
+    }
+
+    /// The artist's name on the door tapped: the shelf opened, searched for them.
+    private func openPlayingArtist() {
+        guard let name = library.playingAlbum?.artistName ?? (pendingTrack ?? musicService.currentTrack)?.artistName,
+              !name.isEmpty else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        shelfQuery = name
+        openDeck()
     }
 
     private var nowPlayingSubtitle: String? {

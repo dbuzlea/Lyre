@@ -951,7 +951,12 @@ struct DiscPlayerView: View {
             repeatMode: musicService.repeatMode,
             rate: musicService.isPlayingPodcast ? musicService.podcastRate : nil,
             status: lcdStatus,
-            showsRemaining: $showsRemaining
+            showsRemaining: $showsRemaining,
+            // Only for what's playing: not while a disc is going in, or waiting in the deck.
+            credits: pendingDisc == nil && deckLoad == nil
+                ? NowPlayingCreditsInfo(track: musicService.currentTrack, episode: musicService.currentEpisode) : nil,
+            onArtist: openPlayingArtist,
+            onAlbum: showCaseOfDisc
         )
         .contextMenu {
             if musicService.isPlayingPodcast {
@@ -977,6 +982,15 @@ struct DiscPlayerView: View {
         if deckLoad != nil { return String(localized: "disc.lcd.ready") }
         if deckDisc == nil { return String(localized: "disc.lcd.noDisc") }
         return nil
+    }
+
+    /// The artist on the display chosen: the shelf opened, searched for them.
+    private func openPlayingArtist() {
+        guard let name = library.playingAlbum?.artistName ?? musicService.currentTrack?.artistName,
+              !name.isEmpty else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        shelfQuery = name
+        if !isBrowsing { openDeck() }
     }
 
     private var lcdTitle: String {

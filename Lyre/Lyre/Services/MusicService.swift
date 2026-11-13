@@ -1988,6 +1988,11 @@ class MusicService: ObservableObject {
         playbackQueue = PlaybackQueue(tracks: tracks, currentIndex: index)
         queueSeededForUITests = true
         for id in queuedByHand { listenerQueued[id, default: 0] += 1 }
+        // `--uitest-now-playing`: and the first of them playing, as far as every player's
+        // Now Playing shows it (Liquid's reads the queue; the others, the current track).
+        if ProcessInfo.processInfo.arguments.contains("--uitest-now-playing"), tracks.indices.contains(index) {
+            currentTrack = tracks[index]
+        }
         // `--queued-by-hand` makes Up Next songs the listener queued, so starting
         // something new asks first.
         if ProcessInfo.processInfo.arguments.contains("--queued-by-hand") {
@@ -2702,6 +2707,12 @@ class MusicService: ObservableObject {
         if (currentMediaItem == nil) != (nowPlayingItem == nil) || currentMediaItem?.queueKey != nowPlayingItem?.queueKey {
             currentMediaItem = nowPlayingItem
         }
+        #if DEBUG
+        // A UI test's seeded song (`--uitest-now-playing`) stays playing: the simulator's
+        // player, with nothing behind it, would say nothing is.
+        if queueSeededForUITests, player.nowPlayingItem == nil,
+           ProcessInfo.processInfo.arguments.contains("--uitest-now-playing") { return }
+        #endif
         guard let nowPlaying = player.nowPlayingItem else {
             setIfChanged(\.currentTrack, nil); setIfChanged(\.duration, 0)
             // `playbackQueue` is deliberately left alone. The player reports no item

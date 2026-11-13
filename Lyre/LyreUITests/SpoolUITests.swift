@@ -82,6 +82,26 @@ final class SpoolUITests: XCTestCase {
         attachScreenshot(app, named: "duo-closed")
     }
 
+    /// Step 4 (GestureIntent): the front tape rested on lifts, and then a pull at a steep
+    /// angle (down and left) still puts it in the deck, not flips the rack.
+    @MainActor
+    func testARestedTapePulledAtAnAngleGoesIn() throws {
+        let app = try launchSpool(extraArguments: ["-SpoolFoldPosture", "open"])
+        let hint = element(app, "spool.open.hint")
+        XCTAssertTrue(hint.waitForExistence(timeout: 10), "The open Duo layout didn't show")
+        let single = element(app, ID.single)
+        XCTAssertTrue(single.waitForExistence(timeout: 5))
+        // Bring it to the front, as the other open-Duo tests do.
+        single.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        sleep(1)
+        let start = single.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+        // Rest, then pull left and well down: steeper than a swipe across would allow.
+        start.press(forDuration: 0.35, thenDragTo: start.withOffset(CGVector(dx: -160, dy: 120)),
+                    withVelocity: .default, thenHoldForDuration: 0)
+        expectation(for: NSPredicate(format: "label CONTAINS 'Close your iPhone'"), evaluatedWith: hint)
+        waitForExpectations(timeout: 4)
+    }
+
     /// Agency: once tapes have gone in a few times the "Swipe a tape" line goes
     /// (GestureLessons), and holding a tape offers Play, what the swipe does.
     @MainActor

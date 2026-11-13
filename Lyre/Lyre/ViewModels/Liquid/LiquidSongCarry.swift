@@ -42,6 +42,20 @@ final class LiquidSongCarry {
     /// Bumped as Up Next's bubble swallows a song, for its gulp.
     var gulps = 0
 
+    /// When the last carry ended: the row it came from mustn't take the finger lifting
+    /// as a tap (its button would play the song wherever it was let go).
+    @ObservationIgnored private var lastCarryEnded: Date = .distantPast
+    @ObservationIgnored private var isCarrying = false
+
+    /// Whether a row's tap is a tap, not the end of a carry. Rows check before playing.
+    var allowsTap: Bool { !isCarrying && Date().timeIntervalSince(lastCarryEnded) > 0.5 }
+
+    func carryBegan() { isCarrying = true }
+    func carryEnded() {
+        isCarrying = false
+        lastCarryEnded = Date()
+    }
+
     /// The player's: a song lifted out of its row and carried; moved on; let go.
     @ObservationIgnored var onBegin: (AppTrack, Bool, @escaping () -> Void, CGPoint) -> Void = { _, _, _, _ in }
     @ObservationIgnored var onMove: (CGPoint) -> Void = { _ in }
@@ -95,6 +109,7 @@ struct LiquidSongLift: ViewModifier {
                 carry.onMove(finger)
             } else {
                 state.isCarrying = true
+                carry.carryBegan()
                 withAnimation(LyreMotion.tap) { isLifted = false }
                 carry.onBegin(track, canQueue, play, finger)
             }
@@ -103,7 +118,10 @@ struct LiquidSongLift: ViewModifier {
             state.isHolding = true
             withAnimation(LyreMotion.tap) { isLifted = false }
         case .released:
-            if state.isCarrying { carry.onEnd(finger) }
+            if state.isCarrying {
+                carry.onEnd(finger)
+                carry.carryEnded()
+            }
             state.isCarrying = false
             state.isHolding = false
             withAnimation(LyreMotion.light) { isLifted = false }
