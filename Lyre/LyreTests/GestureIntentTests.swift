@@ -4,6 +4,7 @@
 //
 
 import CoreGraphics
+import SwiftUI
 import Testing
 @testable import Lyre
 
@@ -124,5 +125,23 @@ struct GestureIntentTests {
         #expect(intent.speed > 200 && intent.speed < 320)
         _ = rest(&intent, seconds: 0.3, start: t)
         #expect(intent.speed < GestureIntent.Thresholds().restSpeed / 4, "Settled well under resting")
+    }
+
+    /// Up Next's bubble reaches out toward what's carried, on that side only; and warps
+    /// all round as it takes it in.
+    @Test func upNextsEdgeReachesTowardTheSongAndWarps() {
+        let rect = CGRect(x: 0, y: 0, width: 100, height: 100)
+        let still = UpNextReachShape(reach: 0, angle: 0, spread: 0.5, warp: 0, phase: 0).path(in: rect).boundingRect
+        #expect(abs(still.width - 100) < 2 && abs(still.height - 100) < 2, "At rest, round")
+        // Reaching right (angle 0) by 30: out on the right, not on the left.
+        let right = UpNextReachShape(reach: 30, angle: 0, spread: 0.5, warp: 0, phase: 0).path(in: rect).boundingRect
+        #expect(right.maxX > 125)
+        #expect(abs(right.minX) < 2)
+        // Down (angle π/2): out at the bottom.
+        let down = UpNextReachShape(reach: 30, angle: .pi / 2, spread: 0.5, warp: 0, phase: 0).path(in: rect).boundingRect
+        #expect(down.maxY > 125 && down.maxX < 103)
+        // Warped: no longer round.
+        let warped = UpNextReachShape(reach: 0, angle: 0, spread: 0.5, warp: 1, phase: 0).path(in: rect).boundingRect
+        #expect(warped.width > 104 || warped.height > 104)
     }
 }

@@ -1488,6 +1488,8 @@ struct LiquidSongsPage: View {
 
                     ForEach(Array(shown.enumerated()), id: \.offset) { index, track in
                         row(track, isPlaying: track.id == playingID) { onPlay(shown, index, false, title) }
+                            // Rested on, lifted, to carry into Now Playing or Up Next.
+                            .modifier(LiquidSongLift(track: track) { onPlay(shown, index, false, title) })
                             .id(index)
                             // LYRE-41: the song at the top, kept as the list scrolls.
                             .onAppear { trackTop(index, true, shown) }
@@ -1870,6 +1872,8 @@ struct LiquidAlbumPage: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(LyrePressStyle(isRow: true))
+            // Rested on, lifted, to carry into Now Playing or Up Next (LiquidSongCarry).
+            .modifier(LiquidSongLift(track: track, canQueue: !album.isPodcast) { onPlay(album, tracks, index, false) })
             .modifier(QueueMenu(isEnabled: !album.isPodcast, track: track,
                                 episode: episodes.flatMap { $0.indices.contains(index) ? $0[index] : nil },
                                 onQueue: { onQueue($0, $1, $0.count == 1 ? $0[0].title : album.tapeTitle) },

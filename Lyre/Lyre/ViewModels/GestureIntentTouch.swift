@@ -151,9 +151,12 @@ struct GestureIntentTouch: UIGestureRecognizerRepresentable {
         /// Where the thing's centre was as the touch began.
         var origin: CGPoint = .zero
 
-        // Alongside the scroll, until it's sure (and then the scroll's stood down).
+        // Alongside the scroll, until it's sure; once it's lifted the thing, no pan (the
+        // scroll, a row's swipe) takes the touch from it. Holds (a menu) still may.
         func gestureRecognizer(_ recognizer: UIGestureRecognizer,
-                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            recognizer.state == .possible || !(other is UIPanGestureRecognizer)
+        }
     }
 
     func makeUIGestureRecognizer(context: Context) -> GestureIntentRecognizer {

@@ -14,11 +14,14 @@ import SwiftUI
 // than fit.
 //
 //   tap an album or playlist     it plays, the bubble flying into Now Playing
-//   drag it left                 it goes with the finger; at the fold, Now Playing's edge
-//                                reaches out for it, and past the fold it's taken in
-//                                and plays (the parent draws that, see LiquidPlayerView)
-//   hold it                      its page opens, to choose one song
-//   tap a show                   its episodes open; a show isn't dragged
+//   rest on it a moment          it lifts (GestureIntent), to carry any way: past the
+//                                fold, Now Playing's edge reaches out for it and it's
+//                                taken in and plays; onto Up Next's bubble, it's queued
+//                                (the parent draws that, see LiquidPlayerView)
+//   flick it left (as a book)    carried at once
+//   hold it                      its songs spread around it (TrackSpread); a single's
+//                                stays lifted, with nothing more to show
+//   tap or hold a show           its episodes open; a show isn't carried
 //
 // How they're laid out (`LiquidBubbleLayout`): each bubble in turn drops into the lowest
 // place it fits across the width without touching those already down, as bubbles
@@ -388,11 +391,14 @@ struct LiquidBubbleField: View {
         switch phase {
         case .began:
             let songs = LiquidBubbleLayout.songCount(of: album) ?? 2
-            if !album.isPodcast, songs > 1, let onSpread, onSpread(album, center, diameter) {
-                isSpreading = true
-            } else {
+            if album.isPodcast {
+                // A show held: its episodes.
                 onOpen(album)
+            } else if songs > 1, let onSpread, onSpread(album, center, diameter) {
+                isSpreading = true
             }
+            // A single held does nothing more: it stays lifted, to be carried. Its page
+            // would only list its one song.
         case .moved:
             if isSpreading { onSpreadMove(finger) }
         case .ended:
@@ -549,6 +555,8 @@ private struct BubbleTouches: ViewModifier {
                 onDrag(album, center, diameter, origin)
             }
         case .held:
+            // A single rested on stays lifted, to carry: holding it opens nothing.
+            if !album.isPodcast, (LiquidBubbleLayout.songCount(of: album) ?? 2) <= 1 { return }
             // Rested on: held, for its songs.
             withAnimation(LyreMotion.tap) { isLifted = false }
             touchState.isHolding = true

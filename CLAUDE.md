@@ -122,7 +122,7 @@ Where something can be tapped, held or carried among things that scroll, don't d
 - A quick, still release is a tap, even just after the lift.
 - A flick toward the drop target carries at once, but only where that direction isn't the scroll's (left in Liquid's book layout, none when turned).
 
-Thresholds live in `GestureIntent.Thresholds`. Tune them on a device with `-LyreGestureHUD YES`, which shows speed, distance and the rule live. `GestureIntentTests` replays traces. Liquid's bubble field uses it; Liquid's song lists, the Spool, Disc and Gramophone racks are next.
+Thresholds live in `GestureIntent.Thresholds`. Tune them on a device with `-LyreGestureHUD YES`, which shows speed, distance and the rule live. `GestureIntentTests` replays traces. Liquid's bubble field and song lists (Songs, the recent lists, an album's page; `LiquidSongLift` / `LiquidSongCarry`) use it. In the lists, a lifted song goes across the fold to play, or onto Up Next; the row's own tap, swipes and hold menu stay. A single's bubble held opens nothing; it stays lifted. Up Next's drop bubble reaches its edge toward what's carried and warps as it takes it in (`UpNextReachShape`). The Spool, Disc and Gramophone racks are next.
 
 ## iPhone Duo
 
