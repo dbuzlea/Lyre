@@ -47,7 +47,7 @@ Decided 2026-11-12 (Apple's Purpose and Simplicity principles). The emotion Lyre
   ```
 - Check that a new test appears in the results (if not, the bundle is stale). For anything visual, export the screenshots (`xcrun xcresulttool export attachments`) and look at them before reporting.
 - UI tests reset state with `--uitest-complete-onboarding` (it forgets the player and Liquid's open-Duo section). Values written with `simctl spawn … defaults write` land in the simulator's device-wide preferences, which the app reads as a fallback; remove them the same way when done.
-- Known failures that aren't regressions (they fail on `main` too): Disc `testChoosingASongFromACasePutsTheDiscOnAndShutsTheLid` (taps on an opened case don't land in the simulator); Gramophone `testTheUpNextBinFlipsRemovesReordersAndPlays`; Liquid `testDraggingABubbleIntoNowPlayingPlaysIt` (simulated drags), `testSettingsOpenAndOfferTheOtherPlayers`, `testTurningThePhoneOpensTheArtworkCarousel…`; Spool `testSwipingATapeRightQueuesIt`, `testSwipingInFromTheRightEdgeOpensTheCarousel`, `testTappingTheGripBringsUpUpNextAndASwipeRemovesASong`, `testWithAnEpisodeInTheKeysJumpTheSpeedKnob…`, `testOnAnOpenDuoACaseOpensOverTheRack…` (flaky); unit LYRE-4 `SpoolSoundTests/theGramophonesSoundsAreShortEnoughToKeepUp`; also Liquid `testDiscoverOpensItsCoversAndGenres`, PlayerSwitch `testDiscChangePlayerButtonSwitchesToSpool`, Search `testClassicSearchLowersTheWheelWhileTypingAndBringsItBack` (failing on main as of 2026-11-12). Report these as known.
+- Known failures that aren't regressions (they fail on `main` too): Disc `testChoosingASongFromACasePutsTheDiscOnAndShutsTheLid` (taps on an opened case don't land in the simulator); Gramophone `testTheUpNextBinFlipsRemovesReordersAndPlays`; `testSettingsOpenAndOfferTheOtherPlayers`, `testTurningThePhoneOpensTheArtworkCarousel…`; Spool `testSwipingATapeRightQueuesIt`, `testSwipingInFromTheRightEdgeOpensTheCarousel`, `testTappingTheGripBringsUpUpNextAndASwipeRemovesASong`, `testWithAnEpisodeInTheKeysJumpTheSpeedKnob…`, `testOnAnOpenDuoACaseOpensOverTheRack…` (flaky); unit LYRE-4 `SpoolSoundTests/theGramophonesSoundsAreShortEnoughToKeepUp`; also Liquid `testDiscoverOpensItsCoversAndGenres`, PlayerSwitch `testDiscChangePlayerButtonSwitchesToSpool`, Search `testClassicSearchLowersTheWheelWhileTypingAndBringsItBack` (failing on main as of 2026-11-12). Report these as known.
 
 ## Test phones
 
@@ -111,6 +111,18 @@ Removing a song from Up Next, clearing Up Next, taking a song out of a playlist,
 
 - Every gesture has a button, a menu item or a VoiceOver action as well. Holding a tape or case offers Play, Play Next and Add to Queue.
 - An on-screen line saying how a gesture works fades once the person has done it 3 times. Use `GestureLessons.shared.learned(.x)` to hide it and `did(.x)` where the gesture lands. Settings' "Show Gesture Tips Again" (`GestureTipsButton`) brings the lines back. UI-test launches start fresh; `--lyre-gestures-learned` starts with everything learned. A one-time hint motion, like the tape leaning toward the deck, shows once per launch until learned, never with Reduce Motion, and in UI tests only with `--lyre-nudge`.
+
+## Touches: read for what they mean
+
+Where something can be tapped, held or carried among things that scroll, don't decide from the first few points of a touch. Use `GestureIntent` (`Services/GestureIntent.swift`, a pure classifier with named rules) through `GestureIntentTouch` (`ViewModels/GestureIntentTouch.swift`):
+
+- Moving off at once scrolls.
+- Resting about 0.16s lifts the thing: it rises in place, with a light tap. Moved after that, it's carried in any direction.
+- Resting on to 0.5s holds it (Liquid's song spread).
+- A quick, still release is a tap, even just after the lift.
+- A flick toward the drop target carries at once, but only where that direction isn't the scroll's (left in Liquid's book layout, none when turned).
+
+Thresholds live in `GestureIntent.Thresholds`. Tune them on a device with `-LyreGestureHUD YES`, which shows speed, distance and the rule live. `GestureIntentTests` replays traces. Liquid's bubble field uses it; Liquid's song lists, the Spool, Disc and Gramophone racks are next.
 
 ## iPhone Duo
 
