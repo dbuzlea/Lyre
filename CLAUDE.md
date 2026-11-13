@@ -116,7 +116,7 @@ Removing a song from Up Next, clearing Up Next, taking a song out of a playlist,
 
 - Closed, the status bar sits in a column down the right edge. `SideRail` (`ViewModels/SideRail.swift`) puts each player's header buttons in that column, with a "…" menu past its capacity. Keep new header buttons working with it.
 - Liquid open: held as a book (Now Playing left, section right) or turned (Now Playing above the fold, section below). Both layouts navigate by the side bar: Albums, Songs, Artists and Search fixed, a fifth button for the section last used from Playlists, Podcasts, Discover, Recently Played and Recently Added, and the rest in "…".
-- Liquid open, a bubble held: its songs spread out (`TrackSpread`). A song carried across the fold plays; dropped on Now Playing's Up Next bulge it joins the end of Up Next (`LiquidUpNextWell`). The bulge rises and leans toward a song as it nears, then gulps it, as the fold's water does.
+- Liquid open, a bubble held: its songs spread out (`TrackSpread`). A song carried across the fold plays. While a song is carried, an Up Next bubble comes up in the next free place among them. Dropped on it, or on Now Playing's Up Next bulge, the song joins Up Next after any songs queued by hand, or next if there are none (`MusicService.quickQueue`, `LiquidUpNextWell`). Both targets swell and lean toward the song, then gulp it, as the fold's water does.
 
 ## Privacy and data collection
 

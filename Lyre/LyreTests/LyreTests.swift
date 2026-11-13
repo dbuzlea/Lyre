@@ -1123,6 +1123,16 @@ struct QueueRuleTests {
         #expect(!LiquidUpNextWell.catches(CGPoint(x: 200, y: 520), frame: .zero))
     }
 
+    @Test func aQuickDropGoesAfterSongsQueuedByHandOrNext() {
+        let service = MusicService()
+        service.seedQueueForUITests(tracks(6))
+        #expect(service.quickQueueOffset == 0, "With none queued by hand, next")
+        let byHand = MusicService()
+        // Up Next 2…6, of which 2 and 3 were queued by hand: after them, before the rest.
+        byHand.seedQueueForUITests(tracks(6), queuedByHand: ["2", "3"])
+        #expect(byHand.quickQueueOffset == 2)
+    }
+
     @Test func clearingAnEmptyUpNextOffersNothing() {
         let service = MusicService()
         service.seedQueueForUITests(tracks(1))
