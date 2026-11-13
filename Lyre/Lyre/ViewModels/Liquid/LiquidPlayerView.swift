@@ -611,7 +611,8 @@ struct LiquidPlayerView: View {
                         onFindShows: { showPodcastSearch = true },
                         onSpread: beginSpread,
                         onSpreadMove: moveSpread,
-                        onSpreadEnd: endSpread
+                        onSpreadEnd: endSpread,
+                        pullDirection: foldIsAcross ? nil : CGVector(dx: -1, dy: 0)
                     )
                     .transition(.opacity)
                 } else {

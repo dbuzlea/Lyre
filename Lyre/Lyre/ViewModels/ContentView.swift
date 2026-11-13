@@ -67,6 +67,12 @@ struct ContentView: View {
             }
             .animation(.easeInOut(duration: 0.4), value: hasCompletedOnboarding)
 
+            // `-LyreGestureHUD YES`: how a touch is being read (GestureIntent), for tuning.
+            GestureHUDView()
+                .padding(.top, windowSafeArea.top + 4)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .ignoresSafeArea()
+
             // Deliberately NOT .ignoresSafeArea() here: OnboardingBackground's own
             // gradient already bleeds to the edges, but the symbol/title/message stack
             // inside OnboardingPage needs the top safe area respected so it clears the

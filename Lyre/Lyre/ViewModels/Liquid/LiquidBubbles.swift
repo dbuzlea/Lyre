@@ -193,6 +193,9 @@ struct LiquidBubbleField: View {
     var onSpread: ((AppAlbum, CGPoint, CGFloat) -> Bool)?
     var onSpreadMove: (CGPoint) -> Void = { _ in }
     var onSpreadEnd: (CGPoint) -> Void = { _ in }
+    /// The way a flick carries a bubble to Now Playing, where that isn't the way the field
+    /// scrolls: left, held as a book; none, turned (Now Playing above, where it scrolls).
+    var pullDirection: CGVector?
 
     @Environment(\.windowSafeArea) private var safeArea
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -303,7 +306,7 @@ struct LiquidBubbleField: View {
                 // While it scrolls the bubbles hold still and the scroll moves still
                 // pictures of them (StillWhileScrolling); a touch landing on it moving
                 // only stops it, as in any list, rather than playing what's under it.
-                .scrollDisabled(isSpreading)
+                .scrollDisabled(isSpreading || draggedID != nil)
                 .modifier(StillWhileScrolling())
                 .modifier(TracksScrolling(scroll: scroll))
                 .onChange(of: key(items, width), initial: true) { _, key in
@@ -367,6 +370,7 @@ struct LiquidBubbleField: View {
                         BubbleCell(album: items[index], diameter: d,
                                    drifts: LiquidBubbleLayout.drifts && !reduceMotion,
                                    isHidden: draggedID == items[index].id, scroll: scroll,
+                                   pullDirection: pullDirection,
                                    onPlay: onPlay, onOpen: onOpen, onHold: hold, onDrag: onDrag, onDrop: onDrop)
                             .position(x: packing.centers[index].x, y: packing.centers[index].y - top)
                     }
@@ -470,6 +474,7 @@ private struct BubbleCell: View {
     let drifts: Bool
     let isHidden: Bool
     let scroll: BubbleScrollState
+    var pullDirection: CGVector? = nil
     let onPlay: (AppAlbum, CGPoint, CGFloat) -> Void
     let onOpen: (AppAlbum) -> Void
     let onHold: (AppAlbum, BubbleHoldPhase, _ center: CGPoint, _ diameter: CGFloat, _ finger: CGPoint) -> Void
@@ -480,7 +485,7 @@ private struct BubbleCell: View {
         let bubble = LiquidBubble(album: album, diameter: diameter)
             .opacity(isHidden ? 0 : 1)
             .contentShape(Circle())
-            .modifier(BubbleTouches(album: album, diameter: diameter, scroll: scroll,
+            .modifier(BubbleTouches(album: album, diameter: diameter, scroll: scroll, pullDirection: pullDirection,
                                     onPlay: onPlay, onOpen: onOpen, onHold: onHold, onDrag: onDrag, onDrop: onDrop))
         return Group {
             if drifts {
@@ -507,6 +512,9 @@ private struct BubbleTouches: ViewModifier {
     let album: AppAlbum
     let diameter: CGFloat
     let scroll: BubbleScrollState
+    /// The way a flick carries a bubble to Now Playing, where that isn't the way the field
+    /// scrolls (GestureIntent).
+    let pullDirection: CGVector?
     let onPlay: (AppAlbum, CGPoint, CGFloat) -> Void
     let onOpen: (AppAlbum) -> Void
     let onHold: (AppAlbum, BubbleHoldPhase, _ center: CGPoint, _ diameter: CGFloat, _ finger: CGPoint) -> Void
@@ -515,21 +523,67 @@ private struct BubbleTouches: ViewModifier {
 
     @State private var frame: CGRect = .zero
     @State private var isDragging = false
+    /// Held (its songs spread) by the touch that lifted it; not observed.
+    @State private var touchState = BubbleTouchState()
+
+    final class BubbleTouchState { var isHolding = false; var isCarried = false }
+    /// Rested on and lifted, not yet moved: it rises a little where it is.
+    @State private var isLifted = false
+
+    @available(iOS 18.0, *)
+    private func touch(_ phase: GestureIntentTouch.Phase, center: CGPoint, origin: CGPoint,
+                       finger: CGPoint, velocity: CGPoint) {
+        switch phase {
+        case .lifted:
+            // Lifted: it rises where it is, felt as a tap, and it's yours to carry.
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(LyreMotion.tap) { isLifted = true }
+        case .moved:
+            if touchState.isHolding {
+                onHold(album, .moved, origin, diameter, finger)
+            } else {
+                // Carried: the parent draws it from here, Up Next's bubble comes up, and
+                // the field holds still.
+                touchState.isCarried = true
+                isLifted = false
+                onDrag(album, center, diameter, origin)
+            }
+        case .held:
+            // Rested on: held, for its songs.
+            withAnimation(LyreMotion.tap) { isLifted = false }
+            touchState.isHolding = true
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            onHold(album, .began, origin, diameter, finger)
+        case .released:
+            if touchState.isHolding {
+                onHold(album, .ended, origin, diameter, finger)
+            } else if touchState.isCarried {
+                onDrop(album, center, velocity)
+            }
+            touchState.isHolding = false
+            touchState.isCarried = false
+            withAnimation(LyreMotion.light) { isLifted = false }
+        case .tapped:
+            withAnimation(LyreMotion.light) { isLifted = false }
+            album.isPodcast ? onOpen(album) : onPlay(album, center, diameter)
+        }
+    }
 
     func body(content: Content) -> some View {
         if #available(iOS 18.0, *) {
+            // One touch, read for what it means (GestureIntent): moving off at once, the
+            // field scrolls; resting a moment, the bubble's lifted, to be carried anywhere
+            // (to Now Playing, or Up Next); resting on, its songs spread; quick and still,
+            // it plays. A flick toward Now Playing carries it at once, where that isn't the
+            // way the field scrolls.
             content
-                .gesture(BubbleTap(scroll: scroll, diameter: diameter) { center in
-                    album.isPodcast ? onOpen(album) : onPlay(album, center, diameter)
+                .scaleEffect(isLifted ? 1.12 : 1)
+                .shadow(color: .black.opacity(isLifted ? 0.45 : 0), radius: isLifted ? 14 : 0, y: isLifted ? 8 : 0)
+                .gesture(GestureIntentTouch(diameter: diameter, pullDirection: pullDirection,
+                                            canCarry: !album.isPodcast,
+                                            isFieldMoving: { [scroll] in scroll.isMoving }) { phase, center, origin, finger, velocity in
+                    touch(phase, center: center, origin: origin, finger: finger, velocity: velocity)
                 })
-                .gesture(BubbleHold(diameter: diameter) { phase, center, finger in
-                    if phase == .began { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
-                    onHold(album, phase, center, diameter, finger)
-                })
-                .gesture(BubblePull(diameter: diameter, isEnabled: !album.isPodcast,
-                                    onBegin: { UIImpactFeedbackGenerator(style: .light).impactOccurred() },
-                                    onMove: { center, origin in onDrag(album, center, diameter, origin) },
-                                    onEnd: { heading, velocity in onDrop(album, heading, velocity) }))
         } else {
             let center = CGPoint(x: frame.midX, y: frame.midY)
             content
@@ -574,147 +628,8 @@ private func bubbleCenter(_ converter: UIGestureRecognizerRepresentableCoordinat
     return CGPoint(x: onScreen.x - inBubble.x + diameter / 2, y: onScreen.y - inBubble.y + diameter / 2)
 }
 
-/// A tap on a bubble, unless the finger landed on the field moving, and not once a
-/// hold has taken the touch.
-@available(iOS 18.0, *)
-private struct BubbleTap: UIGestureRecognizerRepresentable {
-    let scroll: BubbleScrollState
-    let diameter: CGFloat
-    let onTap: (CGPoint) -> Void
-
-    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator(scroll: scroll) }
-
-    func makeUIGestureRecognizer(context: Context) -> UITapGestureRecognizer {
-        let tap = UITapGestureRecognizer()
-        tap.delegate = context.coordinator
-        return tap
-    }
-
-    func handleUIGestureRecognizerAction(_ recognizer: UITapGestureRecognizer, context: Context) {
-        guard recognizer.state == .ended else { return }
-        onTap(bubbleCenter(context.converter, diameter: diameter))
-    }
-
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
-        let scroll: BubbleScrollState
-        init(scroll: BubbleScrollState) { self.scroll = scroll }
-
-        func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            !scroll.isMoving
-        }
-
-        func gestureRecognizer(_ recognizer: UIGestureRecognizer,
-                               shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
-            other.name == "lyre.bubble.hold"
-        }
-    }
-}
-
 /// A bubble held still for a moment, and where the finger goes on from there.
 enum BubbleHoldPhase { case began, moved, ended }
-
-/// A bubble held still for a moment, and the finger followed on from there until it's
-/// lifted: given where the bubble is and where the finger is, on screen.
-@available(iOS 18.0, *)
-private struct BubbleHold: UIGestureRecognizerRepresentable {
-    let diameter: CGFloat
-    let onHold: (BubbleHoldPhase, CGPoint, CGPoint) -> Void
-
-    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
-
-    final class Coordinator {
-        var center: CGPoint = .zero
-    }
-
-    func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
-        let hold = UILongPressGestureRecognizer()
-        hold.name = "lyre.bubble.hold"
-        hold.minimumPressDuration = 0.45
-        hold.allowableMovement = 10
-        return hold
-    }
-
-    func handleUIGestureRecognizerAction(_ recognizer: UILongPressGestureRecognizer, context: Context) {
-        let finger = context.converter.location(in: .global)
-        switch recognizer.state {
-        case .began:
-            context.coordinator.center = bubbleCenter(context.converter, diameter: diameter)
-            onHold(.began, context.coordinator.center, finger)
-        case .changed:
-            onHold(.moved, context.coordinator.center, finger)
-        case .ended, .cancelled, .failed:
-            onHold(.ended, context.coordinator.center, finger)
-        default:
-            break
-        }
-    }
-}
-
-/// A bubble pulled out of the field toward Now Playing: only begun by a drag setting off
-/// leftward and mostly sideways, so the field's own scrolling is never taken from it.
-@available(iOS 18.0, *)
-private struct BubblePull: UIGestureRecognizerRepresentable {
-    let diameter: CGFloat
-    let isEnabled: Bool
-    let onBegin: () -> Void
-    /// Where the bubble's centre is now, on screen, and where it started.
-    let onMove: (CGPoint, CGPoint) -> Void
-    /// Let go: where it was heading, and how fast it was going.
-    let onEnd: (CGPoint, CGPoint) -> Void
-
-    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
-
-    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
-        let pan = UIPanGestureRecognizer()
-        pan.delegate = context.coordinator
-        context.coordinator.isEnabled = isEnabled
-        return pan
-    }
-
-    func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context: Context) {
-        context.coordinator.isEnabled = isEnabled
-    }
-
-    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
-        let moved = recognizer.translation(in: nil)
-        switch recognizer.state {
-        case .began:
-            // Where it started: where it is now, less how far the finger's come.
-            let now = bubbleCenter(context.converter, diameter: diameter)
-            context.coordinator.origin = CGPoint(x: now.x - moved.x, y: now.y - moved.y)
-            onBegin()
-            onMove(now, context.coordinator.origin)
-        case .changed:
-            let origin = context.coordinator.origin
-            onMove(CGPoint(x: origin.x + moved.x, y: origin.y + moved.y), origin)
-        case .ended, .cancelled, .failed:
-            let origin = context.coordinator.origin
-            let velocity = recognizer.state == .ended ? recognizer.velocity(in: nil) : .zero
-            // Where a flick would carry it: a quarter of a second on at its speed.
-            onEnd(CGPoint(x: origin.x + moved.x + velocity.x * 0.25, y: origin.y + moved.y + velocity.y * 0.25),
-                  velocity)
-        default:
-            break
-        }
-    }
-
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
-        var isEnabled = true
-        var origin: CGPoint = .zero
-
-        // Not once a hold has the finger (its songs are spread, and followed).
-        func gestureRecognizer(_ recognizer: UIGestureRecognizer,
-                               shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
-            other.name == "lyre.bubble.hold"
-        }
-
-        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
-            guard isEnabled, let pan = recognizer as? UIPanGestureRecognizer else { return false }
-            let velocity = pan.velocity(in: nil)
-            return velocity.x < 0 && abs(velocity.x) > abs(velocity.y) * 1.2
-        }
-    }
-}
 
 /// A bubble: the cover in a soap bubble, as everywhere else in Liquid (LiquidSoapBubble),
 /// leaning with the phone's tilt. Flattened to one picture, so a field of them scrolls
